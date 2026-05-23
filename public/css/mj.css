@@ -1,0 +1,100 @@
+/* ============================================================
+   Loup-Garou — Interface Maître du Jeu (MJ)
+   Extrait de public/mj.html (modularisation légère)
+   ============================================================ */
+
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+body { background:#0a0a0a; color:#eee; font-family:'Segoe UI',Arial,sans-serif; font-size:14px; max-width:620px; margin:0 auto; padding:12px; }
+
+.section { background:#111; border:1px solid #222; border-radius:10px; padding:14px; margin-bottom:10px; }
+.section-title { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:#555; margin-bottom:10px; }
+
+#mjHeader { display:flex; align-items:center; justify-content:space-between; padding:10px 0 12px; border-bottom:1px solid #1a1a1a; margin-bottom:10px; }
+#mjHeader h1 { font-size:18px; font-weight:700; color:#eee; }
+#connRow { display:flex; align-items:center; gap:8px; font-size:12px; color:#555; }
+#mjConnDot { font-size:14px; }
+#mjPhaseDisplay { font-size:13px; color:#888; }
+
+#nightPhaseBar { display:none; background:#0a0a18; border:1px solid #333366; border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+#nightPhaseBar.active { display:block; }
+#nightPhaseTitle { font-size:11px; color:#555; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+#nightPhaseSteps { display:flex; gap:6px; flex-wrap:wrap; }
+.night-step { padding:6px 12px; border-radius:20px; font-size:12px; font-weight:600; border:1px solid #222; background:#0e0e0e; color:#444; cursor:default; transition:all 0.2s; white-space:nowrap; }
+.night-step.done    { background:#0a1a0a; border-color:#224422; color:#448844; }
+.night-step.active  { background:#1a1a3a; border-color:#4444cc; color:#aaaaff; box-shadow:0 0 8px rgba(80,80,255,0.3); animation:nightPulse 1.5s ease infinite; }
+.night-step.pending { color:#333; border-color:#1a1a1a; }
+@keyframes nightPulse { 0%,100%{box-shadow:0 0 8px rgba(80,80,255,0.3);} 50%{box-shadow:0 0 16px rgba(80,80,255,0.6);} }
+
+/* Mission phase bar */
+#missionPhaseBar { display:none; background:#0a0a18; border:1px solid #333366; border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+#missionPhaseBar.active { display:block; }
+#missionPhaseTitle { font-size:11px; color:#5555aa; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+
+#alertBanner { display:none; border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:13px; }
+#alertBanner.info    { background:#1a1a0a; border:1px solid #555500; color:#aaaa44; }
+#alertBanner.warn    { background:#1a0a00; border:1px solid #cc4400; color:#ff8844; }
+#alertBanner.success { background:#0a1a0a; border:1px solid #005500; color:#44aa44; }
+#gameEndBanner { display:none; background:#0a1a0a; border:2px solid #00cc44; border-radius:10px; padding:16px; margin-bottom:10px; font-size:18px; font-weight:bold; text-align:center; }
+#tiebreakMJBanner { display:none; background:#1a1000; border:1px solid #ffaa00; border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:13px; color:#ffaa00; }
+#stuckGameBanner   { display:none; background:#1a0800; border:1px solid #cc4400; border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:13px; color:#ff8844; }
+#chasseurPanel     { display:none; background:#1a0a00; border:2px solid #ff6600; border-radius:10px; padding:12px; margin-bottom:10px; }
+#replayPanel       { display:none; background:#111; border:1px solid #333; border-radius:10px; padding:14px; margin-bottom:10px; }
+
+/* Mission MJ panel */
+#missionMJPanel { display:none; background:#0d0d20; border:2px solid #4444aa; border-radius:10px; padding:14px; margin-bottom:10px; }
+#missionMJPanel.active { display:block; }
+#missionBonusMJInfo { display:none; background:#0d1a0d; border:1px solid #22aa44; border-radius:8px; padding:10px; margin-top:8px; font-size:13px; }
+
+.btn       { padding:9px 14px; cursor:pointer; border-radius:7px; border:1px solid #333; background:#1a1a1a; color:#ccc; font-size:13px; transition:all 0.15s; }
+.btn:hover { background:#252525; border-color:#444; }
+.btn.primary { background:#0a2a0a; border-color:#00aa33; color:#00ee55; }
+.btn.danger  { background:#2a0a0a; border-color:#aa0000; color:#ff5555; }
+.btn.blue    { background:#0a0a2a; border-color:#4444cc; color:#8888ff; }
+.btn.yellow  { background:#1a1500; border-color:#aaaa00; color:#ffff44; }
+.btn.purple  { background:#1a0a2a; border-color:#8833cc; color:#cc88ff; }
+.btn-group { display:flex; flex-wrap:wrap; gap:6px; }
+
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+
+.config-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
+.config-item { display:flex; align-items:center; gap:5px; font-size:13px; color:#888; }
+.config-item input[type="number"] { width:52px; background:#0e0e0e; border:1px solid #333; border-radius:5px; color:#ccc; padding:4px 6px; text-align:center; }
+.config-item input[type="checkbox"] { width:16px; height:16px; cursor:pointer; accent-color:#4444aa; }
+
+.mode-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:10px; }
+.mode-btn { padding:9px 8px; border-radius:7px; border:1px solid #222; background:#0e0e0e; color:#666; cursor:pointer; font-size:11px; text-align:center; transition:all 0.15s; }
+.mode-btn:hover { border-color:#444; color:#ccc; }
+.mode-btn.active { border-color:#00aa33; background:#051505; color:#00ee44; }
+.mode-btn strong { display:block; font-size:12px; margin-bottom:2px; }
+
+#timerDisplay { display:none; font-size:44px; font-weight:900; text-align:center; color:#ffcc00; margin:6px 0; line-height:1; }
+#timerDisplay.urgent { color:#ff3333; animation:pulse 0.5s infinite alternate; }
+#mjTimerBar { height:6px; background:#1a1a1a; border-radius:3px; overflow:hidden; display:none; margin-bottom:6px; }
+#mjTimerBarFill { height:100%; background:#ffcc00; border-radius:3px; transition:width 0.25s,background 0.25s; }
+#voteModeLabel { font-size:12px; color:#666; margin-bottom:8px; }
+@keyframes pulse { from{opacity:1}to{opacity:0.4} }
+
+.audio-dot { width:8px; height:8px; border-radius:50%; background:#333; display:inline-block; margin-right:6px; }
+.audio-dot.on  { background:#00cc44; box-shadow:0 0 5px #00cc44; animation:blink 1s infinite alternate; }
+.audio-dot.err { background:#cc3333; }
+@keyframes blink { from{opacity:1}to{opacity:0.4} }
+
+.sfx-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px; }
+.sfx-btn { padding:10px 6px; border-radius:8px; border:1px solid #222; background:#0e0e0e; color:#888; cursor:pointer; font-size:11px; text-align:center; transition:all 0.15s; display:flex; flex-direction:column; align-items:center; gap:3px; }
+.sfx-btn:hover { border-color:#555; color:#eee; background:#1a1a1a; }
+.sfx-btn:active { transform:scale(0.95); }
+.sfx-btn .sfx-emoji { font-size:22px; }
+.sfx-btn .sfx-name  { font-size:10px; }
+
+.role-row { display:flex; align-items:center; justify-content:space-between; padding:5px 8px; margin:2px 0; border:1px solid #1a1a1a; border-radius:6px; background:#0e0e0e; font-size:13px; }
+.role-row.dead { opacity:0.35; }
+.role-row.wolf { background:#1a0808; border-color:#2a0808; }
+
+.vote-entry { font-size:12px; padding:3px 0; border-bottom:1px solid #1a1a1a; color:#999; }
+.vote-entry:last-child { border:none; }
+
+.dead-entry { font-size:12px; padding:2px 0; color:#886666; }
+
+#deadChatMJMessages { max-height:120px; overflow-y:auto; margin-bottom:8px; font-size:12px; }
+.chat-mj-msg { padding:2px 0; border-bottom:1px solid #1a1010; }

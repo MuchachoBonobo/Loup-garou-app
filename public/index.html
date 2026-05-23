@@ -1,0 +1,3167 @@
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Loup-Garou">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Loup-Garou</title>
+<link rel="stylesheet" href="/css/player.css">
+<style>
+/* ⚠️ CSS principal extrait dans /css/player.css (modularisation légère)
+   Si tu modifies l'apparence, édite /css/player.css. */
+
+/* ===== ÉCRAN D'INTRO ===== */
+#introScreen {
+  position:fixed;inset:0;z-index:99999;
+  background:radial-gradient(ellipse at 30% 15%,#1c1040 0%,#09060f 55%,#020108 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;cursor:pointer;transition:opacity 0.9s ease;overflow:hidden;
+}
+.intro-moon {
+  width:74px;height:74px;border-radius:50%;
+  background:radial-gradient(circle at 35% 32%,#fff8e0,#d4c870 45%,#8a7a40 85%);
+  box-shadow:0 0 40px 12px rgba(255,220,90,0.18),0 0 80px 30px rgba(180,150,40,0.10);
+  animation:introMoonGlow 4s ease-in-out infinite;margin-bottom:14px;
+}
+.intro-wolf {
+  font-size:76px;margin-bottom:4px;
+  animation:introWolfAppear 1.2s cubic-bezier(.22,.68,0,1.2) 0.3s both;
+  filter:drop-shadow(0 0 18px rgba(180,80,30,0.45));
+}
+.intro-village { font-size:26px;animation:introFadeUp 1s ease 0.9s both;margin-bottom:22px;opacity:0.45; }
+.intro-title {
+  font-size:30px;font-weight:bold;letter-spacing:9px;color:#ddd;text-transform:uppercase;
+  animation:introTitleReveal 1.5s ease 0.15s both;
+  text-shadow:0 0 28px rgba(200,90,40,0.45);margin-bottom:8px;
+}
+.intro-sub {
+  font-size:14px;color:rgba(175,155,110,0.75);font-style:italic;
+  animation:introFadeUp 1s ease 1.1s both;margin-bottom:44px;
+}
+.intro-hint {
+  font-size:11px;color:rgba(140,130,110,0.45);letter-spacing:2.5px;text-transform:uppercase;
+  animation:introBlinkHint 2.2s ease 2s infinite;
+}
+@keyframes introMoonGlow {
+  0%,100%{box-shadow:0 0 40px 12px rgba(255,220,90,.18),0 0 80px 30px rgba(180,150,40,.10);}
+  50%{box-shadow:0 0 55px 18px rgba(255,220,90,.26),0 0 100px 40px rgba(180,150,40,.16);}
+}
+@keyframes introWolfAppear {
+  from{opacity:0;transform:translateY(22px) scale(0.65);}
+  to{opacity:1;transform:translateY(0) scale(1);}
+}
+@keyframes introTitleReveal {
+  from{opacity:0;letter-spacing:22px;}
+  to{opacity:1;letter-spacing:9px;}
+}
+@keyframes introFadeUp {
+  from{opacity:0;transform:translateY(10px);}
+  to{opacity:1;transform:translateY(0);}
+}
+@keyframes introBlinkHint {
+  0%,100%{opacity:0.45;}50%{opacity:0.12;}
+}
+</style>
+</head>
+<body>
+
+<div id="introScreen" onclick="dismissIntro()">
+  <div class="intro-moon"></div>
+  <div class="intro-wolf">🐺</div>
+  <div class="intro-village">🌲 🏚️ 🌲</div>
+  <div class="intro-title">Loup-Garou</div>
+  <div class="intro-sub">Le village dort…</div>
+  <div class="intro-hint">Touchez pour entrer</div>
+</div>
+
+<div id="endCard" style="display:none;position:fixed;inset:0;z-index:10000;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;">
+  <div id="endEmoji" style="font-size:90px;margin-bottom:20px;animation:cardPop 0.6s ease 0.1s both;"></div>
+  <div id="endTitle" style="font-size:30px;font-weight:bold;color:#fff;margin-bottom:14px;animation:cardSlide 0.5s ease 0.3s both;"></div>
+  <div id="endSubtitle" style="font-size:16px;color:rgba(255,255,255,0.8);margin-bottom:20px;animation:cardSlide 0.5s ease 0.4s both;"></div>
+  <div id="endSurvivors" style="font-size:13px;color:rgba(255,255,255,0.5);max-width:360px;line-height:1.8;animation:cardSlide 0.5s ease 0.5s both;margin-bottom:24px;"></div>
+  <button onclick="document.getElementById('endCard').style.display='none'" style="padding:12px 28px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.6s both;">Fermer</button>
+</div>
+
+<div id="mayorCard" style="display:none;position:fixed;inset:0;z-index:9997;background:radial-gradient(ellipse at center,#1a1400 0%,#080700 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+  <div class="card-emoji">🏛️</div>
+  <div class="card-title">Félicitations !</div>
+  <div class="card-text" id="mayorCardText"></div>
+</div>
+
+<div id="offlineBanner">
+  <div class="ob-emoji">📡</div>
+  <div class="ob-title">Connexion perdue…</div>
+  <div class="ob-sub">Reconnexion automatique en cours.<br>Gardez cette page ouverte.</div>
+</div>
+
+<!-- Overlay pause -->
+<div id="pauseOverlay" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.85);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;backdrop-filter:blur(4px);">
+  <div style="font-size:80px;margin-bottom:20px;animation:pulse 1.5s infinite alternate;">⏸️</div>
+  <div style="font-size:24px;color:#ffcc00;margin-bottom:12px;font-weight:bold;">Partie en pause</div>
+  <div style="font-size:14px;color:rgba(255,255,255,0.6);max-width:320px;line-height:1.6;">Le MJ a mis le jeu en pause.<br>Reprise dans quelques instants…</div>
+</div>
+
+<!-- Refonte (mai 2026) : carte à retourner — le rôle n'apparaît pas tout de suite.
+     Le joueur touche la carte « Découvre ton rôle », elle se retourne (flip 3D)
+     et révèle le rôle, puis « Continuer » ouvre la carte de rôle détaillée. -->
+<div id="roleRevealCover" style="display:none;position:fixed;inset:0;z-index:10000;background:radial-gradient(ellipse at center,#0a0a1a 0%,#000000 100%);align-items:center;justify-content:center;flex-direction:column;padding:30px;">
+  <div style="font-size:13px;color:#8878bb;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;">La partie commence</div>
+  <div id="roleFlip" style="width:240px;height:336px;perspective:1200px;cursor:pointer;">
+    <div id="roleFlipInner" style="position:relative;width:100%;height:100%;transition:transform 0.85s cubic-bezier(.2,.8,.25,1);transform-style:preserve-3d;">
+      <div id="roleFlipBack" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;background:linear-gradient(160deg,#2a2150 0%,#14102e 100%);border:2px solid #4a3f8a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;box-shadow:0 14px 44px rgba(0,0,0,0.65);">
+        <div style="font-size:74px;animation:emojiHover 3s ease-in-out infinite;">🎴</div>
+        <div style="font-size:19px;font-weight:bold;color:#cdb8ff;">Découvre ton rôle</div>
+        <div style="font-size:12px;color:#8878bb;">👆 Touche la carte</div>
+      </div>
+      <div id="roleFlipFront" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);border-radius:18px;background:radial-gradient(ellipse at center,#1a1030 0%,#0a0818 100%);border:2px solid rgba(255,255,255,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;box-shadow:0 14px 44px rgba(0,0,0,0.65);">
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:2px;text-transform:uppercase;">Ton rôle</div>
+        <div id="rfRoleEmoji" style="font-size:76px;">🎭</div>
+        <div id="rfRoleName" style="font-size:23px;font-weight:bold;text-align:center;"></div>
+      </div>
+    </div>
+  </div>
+  <button id="roleFlipContinue" onclick="closeRoleReveal()" style="display:none;margin-top:28px;padding:12px 34px;border-radius:8px;border:1px solid rgba(205,184,255,0.45);background:rgba(205,184,255,0.12);color:#cdb8ff;font-size:14px;cursor:pointer;">
+    Voir les détails →
+  </button>
+</div>
+
+<div id="roleCard">
+  <img id="rcPhoto" style="display:none;width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.4);margin-bottom:14px;animation:cardPop 0.5s ease 0.1s both;">
+  <div class="rc-emoji" id="rcEmoji"></div>
+  <div class="rc-title" id="rcTitle">Votre rôle</div>
+  <div class="rc-role"  id="rcRole"></div>
+  <div class="rc-text"  id="rcText"></div>
+  <div class="rc-mission" id="rcMission"></div>
+  <div class="rc-win"     id="rcWin"></div>
+  <button onclick="closeRoleCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.7s both;">
+    ✅ J'ai lu mon rôle
+  </button>
+</div>
+
+<div id="dayDeathCard">
+  <!-- Flex container : 1 à N avatars (photo ou initiale en placeholder), taille auto selon le nombre -->
+  <div id="deathPhotos" style="display:none;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:12px;max-width:90vw;"></div>
+  <div class="card-emoji" id="deathEmoji">☠️</div>
+  <div class="card-title" id="deathTitle"></div>
+  <div class="card-text"  id="deathText"></div>
+  <button onclick="closeDawnCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);font-size:14px;cursor:pointer;">
+    Continuer →
+  </button>
+</div>
+<div id="nightFallCard">
+  <div class="card-emoji">🌙</div>
+  <div class="card-title">La nuit tombe sur le village…</div>
+  <div class="card-text">Les survivants ferment les yeux. Que va réserver cette nuit sombre et silencieuse ?</div>
+  <button onclick="closeNightFallCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);font-size:14px;cursor:pointer;">
+    😴 Fermer les yeux
+  </button>
+</div>
+
+<!-- Refonte épuration jour (mai 2026) : écran de débat plein écran pendant le jour.
+     Affiché entre la carte d'aube et le vote, fermé à réception de voteStarted.
+     But : recentrer les joueurs sur la table — message court, soleil discret, pas d'interface. -->
+<div id="dayDebateScreen" style="display:none;position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 30%,#3a2810 0%,#1a1408 60%,#0a0805 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+  <div id="ddSun" style="font-size:88px;margin-bottom:18px;filter:drop-shadow(0 0 28px rgba(255,200,90,0.5));animation:ddSunBreathe 6s ease-in-out infinite;">☀️</div>
+  <div style="font-size:13px;color:#998866;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">Le jour s'est levé</div>
+  <div style="font-size:24px;font-weight:bold;color:#f0d49a;margin-bottom:18px;line-height:1.3;max-width:360px;">🗣️ Discutez,<br>cherchez les loups.</div>
+  <div style="font-size:14px;color:rgba(240,212,154,0.78);line-height:1.6;max-width:340px;margin-bottom:14px;">Échangez autour de la table, observez les réactions, démasquez les loups-garous.</div>
+  <div style="font-size:13px;color:rgba(240,212,154,0.6);line-height:1.6;max-width:340px;font-style:italic;margin-bottom:26px;">Le Maître du Jeu lancera le vote quand vous serez prêts.</div>
+  <div id="ddPlayerBadge" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 22px;background:rgba(255,255,255,0.04);border:1px solid rgba(240,212,154,0.18);border-radius:14px;">
+    <img id="ddPhoto" src="" alt="" style="display:none;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(240,212,154,0.35);">
+    <div id="ddName" style="color:#f0d49a;font-size:15px;font-weight:bold;"></div>
+    <div id="ddStatus" style="color:rgba(240,212,154,0.6);font-size:12px;"></div>
+  </div>
+  <!-- Hold-to-reveal du rôle, directement sur l'écran de débat (l'écran couvre l'UI normale) -->
+  <button id="ddRoleRevealBtn" style="margin-top:16px;padding:10px 20px;border-radius:10px;border:1px solid rgba(240,212,154,0.3);background:rgba(240,212,154,0.06);color:rgba(240,212,154,0.8);font-size:13px;cursor:pointer;-webkit-user-select:none;user-select:none;">🎴 <strong>Maintenir pour voir mon rôle</strong></button>
+  <div id="ddRoleReveal" style="display:none;margin-top:10px;font-size:15px;color:#f0d49a;font-weight:bold;"></div>
+  <div style="margin-top:24px;font-size:11px;color:rgba(240,212,154,0.4);">📵 Posez le téléphone — l'app vous préviendra.</div>
+</div>
+<style>
+@keyframes ddSunBreathe {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 28px rgba(255,200,90,0.5)); }
+  50%      { transform: scale(1.06); filter: drop-shadow(0 0 40px rgba(255,200,90,0.75)); }
+}
+</style>
+
+<!-- Refonte épuration jour (mai 2026) : écran épuré du joueur mort.
+     Plein écran, scrollable. Header immersif (rôle en grand) + en dessous, le
+     salon des morts (deadChatPanel) et le Conseil des Morts (councilPanel) y sont
+     déplacés au chargement (appendChild) pour rester accessibles. Plus de vision
+     spectateur complète pendant la partie. -->
+<div id="deadFullScreen" style="display:none;position:fixed;inset:0;z-index:9100;background:radial-gradient(ellipse at 50% 22%,#2a0a0a 0%,#140505 55%,#080303 100%);flex-direction:column;align-items:center;text-align:center;padding:36px 20px 28px;overflow-y:auto;">
+  <div id="dfsSkull" style="font-size:80px;margin-bottom:14px;filter:drop-shadow(0 0 26px rgba(200,60,60,0.5));">☠️</div>
+  <div style="font-size:13px;color:#aa6666;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Votre destin s'achève</div>
+  <div style="font-size:28px;font-weight:bold;color:#e8a0a0;margin-bottom:20px;">Vous êtes mort</div>
+  <img id="dfsPhoto" src="" alt="" style="display:none;width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid rgba(232,160,160,0.4);filter:grayscale(0.6);margin-bottom:14px;">
+  <div style="font-size:12px;color:#996666;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Vous étiez</div>
+  <div id="dfsRoleEmoji" style="font-size:64px;margin-bottom:4px;">🎭</div>
+  <div id="dfsRole" style="font-size:26px;font-weight:bold;color:#f0c0c0;margin-bottom:18px;"></div>
+  <div style="font-size:13px;color:rgba(240,192,192,0.6);line-height:1.6;max-width:320px;font-style:italic;margin-bottom:22px;">Observez la partie sans rien révéler. Vous pouvez encore chuchoter avec les autres âmes perdues.</div>
+  <!-- Vue du vote du jour (visible par les morts pendant qu'un vote est en cours) -->
+  <div id="deadVoteView" style="display:none;width:100%;max-width:520px;background:#1a0808;border:1px solid #553333;border-radius:10px;padding:12px 16px;margin-bottom:10px;text-align:left;">
+    <div style="text-align:center;font-size:12px;color:#cc6666;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">🗳️ Vote du village en cours</div>
+    <div id="deadVoteViewContent"></div>
+  </div>
+  <!-- Conteneur où le Conseil des Morts et le salon des morts sont déplacés au chargement -->
+  <div id="deadFullScreenSlot" style="width:100%;max-width:520px;"></div>
+</div>
+
+<!-- Carte plein écran : événement actif du Conseil des Morts (tous joueurs).
+     Refonte (mai 2026) : les joueurs voient seulement l'icône + le titre.
+     La règle de l'évènement est expliquée à voix haute par le MJ — le narratif
+     (councilEventNarrative) est donc masqué côté joueur (display:none). -->
+<div id="councilEventCard" style="display:none;position:fixed;inset:0;z-index:9998;background:radial-gradient(ellipse at center,#1a0a1a 0%,#0a000a 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+  <div style="font-size:72px;margin-bottom:14px;">🪦</div>
+  <div style="font-size:14px;color:#996699;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
+  <div id="councilEventTitle" style="font-size:30px;font-weight:bold;color:#cc99cc;margin-bottom:18px;animation:cardSlide 0.5s ease 0.3s both;"></div>
+  <div id="councilEventNarrative" style="display:none;"></div>
+  <div style="max-width:340px;color:rgba(204,153,204,0.65);line-height:1.6;font-size:13px;font-style:italic;animation:cardSlide 0.5s ease 0.5s both;margin-bottom:16px;">Le Maître du Jeu vous en expliquera la règle.</div>
+  <button onclick="closeCouncilEventCard()" style="margin-top:12px;padding:12px 32px;border-radius:8px;border:1px solid rgba(204,153,204,0.4);background:rgba(204,153,204,0.1);color:#cc99cc;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.7s both;">
+    🪦 J'ai compris
+  </button>
+</div>
+
+<!-- Carte explicative au lancement de la mission (tous joueurs) -->
+<div id="missionExplainCard" style="display:none;position:fixed;inset:0;z-index:9998;background:radial-gradient(ellipse at center,#0a0a25 0%,#000010 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+  <div class="card-emoji">🕵️</div>
+  <div class="card-title" style="color:#aaaaff;">Mission Secrète</div>
+  <div style="max-width:380px;color:rgba(255,255,255,0.85);line-height:1.7;font-size:14px;animation:cardSlide 0.5s ease 0.3s both;">
+    <div style="margin-bottom:14px;">
+      Le <strong style="color:#ffee44;">Maire</strong> désigne <strong>3 joueurs</strong> pour partir en mission.
+    </div>
+    <div style="margin-bottom:14px;">
+      Chaque joueur sélectionné choisit secrètement :
+    </div>
+    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;margin-bottom:14px;text-align:left;">
+      <div style="margin:4px 0;"><span style="color:#44ff88;">✅ Réussite</span></div>
+      <div style="margin:4px 0;"><span style="color:#ff4444;">❌ Échec</span></div>
+    </div>
+    <div style="background:#2a1500;border:1px solid #aa6600;border-radius:8px;padding:8px 12px;margin-bottom:14px;color:#ffaa44;font-size:13px;">
+      ⚠️ La mission échoue s'il y a au moins un Échec.
+    </div>
+    <div style="margin-bottom:14px;font-style:italic;color:rgba(255,255,255,0.6);">
+      Le résultat sera révélé demain matin…
+    </div>
+    <div style="background:#0d1a0d;border:1px solid #22aa44;border-radius:8px;padding:10px 14px;color:#88ffaa;font-size:13px;">
+      🎁 Si la mission réussit, le Maire obtiendra une information secrète sur 3 joueurs de son choix.
+    </div>
+  </div>
+  <button onclick="closeMissionExplainCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(170,170,255,0.4);background:rgba(170,170,255,0.1);color:#aaaaff;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.6s both;">
+    🕵️ J'ai compris
+  </button>
+</div>
+
+<h1>🐺 Loup-Garou <span id="connDot" title="Connexion" style="font-size:12px;vertical-align:middle;">🔴</span></h1>
+
+<div id="lobby" style="margin:20px auto;">
+  <input id="name" placeholder="Votre prénom" style="padding:8px;border-radius:6px;border:1px solid #555;background:#222;color:#eee;font-size:15px;">
+  <button onclick="join()">Rejoindre</button>
+
+  <!-- Selfie : optionnel, simple input file qui ouvre la caméra frontale sur mobile -->
+  <div id="photoSection" style="display:none;margin-top:16px;text-align:center;">
+    <div id="photoPreviewWrap" style="display:flex;justify-content:center;margin-bottom:10px;">
+      <div id="photoPlaceholder" style="width:96px;height:96px;border-radius:50%;background:#1a1a1a;border:2px dashed #444;display:flex;align-items:center;justify-content:center;color:#555;font-size:36px;">📷</div>
+      <img id="photoPreview" style="display:none;width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid #4488cc;">
+    </div>
+    <label for="photoInput" style="display:inline-block;padding:8px 16px;background:#0a1a2a;border:1px solid #335588;border-radius:6px;color:#88aacc;font-size:13px;cursor:pointer;">
+      📸 <span id="photoBtnLabel">Ajouter ma photo (optionnel)</span>
+    </label>
+    <input id="photoInput" type="file" accept="image/*" capture="user" style="display:none;" onchange="handlePhotoSelected(event)">
+    <div style="font-size:11px;color:#555;margin-top:6px;">Apparaîtra sur ta carte de rôle et à ta mort.</div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <button id="fullscreenBtn" onclick="toggleFullscreen()" style="font-size:12px;padding:6px 12px;background:#1a1a1a;border:1px solid #444;color:#888;">
+      🖥️ Plein écran
+    </button>
+  </div>
+</div>
+
+<div id="autoResolveBanner" style="display:none;background:#0a1a0a;border:1px solid #2a4a2a;border-radius:8px;margin:0 auto 8px;max-width:480px;padding:7px 14px;font-size:12px;color:#66aa66;text-align:center;"></div>
+<div id="status"></div>
+
+<div id="tiebreakPanel">
+  <h3>⚖️ Égalité — Le Maire doit trancher !</h3>
+  <div id="tiebreakMsg" style="font-size:13px;color:#ccc;margin-bottom:10px;"></div>
+  <div id="tiebreakBtns"></div>
+</div>
+
+<!-- VOILE DE NUIT : masque l'écran des joueurs non-actifs pendant les phases nocturnes -->
+<div id="nightCoverScreen" style="display:none;position:fixed;inset:0;z-index:99990;background:radial-gradient(ellipse at center,#020816 0%,#000004 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:40px;">
+  <!-- petit nuage d'étoiles via box-shadows -->
+  <div style="position:absolute;inset:0;background-image:radial-gradient(2px 2px at 12% 18%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 24% 70%,#ffeebb,transparent 60%),radial-gradient(1px 1px at 70% 30%,#fff,transparent 60%),radial-gradient(2px 2px at 55% 80%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 88% 60%,#cce6ff,transparent 60%),radial-gradient(1px 1px at 40% 40%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 80% 12%,#ffeebb,transparent 60%),radial-gradient(1px 1px at 14% 92%,#fff,transparent 60%);opacity:0.85;pointer-events:none;"></div>
+  <div style="position:relative;z-index:2;">
+    <div style="font-size:80px;margin-bottom:18px;">🌙</div>
+    <div style="font-size:22px;color:#aabfd9;font-weight:bold;letter-spacing:1px;margin-bottom:14px;">Garde les yeux fermés.</div>
+    <div style="font-size:14px;color:#6b87a8;font-style:italic;max-width:300px;line-height:1.6;">Ce n'est pas ton tour de jeu — la nuit veille pour toi.</div>
+  </div>
+</div>
+
+<div id="infoPanel">
+  <h3>Votre identité</h3>
+  <!-- Bouton anti-triche jour : maintenir pour révéler -->
+  <button id="infoRevealBtn" style="display:none;width:100%;margin-bottom:10px;padding:14px;background:#0a0a1a;border:1px solid #334466;border-radius:8px;color:#88aacc;font-size:14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;">
+    🎴 <strong>Maintenir pour voir mon rôle</strong>
+  </button>
+  <div id="infoPanelContent">
+    <div class="info-role" id="infoRole"></div>
+    <div class="info-section" id="infoAllies" style="display:none"><strong id="infoAlliesTitle"></strong><div id="infoAlliesList"></div></div>
+    <div class="info-section" id="infoLovers" style="display:none"><strong id="infoLoversTitle">💘 Votre amoureux·se</strong><div id="infoLoversList"></div></div>
+    <div class="info-section" id="infoPotions" style="display:none"><strong>🧪 Vos potions</strong><div id="infoPotionsList"></div></div>
+  </div>
+</div>
+
+<div id="deadVisionPanel">
+  <h3>👁️ Vision Spectateur — Tous les rôles</h3>
+  <div id="deadRolesList"></div>
+</div>
+
+<!-- ===== CONSEIL DES MORTS — panneau de vote (visible uniquement par les morts) ===== -->
+<div id="councilPanel" style="display:none;background:#1a0a1a;border:2px solid #884488;border-radius:10px;margin:10px auto;max-width:480px;padding:14px 16px;">
+  <h3 style="color:#cc88cc;margin:0 0 8px;font-size:14px;text-align:center;">🪦 Conseil des Morts</h3>
+  <p style="font-size:12px;color:#998099;margin-bottom:12px;text-align:center;line-height:1.5;">
+    Le village ne compte plus que quelques vivants…<br>
+    Choisis un évènement à infliger demain. <em style="color:#664466;">Tu ne sais pas ce qu'il fait — laisse-toi guider par ton instinct.</em>
+  </p>
+  <div id="councilOptions" style="display:flex;flex-direction:column;gap:8px;"></div>
+  <div id="councilVoteStatus" style="margin-top:10px;font-size:12px;color:#664466;text-align:center;"></div>
+</div>
+
+<div id="deadChatPanel">
+  <h3>💬 Chat des Morts</h3>
+  <div id="deadChatMessages"></div>
+  <div id="deadChatInput">
+    <input id="deadChatText" placeholder="Message…" onkeydown="if(event.key==='Enter')sendDeadChat()">
+    <button onclick="sendDeadChat()" style="padding:6px 12px;background:#2a0a0a;border:1px solid #662222;border-radius:6px;color:#cc6666;font-size:12px;">Envoyer</button>
+  </div>
+</div>
+
+<!-- CONSEIL DES MORTS — 💬 Les Voix Étouffées : chat écrit du jour visible de tous. -->
+<div id="silentDayChatPanel" style="display:none;background:#1a0f2e;border:2px solid #aa66cc;border-radius:10px;margin:10px auto;max-width:520px;padding:14px;">
+  <h3 style="margin:0 0 8px;color:#cc99ff;font-size:16px;text-align:center;">💬 La Place du Parchemin</h3>
+  <div id="silentDayChatHint" style="font-size:12px;color:#9988aa;text-align:center;margin-bottom:8px;">Les voix sont étouffées. Inscrivez vos pensées.</div>
+  <div id="silentDayChatMessages" style="height:200px;overflow-y:auto;background:#0a0518;border:1px solid #443366;border-radius:6px;padding:8px;margin-bottom:8px;font-size:13px;line-height:1.4;"></div>
+  <div id="silentDayChatInput" style="display:flex;gap:6px;">
+    <input id="silentDayChatText" placeholder="Votre message…" maxlength="200" onkeydown="if(event.key==='Enter')sendSilentDayChat()" style="flex:1;background:#0a0518;border:1px solid #443366;border-radius:6px;color:#ddccff;padding:8px;font-size:13px;">
+    <button onclick="sendSilentDayChat()" style="padding:8px 14px;background:#2a1644;border:1px solid #6644aa;border-radius:6px;color:#cc99ff;font-size:12px;cursor:pointer;">Inscrire</button>
+  </div>
+  <div id="silentDayChatDeadHint" style="display:none;font-size:11px;color:#776688;text-align:center;margin-top:6px;font-style:italic;">⚰ Vous êtes mort — vous pouvez lire mais pas écrire.</div>
+</div>
+
+<div id="votesPanel"><h3 id="votesPanelTitle">Votes</h3><div id="votesContent"></div></div>
+
+<div id="voteTimerBox">
+  <div class="timer-label">Temps restant</div>
+  <div id="timerVal">--</div>
+  <div id="timerBar"><div id="timerBarFill" style="width:100%"></div></div>
+  <div class="timer-mode" id="timerMode"></div>
+</div>
+<div id="voteWaitBox">🗳️ Vous pouvez déjà voter — le MJ choisira le mode et lancera le timer.</div>
+
+<div id="petiteFillePanel" style="display:none;background:#1a0a2a;border:2px solid #cc66ff;border-radius:10px;margin:10px auto;max-width:480px;padding:16px;text-align:center;">
+  <div style="font-size:28px;margin-bottom:8px;">👧</div>
+  <div style="color:#cc88ff;font-weight:bold;font-size:15px;margin-bottom:8px;">La Petite Fille observe…</div>
+  <div style="color:#888;font-size:13px;line-height:1.6;">
+    Tu peux <strong style="color:#cc88ff;">entrouvrir les yeux</strong> discrètement pendant que les loups votent.<br>
+    <span style="font-size:11px;color:#555;margin-top:6px;display:block;">Attention à ne pas te faire repérer.</span>
+  </div>
+</div>
+
+<div id="corbeauPanel" style="display:none;background:#0a0a0a;border:2px solid #666;border-radius:10px;margin:10px auto;max-width:480px;padding:14px 16px;">
+  <h3 style="color:#aaa;margin:0 0 8px;font-size:14px;">🪶 Le Corbeau désigne sa cible</h3>
+  <p style="font-size:12px;color:#666;margin-bottom:10px;">Choisissez un joueur qui recevra 2 votes supplémentaires demain, ou passez votre tour.</p>
+  <div id="corbeauTargets"></div>
+  <button onclick="corbeauSkip()" style="margin-top:8px;width:100%;padding:9px;background:#111;border:1px solid #333;border-radius:6px;color:#555;font-size:13px;cursor:pointer;">⏭ Passer mon tour</button>
+</div>
+
+<div id="salvateurPanel" style="display:none;background:#08121a;border:2px solid #335a7a;border-radius:10px;margin:10px auto;max-width:480px;padding:14px 16px;">
+  <h3 style="color:#88ccff;margin:0 0 8px;font-size:14px;">🛡 Le Salvateur protège un villageois</h3>
+  <p style="font-size:12px;color:#5a8aa8;margin-bottom:6px;">Choisissez la personne que vous protégez cette nuit. Si les Loups l'attaquent, elle survit.</p>
+  <p id="salvateurLastInfo" style="font-size:11px;color:#88aacc;margin-bottom:10px;display:none;"></p>
+  <div id="salvateurTargets"></div>
+</div>
+
+<!-- ===== SŒURS JUMELLES (Option B : signal seul + timer 20s) ===== -->
+<div id="sistersPanel" style="display:none;position:fixed;inset:0;z-index:9700;background:radial-gradient(ellipse at center,#3a1428 0%,#1a0814 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+  <div style="font-size:11px;color:#c97aa0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:18px;">La nuit</div>
+  <div style="font-size:72px;margin-bottom:18px;line-height:1;">👯‍♀️</div>
+  <div style="font-size:22px;font-weight:bold;color:#fbeaf0;margin-bottom:10px;">Réveille-toi</div>
+  <div style="font-size:14px;color:#ed93b1;margin-bottom:32px;line-height:1.5;max-width:320px;">Cherche ta sœur du regard.<br><span style="font-size:12px;color:#c97aa0;">En silence. Fais-lui signe.</span></div>
+  <div id="sistersTimer" style="font-size:54px;font-weight:bold;color:#fbeaf0;font-variant-numeric:tabular-nums;letter-spacing:2px;">00:20</div>
+  <div id="sistersAliveCount" style="font-size:12px;color:#c97aa0;margin-top:12px;"></div>
+</div>
+
+<div id="chasseurPanel">
+  <h3>🔫 Vous êtes mort — choisissez votre cible</h3>
+  <p style="font-size:13px;color:#ccc;">En tant que Chasseur, vous emportez un joueur avec vous.</p>
+  <div id="chasseurTargets"></div>
+</div>
+
+<div id="witchDoneBtn" style="display:none;max-width:480px;margin:12px auto;">
+  <button onclick="witchDone()" style="width:100%;padding:14px;background:#1a0a2a;border:2px solid #8833cc;border-radius:8px;color:#cc88ff;font-size:15px;cursor:pointer;">
+    ✅ J'ai terminé mes potions — Passer à l'aube
+  </button>
+</div>
+
+<!-- AMÉLIORATION 2 : bouton "Valider ma proie" pour chaque loup -->
+<div id="wolfConfirmPanel" style="display:none;max-width:480px;margin:12px auto;text-align:center;">
+  <div id="wolfConfirmStatus" style="font-size:12px;color:#aa6666;margin-bottom:8px;"></div>
+  <button id="wolfConfirmBtn" onclick="wolfConfirm()" style="width:100%;padding:14px;background:#1a0505;border:2px solid #aa3333;border-radius:8px;color:#ff8888;font-size:15px;cursor:pointer;">
+    🐺 Valider ma proie
+  </button>
+</div>
+
+<!-- ===== MISSION ===== -->
+
+<!-- Statut mission visible par tous (team sélectionnée, nb cartes jouées) -->
+<div id="missionStatusPanel" style="display:none;background:#0a0a18;border:1px solid #333366;border-radius:10px;margin:10px auto;max-width:480px;padding:12px 16px;text-align:center;">
+  <div style="font-size:11px;color:#5555aa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">🎭 Mission secrète</div>
+  <div id="missionStatusText" style="font-size:13px;color:#aaaacc;"></div>
+  <div id="missionCardCounter" style="display:none;margin-top:8px;font-size:12px;color:#666;"></div>
+</div>
+
+<!-- Maire : sélection des 3 joueurs pour la mission -->
+<div id="missionPanel" style="display:none;background:#0d0d20;border:2px solid #4444aa;border-radius:10px;margin:10px auto;max-width:480px;padding:16px;">
+  <div style="font-size:24px;text-align:center;margin-bottom:8px;">🎭</div>
+  <div style="font-weight:bold;color:#8888ff;font-size:15px;text-align:center;margin-bottom:6px;">Vous êtes le Maire — choisissez votre équipe</div>
+  <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;">Sélectionnez 3 joueurs (pas vous-même). Ils choisiront secrètement une carte.</div>
+  <div id="missionTeamBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
+  <div id="missionSelectedNames" style="margin-top:10px;font-size:12px;color:#8888ff;text-align:center;min-height:18px;"></div>
+  <button id="missionConfirmBtn" onclick="confirmMissionTeam()" disabled
+    style="width:100%;margin-top:12px;padding:12px;background:#1a1a3a;border:2px solid #4444aa;border-radius:8px;color:#8888ff;font-size:14px;cursor:pointer;opacity:0.4;">
+    ✅ Confirmer l'équipe
+  </button>
+</div>
+
+<!-- Joueur sélectionné : choix de carte -->
+<div id="missionVotePanel" style="display:none;background:#0d0d20;border:2px solid #4444aa;border-radius:10px;margin:10px auto;max-width:480px;padding:16px;text-align:center;">
+  <div style="font-size:24px;margin-bottom:8px;">🎭</div>
+  <div style="font-weight:bold;color:#8888ff;font-size:15px;margin-bottom:6px;">Mission — Choisissez votre carte</div>
+  <div style="font-size:12px;color:#666;margin-bottom:14px;line-height:1.6;">
+    Choisissez <strong style="color:#aaa;">secrètement</strong> une carte.<br>
+    Votre choix n'est pas visible par les autres.
+  </div>
+  <div style="display:flex;gap:12px;justify-content:center;">
+    <button onclick="playMissionCard('success')"
+      style="flex:1;padding:18px 8px;background:#0a2a0a;border:2px solid #22aa44;border-radius:10px;color:#44ff88;font-size:22px;cursor:pointer;">
+      ✅<div style="font-size:11px;margin-top:4px;color:#22aa44;">Réussite</div>
+    </button>
+    <button onclick="playMissionCard('fail')"
+      style="flex:1;padding:18px 8px;background:#2a0a0a;border:2px solid #aa2222;border-radius:10px;color:#ff4444;font-size:22px;cursor:pointer;">
+      ❌<div style="font-size:11px;margin-top:4px;color:#aa2222;">Échec</div>
+    </button>
+  </div>
+  <div id="missionCardDone" style="display:none;margin-top:12px;font-size:13px;color:#44ff88;">✅ Carte jouée — en attente des autres joueurs…</div>
+</div>
+
+<!-- Maire : bonus (si mission réussie) -->
+<div id="missionBonusPanel" style="display:none;background:#0d1a0d;border:2px solid #22aa44;border-radius:10px;margin:10px auto;max-width:480px;padding:16px;">
+  <div style="font-size:24px;text-align:center;margin-bottom:8px;">🔍</div>
+  <div style="font-weight:bold;color:#44ff88;font-size:15px;text-align:center;margin-bottom:6px;">Mission réussie — Bonus d'information</div>
+  <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;line-height:1.6;">
+    Choisissez 3 joueurs. Vous saurez en privé si au moins un d'eux est un Loup.
+  </div>
+  <div id="missionBonusBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
+  <div id="missionBonusSelectedNames" style="margin-top:10px;font-size:12px;color:#44ff88;text-align:center;min-height:18px;"></div>
+  <button id="missionBonusConfirmBtn" onclick="confirmMissionBonus()" disabled
+    style="width:100%;margin-top:12px;padding:12px;background:#0a2a0a;border:2px solid #22aa44;border-radius:8px;color:#44ff88;font-size:14px;cursor:pointer;opacity:0.4;">
+    🔍 Révéler
+  </button>
+</div>
+
+<!-- Résultat bonus (privé, visible uniquement par le maire) -->
+<div id="missionBonusResult" style="display:none;background:#0d1a0d;border:2px solid #22aa44;border-radius:10px;margin:10px auto;max-width:480px;padding:14px 16px;text-align:center;">
+  <div id="missionBonusResultText" style="font-size:16px;font-weight:bold;margin-bottom:6px;"></div>
+  <div id="missionBonusResultSub" style="font-size:12px;color:#666;"></div>
+</div>
+
+<div id="deathLogPanel" style="display:none;background:#111;border:1px solid #2a2a2a;border-radius:10px;margin:10px auto;max-width:480px;padding:12px 16px;text-align:left;">
+  <h3 style="margin:0 0 8px;font-size:11px;color:#555;text-transform:uppercase;letter-spacing:1px;">📜 Chronique des morts</h3>
+  <div id="deathLogList" style="font-size:12px;line-height:1.9;color:#888;"></div>
+</div>
+
+<div id="endScreen">
+  <div id="endScreenTitle"></div>
+  <div id="endScreenSubtitle"></div>
+  <div id="endStats">
+    <h3>📊 Statistiques de la partie</h3>
+    <div id="endStatsList"></div>
+  </div>
+  <div id="endRolesPanel">
+    <h3>👁️ Révélation des rôles</h3>
+    <div id="endRolesList"></div>
+  </div>
+  <div id="endBadgesPanel" style="display:none;background:#111;border:1px solid #222;border-radius:12px;padding:14px 16px;margin-bottom:12px;">
+    <h3 style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">🏅 Médailles de la partie</h3>
+    <div id="endBadgesList"></div>
+  </div>
+  <div id="endChatPanel">
+    <h3>💬 Discussion post-partie</h3>
+    <div id="endChatMessages"></div>
+    <div id="endChatInput">
+      <input id="endChatText" placeholder="Réagissez…" onkeydown="if(event.key==='Enter')sendEndChat()">
+      <button onclick="sendEndChat()" style="padding:6px 12px;background:#1a1a1a;border:1px solid #333;border-radius:6px;color:#aaa;font-size:12px;cursor:pointer;">Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<div id="playersSection">
+  <h3>Joueurs</h3>
+  <div id="players"></div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+
+// ===== ÉCRAN D'INTRO =====
+function dismissIntro() {
+  const el = document.getElementById("introScreen");
+  if (!el || el.style.opacity === "0") return;
+  el.style.opacity = "0";
+  el.style.pointerEvents = "none";
+  setTimeout(() => { el.style.display = "none"; }, 900);
+}
+(function initIntro() {
+  // Pas d'intro pour les reconnecteurs (ils ont déjà un nom stocké)
+  if (localStorage.getItem("lgName")) { dismissIntro(); return; }
+  // Auto-dismiss après 6 secondes
+  setTimeout(dismissIntro, 6000);
+})();
+
+// ===== WAKE LOCK (empêche l'écran de s'éteindre pendant la partie) =====
+let wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    }
+  } catch (e) { /* refus utilisateur ou pas supporté */ }
+}
+async function releaseWakeLock() {
+  if (wakeLock) {
+    try { await wakeLock.release(); } catch (e) {}
+    wakeLock = null;
+  }
+}
+// Re-demande quand on revient sur l'onglet (le wake lock se libère automatiquement)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !wakeLock) requestWakeLock();
+});
+
+// ===== FULLSCREEN =====
+function toggleFullscreen() {
+  const elem = document.documentElement;
+  if (!document.fullscreenElement) {
+    if (elem.requestFullscreen) elem.requestFullscreen();
+    else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+  } else {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }
+}
+
+// ===== VIBRATION (UNIQUEMENT EN PHASE DE JOUR — anti-leak info) =====
+// Les phases de nuit ne déclenchent JAMAIS de vibration : un téléphone qui
+// vibre dans le silence donne une info aux autres joueurs présents.
+const NO_VIBRATE_PHASES = ["cupid","sisters","salvateur","wolves","seer","witch","corbeau","petiteFille",
+  "mission","missionVote","missionBonus","chasseur"];
+// Vibration brute, sans garde de phase. À n'utiliser qu'après avoir vérifié
+// soi-même qu'on est bien de JOUR (cf. isDayContext pour le Chasseur / le Maire).
+function vibrateNow(pattern) {
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {}
+}
+function vibrateIfDay(pattern) {
+  if (NO_VIBRATE_PHASES.includes(phase)) return;
+  vibrateNow(pattern);
+}
+// Vrai si la transition en cours se produit de JOUR : soit la phase actuelle est
+// le jour, soit la phase juste avant la transition l'était (cas Chasseur /
+// transfert d'écharpe, dont la phase propre n'est pas "day"). Anti-leak la nuit.
+function isDayContext() {
+  return phase === "day" || _prevPhase === "day";
+}
+
+let players=[], deadPlayers=[], lovers=[], wolves=[];
+let role=null, mayor=null, phase=null, _prevPhase=null;
+let roles={};
+let mayorCounts={}, dayCounts={}, wolfVotes={};
+let votesDayDetail={};
+let corbeauVotesTarget=null;
+let mayorVotedSet = new Set();
+let nightVictimId=null, isChasseurDead=false;
+let mayorTransferPending = false;
+// BUG FIX : mémorise l'id du maire mourant pour ne rouvrir le tiebreakPanel
+// après la carte d'aube QUE pour lui (et non pour tous les joueurs).
+let dyingMayorId = null;
+let currentVoteMode=0, hasVotedLocked=false;
+let countdownInterval=null, voteEndsAt=null, voteTotalMs=null, voteActive=false;
+let iAmDead=false, deadVisionData=null;
+let witchSaveUsed=false, witchKillUsed=false;
+let idiotRevealed=false, idiotId=null;
+let nightCardShownThisNight = false;
+let gameIsOver = false;
+// Refonte épuration jour (mai 2026) : reçu via `yourRole` / `reconnected`.
+// Quand true → écran de mort épuré (deadFullScreen) au lieu de la vision spectateur.
+let mjPilotedDay = true;
+
+// ===== MISSION =====
+let missionActive = false;
+let missionTeamSelected = [];   // ids des 3 joueurs sélectionnés (visible par tous)
+let missionSelectedByMe = [];   // sélection en cours par le maire (côté client)
+let missionBonusSelectedByMe = []; // sélection bonus en cours
+let missionCardPlayed = false;  // ce joueur a-t-il joué sa carte ?
+
+const ROLE_DISPLAY = {
+  "Loup":"🐺 Loup-Garou","Voyante":"🔮 Voyante","Sorcière":"🧪 Sorcière",
+  "Chasseur":"🔫 Chasseur","Cupidon":"💘 Cupidon","Villageois":"🏠 Villageois",
+  "Maire":"🏛️ Maire","PetiteFille":"👧 Petite Fille","Idiot":"🤡 Idiot du Village",
+  "Corbeau":"🪶 Corbeau","Salvateur":"🛡 Salvateur","Sœurs":"👯‍♀️ Sœur jumelle"
+};
+
+const ROLE_EXPLAIN = {
+  "Loup": {
+    desc:    "Chaque nuit, concertez-vous en silence avec vos complices pour désigner une victime. Le jour, bluffez, semez le doute, accusez les autres.",
+    mission: "Éliminez suffisamment de villageois pour être aussi nombreux qu'eux.",
+    win:     "Tu gagnes avec les Loups-Garous.",
+    emoji:   "🐺", bg: "radial-gradient(ellipse at center,#1a0505 0%,#080000 100%)", color: "#ff6666"
+  },
+  "Voyante": {
+    desc:    "Chaque nuit, désignez secrètement un joueur : son vrai rôle vous est révélé. Utilisez cette connaissance pour guider le village… sans vous démasquer.",
+    mission: "Identifiez les loups et aidez le village à les éliminer.",
+    win:     "Tu gagnes avec les Villageois.",
+    emoji:   "🔮", bg: "radial-gradient(ellipse at center,#0a0520 0%,#020010 100%)", color: "#aa88ff"
+  },
+  "Sorcière": {
+    desc:    "Vous possédez deux potions uniques : une de VIE pour sauver la victime des loups cette nuit, une de MORT pour éliminer n'importe qui. Chacune ne peut être utilisée qu'une seule fois.",
+    mission: "Servez-vous de vos potions au bon moment pour renverser le cours du jeu.",
+    win:     "Tu gagnes avec les Villageois.",
+    emoji:   "🧪", bg: "radial-gradient(ellipse at center,#0a1a05 0%,#020800 100%)", color: "#88ff88"
+  },
+  "Chasseur": {
+    desc:    "Vous n'avez aucun pouvoir la nuit. Mais si vous mourez — que ce soit par les loups, la Sorcière ou le vote — vous pouvez emporter un joueur avec vous.",
+    mission: "Observez attentivement. Votre mort doit coûter cher à vos ennemis.",
+    win:     "Tu gagnes avec les Villageois.",
+    emoji:   "🔫", bg: "radial-gradient(ellipse at center,#1a0f00 0%,#080500 100%)", color: "#ffaa44"
+  },
+  "Cupidon": {
+    desc:    "Lors de la première nuit, vous liez deux joueurs par un amour irrésistible. S'ils survivent seuls jusqu'à la fin, ils gagnent ensemble. Mais si l'un meurt, l'autre mourant de chagrin le suivra immédiatement.",
+    mission: "Choisissez vos amoureux avec sagesse — ce lien peut sauver ou perdre le village.",
+    win:     "Tu gagnes avec les Villageois (sauf si tu es un Amoureux survivant).",
+    emoji:   "💘", bg: "radial-gradient(ellipse at center,#1a0510 0%,#080005 100%)", color: "#ff88cc"
+  },
+  "Villageois": {
+    desc:    "Vous n'avez aucun pouvoir particulier. Votre force est collective : observez les comportements, détectez les incohérences, et votez avec conviction.",
+    mission: "Débusquez les loups cachés parmi vous avant qu'il ne soit trop tard.",
+    win:     "Tu gagnes avec les Villageois.",
+    emoji:   "🏠", bg: "radial-gradient(ellipse at center,#0a1000 0%,#030500 100%)", color: "#aaffaa"
+  },
+  "Maire": {
+    desc:    "Le village vous a élu. Votre voix est décisive : en cas d'égalité lors d'un vote, c'est vous qui tranchez. Si vous mourez, vous choisissez votre successeur.",
+    mission: "Guidez le village avec sagesse. Votre décision peut tout changer.",
+    win:     "Tu gagnes avec les Villageois.",
+    emoji:   "🏛️", bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee44"
+  },
+  "PetiteFille": {
+    desc:    "Chaque nuit vous pouvez entrouvrir les yeux discrètement pendant que les loups votent.",
+    mission: "Accumulez des informations nuit après nuit. Partagez-les intelligemment pour aider le village.",
+    win:     "Tu gagnes avec les Villageois.",
+    emoji:   "👧", bg: "radial-gradient(ellipse at center,#10051a 0%,#050008 100%)", color: "#cc88ff"
+  },
+  "Idiot": {
+    desc:    "Si le village vote pour vous éliminer, votre rôle est révélé à tous — mais vous restez en vie ! Vous perdez cependant le droit de voter pour le reste de la partie. Ce pouvoir ne peut être utilisé qu'une seule fois.",
+    mission: "Survivez en jouant la carte de l'innocent. Si vous êtes découvert, votre immunité vous sauve une fois.",
+    win:     "Tu gagnes avec les Villageois.",
+    emoji:   "🤡", bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee00"
+  },
+  "Corbeau": {
+    desc:    "Chaque nuit après la Voyante, vous pouvez désigner un joueur qui commencera le vote du jour suivant avec 2 votes contre lui. Vous pouvez aussi vous cibler vous-même ou passer votre tour.",
+    mission: "Dirigez les soupçons du village vers les loups — ou semez la confusion pour mieux vous protéger.",
+    win:     "Tu gagnes avec les Villageois.",
+    emoji:   "🪶", bg: "radial-gradient(ellipse at center,#0a0a0a 0%,#050505 100%)", color: "#aaaaaa"
+  },
+  "Salvateur": {
+    desc:    "Chaque nuit avant les Loups, vous désignez secrètement un joueur que vous protégez : si les Loups attaquent cette personne, elle survit. Vous pouvez vous protéger vous-même, mais jamais la même personne deux nuits de suite.",
+    mission: "Devinez qui les Loups voudront frapper et protégez le bon villageois — votre choix peut sauver le village.",
+    win:     "Tu gagnes avec les Villageois.",
+    emoji:   "🛡", bg: "radial-gradient(ellipse at center,#0a1820 0%,#020810 100%)", color: "#88ccff"
+  },
+  "Sœurs": {
+    desc:    "Vous êtes une Sœur jumelle. Chaque nuit, vous vous réveillez en silence avec votre sœur pendant 20 secondes. Vous ne pouvez pas parler — seulement vous regarder et vous faire signe pour partager vos soupçons.",
+    mission: "Aidez-vous mutuellement à survivre et démasquer les Loups, tout en gardant votre lien secret pour le village.",
+    win:     "Tu gagnes avec les Villageois.",
+    emoji:   "👯‍♀️", bg: "radial-gradient(ellipse at center,#3a1428 0%,#1a0814 100%)", color: "#ed93b1"
+  }
+};
+
+const VOTE_MODE_CARDS = {
+  1:"⏱ Mode Libre — vous pouvez changer votre vote",
+  2:"⚖ Le Jugement — premier vote définitif",
+  4:"⚡ La Panique — votez vite !",
+  5:"🖤 Émeute — vote anonyme"
+};
+
+let _renderPending = false;
+function scheduleRender() {
+  if (_renderPending) return;
+  _renderPending = true;
+  requestAnimationFrame(() => { _renderPending = false; render(); });
+}
+
+function showMayorCard(name) {
+  const card = document.getElementById("mayorCard");
+  document.getElementById("mayorCardText").innerText = name + " est élu Maire du village !";
+  card.style.display = "flex";
+  card.setAttribute("data-open","1");
+  card.style.animation = "fadeIn 0.5s ease forwards";
+  setTimeout(() => {
+    card.style.animation = "fadeOut 0.6s ease forwards";
+    setTimeout(() => {
+      card.style.display = "none";
+      card.removeAttribute("data-open");
+      // La nightFallCard ne doit s'afficher qu'à partir de la phase wolves,
+      // JAMAIS pendant la phase cupid (1ère nuit) ni pendant les phases mission
+      if (["wolves","seer","petiteFille","witch"].includes(phase)) {
+        showNightFallCard();
+      }
+    }, 600);
+  }, 5000);
+}
+
+function playApplause() {}
+
+let _wasConnected = false;
+socket.on("connect", () => {
+  setConnected(true);
+  document.getElementById("offlineBanner").className = "";
+  if (_wasConnected) socket.emit("register", localStorage.getItem("lgName") || "");
+  _wasConnected = true;
+});
+// Reprise après crash serveur : on re-register automatiquement avec le prénom mémorisé.
+socket.on("gameRestored", () => {
+  const savedName = localStorage.getItem("lgName") || "";
+  if (savedName) {
+    setTimeout(() => socket.emit("register", savedName), 300);
+  }
+});
+socket.on("disconnect", () => {
+  setConnected(false);
+  document.getElementById("offlineBanner").className = "show";
+});
+socket.on("connect_error", () => {
+  setConnected(false);
+  document.getElementById("offlineBanner").className = "show";
+});
+
+let _idiotCardShown = false;
+
+socket.on("idiotRevealed", data => {
+  idiotRevealed = true; idiotId = data.id;
+  document.getElementById("deathEmoji").innerText = "🤡";
+  document.getElementById("deathTitle").innerText = data.name + " est… l'Idiot du Village !";
+  document.getElementById("deathText").innerText  = "Le village a voté — mais l'Idiot du Village ne peut pas être éliminé ainsi ! Il reste en vie… mais perd son droit de vote.";
+  const c = document.getElementById("dayDeathCard");
+  c.style.background = "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)";
+  c.className = "show";
+  // BUG FIX cascade-victoire : symétrie avec showDeathCard — c'est le serveur
+  // (via phase=wolves) qui pilote l'affichage de la nightFallCard. Si phase
+  // arrive pendant que cette carte est encore ouverte, showNightFallCard
+  // reposera lui-même _dawnOnClose pour différer après fermeture.
+  _dawnOnClose = null;
+  setTimeout(() => closeDawnCard(), 6000);
+  scheduleRender();
+});
+
+socket.on("registerError", msg=>{
+  const inp=document.getElementById("name");
+  if(inp){ inp.style.borderColor="#ff4444"; inp.placeholder=msg; }
+  document.getElementById("status").innerText="⚠️ "+msg;
+});
+function setConnected(ok) {
+  const dot = document.getElementById("connDot");
+  if (dot) dot.textContent = ok ? "🟢" : "🔴";
+}
+setConnected(socket.connected);
+socket.on("autoResolve", msg => {
+  const b = document.getElementById("autoResolveBanner");
+  b.innerText = msg; b.style.display = "block";
+  setTimeout(() => { b.style.display = "none"; }, 5000);
+});
+
+// ===== PAUSE / REPRISE =====
+socket.on("gamePaused", data => {
+  document.getElementById("pauseOverlay").style.display = "flex";
+  // Stoppe le countdown du vote (timer figé visuellement)
+  stopCountdown();
+  // Indique le temps gelé
+  if (data && data.voteRemainingMs) {
+    const v = document.getElementById("timerVal");
+    if (v) v.innerText = Math.ceil(data.voteRemainingMs/1000) + "s ⏸";
+  }
+});
+socket.on("gameResumed", data => {
+  document.getElementById("pauseOverlay").style.display = "none";
+});
+// Quand le vote du jour reprend, on redémarre le countdown
+socket.on("voteResumed", data => {
+  if (data.serverNow && data.endsAt) {
+    const networkLatency = Date.now() - data.serverNow;
+    voteEndsAt = data.endsAt + networkLatency;
+  } else {
+    voteEndsAt = data.endsAt;
+  }
+  voteTotalMs = data.durationMs;
+  voteActive = true;
+  document.getElementById("voteTimerBox").style.display = "block";
+  startCountdown();
+});
+
+let deathLog = [];
+
+// Dictionnaires partagés (utilisés aussi par le rendu des joueurs morts dans la liste)
+const DEATH_ROLE_EMOJI = { "Loup":"🐺","Voyante":"🔮","Sorcière":"🧪","Chasseur":"🔫","Cupidon":"💘","Villageois":"🏠","Maire":"🏛️","PetiteFille":"👧","Idiot":"🤡","Corbeau":"🪶","Salvateur":"🛡","Sœurs":"👯‍♀️" };
+const DEATH_CAUSE_LABEL = { "loups":"par les loups", "sorcière":"par la Sorcière", "vote":"par le village", "chasseur":"par le Chasseur", "amour":"💔 amour" };
+
+// Map id → {role, cause} pour récupération rapide depuis render()
+let deathInfoById = {};
+
+function rebuildDeathInfo() {
+  deathInfoById = {};
+  deathLog.forEach(d => {
+    if (d.id) deathInfoById[d.id] = { role: d.role, cause: d.cause };
+  });
+}
+
+function updateDeathLog(log) {
+  deathLog = log || [];
+  rebuildDeathInfo();
+  // Le panneau Chronique séparé est masqué : les infos s'affichent désormais à côté
+  // du nom des morts dans la section joueurs (rendu par render()).
+  const panel = document.getElementById("deathLogPanel");
+  if (panel) panel.style.display = "none";
+  // Re-rendu pour afficher les nouvelles infos de mort
+  scheduleRender();
+}
+
+function sortedPlayers() {
+  const alive = players.filter(p => !deadPlayers.includes(p.id));
+  const dead  = players.filter(p =>  deadPlayers.includes(p.id));
+  return [...alive, ...dead];
+}
+
+let lastGameSummary = null;
+
+socket.on("gameSummary", data => {
+  lastGameSummary = data;
+  if (data.deathLog) updateDeathLog(data.deathLog);
+  const es = document.getElementById("endScreen");
+  if (es && es.className === "visible") {
+    const t = document.getElementById("endScreenTitle").innerText;
+    populateEndScreen(data, t.includes("Loups")?"wolves":t.includes("Amoureux")?"lovers":"villagers");
+  }
+});
+
+socket.on("gameEnd", msg=>{
+  gameIsOver = true;
+  // Vibration finale (la phase peut être n'importe laquelle, mais c'est la fin
+  // de partie : tout le monde sait, donc pas de leak d'info → on force vibration)
+  try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 600]); } catch(e) {}
+  // Libère le wake lock à la fin de la partie
+  releaseWakeLock();
+  stopCountdown();
+  document.body.classList.remove("vote-urgent");
+  // FIX BUG 1 : voteActive mis à false immédiatement pour que render()
+  // ne génère plus de boutons "🗳️ Voter" après la fin de partie
+  voteActive = false;
+
+  ["status","autoResolveBanner",
+   "infoPanel","tiebreakPanel","votesPanel","voteTimerBox","voteWaitBox",
+   "witchDoneBtn","petiteFillePanel","corbeauPanel","chasseurPanel",
+   "deadChatPanel","deadVisionPanel","deathLogPanel","playersSection",
+   "missionPanel","missionVotePanel","missionBonusPanel","missionStatusPanel","missionBonusResult",
+   "dayDebateScreen","deadFullScreen"
+  ].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
+  document.querySelector("h1")?.style.setProperty("display","none");
+  const lobby = document.getElementById("lobby"); if(lobby) lobby.style.display="none";
+
+  document.getElementById("endScreen").className="visible";
+
+  const isWolves = msg.includes("Loups");
+  const isLovers = msg.includes("Amoureux");
+  const key = isWolves ? "wolves" : isLovers ? "lovers" : "villagers";
+  const titleMap = {
+    wolves:    "🐺 Les Loups ont gagné !",
+    lovers:    "💘 Les Amoureux ont gagné !",
+    villagers: "🏆 Les Villageois ont gagné !"
+  };
+  const subtitleMap = {
+    wolves:    "Le village est tombé. Ils étaient parmi vous depuis le début…",
+    lovers:    "Contre toute attente, leur amour a triomphé. Ensemble jusqu'au bout.",
+    villagers: "La vérité a triomphé. Les loups ont été démasqués un par un."
+  };
+
+  document.getElementById("endScreenTitle").innerText   = titleMap[key];
+  document.getElementById("endScreenSubtitle").innerText = subtitleMap[key];
+
+  if (lastGameSummary) populateEndScreen(lastGameSummary, key);
+
+  const card = document.getElementById("endCard");
+  const cfgBg = { wolves:"radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)", lovers:"radial-gradient(ellipse at center,#1a0515 0%,#050005 100%)", villagers:"radial-gradient(ellipse at center,#051a05 0%,#000500 100%)" };
+  card.style.background = cfgBg[key];
+  document.getElementById("endEmoji").innerText    = key==="wolves"?"🐺":key==="lovers"?"💘":"🏆";
+  document.getElementById("endTitle").innerText    = titleMap[key];
+  document.getElementById("endSubtitle").innerText = subtitleMap[key];
+  let survivorsText = "";
+  if (lastGameSummary?.survivors?.length > 0) {
+    survivorsText = "Survivants : " + lastGameSummary.survivors.map(s=>`${ROLE_EMOJI[s.role]||""} ${s.name}`).join("  ·  ");
+  }
+  document.getElementById("endSurvivors").innerText = survivorsText;
+  card.style.display = "flex"; card.style.animation = "fadeIn 0.6s ease forwards";
+  if (lastGameSummary) {
+    const summarySnapshot = lastGameSummary;
+    setTimeout(()=>{ if(summarySnapshot) showChronique(summarySnapshot); }, 6000);
+  }
+
+  const endChat = document.getElementById("endChatMessages");
+  const deadChat = document.getElementById("deadChatMessages");
+  if (endChat && deadChat) endChat.innerHTML = deadChat.innerHTML;
+});
+
+function populateEndScreen(data, winner) {
+  const rd = {"Loup":"🐺 Loup","Voyante":"🔮 Voyante","Sorcière":"🧪 Sorcière","Chasseur":"🔫 Chasseur",
+              "Cupidon":"💘 Cupidon","Villageois":"🏠 Villageois","Maire":"🏛️ Maire",
+              "PetiteFille":"👧 Petite Fille","Idiot":"🤡 Idiot"};
+  const stats = [];
+  let durationStr = `${data.nightCount} nuit${data.nightCount>1?"s":""} · ${data.dayCount} jour${data.dayCount>1?"s":""}`;
+  if (data.durationMs) {
+    const mins = Math.round(data.durationMs / 60000);
+    durationStr += ` · ⏱ ${mins} minute${mins>1?"s":""}`;
+  }
+  stats.push({ emoji:"⏱️", label:"Durée de la partie", value: durationStr });
+  stats.push({ emoji:"👥", label:"Joueurs", value:`${data.totalPlayers} joueurs` });
+  if (data.firstDead) stats.push({ emoji:"🪦", label:"Première victime", value:data.firstDead.name, sub:`${rd[data.firstDead.role]||data.firstDead.role}` });
+  if (data.mayorName) stats.push({ emoji:"🏛️", label:"Maire élu", value:data.mayorName });
+  if (data.seerLog && data.seerLog.length > 0) {
+    const visions = data.seerLog.map(v => `${ROLE_EMOJI[v.role]||""} ${v.name} (${rd[v.role]||v.role})`).join(", ");
+    stats.push({ emoji:"🔮", label:"La Voyante a vu", value: visions });
+  }
+  if (data.witchSaved || data.witchKilled) {
+    const potions = [];
+    if(data.witchSaved)  potions.push("potion de vie ✅");
+    if(data.witchKilled) potions.push("potion de mort ☠️");
+    stats.push({ emoji:"🧪", label:"Sorcière a utilisé", value:potions.join(" · ") });
+  }
+  if (data.survivors?.length) {
+    stats.push({ emoji:"🏅", label:`Survivants (${data.survivors.length})`, value:data.survivors.map(s=>s.name).join(", ") });
+    const wolvesAlive = data.survivors.filter(s=>s.role==="Loup");
+    if(wolvesAlive.length) stats.push({ emoji:"🐺", label:"Loups survivants", value:wolvesAlive.map(s=>s.name).join(", "), hl:true });
+  }
+  if (data.deathLog.length > 0) {
+    const lastDead = data.deathLog[data.deathLog.length-1];
+    stats.push({ emoji:"🎭", label:"Dernière victime", value:lastDead.name, sub:`${rd[lastDead.role]||lastDead.role}` });
+  }
+  const statsList = document.getElementById("endStatsList");
+  statsList.innerHTML = stats.map(s =>
+    `<div class="stat-row"><span class="stat-emoji">${s.emoji}</span><span class="stat-label">${s.label}</span><span class="stat-value${s.hl?" stat-hl":""}">${s.value}${s.sub?` <span style="color:#555;font-size:11px;">(${s.sub})</span>`:""}</span></div>`
+  ).join("");
+
+  const allPlayers = [...players];
+  allPlayers.sort((a,b) => { const aDead=deadPlayers.includes(a.id),bDead=deadPlayers.includes(b.id); if(aDead&&!bDead)return 1; if(!aDead&&bDead)return -1; return 0; });
+  const endRoles = document.getElementById("endRolesList");
+  endRoles.innerHTML = allPlayers.map(p => {
+    const r = deadVisionData?.roles?.[p.id] || roles[p.id] || "?";
+    const isDead=deadPlayers.includes(p.id), isWolf=r==="Loup", isSurv=data.survivors?.some(s=>s.name===p.name), isMayor=p.id===mayor;
+    let rowClass="end-role-row"; if(isWolf)rowClass+=" wolf-row"; else if(isSurv)rowClass+=" winner-row"; if(isDead)rowClass+=" dead-row";
+    let badges=""; if(isDead)badges+="☠️"; if(isMayor)badges+="🏛️"; if(lovers.includes(p.id))badges+="❤️";
+    // Avatar : photo si dispo, sinon emoji du rôle
+    const avatar = p.photo
+      ? `<img src="${p.photo}" style="width:32px;height:32px;border-radius:50%;object-fit:cover;${isDead?'filter:grayscale(0.7);':''}">`
+      : `<span style="font-size:22px;width:32px;text-align:center;display:inline-block;">${ROLE_EMOJI[r]||"❓"}</span>`;
+    return `<div class="${rowClass}">${avatar}<span class="ern">${p.name}</span><span class="err">${rd[r]||r}</span><span class="erbadge">${badges}</span></div>`;
+  }).join("");
+
+  // ===== MÉDAILLES =====
+  const badgesPanel = document.getElementById("endBadgesPanel");
+  const badgesList  = document.getElementById("endBadgesList");
+  if (badgesPanel && badgesList && data.badges && Object.keys(data.badges).length > 0) {
+    badgesPanel.style.display = "block";
+    badgesList.innerHTML = Object.entries(data.badges).map(([name, list]) => {
+      const items = list.map(b => `
+        <span style="display:inline-flex;align-items:center;gap:4px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:3px 10px;margin:2px;font-size:12px;color:#eee;" title="${b.desc || ''}">
+          <span style="font-size:14px;">${b.emoji}</span>${b.label}
+        </span>`).join("");
+      return `<div style="padding:6px 0;border-bottom:1px solid #1a1a1a;">
+        <div style="font-size:12px;color:#888;margin-bottom:4px;font-weight:bold;">${name}</div>
+        <div>${items}</div>
+      </div>`;
+    }).join("");
+  } else if (badgesPanel) {
+    badgesPanel.style.display = "none";
+  }
+}
+
+function showChronique(data) {
+  const rd = { "Loup":"🐺 Loup","Voyante":"🔮 Voyante","Sorcière":"🧪 Sorcière","Chasseur":"🔫 Chasseur","Cupidon":"💘 Cupidon","Villageois":"🏠 Villageois","Maire":"🏛️ Maire","PetiteFille":"👧 Petite Fille" };
+  let story = `La partie a duré ${data.nightCount} nuit${data.nightCount>1?"s":""} et ${data.dayCount} jour${data.dayCount>1?"s":""}.`;
+  if (data.mayorName) story += ` ${data.mayorName} était le Maire élu.`;
+  if (data.firstDead) story += ` Première victime : ${data.firstDead.name} (${rd[data.firstDead.role]||data.firstDead.role}).`;
+  if (data.witchSaved && data.witchKilled) story += " La Sorcière a utilisé ses deux potions.";
+  else if (data.witchSaved)  story += " La Sorcière a sauvé une vie précieuse.";
+  else if (data.witchKilled) story += " La Sorcière a utilisé sa potion de mort.";
+  const c = document.getElementById("dayDeathCard");
+  document.getElementById("deathEmoji").innerText = "📖";
+  document.getElementById("deathTitle").innerText = "Chronique du Village";
+  document.getElementById("deathText").innerText  = story;
+  c.style.background = "radial-gradient(ellipse at center,#0a0a1a 0%,#030308 100%)";
+  c.className = "show";
+  setTimeout(() => { c.classList.add("hiding"); setTimeout(()=>{c.className="";c.style.display="none";c.style.background="";},600); }, 8000);
+}
+
+let _dawnOnClose = null;
+// Refonte (mai 2026) : évènement du Conseil mis en attente tant que la carte
+// d'aube (récap de nuit) est ouverte. Séquence voulue au début du jour :
+// carte récap de nuit → (fermeture) → carte évènement.
+let _pendingCouncilEventData = null;
+
+function closeDawnCard() {
+  const c = document.getElementById("dayDeathCard");
+  c.classList.add("hiding");
+  setTimeout(() => {
+    c.className=""; c.style.display=""; c.style.background="";
+    if (_dawnOnClose) { _dawnOnClose(); _dawnOnClose=null; }
+    // BUG FIX 1 : carte fermée → réévalue si on doit afficher le voile de nuit
+    if (typeof updateNightCover === "function") updateNightCover();
+    // Refonte (mai 2026) : carte d'aube fermée → si un évènement du Conseil
+    // attend, on l'affiche maintenant (récap de nuit d'abord, évènement ensuite).
+    if (_pendingCouncilEventData) {
+      const ev = _pendingCouncilEventData;
+      _pendingCouncilEventData = null;
+      if (typeof showCouncilEventCardNow === "function") showCouncilEventCardNow(ev);
+    }
+    // Refonte épuration jour : carte fermée → ouvre l'écran de débat si phase=day
+    if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  }, 600);
+}
+
+// Avatar compact d'un joueur dans la liste (render). `size` en px.
+// Photo disponible → <img> ronde ; sinon → cercle initiale avec couleur déterministe.
+const AVATAR_PALETTE = ["#6a4fbf","#bf4f6a","#4f9fbf","#7abf4f","#bf9f4f","#bf6a4f","#4f6abf","#9f4fbf"];
+function playerAvatar(p, size) {
+  const s = size || 32;
+  if (p.photo) {
+    return `<img src="${p.photo}" style="width:${s}px;height:${s}px;border-radius:50%;object-fit:cover;flex-shrink:0;margin-right:8px;border:1.5px solid rgba(255,255,255,0.18);" alt="${p.name}">`;
+  }
+  const initial = (p.name || "?")[0].toUpperCase();
+  const color = AVATAR_PALETTE[(p.name || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_PALETTE.length];
+  return `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${color};flex-shrink:0;margin-right:8px;display:flex;align-items:center;justify-content:center;font-size:${Math.round(s*0.45)}px;font-weight:bold;color:#fff;opacity:0.88;">${initial}</div>`;
+}
+
+// Rendu d'un ou plusieurs avatars de victimes sur la dayDeathCard.
+// `victims` = array de {name, role} ; cherche dans players[] pour la photo.
+// Taille auto : 100px solo, 80px pour 2-3, 60px pour 4+.
+// Si pas de photo → placeholder rond avec initiale colorée selon le rôle.
+function renderDeathPhotos(victims) {
+  const container = document.getElementById("deathPhotos");
+  if (!container) return;
+  container.innerHTML = "";
+  if (!victims || victims.length === 0) { container.style.display = "none"; return; }
+  const n = victims.length;
+  const size = n === 1 ? 100 : (n <= 3 ? 80 : 60);
+  const fontSize = Math.round(size * 0.4);
+  container.style.display = "flex";
+  victims.forEach(v => {
+    const player = players.find(p => p.name === v.name);
+    const photo  = player?.photo;
+    if (photo) {
+      const img = document.createElement("img");
+      img.src = photo;
+      img.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.5);filter:grayscale(0.5);animation:cardPop 0.5s ease 0.1s both;`;
+      // Refonte (mai 2026) : pas de rôle dans l'infobulle — les joueurs ne le voient pas
+      img.title = v.name || "";
+      container.appendChild(img);
+    } else {
+      // Placeholder : initiale sur fond gris foncé
+      const ph = document.createElement("div");
+      ph.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:#2a2a2a;border:3px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;color:#999;font-weight:bold;filter:grayscale(0.5);animation:cardPop 0.5s ease 0.1s both;`;
+      ph.innerText = (v.name || "?").charAt(0).toUpperCase();
+      ph.title = v.name || "";
+      container.appendChild(ph);
+    }
+  });
+}
+
+function showDeathCard(name, role, narrative) {
+  // Refonte (mai 2026) : carte de mort côté joueur = PHOTO uniquement, sans rôle.
+  // Les joueurs voient QUI a été éliminé (photo) mais pas son rôle — le MJ garde
+  // l'info complète pour narrer (paramètres role/narrative volontairement ignorés
+  // ici, conservés dans la signature pour compat avec les appelants).
+  renderDeathPhotos([{ name }]);
+  document.getElementById("deathEmoji").innerText = "⚖️";
+  document.getElementById("deathTitle").innerText = "Le village a tranché";
+  document.getElementById("deathText").innerText  = name + " a été désigné·e par le vote.";
+  const card = document.getElementById("dayDeathCard");
+  card.style.background = "";
+  card.className = "show";
+  // Réinitialise nightCardShownThisNight pour que la nightFallCard puisse
+  // s'afficher normalement après la fermeture de cette carte
+  nightCardShownThisNight = false;
+  // BUG FIX cascade-victoire : on ne déclenche PAS la nightFallCard depuis le
+  // minuteur d'auto-fermeture de la dayDeathCard. La cascade serveur (chasseur,
+  // transfert maire, amoureux) peut prendre plusieurs secondes ; pendant ce
+  // temps `gameIsOver` n'est pas encore positionné si la partie va se terminer.
+  // C'est désormais le serveur qui pilote l'apparition via `phase`=wolves/cupid :
+  // si la victoire est scellée par la cascade, aucun setPhase("wolves") n'est
+  // émis et la carte "village s'endort" n'apparaît jamais. Si la cascade ne
+  // tue pas la partie, le handler `socket.on("phase")` rappellera
+  // showNightFallCard, qui se synchronisera proprement avec la dayDeathCard
+  // (defer via _dawnOnClose pendant l'animation, voir showNightFallCard).
+  _dawnOnClose = null;
+  setTimeout(() => closeDawnCard(), 5000);
+}
+
+function showNightFallCard() {
+  if (gameIsOver) return;
+  // Refonte (mai 2026) : les morts ne voient pas la carte « la nuit tombe »
+  // (ils restent sur leur écran de mort épuré).
+  if (iAmDead) return;
+  // FIX BUG 2 : mayorTransferPending est désormais positionné AVANT que mayorMustTransfer
+  // n'arrive ici, donc cette guard fonctionne correctement
+  if (mayorTransferPending || isChasseurDead) return;
+  if (nightCardShownThisNight) return;
+
+  const dayCard   = document.getElementById("dayDeathCard");
+  const mayorCard = document.getElementById("mayorCard");
+  const selfCard  = document.getElementById("nightFallCard");
+
+  if (selfCard && selfCard.className === "show") return;
+  // BUG FIX cascade-victoire : on défère aussi pendant l'animation de fermeture
+  // de la dayDeathCard (className="show hiding"). Sinon, quand phase=wolves
+  // arrive juste après le début de l'auto-close, le check `=== "show"` échouait
+  // et la nightFallCard apparaissait par-dessus la dayDeathCard en train de se
+  // fermer. classList.contains("show") couvre les deux états.
+  if (dayCard && dayCard.classList && dayCard.classList.contains("show")) {
+    _dawnOnClose = showNightFallCard;
+    return;
+  }
+  if (mayorCard && mayorCard.hasAttribute("data-open")) return;
+
+  nightCardShownThisNight = true;
+  // Carte « village s'endort » désactivée (mai 2026) : on notifie le serveur
+  // et on met à jour le voile sans afficher la carte immersive.
+  socket.emit("nightCardShown");
+  if (typeof updateNightCover === "function") updateNightCover();
+}
+
+function closeNightFallCard() {
+  const card = document.getElementById("nightFallCard");
+  card.classList.add("hiding");
+  setTimeout(() => {
+    card.className=""; card.style.display="";
+    // BUG FIX 1 : la nightFallCard se ferme → afficher le voile pour les non-actifs
+    if (typeof updateNightCover === "function") updateNightCover();
+  }, 600);
+}
+
+function join() {
+  const name = document.getElementById("name").value.trim();
+  if (!name) return;
+  // FIX BUG #1 : sauvegarde du nom pour permettre la reconnexion automatique
+  // (utilisé ligne ~568 lors d'un reconnect)
+  try { localStorage.setItem("lgName", name); } catch(e) {}
+  socket.emit("register", name);
+  // On NE cache PAS encore le lobby : on garde la photo section visible jusqu'au start.
+  // L'input nom et bouton Rejoindre se masquent.
+  document.getElementById("name").style.display = "none";
+  document.querySelector("#lobby > button[onclick='join()']").style.display = "none";
+  document.getElementById("photoSection").style.display = "block";
+  // Active le wake lock dès qu'on rejoint la partie
+  requestWakeLock();
+}
+
+// Selfie : redimensionnement client-side puis envoi base64 au serveur
+function handlePhotoSelected(ev) {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      // Resize à 200x200 max, crop carré centré
+      const size = 200;
+      const canvas = document.createElement("canvas");
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      const sw = img.width, sh = img.height;
+      const side = Math.min(sw, sh);
+      const sx = (sw - side) / 2, sy = (sh - side) / 2;
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+      const dataUri = canvas.toDataURL("image/jpeg", 0.72);
+      // Aperçu local
+      const previewImg = document.getElementById("photoPreview");
+      const placeholder = document.getElementById("photoPlaceholder");
+      if (previewImg && placeholder) {
+        previewImg.src = dataUri;
+        previewImg.style.display = "block";
+        placeholder.style.display = "none";
+      }
+      const label = document.getElementById("photoBtnLabel");
+      if (label) label.innerText = "Changer ma photo";
+      // Envoi serveur
+      socket.emit("setPhoto", dataUri);
+      // Mémorise localement (pour reconnexion en cas de crash serveur)
+      try { localStorage.setItem("lgPhoto", dataUri); } catch (_) {}
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+// Si on a déjà une photo en cache local (reconnexion après crash), on la renvoie
+socket.on("connect", () => {
+  try {
+    const cachedPhoto = localStorage.getItem("lgPhoto");
+    if (cachedPhoto && cachedPhoto.startsWith("data:image/")) {
+      setTimeout(() => socket.emit("setPhoto", cachedPhoto), 500);
+    }
+  } catch (_) {}
+});
+
+// Pré-remplit le champ "nom" si on a déjà joué (UX mobile)
+window.addEventListener("DOMContentLoaded", () => {
+  try {
+    const saved = localStorage.getItem("lgName");
+    const inp = document.getElementById("name");
+    if (saved && inp) inp.value = saved;
+  } catch(e) {}
+});
+
+socket.on("reconnected", state => {
+  dismissIntro();
+  document.getElementById("lobby").style.display = "none";
+  setConnected(true);
+  players=state.players||[]; deadPlayers=state.deadPlayers||[];
+  phase=state.phase; mayor=state.mayor; lovers=state.lovers||[];
+  mayorCounts=state.mayorCounts||{}; dayCounts=state.dayCounts||{};
+  role=state.role; wolves=state.wolves||[];
+  iAmDead=deadPlayers.includes(socket.id);
+  // Refonte épuration jour : restaure le mode (pilotage MJ du jour)
+  if (typeof state.mjPilotedDay === "boolean") mjPilotedDay = state.mjPilotedDay;
+  mayorVotedSet.clear();
+  if(state.mayorVote) Object.keys(state.mayorVote).forEach(id=>mayorVotedSet.add(id));
+  // Refonte épuration jour : on ne force plus l'ouverture de voteWaitBox à la
+  // reconnexion en phase=day. Si un vote est en cours, voteTimerBox sera ouvert
+  // juste en dessous. Sinon, updateDayDebateScreen() ouvrira l'écran de débat.
+  if(phase==="day"){ voteActive=true; }
+  if(state.voteTimerEnd && Date.now() < state.voteTimerEnd){
+    voteEndsAt=state.voteTimerEnd;
+    // Durées à jour (refonte mai 2026) : mode 1 = 60s, mode 2 = 200s, mode 4 = 30s, mode 5 = 60s
+    const modeDurations={1:60000,2:200000,4:30000,5:60000};
+    voteTotalMs=modeDurations[state.voteMode]||60000;
+    voteActive=true;
+    currentVoteMode=state.voteMode||0;
+    document.getElementById("voteTimerBox").style.display="block"; startCountdown();
+  } else {
+    voteActive=false;
+    currentVoteMode=0;
+  }
+  if(state.deadVision){deadVisionData=state.deadVision;renderDeadVision();}
+  if(state.deathLog) updateDeathLog(state.deathLog);
+  if(state.idiotRevealed){ idiotRevealed=true; idiotId=state.idiotId; }
+  // Restaure état mission
+  if(state.missionActive){
+    missionActive=true;
+    missionTeamSelected=state.missionTeam||[];
+    const msp=document.getElementById("missionStatusPanel");
+    if(msp&&state.missionPhase) msp.style.display="block";
+    if(state.missionTeam&&state.missionTeam.length>0){
+      const names=state.missionTeam.map(id=>{const p=players.find(x=>x.id===id);return p?p.name:id;}).join(", ");
+      const st=document.getElementById("missionStatusText");
+      if(st) st.innerText="Équipe de mission : "+names;
+    }
+  }
+  renderInfoPanel(); scheduleRender();
+  if(iAmDead){
+    document.getElementById("deadChatPanel").style.display="block";
+    socket.emit("deadChatHistory");
+  }
+  // FIX BUG AUDIT-F : ré-affiche la carte d'événement Conseil des Morts si actif au moment du reconnect
+  if (state.activeCouncilEvent) {
+    const card = document.getElementById("councilEventCard");
+    if (card) {
+      document.getElementById("councilEventTitle").innerText = state.activeCouncilEvent.title;
+      document.getElementById("councilEventNarrative").innerText = state.activeCouncilEvent.narrative;
+      card.style.display = "flex";
+      card.style.animation = "fadeIn 0.5s ease forwards";
+      if (_councilEventCardAutoClose) clearTimeout(_councilEventCardAutoClose);
+      _councilEventCardAutoClose = setTimeout(closeCouncilEventCard, 14000);
+    }
+  }
+  // Reconnexion en phase Sœurs : ré-ouvrir le panneau plein écran (avec timer restant si lancé)
+  if (state.pendingSistersTurn && role === "Sœurs" && !iAmDead) {
+    const panel = document.getElementById("sistersPanel");
+    if (panel) panel.style.display = "flex";
+    const aliveTxt = document.getElementById("sistersAliveCount");
+    if (aliveTxt) aliveTxt.innerText = (state.pendingSistersTurn.count || 2) + " sœurs en vie";
+    const timerEl = document.getElementById("sistersTimer");
+    if (_sistersCountdownInterval) { clearInterval(_sistersCountdownInterval); _sistersCountdownInterval = null; }
+    const endsAt = state.pendingSistersTurn.timerEndsAt;
+    if (endsAt && Date.now() < endsAt) {
+      // Timer en cours côté serveur — on reprend le countdown sur le restant
+      const tick = () => {
+        const remainingMs = Math.max(0, endsAt - Date.now());
+        const sec = Math.ceil(remainingMs / 1000);
+        if (timerEl) timerEl.innerText = _sistersFmt(sec);
+        if (remainingMs <= 0 && _sistersCountdownInterval) {
+          clearInterval(_sistersCountdownInterval); _sistersCountdownInterval = null;
+        }
+      };
+      tick();
+      _sistersCountdownInterval = setInterval(tick, 250);
+    } else {
+      // Timer pas encore lancé par le MJ → figé à 00:20
+      if (timerEl) timerEl.innerText = _sistersFmt(20);
+    }
+  }
+  // Reconnexion en phase Salvateur : ré-ouvrir le panneau de protection
+  if (state.pendingSalvateurTurn && role === "Salvateur" && !iAmDead) {
+    salvateurLastProtectedId = state.pendingSalvateurTurn.lastProtectedId || null;
+    const panel = document.getElementById("salvateurPanel");
+    if (panel) panel.style.display = "block";
+    const info = document.getElementById("salvateurLastInfo");
+    if (info) {
+      if (state.pendingSalvateurTurn.lastProtectedName) {
+        info.style.display = "block";
+        info.innerText = "⛔ Hier, vous avez protégé " + state.pendingSalvateurTurn.lastProtectedName + " — vous ne pouvez pas le/la choisir cette nuit.";
+      } else {
+        info.style.display = "none";
+      }
+    }
+    if (typeof renderSalvateurTargets === "function") renderSalvateurTargets();
+  }
+  // Refonte épuration jour : après reconnexion, réévalue l'écran de débat
+  // (s'ouvre si phase=day, vivant, pas de vote en cours ni de carte ouverte).
+  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  // Refonte épuration jour : réévalue l'écran de mort épuré (si mort + mode piloté).
+  if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
+});
+
+socket.on("deadChatHistory", msgs=>{ if(!msgs)return; const div=document.getElementById("deadChatMessages"); div.innerHTML=""; msgs.forEach(appendChatMsg); });
+
+socket.on("players", p=>{ players=p; scheduleRender(); });
+socket.on("mayorCountsPublic", c=>{ mayorCounts=c; renderVotesPanel(); scheduleRender(); });
+socket.on("mayorVoted", voterId=>{ mayorVotedSet.add(voterId); scheduleRender(); });
+socket.on("dayCountsPublic",   c=>{ dayCounts=c;   renderVotesPanel(); updateDeadVoteView(); });
+socket.on("votesDayPublic",    d=>{
+  // Vibration discrète si quelqu'un vient de voter contre moi (jour uniquement)
+  const previousVoters = new Set(Object.keys(votesDayDetail||{}).filter(v => votesDayDetail[v] === socket.id));
+  const newVoters = Object.keys(d).filter(v => d[v] === socket.id && !previousVoters.has(v));
+  if (newVoters.length > 0 && phase === "day") vibrateIfDay(80);
+  votesDayDetail=d;
+  renderVotesPanel();
+  updateDeadVoteView();  // morts : rafraîchit la vue du vote
+});
+socket.on("corbeauVotesPublic",d=>{ corbeauVotesTarget=d.targetId; renderVotesPanel(); updateDeadVoteView(); });
+socket.on("wolfVotesUpdate",   v=>{
+  wolfVotes=v;
+  // AMÉLIORATION 2 : changement de vote → la validation est annulée serveur-side ;
+  // on reflète localement et on rafraîchit le bouton.
+  _wolfHasConfirmed = false;
+  renderVotesPanel();
+  if (typeof updateWolfConfirmPanel === "function") updateWolfConfirmPanel();
+});
+
+// ===== ANTI-TRICHE — voile de nuit + bouton reveal du rôle le jour =====
+const NIGHT_PHASES_FOR_COVER = ['cupid','sisters','salvateur','wolves','seer','corbeau','witch'];
+function isActiveDuringPhase(p, r) {
+  if (!p || !r) return false;
+  if (p === 'cupid'     && r === 'Cupidon')                            return true;
+  if (p === 'sisters'   && r === 'Sœurs')                              return true;
+  if (p === 'salvateur' && r === 'Salvateur')                          return true;
+  if (p === 'wolves'    && (r === 'Loup' || r === 'PetiteFille'))      return true;
+  if (p === 'seer'      && r === 'Voyante')                            return true;
+  if (p === 'corbeau'   && r === 'Corbeau')                            return true;
+  if (p === 'witch'     && r === 'Sorcière')                           return true;
+  return false;
+}
+// BUG FIX 1 : le voile de nuit doit céder le pas aux cartes narratives.
+// On considère qu'une carte est ouverte si son element existe avec class="show"
+// ou data-open="1" (cas du mayorCard).
+function isAnyNarrativeCardOpen() {
+  const ids = ['roleCard','dayDeathCard','nightFallCard','councilEventCard','missionExplainCard','mayorCard','sistersPanel'];
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (el.className && el.className.includes("show")) return true;
+    if (el.getAttribute && el.getAttribute("data-open") === "1") return true;
+    // Cartes avec display:flex inline (councilEventCard, missionExplainCard)
+    if (el.style && el.style.display === "flex") return true;
+  }
+  return false;
+}
+function updateNightCover() {
+  const cover = document.getElementById("nightCoverScreen");
+  if (!cover) return;
+  const isNight  = NIGHT_PHASES_FOR_COVER.includes(phase);
+  const isActive = isActiveDuringPhase(phase, role);
+  // Les morts ne voient jamais le voile (ils ont leur chat / Conseil des Morts)
+  // Le voile cède aussi le pas aux cartes narratives en cours d'affichage.
+  const show = isNight && !isActive && !iAmDead && !isAnyNarrativeCardOpen();
+  cover.style.display = show ? "flex" : "none";
+}
+
+// Refonte épuration jour (mai 2026) : écran de débat plein écran pendant le jour.
+// Affiché aux joueurs vivants quand : phase=day, aucune carte narrative ouverte,
+// aucun vote en cours. Le but est de soulager l'écran et renvoyer les joueurs au
+// contact visuel autour de la table. Fermé dès que voteStarted arrive ou que la
+// phase change. Pas affiché aux morts (étape 6 leur donne leur propre écran).
+function updateDayDebateScreen() {
+  const screen = document.getElementById("dayDebateScreen");
+  if (!screen) return;
+  const voteRunning = currentVoteMode !== 0;  // vote en cours côté joueur
+  const show = (phase === "day")
+    && !iAmDead
+    && !gameIsOver
+    && !voteRunning
+    && !isAnyNarrativeCardOpen();
+  if (show) {
+    // Remplit la carte d'identité du joueur
+    const me = players.find(p => p.id === socket.id);
+    const photoEl = document.getElementById("ddPhoto");
+    const nameEl  = document.getElementById("ddName");
+    const statEl  = document.getElementById("ddStatus");
+    const myPhoto = me?.photo || (function(){ try { return localStorage.getItem("lgPhoto"); } catch(_){ return null; } })();
+    if (photoEl) {
+      if (myPhoto) { photoEl.src = myPhoto; photoEl.style.display = "block"; }
+      else         { photoEl.style.display = "none"; }
+    }
+    if (nameEl) nameEl.innerText = (me?.name) || "—";
+    if (statEl) statEl.innerText = "Vivant·e";
+    bindDayDebateRoleReveal();
+    screen.style.display = "flex";
+  } else {
+    screen.style.display = "none";
+  }
+}
+
+// Refonte épuration jour (mai 2026) : écran épuré du joueur mort.
+// Affiché plein écran dès que le joueur est mort (et mode piloté actif).
+// Le salon des morts et le Conseil des Morts y sont déplacés une fois (appendChild)
+// pour rester accessibles en scrollant — plus de vision spectateur complète.
+let _deadFullScreenPanelsMoved = false;
+function updateDeadFullScreen() {
+  const screen = document.getElementById("deadFullScreen");
+  if (!screen) return;
+  // Déplacement unique des panneaux morts dans l'écran épuré
+  if (!_deadFullScreenPanelsMoved) {
+    const slot = document.getElementById("deadFullScreenSlot");
+    const council = document.getElementById("councilPanel");
+    const chat    = document.getElementById("deadChatPanel");
+    if (slot && council && chat) {
+      slot.appendChild(council);
+      slot.appendChild(chat);
+      _deadFullScreenPanelsMoved = true;
+    }
+  }
+  // Refonte (mai 2026) : l'écran de mort épuré est INCONDITIONNEL — dès qu'on est
+  // mort, on ne voit QUE cet écran (plus de liste joueurs ni de boutons voter),
+  // de jour comme de nuit. Ne dépend plus de mjPilotedDay (évite tout cas où le
+  // flag serait mal propagé). La vision spectateur complète n'existe plus.
+  const show = iAmDead && !gameIsOver;
+  if (show) {
+    // Photo perso
+    const me = players.find(p => p.id === socket.id);
+    const myPhoto = me?.photo || (function(){ try { return localStorage.getItem("lgPhoto"); } catch(_){ return null; } })();
+    const photoEl = document.getElementById("dfsPhoto");
+    if (photoEl) {
+      if (myPhoto) { photoEl.src = myPhoto; photoEl.style.display = "block"; }
+      else         { photoEl.style.display = "none"; }
+    }
+    // Rôle en grand
+    const emojiEl = document.getElementById("dfsRoleEmoji");
+    const roleEl  = document.getElementById("dfsRole");
+    if (emojiEl) emojiEl.innerText = (ROLE_EMOJI && ROLE_EMOJI[role]) || "🎭";
+    if (roleEl)  roleEl.innerText  = (ROLE_DISPLAY && ROLE_DISPLAY[role]) || role || "—";
+    screen.style.display = "flex";
+  } else {
+    screen.style.display = "none";
+  }
+  // Réévalue la vue du vote (visible seulement pendant un vote du jour)
+  updateDeadVoteView();
+}
+
+// Refonte épuration jour (mai 2026) : vue du vote du jour pour les morts.
+// Affichée DANS l'écran de mort quand un vote du village est en cours — les morts
+// voient qui est ciblé et par qui (mais plus la vision spectateur des rôles).
+function updateDeadVoteView() {
+  const box     = document.getElementById("deadVoteView");
+  const content = document.getElementById("deadVoteViewContent");
+  if (!box || !content) return;
+  const voteRunning = (phase === "day") && (currentVoteMode !== 0);
+  const show = iAmDead && !gameIsOver && voteRunning;
+  if (!show) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  content.innerHTML = "";
+  // Mode 5 (Émeute) : vote anonyme — aucun détail public
+  if (currentVoteMode === 5) {
+    content.innerHTML = '<div style="text-align:center;color:#996666;font-size:13px;font-style:italic;">🖤 Vote dans l\'ombre — les bulletins restent secrets.</div>';
+    return;
+  }
+  // Comptage (avec bonus corbeau éventuel)
+  const allCounts = { ...dayCounts };
+  if (corbeauVotesTarget && !deadPlayers.includes(corbeauVotesTarget)) {
+    allCounts[corbeauVotesTarget] = (allCounts[corbeauVotesTarget] || 0) + 2;
+  }
+  const entries = Object.entries(allCounts).sort((a,b)=>b[1]-a[1]);
+  if (entries.length === 0) {
+    content.innerHTML = '<div style="text-align:center;color:#996666;font-size:13px;font-style:italic;">Personne n\'a encore voté…</div>';
+  } else {
+    const total = entries.reduce((s,[,c])=>s+c,0) || 1;
+    entries.forEach(([pid,c])=>{
+      const p = players.find(x=>x.id===pid); if(!p) return;
+      const pct = Math.round((c/total)*100);
+      const row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px;";
+      row.innerHTML = `<span style="flex:0 0 90px;color:#e8c0c0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span>`
+        + `<span style="flex:1;height:8px;background:#2a1010;border-radius:4px;overflow:hidden;"><span style="display:block;height:100%;width:${pct}%;background:#aa4444;"></span></span>`
+        + `<span style="flex:0 0 auto;color:#cc8888;font-weight:bold;">${c}</span>`;
+      content.appendChild(row);
+    });
+  }
+  // Détail votant → cible
+  const detail = Object.entries(votesDayDetail||{});
+  if (detail.length > 0) {
+    const list = document.createElement("div");
+    list.style.cssText = "margin-top:10px;padding-top:8px;border-top:1px solid #3a1a1a;";
+    detail.forEach(([voterId,targetId])=>{
+      const voter  = players.find(x=>x.id===voterId);
+      const target = players.find(x=>x.id===targetId);
+      if(!voter||!target) return;
+      const r = document.createElement("div");
+      r.style.cssText = "font-size:12px;color:#aa8888;padding:2px 0;";
+      r.innerHTML = `${voter.name} <span style="color:#664444;">→</span> ${target.name}`;
+      list.appendChild(r);
+    });
+    content.appendChild(list);
+  }
+  // Badge corbeau
+  if (corbeauVotesTarget) {
+    const t = players.find(x=>x.id===corbeauVotesTarget);
+    if (t) {
+      const badge = document.createElement("div");
+      badge.style.cssText = "margin-top:8px;text-align:center;font-size:12px;color:#8888aa;";
+      badge.innerHTML = `🪶 2 votes mystérieux sur <strong>${t.name}</strong>`;
+      content.appendChild(badge);
+    }
+  }
+}
+
+// Hold-to-reveal du rôle sur l'écran de débat. Réutilise la mécanique de
+// updateRoleRevealBtn mais sur un bouton dédié à l'intérieur du dayDebateScreen.
+function bindDayDebateRoleReveal() {
+  const btn    = document.getElementById("ddRoleRevealBtn");
+  const reveal = document.getElementById("ddRoleReveal");
+  if (!btn || !reveal) return;
+  if (!btn.dataset.bound) {
+    const show = () => {
+      reveal.innerText = "🎭 " + (ROLE_DISPLAY[role] || role || "—");
+      reveal.style.display = "block";
+      btn.style.background = "rgba(240,212,154,0.16)";
+      btn.innerHTML = "👁 <strong>Relâchez pour cacher</strong>";
+    };
+    const hide = () => {
+      reveal.style.display = "none";
+      btn.style.background = "rgba(240,212,154,0.06)";
+      btn.innerHTML = "🎴 <strong>Maintenir pour voir mon rôle</strong>";
+    };
+    btn.addEventListener("mousedown", show);
+    btn.addEventListener("mouseup", hide);
+    btn.addEventListener("mouseleave", hide);
+    btn.addEventListener("touchstart", e => { e.preventDefault(); show(); }, {passive:false});
+    btn.addEventListener("touchend",   e => { e.preventDefault(); hide(); }, {passive:false});
+    btn.addEventListener("touchcancel", hide);
+    btn.addEventListener("contextmenu", e => e.preventDefault());
+    btn.dataset.bound = "1";
+  }
+  // État par défaut : caché
+  reveal.style.display = "none";
+}
+
+// Bouton "Maintenir pour voir mon rôle" pendant le jour
+function updateRoleRevealBtn() {
+  const btn     = document.getElementById("infoRevealBtn");
+  const content = document.getElementById("infoPanelContent");
+  if (!btn || !content) return;
+  // Masquage actif seulement quand les yeux sont ouverts collectivement
+  const dayLike = ['day','mayorVote','mission','missionVote','missionBonus','mayorTransfer','chasseur','lobby'].includes(phase);
+  if (dayLike && role && !iAmDead) {
+    btn.style.display = "block";
+    if (!btn.dataset.bound) {
+      const reveal = ()=>{ content.style.display = "block"; btn.style.background="#1a1a2e"; btn.style.color="#cce6ff"; btn.innerHTML="👁 <strong>Relâche pour cacher</strong>"; };
+      const hide   = ()=>{ content.style.display = "none"; btn.style.background="#0a0a1a"; btn.style.color="#88aacc"; btn.innerHTML="🎴 <strong>Maintenir pour voir mon rôle</strong>"; };
+      // Souris
+      btn.addEventListener("mousedown", reveal);
+      btn.addEventListener("mouseup",   hide);
+      btn.addEventListener("mouseleave",hide);
+      // Tactile (pointerdown couvre les deux mais on garde touch pour vieux iOS)
+      btn.addEventListener("touchstart",e=>{ e.preventDefault(); reveal(); }, {passive:false});
+      btn.addEventListener("touchend",  e=>{ e.preventDefault(); hide(); },   {passive:false});
+      btn.addEventListener("touchcancel",hide);
+      btn.addEventListener("contextmenu",e=>e.preventDefault());
+      btn.dataset.bound = "1";
+    }
+    // État par défaut : caché
+    content.style.display = "none";
+  } else {
+    btn.style.display = "none";
+    content.style.display = "block";
+  }
+}
+
+// Efface les informations sensibles collectées pendant la nuit (résultats, statuts...)
+function clearNightSecrets() {
+  const s = document.getElementById("status");
+  if (s) s.innerText = "";
+  // BUG FIX : NE PAS fermer la dayDeathCard ici — elle vient juste d'être ouverte
+  // par dawnResult (qui est émis JUSTE AVANT setPhase("day")). Elle a son propre
+  // auto-close de 7s. La fermer ici la fait disparaître instantanément.
+  // Panneaux d'action de nuit : on s'assure qu'ils sont tous fermés
+  ["corbeauPanel","salvateurPanel","sistersPanel","witchDoneBtn"].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.style.display = "none";
+  });
+}
+
+socket.on("phase", p=>{
+  if (gameIsOver && p !== "lobby") return;
+  _prevPhase = phase;
+  phase=p;
+  // Teinte ambiante de l'écran selon la phase (CSS variable --phase-tint)
+  document.body.setAttribute("data-phase", p || "lobby");
+  // Anti-triche : voile de nuit + reveal jour mis à jour à chaque changement de phase
+  updateNightCover();
+  updateRoleRevealBtn();
+  // AMÉLIORATION 2 : à la sortie de la phase wolves, on reset l'état de validation
+  if (p !== "wolves") { _wolfHasConfirmed = false; }
+  if (typeof updateWolfConfirmPanel === "function") updateWolfConfirmPanel();
+  // À l'aube, tout ce qui a été vu/appris pendant la nuit s'efface
+  if (p === "day") clearNightSecrets();
+  // Sœurs : on ferme le panneau si on quitte la phase
+  if (p !== "sisters" && typeof closeSistersPanel === "function") closeSistersPanel();
+  if(p!=="chasseur"){
+    const cp=document.getElementById("chasseurPanel");
+    cp.style.cssText="display:none;";
+    isChasseurDead=false;
+  }
+  // Ne pas cacher tiebreakPanel si on entre en mayorTransfer :
+  // mayorMustTransfer l'a déjà ouvert (ou va l'ouvrir) pour le maire mourant
+  if(p !== "mayorTransfer") document.getElementById("tiebreakPanel").style.display="none";
+  if(p!=="mayorVote") { mayorCounts={}; mayorVotedSet.clear(); }
+  if(p!=="day") { dayCounts={}; votesDayDetail={}; }
+  // corbeauVotesTarget : ne le remettre à null qu'à la nuit suivante (phase wolves/cupid)
+  // il doit persister pendant tout le jour et être visible dès phase=day
+  if(["wolves","cupid","lobby"].includes(p)) corbeauVotesTarget=null;
+  if(p!=="wolves") wolfVotes={};
+  // Ne PAS remettre witchSaveUsed/witchKillUsed à false en phase wolves :
+  // les potions sont à usage unique pour toute la partie (reset dans gameReset).
+  // Refonte (mai 2026) : la carte « la nuit tombe » s'affiche dès la PREMIÈRE
+  // phase de nuit (peu importe laquelle), pas seulement cupid/wolves — le garde
+  // `nightCardShownThisNight` dans showNightFallCard la limite à une fois par nuit.
+  // Conséquence : le voile « garde les yeux fermés » apparaît dès le début de la nuit.
+  if(["sisters","salvateur","wolves","seer","corbeau","witch"].includes(p)) {
+    showNightFallCard();
+  }
+  if(p==="day"){
+    nightCardShownThisNight = false;
+    if(!gameIsOver){
+      // Refonte épuration jour (mai 2026) : on n'ouvre PAS l'interface de vote
+      // à l'entrée en phase day. Elle s'ouvrira uniquement au handler `voteStarted`
+      // (quand le MJ aura cliqué « Lancer le vote »). L'écran joueur reste épuré.
+      // En mode autonome / non piloté, le serveur émettra voteStarted ~2s plus tard
+      // et voteWaitBox/voteTimerBox apparaîtront naturellement à ce moment-là.
+      voteActive=true;
+      currentVoteMode=0; hasVotedLocked=false;
+      document.getElementById("voteWaitBox").style.display="none";
+      document.getElementById("voteTimerBox").style.display="none";
+    }
+  }
+  else document.getElementById("voteWaitBox").style.display="none";
+
+  // ===== MISSION : gestion des panneaux selon phase =====
+  // Règle : chaque panneau mission est ouvert/fermé par son event dédié, PAS par le handler phase.
+  // Le handler phase se contente de gérer missionStatusPanel et de fermer les panneaux
+  // qui ne correspondent plus à la phase courante.
+  const isMissionPhase = ["mission","missionVote","missionBonus"].includes(p);
+
+  // missionStatusPanel : visible pendant toute la durée de la mission
+  const msp = document.getElementById("missionStatusPanel");
+  if(msp) msp.style.display = isMissionPhase ? "block" : "none";
+
+  // Ferme UNIQUEMENT les panneaux qui n'ont pas d'event dédié pour les ouvrir
+  // — missionPanel    : ouvert par missionSelectTeam → ne fermer que hors phase mission
+  // — missionVotePanel: ouvert par missionCardChoice → ne fermer que hors phase missionVote
+  // — missionBonusPanel: ouvert par showMissionBonusPanel → ne fermer que hors phase missionBonus
+  // — missionBonusResult: ouvert par missionBonusResult event → ne fermer que hors phase missionBonus
+  if(p !== "mission")      { const e=document.getElementById("missionPanel");      if(e) e.style.display="none"; }
+  if(p !== "missionVote")  { const e=document.getElementById("missionVotePanel");  if(e) e.style.display="none"; }
+  if(p !== "missionBonus") { const e=document.getElementById("missionBonusPanel"); if(e) e.style.display="none"; }
+  // missionBonusResult : reste visible pendant le jour pour que le maire puisse consulter le résultat
+  // Disparaît seulement à la nuit suivante (phase wolves ou cupid)
+  if(["wolves","cupid","lobby"].includes(p)) { const e=document.getElementById("missionBonusResult"); if(e) e.style.display="none"; }
+
+  if(p==="mission"){
+    document.getElementById("missionStatusText").innerText="Le Maire choisit son équipe…";
+    document.getElementById("missionCardCounter").style.display="none";
+  }
+  if(p==="missionVote"){
+    document.getElementById("missionCardCounter").style.display="block";
+    document.getElementById("missionCardCounter").innerText="0 / 3 cartes jouées";
+  }
+  if(p==="missionBonus"){
+    showMissionBonusPanel();
+  }
+
+  renderVotesPanel(); scheduleRender();
+  // Refonte épuration jour : réévalue l'écran de débat (fermé si phase != day, ou
+  // ouvert dans la foulée si on entre en day — la dayDeathCard prendra le pas si
+  // elle s'ouvre derrière, updateDayDebateScreen est rappelé à sa fermeture).
+  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  // Refonte épuration jour : réévalue l'écran de mort à chaque phase (jour ET nuit
+  // — un mort ne doit jamais voir la liste joueurs/les boutons voter).
+  if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
+  // Refonte épuration jour : réévalue la vue du vote des morts (masquée hors vote).
+  if (typeof updateDeadVoteView === "function") updateDeadVoteView();
+});
+
+const ROLE_EMOJI = Object.fromEntries(Object.entries(ROLE_EXPLAIN).map(([k,v])=>[k,v.emoji||"🎭"]));
+
+function showRoleCard(r) {
+  const card = document.getElementById("roleCard");
+  const info  = ROLE_EXPLAIN[r] || {};
+  // Photo perso si on en a une
+  const me = players.find(p => p.id === socket.id);
+  const myPhoto = me?.photo || (function(){ try { return localStorage.getItem("lgPhoto"); } catch(_){ return null; } })();
+  const photoEl = document.getElementById("rcPhoto");
+  if (photoEl) {
+    if (myPhoto) { photoEl.src = myPhoto; photoEl.style.display = "block"; }
+    else         { photoEl.style.display = "none"; }
+  }
+  document.getElementById("rcEmoji").innerText   = info.emoji   || "🎭";
+  document.getElementById("rcTitle").innerText   = "Votre rôle :";
+  document.getElementById("rcRole").innerText    = ROLE_DISPLAY[r] || r;
+  document.getElementById("rcText").innerText    = info.desc    || "";
+  document.getElementById("rcMission").innerText = info.mission ? "🎯 " + info.mission : "";
+  document.getElementById("rcWin").innerText     = info.win     ? "🏆 " + info.win    : "";
+  card.style.background = info.bg || "radial-gradient(ellipse at center,#001030 0%,#000818 100%)";
+  document.getElementById("rcRole").style.color  = info.color  || "#aaddff";
+  card.className = "show";
+}
+
+function closeRoleCard() {
+  const card = document.getElementById("roleCard");
+  card.classList.add("hiding");
+  setTimeout(() => { card.className=""; card.style.display=""; card.style.background=""; }, 600);
+  renderInfoPanel();
+}
+
+// Refonte (mai 2026) : carte à retourner. Au lancement, le rôle n'apparaît pas
+// directement — le joueur touche la carte « Découvre ton rôle », elle se retourne
+// (flip 3D) et révèle le rôle, puis « Voir les détails » ouvre la roleCard complète.
+function showRoleReveal(r) {
+  const cover = document.getElementById("roleRevealCover");
+  const inner = document.getElementById("roleFlipInner");
+  const flip  = document.getElementById("roleFlip");
+  const cont  = document.getElementById("roleFlipContinue");
+  if (!cover || !inner || !flip || !cont) { showRoleCard(r); return; }  // fallback robuste
+  const info = ROLE_EXPLAIN[r] || {};
+  document.getElementById("rfRoleEmoji").innerText = info.emoji || "🎭";
+  const nameEl = document.getElementById("rfRoleName");
+  nameEl.innerText  = ROLE_DISPLAY[r] || r;
+  nameEl.style.color = info.color || "#cdb8ff";
+  document.getElementById("roleFlipFront").style.background = info.bg || "radial-gradient(ellipse at center,#1a1030 0%,#0a0818 100%)";
+  // Reset : carte face cachée
+  inner.style.transform = "";
+  cont.style.display = "none";
+  cover.style.display = "flex";
+  let flipped = false;
+  flip.onclick = () => {
+    if (flipped) return;
+    flipped = true;
+    inner.style.transform = "rotateY(180deg)";
+    // Vibration courte de confirmation au retournement
+    try { if (navigator.vibrate) navigator.vibrate(60); } catch(_) {}
+    setTimeout(() => { cont.style.display = "block"; }, 720);
+  };
+}
+function closeRoleReveal() {
+  const cover = document.getElementById("roleRevealCover");
+  if (cover) cover.style.display = "none";
+  showRoleCard(role);  // ouvre la carte de rôle détaillée
+}
+
+socket.on("yourRole", data=>{
+  role=data.role; wolves=data.wolves||[];
+  // Refonte épuration jour : mémorise le mode (pilotage MJ du jour)
+  if (typeof data.mjPilotedDay === "boolean") mjPilotedDay = data.mjPilotedDay;
+  // À l'attribution du rôle, la partie démarre vraiment → on masque le lobby + photo
+  const lobby = document.getElementById("lobby");
+  if (lobby) lobby.style.display = "none";
+  // Refonte (mai 2026) : vibration franche au lancement — alerte les joueurs distraits.
+  try { if (navigator.vibrate) navigator.vibrate([450, 160, 450, 160, 250]); } catch(_) {}
+  // Refonte (mai 2026) : le rôle se découvre via une carte à retourner.
+  showRoleReveal(role);
+  renderInfoPanel();
+  updateNightCover();
+  updateRoleRevealBtn();
+});
+
+socket.on("corbeauTurn", ()=>{
+  if(role !== "Corbeau") return;
+  const panel = document.getElementById("corbeauPanel");
+  panel.style.display = "block";
+  renderCorbeauTargets();
+});
+
+// ===== SALVATEUR =====
+let salvateurLastProtectedId = null;
+socket.on("salvateurTurn", data => {
+  if(role !== "Salvateur") return;
+  salvateurLastProtectedId = data?.lastProtectedId || null;
+  const panel = document.getElementById("salvateurPanel");
+  panel.style.display = "block";
+  const info = document.getElementById("salvateurLastInfo");
+  if (data && data.lastProtectedName) {
+    info.style.display = "block";
+    info.innerText = "⛔ Hier, vous avez protégé " + data.lastProtectedName + " — vous ne pouvez pas le/la choisir cette nuit.";
+  } else {
+    info.style.display = "none";
+  }
+  renderSalvateurTargets();
+});
+
+socket.on("salvateurConfirm", data => {
+  document.getElementById("salvateurPanel").style.display = "none";
+  if (data && data.targetName) {
+    document.getElementById("status").innerText = "🛡 Vous protégez " + data.targetName + " cette nuit.";
+  }
+});
+
+socket.on("salvateurReject", data => {
+  if (data && data.reason) {
+    alert(data.reason);
+  }
+});
+
+function renderSalvateurTargets() {
+  const div = document.getElementById("salvateurTargets");
+  div.innerHTML = "";
+  players.forEach(p => {
+    if (deadPlayers.includes(p.id)) return;
+    const btn = document.createElement("button");
+    const isLast = (p.id === salvateurLastProtectedId);
+    btn.disabled = isLast;
+    btn.onclick = () => salvateurChoose(p.id);
+    btn.textContent = (p.id === socket.id ? "🛡 " : "") + p.name + (isLast ? " (hier)" : "");
+    btn.title = p.id === socket.id ? "Vous pouvez vous protéger vous-même" : (isLast ? "Cible interdite : déjà protégée la nuit précédente" : "");
+    btn.style.cssText = "margin:3px;padding:8px 14px;background:" + (isLast?"#1a0a0a":"#0a1820") + ";border:1px solid " + (isLast?"#552222":"#335a7a") + ";border-radius:6px;color:" + (isLast?"#553333":"#cce6ff") + ";cursor:" + (isLast?"not-allowed":"pointer") + ";font-size:13px;opacity:" + (isLast?"0.5":"1") + ";";
+    div.appendChild(btn);
+  });
+}
+
+function salvateurChoose(id) {
+  socket.emit("salvateurAction", id);
+}
+
+// ===== SŒURS JUMELLES =====
+// Option B : on n'affiche PAS les noms des autres sœurs. La carte plein écran
+// invite chaque sœur à se reconnaître IRL. Le compteur 20s reste FIGÉ à 00:20
+// jusqu'à ce que le MJ lance le timer via sa carte narrative (event `sistersTimerStart`).
+let _sistersCountdownInterval = null;
+function closeSistersPanel() {
+  const p = document.getElementById("sistersPanel");
+  if (p) p.style.display = "none";
+  if (_sistersCountdownInterval) { clearInterval(_sistersCountdownInterval); _sistersCountdownInterval = null; }
+}
+function _sistersFmt(s) { return "00:" + (s < 10 ? "0" + s : s); }
+socket.on("sistersTurn", data => {
+  if (role !== "Sœurs") return;
+  const panel = document.getElementById("sistersPanel");
+  if (!panel) return;
+  panel.style.display = "flex";
+  // Nombre de sœurs vivantes (Option B)
+  const aliveTxt = document.getElementById("sistersAliveCount");
+  if (aliveTxt) aliveTxt.innerText = (data && data.count ? data.count : 2) + " sœurs en vie";
+  // Timer figé à 00:20 — démarrera quand le MJ lancera (sistersTimerStart)
+  const timerEl = document.getElementById("sistersTimer");
+  if (timerEl) timerEl.innerText = _sistersFmt(20);
+  if (_sistersCountdownInterval) { clearInterval(_sistersCountdownInterval); _sistersCountdownInterval = null; }
+});
+// Démarrage effectif du compte à rebours, déclenché par le MJ
+socket.on("sistersTimerStart", data => {
+  if (role !== "Sœurs") return;
+  const timerEl = document.getElementById("sistersTimer");
+  const durationMs = (data && data.durationMs) ? data.durationMs : 20000;
+  const startedAt  = (data && data.startedAt)  ? data.startedAt  : Date.now();
+  if (_sistersCountdownInterval) clearInterval(_sistersCountdownInterval);
+  const tick = () => {
+    const remainingMs = Math.max(0, durationMs - (Date.now() - startedAt));
+    const sec = Math.ceil(remainingMs / 1000);
+    if (timerEl) timerEl.innerText = _sistersFmt(sec);
+    if (remainingMs <= 0 && _sistersCountdownInterval) {
+      clearInterval(_sistersCountdownInterval); _sistersCountdownInterval = null;
+    }
+  };
+  tick();
+  _sistersCountdownInterval = setInterval(tick, 250);
+});
+// La fermeture du panneau Sœurs en cas de changement de phase est gérée
+// dans le gros handler socket.on("phase", ...) plus haut.
+
+socket.on("corbeauConfirm", data=>{
+  document.getElementById("corbeauPanel").style.display = "none";
+  const msg = data.targetId === "skip"
+    ? "🪶 Vous avez passé votre tour."
+    : "🪶 Cible désignée — 2 votes supplémentaires demain.";
+  document.getElementById("status").innerText = msg;
+});
+
+function renderCorbeauTargets(){
+  const div = document.getElementById("corbeauTargets"); div.innerHTML = "";
+  players.forEach(p => {
+    if(deadPlayers.includes(p.id)) return;
+    const btn = document.createElement("button");
+    btn.onclick = () => corbeauChoose(p.id);
+    btn.textContent = (p.id === socket.id ? "🪶 " : "") + p.name;
+    btn.title = p.id === socket.id ? "Vous pouvez vous cibler vous-même" : "";
+    btn.style.cssText = "margin:3px;padding:8px 14px;background:#111;border:1px solid #444;border-radius:6px;color:#ccc;cursor:pointer;font-size:13px;";
+    div.appendChild(btn);
+  });
+}
+
+function corbeauChoose(id){
+  socket.emit("corbeauAction", id);
+  document.getElementById("corbeauPanel").style.display = "none";
+}
+
+function corbeauSkip(){
+  socket.emit("corbeauAction", "skip");
+  document.getElementById("corbeauPanel").style.display = "none";
+  document.getElementById("status").innerText = "🪶 Vous avez passé votre tour.";
+}
+
+socket.on("deadPlayers", dead=>{
+  deadPlayers=dead; iAmDead=deadPlayers.includes(socket.id);
+  if(iAmDead){document.getElementById("deadChatPanel").style.display="block";}
+  scheduleRender(); renderInfoPanel();
+  updateNightCover();        // les morts ne voient plus le voile
+  updateRoleRevealBtn();      // un mort peut voir ses infos sans bouton
+  // Si Les Voix Étouffées sont actives, rebascule l'input write/read selon vivant/mort.
+  if (typeof refreshSilentDayChatVisibility === "function") refreshSilentDayChatVisibility();
+  // Refonte épuration jour : réévalue l'écran de débat (caché si je deviens mort)
+  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  // Refonte épuration jour : si je viens de mourir → écran de mort épuré
+  if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
+});
+
+socket.on("loversInfo", list=>{ lovers=list; renderInfoPanel(); scheduleRender(); });
+socket.on("newMayor", id=>{
+  const prevMayor = mayor;
+  mayor=id;
+  // La carte maire s'affiche pour TOUS les joueurs (pas seulement le nouveau maire)
+  if(id && id!==prevMayor && !gameIsOver){
+    const p=players.find(x=>x.id===id);
+    if(p) showMayorCard(p.name);
+    // Vibration plus longue si c'est moi le nouveau maire
+    if(id === socket.id) vibrateIfDay([100, 50, 100, 50, 300]);
+    else vibrateIfDay(150);
+  }
+  scheduleRender();
+});
+
+socket.on("deadVision", data=>{
+  deadVisionData=data;
+  if(data.roles) roles=data.roles;
+  renderDeadVision();
+  document.getElementById("deadVisionPanel").style.display="block";
+});
+
+socket.on("seerResult", data=>{
+  const rd = ROLE_DISPLAY[data.role] || data.role;
+  const isWolf = data.role === "Loup";
+  document.getElementById("deathEmoji").innerText = isWolf ? "🐺" : "✨";
+  document.getElementById("deathTitle").innerText = "Vision de la Voyante";
+  document.getElementById("deathText").innerText  = `${data.name} est… ${rd}.${isWolf ? " Danger !" : " Cette personne est inoffensive."}`;
+  const c = document.getElementById("dayDeathCard");
+  c.style.background = isWolf
+    ? "radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)"
+    : "radial-gradient(ellipse at center,#050520 0%,#000008 100%)";
+  c.className = "show";
+  // La voyante joue EN PLEINE NUIT — la nightFallCard a déjà été affichée.
+  // Ne pas la rappeler, ne pas toucher à nightCardShownThisNight.
+  _dawnOnClose = null;
+  setTimeout(() => closeDawnCard(), 5000);
+});
+
+socket.on("nightVictim", victimId=>{
+  nightVictimId=victimId;
+  const v=players.find(p=>p.id===victimId);
+  if(v) document.getElementById("status").innerText="🐺 Les loups ont choisi : "+v.name+". Voulez-vous le sauver ?";
+  scheduleRender();
+});
+
+socket.on("witchKillRefused", msg=>{ document.getElementById("status").innerText="🚫 "+msg; });
+socket.on("witchSaveConfirm",()=>{witchSaveUsed=true;document.getElementById("status").innerText="🧪 Potion de vie utilisée !";renderInfoPanel();scheduleRender();});
+socket.on("witchKillConfirm",()=>{witchKillUsed=true;document.getElementById("status").innerText="☠️ Potion de mort utilisée !";renderInfoPanel();scheduleRender();});
+
+socket.on("chasseurMustShoot", hunterId=>{
+  // Ferme la nightFallCard si elle est visible (peut s'être affichée via _dawnOnClose avant ce message)
+  const nfc = document.getElementById("nightFallCard");
+  if(nfc && nfc.className === "show") { nfc.className=""; nfc.style.display=""; }
+  nightCardShownThisNight = false;
+
+  if(socket.id === hunterId){
+    isChasseurDead = true;
+    const panel = document.getElementById("chasseurPanel");
+    panel.style.cssText = [
+      "display:flex","flex-direction:column","align-items:center",
+      "justify-content:center","position:fixed","inset:0","z-index:9500",
+      "background:radial-gradient(ellipse at center,#1a0800 0%,#060200 100%)",
+      "padding:30px","text-align:center"
+    ].join(";");
+    renderChasseurTargets();
+    // Vibration : c'est au Chasseur de tirer — uniquement de jour (anti-leak la nuit)
+    if (isDayContext()) vibrateNow([300, 120, 300, 120, 500]);
+  } else {
+    const panel = document.getElementById("chasseurPanel");
+    panel.style.cssText = [
+      "display:flex","flex-direction:column","align-items:center",
+      "justify-content:center","position:fixed","inset:0","z-index:9500",
+      "background:radial-gradient(ellipse at center,#1a0800 0%,#060200 100%)",
+      "padding:30px","text-align:center"
+    ].join(";");
+    panel.innerHTML = [
+      "<div style='font-size:64px;margin-bottom:20px;'>🔫</div>",
+      "<div style='font-size:22px;font-weight:bold;color:#ff8833;margin-bottom:12px;'>Le Chasseur tire sa dernière balle…</div>",
+      "<div style='font-size:15px;color:#aaa;'>Avant de mourir, le Chasseur emporte quelqu'un avec lui.</div>"
+    ].join("");
+  }
+});
+
+socket.on("loversDeathInfo", data=>{
+  const partnerId = data.id || data;
+  const partnerName = data.name || players.find(x=>x.id===partnerId)?.name || "?";
+  const partnerRole = data.role || "?";
+  document.getElementById("status").innerText="💔 "+partnerName+" meurt de chagrin.";
+  if(!deathLog.find(d=>d.id===partnerId)){
+    deathLog.push({ id:partnerId, name:partnerName, role:partnerRole, cause:"amour" });
+    updateDeathLog(deathLog);
+  }
+});
+
+socket.on("randomElim",()=>{ document.getElementById("status").innerText="⚠️ Aucun vote — élimination aléatoire !"; });
+
+socket.on("hasVotedConfirm", data=>{
+  document.getElementById("status").innerText="✅ Vote enregistré — " + data.targetName;
+  hasVotedLocked=true;
+  scheduleRender();
+});
+socket.on("dayVoteResult", data=>{
+  deathLog.push({ id: data.id||null, name: data.name, role: data.role, cause: "vote", narrative: data.narrative });
+  updateDeathLog(deathLog);
+  showDeathCard(data.name, data.role, data.narrative);
+  // Vibration : annonce de la victime du jour (sécurisé : on est en plein jour)
+  // Plus longue si c'est toi qui meurs
+  if(data.id === socket.id) vibrateIfDay([300, 100, 300, 100, 500]);
+  else vibrateIfDay([200, 100, 200]);
+});
+
+socket.on("daySkipped",()=>{ document.getElementById("status").innerText="🌅 Pas de vote ce jour."; });
+
+// ===== MISSION — HANDLERS =====
+
+// Reçu uniquement par le maire
+socket.on("missionSelectTeam", data=>{
+  missionActive = true;
+  missionSelectedByMe = [];
+  const panel = document.getElementById("missionPanel");
+  panel.style.display = "block";
+  // Peuple les boutons de sélection
+  const btns = document.getElementById("missionTeamBtns");
+  btns.innerHTML = "";
+  data.players.forEach(p=>{
+    const btn = document.createElement("button");
+    btn.id = "mbt_" + p.id;
+    btn.textContent = p.name;
+    btn.onclick = () => toggleMissionPlayer(p.id, p.name);
+    btn.style.cssText = "padding:8px 14px;background:#111;border:1px solid #333;border-radius:6px;color:#aaa;cursor:pointer;font-size:13px;transition:all 0.15s;";
+    btns.appendChild(btn);
+  });
+  document.getElementById("missionSelectedNames").innerText = "Sélectionnez 3 joueurs";
+  document.getElementById("missionConfirmBtn").disabled = true;
+  document.getElementById("missionConfirmBtn").style.opacity = "0.4";
+});
+
+function toggleMissionPlayer(id, name){
+  const idx = missionSelectedByMe.indexOf(id);
+  const btn = document.getElementById("mbt_" + id);
+  if(idx >= 0){
+    missionSelectedByMe.splice(idx, 1);
+    if(btn){ btn.style.background="#111"; btn.style.borderColor="#333"; btn.style.color="#aaa"; }
+  } else {
+    if(missionSelectedByMe.length >= 3) return; // max 3
+    missionSelectedByMe.push(id);
+    if(btn){ btn.style.background="#1a1a3a"; btn.style.borderColor="#4444aa"; btn.style.color="#8888ff"; }
+  }
+  const names = missionSelectedByMe.map(sid=>{
+    const p = players.find(x=>x.id===sid); return p?p.name:"?";
+  });
+  const sel = document.getElementById("missionSelectedNames");
+  sel.innerText = missionSelectedByMe.length===0 ? "Sélectionnez 3 joueurs" : names.join(", ");
+  const confirmBtn = document.getElementById("missionConfirmBtn");
+  confirmBtn.disabled = missionSelectedByMe.length !== 3;
+  confirmBtn.style.opacity = missionSelectedByMe.length === 3 ? "1" : "0.4";
+}
+
+function confirmMissionTeam(){
+  if(missionSelectedByMe.length !== 3) return;
+  socket.emit("missionTeamChoice", missionSelectedByMe);
+  document.getElementById("missionPanel").style.display = "none";
+  document.getElementById("status").innerText = "🎭 Équipe envoyée — en attente des choix…";
+}
+
+// Reçu par tous : l'équipe est connue
+socket.on("missionStarted", data=>{
+  missionActive = true;
+  document.getElementById("missionStatusPanel").style.display = "block";
+  document.getElementById("missionStatusText").innerText = `🎭 Mission lancée par ${data.mayorName}`;
+  // Affiche la carte explicative pour TOUS les joueurs (vivants comme spectateurs)
+  showMissionExplainCard();
+});
+
+let _missionExplainAutoClose = null;
+function showMissionExplainCard(){
+  const card = document.getElementById("missionExplainCard");
+  if(!card) return;
+  card.style.display = "flex";
+  card.style.animation = "fadeIn 0.5s ease forwards";
+  // BUG FIX 1 : carte ouverte → cache le voile de nuit
+  if (typeof updateNightCover === "function") updateNightCover();
+  // Auto-close après 20 secondes — filet de sécurité, fermeture manuelle attendue
+  if(_missionExplainAutoClose) clearTimeout(_missionExplainAutoClose);
+  _missionExplainAutoClose = setTimeout(closeMissionExplainCard, 20000);
+}
+function closeMissionExplainCard(){
+  if(_missionExplainAutoClose) { clearTimeout(_missionExplainAutoClose); _missionExplainAutoClose = null; }
+  const card = document.getElementById("missionExplainCard");
+  if(!card) return;
+  card.style.animation = "fadeOut 0.6s ease forwards";
+  setTimeout(()=>{
+    card.style.display = "none"; card.style.animation = "";
+    // BUG FIX 1 : carte fermée → réévalue le voile de nuit
+    if (typeof updateNightCover === "function") updateNightCover();
+    // Refonte épuration jour : carte fermée → ouvre le débat si phase=day
+    if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  }, 600);
+}
+
+// ===== CONSEIL DES MORTS — vote =====
+let councilCurrentOptions = [];
+let councilHasVoted = false;
+
+socket.on("councilStart", data => {
+  if (!iAmDead) return;  // sécurité : ne devrait être reçu que par les morts
+  councilCurrentOptions = data.options || [];
+  councilHasVoted = false;
+  const panel = document.getElementById("councilPanel");
+  const optsDiv = document.getElementById("councilOptions");
+  const status = document.getElementById("councilVoteStatus");
+  if (!panel || !optsDiv) return;
+  optsDiv.innerHTML = "";
+  councilCurrentOptions.forEach(opt => {
+    const btn = document.createElement("button");
+    btn.id = "councilOpt_" + opt.id;
+    btn.textContent = opt.title;
+    btn.onclick = () => voteCouncil(opt.id);
+    btn.style.cssText = "padding:14px 18px;background:#2a1a2a;border:2px solid #663366;border-radius:8px;color:#cc99cc;font-size:15px;cursor:pointer;width:100%;text-align:center;transition:all 0.15s;";
+    btn.addEventListener("mouseenter", () => { btn.style.background = "#3a2a3a"; btn.style.borderColor = "#884488"; });
+    btn.addEventListener("mouseleave", () => { if (!btn.classList.contains("voted")) { btn.style.background = "#2a1a2a"; btn.style.borderColor = "#663366"; } });
+    optsDiv.appendChild(btn);
+  });
+  if (status) status.innerText = "🗳️ Choisis un évènement…";
+  panel.style.display = "block";
+});
+
+function voteCouncil(eventId) {
+  if (councilHasVoted) return;
+  councilHasVoted = true;
+  socket.emit("councilVote", eventId);
+  // Marque visuellement le bouton choisi
+  councilCurrentOptions.forEach(opt => {
+    const btn = document.getElementById("councilOpt_" + opt.id);
+    if (!btn) return;
+    if (opt.id === eventId) {
+      btn.classList.add("voted");
+      btn.style.background = "#3a1a3a";
+      btn.style.borderColor = "#aa66aa";
+      btn.style.color = "#ffccff";
+    } else {
+      btn.style.opacity = "0.4";
+    }
+    btn.disabled = true;
+  });
+  const status = document.getElementById("councilVoteStatus");
+  if (status) status.innerText = "✅ Ton choix est enregistré. En attente des autres morts…";
+}
+
+socket.on("councilVoteConfirm", () => { /* déjà géré côté UI */ });
+
+socket.on("councilResolved", () => {
+  // Cache le panneau de vote (l'événement sera révélé demain matin)
+  const panel = document.getElementById("councilPanel");
+  if (panel) panel.style.display = "none";
+  councilCurrentOptions = []; councilHasVoted = false;
+});
+
+// ===== CONSEIL DES MORTS — carte narrative de l'événement actif =====
+let _councilEventCardAutoClose = null;
+socket.on("councilEventActive", data => {
+  if (!data) return;
+  // Refonte (mai 2026) : si la carte d'aube (récap de nuit) est encore ouverte,
+  // on met l'évènement en file d'attente — il s'affichera à sa fermeture.
+  const dayCard = document.getElementById("dayDeathCard");
+  if (dayCard && dayCard.classList && dayCard.classList.contains("show")) {
+    _pendingCouncilEventData = data;
+    return;
+  }
+  showCouncilEventCardNow(data);
+});
+
+// Affiche immédiatement la carte évènement du Conseil (icône + titre côté joueur ;
+// le narratif est masqué, cf. le HTML de #councilEventCard).
+function showCouncilEventCardNow(data) {
+  if (!data) return;
+  const card = document.getElementById("councilEventCard");
+  if (!card) return;
+  document.getElementById("councilEventTitle").innerText = data.title || "";
+  document.getElementById("councilEventNarrative").innerText = data.narrative || "";
+  card.style.display = "flex";
+  card.style.animation = "fadeIn 0.5s ease forwards";
+  // BUG FIX 1 : carte ouverte → cache le voile de nuit
+  if (typeof updateNightCover === "function") updateNightCover();
+  if (_councilEventCardAutoClose) clearTimeout(_councilEventCardAutoClose);
+  _councilEventCardAutoClose = setTimeout(closeCouncilEventCard, 20000);  // filet de sécurité — fermeture manuelle attendue
+}
+
+function closeCouncilEventCard(){
+  if (_councilEventCardAutoClose) { clearTimeout(_councilEventCardAutoClose); _councilEventCardAutoClose = null; }
+  const card = document.getElementById("councilEventCard");
+  if (!card) return;
+  card.style.animation = "fadeOut 0.6s ease forwards";
+  setTimeout(()=>{
+    card.style.display = "none"; card.style.animation = "";
+    // BUG FIX 1 : carte fermée → réévalue le voile de nuit
+    if (typeof updateNightCover === "function") updateNightCover();
+    // Refonte épuration jour : carte fermée → ouvre le débat si phase=day
+    if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  }, 600);
+}
+
+socket.on("councilEventEnd", () => {
+  // L'événement actif s'est terminé — masque le chat écrit si actif.
+  silentDayChatActive = false;
+  if (typeof refreshSilentDayChatVisibility === "function") refreshSilentDayChatVisibility();
+});
+
+socket.on("missionTeamSelected", data=>{
+  missionTeamSelected = data.team.map(p=>p.id);
+  const names = data.team.map(p=>p.name).join(", ");
+  document.getElementById("missionStatusPanel").style.display = "block";
+  document.getElementById("missionStatusText").innerText =
+    `🎭 Équipe de mission : ${names}`;
+  document.getElementById("missionCardCounter").style.display = "block";
+  document.getElementById("missionCardCounter").innerText = "En attente des votes…";
+});
+
+// Reçu par les 3 membres de l'équipe seulement
+socket.on("missionCardChoice", data=>{
+  missionCardPlayed = false;
+  const panel = document.getElementById("missionVotePanel");
+  panel.style.display = "block";
+  document.getElementById("missionCardDone").style.display = "none";
+  // Réactive les boutons
+  panel.querySelectorAll("button").forEach(b=>{ b.disabled=false; b.style.opacity="1"; });
+});
+
+function playMissionCard(card){
+  if(missionCardPlayed) return;
+  missionCardPlayed = true;
+  socket.emit("missionCard", card);
+  // Cache les boutons, affiche confirmation
+  document.getElementById("missionVotePanel").querySelectorAll("button[onclick]").forEach(b=>{
+    b.disabled=true; b.style.opacity="0.3";
+  });
+  document.getElementById("missionCardDone").style.display = "block";
+}
+
+// Reçu par le joueur : confirmation de son choix
+socket.on("missionCardConfirm", data=>{
+  // Déjà géré dans playMissionCard côté UI
+});
+
+// Reçu par tous : quelqu'un a joué une carte (sans dire qui ni laquelle)
+socket.on("missionCardPlayed", data=>{
+  const counter = document.getElementById("missionCardCounter");
+  if(counter) counter.innerText = `${data.count} / ${data.total} cartes jouées`;
+});
+
+// Reçu à l'aube via dawnResult — la révélation est dans le texte narratif (pas de nouvelle carte)
+// Voir handler dawnResult modifié ci-dessous
+
+// Reçu uniquement par le maire si mission réussie
+socket.on("missionBonusResult", data=>{
+  // Cache le panel de sélection
+  document.getElementById("missionBonusPanel").style.display = "none";
+  // Affiche le résultat
+  const res = document.getElementById("missionBonusResult");
+  res.style.display = "block";
+  const names = data.team.map(p=>p.name).join(", ");
+  const txt = document.getElementById("missionBonusResultText");
+  const sub = document.getElementById("missionBonusResultSub");
+  if(data.hasWolf){
+    txt.style.color = "#ff4444";
+    txt.innerText = "⚠️ OUI — au moins un Loup parmi eux !";
+  } else {
+    txt.style.color = "#44ff88";
+    txt.innerText = "✅ NON — aucun Loup parmi eux.";
+  }
+  sub.innerText = `Joueurs inspectés : ${names}`;
+});
+
+// Reçu par le maire : activer le panneau bonus
+socket.on("dawnResult", data=>{
+  const deaths  = Array.isArray(data) ? data : (data.deaths || []);
+  const saved   = !Array.isArray(data) && data.saved;
+  const missionResult = !Array.isArray(data) ? data.missionResult : null;
+  if (deaths.length > 0) {
+    deaths.forEach(d => {
+      // Vérifie qu'on n'ajoute pas un doublon (loversDeathInfo peut avoir déjà ajouté ce joueur)
+      if (!deathLog.find(x => x.id && x.id === d.id)) {
+        deathLog.push({ id: d.id||null, name: d.name, role: d.role, cause: d.cause || "loups" });
+      }
+    });
+    updateDeathLog(deathLog);
+  }
+  // Refonte (mai 2026) : carte d'aube côté joueur = PHOTOS uniquement.
+  // Les joueurs voient QUI est mort cette nuit (photos) mais pas les rôles — le MJ
+  // garde l'info complète via la carte mjDayRecap pour pouvoir narrer.
+  let title, text, emoji;
+  if (deaths.length === 0 && saved) {
+    emoji = "🌅"; title = "Une vie sauvée dans l'ombre";
+    text  = "Les loups ont frappé cette nuit… mais leur victime a survécu. Le village se réveille soulagé.";
+  } else if (deaths.length === 0) {
+    emoji = "🌄"; title = "Une nuit paisible";
+    text  = "Personne n'a perdu la vie cette nuit. Mais les loups rôdent toujours — méfiance.";
+  } else if (deaths.length === 1) {
+    emoji = "🌑"; title = "Le village pleure";
+    text  = "Une âme nous a quittés cette nuit.";
+  } else {
+    emoji = "💀"; title = "Une nuit de deuil";
+    text  = "Plusieurs des nôtres ont péri cette nuit.";
+  }
+  // Le résultat de mission n'est pas un rôle → on peut le montrer aux joueurs
+  if (missionResult === "success")      text += "\n\n🎭 Mission réussie.";
+  else if (missionResult === "fail")    text += "\n\n🎭 Mission échouée.";
+  document.getElementById("deathEmoji").innerText = emoji;
+  document.getElementById("deathTitle").innerText = title;
+  document.getElementById("deathText").innerText  = text;
+  // Photos de TOUTES les victimes (sans rôle) — auto-resize selon le nombre
+  renderDeathPhotos(deaths.map(d => ({ name: d.name })));
+  const c = document.getElementById("dayDeathCard");
+  c.style.background = "radial-gradient(ellipse at center,#1a1000 0%,#0a0800 100%)";
+  c.className = "show";
+  // BUG FIX 1 : la carte chronique s'ouvre → on cache le voile de nuit
+  if (typeof updateNightCover === "function") updateNightCover();
+  // Réinitialise nightCardShownThisNight : la carte d'aube précède toujours la nuit suivante
+  nightCardShownThisNight = false;
+  if (isChasseurDead) {
+    _dawnOnClose = () => {
+      const panel = document.getElementById("chasseurPanel");
+      panel.style.cssText = [
+        "display:flex","flex-direction:column","align-items:center",
+        "justify-content:center","position:fixed","inset:0","z-index:9500",
+        "background:radial-gradient(ellipse at center,#1a0800 0%,#060200 100%)",
+        "padding:30px","text-align:center"
+      ].join(";");
+      renderChasseurTargets();
+    };
+  } else if (mayorTransferPending) {
+    // Le maire est mort cette nuit : la carte s'affiche d'abord, puis le panel de transfert s'ouvre.
+    // On cache temporairement le tiebreakPanel pendant l'affichage de la carte.
+    document.getElementById("tiebreakPanel").style.cssText = "display:none;";
+    // BUG FIX : ne rouvrir le tiebreakPanel QUE pour le maire mourant.
+    // Avant ce fix, _dawnOnClose rouvrait le panel pour TOUS les joueurs (mayorTransferPending
+    // est vrai côté client pour tout le monde), leur affichant un panneau "Le Maire doit trancher"
+    // vide et confus.
+    if (socket.id === dyingMayorId) {
+      _dawnOnClose = () => {
+        const panel = document.getElementById("tiebreakPanel");
+        panel.style.cssText = [
+          "display:flex","flex-direction:column","align-items:center",
+          "justify-content:center","position:fixed","inset:0","z-index:10000",
+          "background:#0a0a0a","padding:30px","text-align:center"
+        ].join(";");
+      };
+    } else {
+      _dawnOnClose = null;
+    }
+  } else {
+    // Après la carte d'aube, on enchaîne vers le jour (via phase=day qui arrive juste après)
+    // _dawnOnClose=null est correct : c'est phase=day qui remet nightCardShownThisNight=false
+    _dawnOnClose = null;
+  }
+  // Fermeture automatique après 7s si le joueur ne clique pas "Fermer"
+  // Garantit que _dawnOnClose est toujours appelé
+  setTimeout(() => { if(c.className === "show") closeDawnCard(); }, 7000);
+});
+
+// Reçu par tous : le maire a utilisé son bonus
+socket.on("missionBonusUsed", data=>{
+  const names = data.team ? data.team.map(p=>p.name).join(", ") : "…";
+  document.getElementById("missionStatusText").innerText =
+    `🔍 ${data.mayorName} a inspecté : ${names}`;
+  document.getElementById("missionBonusPanel").style.display = "none";
+});
+
+function showMissionBonusPanel(){
+  if(socket.id !== mayor) return;
+  missionBonusSelectedByMe = [];
+  const panel = document.getElementById("missionBonusPanel");
+  panel.style.display = "block";
+  const btns = document.getElementById("missionBonusBtns");
+  btns.innerHTML = "";
+  // Le maire ne peut pas s'inspecter lui-même
+  players.filter(p=>!deadPlayers.includes(p.id) && p.id !== mayor).forEach(p=>{
+    const btn = document.createElement("button");
+    btn.id = "mbonus_" + p.id;
+    btn.textContent = p.name;
+    btn.onclick = () => toggleBonusPlayer(p.id);
+    btn.style.cssText = "padding:8px 14px;background:#111;border:1px solid #333;border-radius:6px;color:#aaa;cursor:pointer;font-size:13px;";
+    btns.appendChild(btn);
+  });
+  document.getElementById("missionBonusSelectedNames").innerText = "Sélectionnez 3 joueurs";
+  document.getElementById("missionBonusConfirmBtn").disabled = true;
+  document.getElementById("missionBonusConfirmBtn").style.opacity = "0.4";
+}
+
+function toggleBonusPlayer(id){
+  const idx = missionBonusSelectedByMe.indexOf(id);
+  const btn = document.getElementById("mbonus_" + id);
+  if(idx >= 0){
+    missionBonusSelectedByMe.splice(idx, 1);
+    if(btn){ btn.style.background="#111"; btn.style.borderColor="#333"; btn.style.color="#aaa"; }
+  } else {
+    if(missionBonusSelectedByMe.length >= 3) return;
+    missionBonusSelectedByMe.push(id);
+    if(btn){ btn.style.background="#0a2a0a"; btn.style.borderColor="#22aa44"; btn.style.color="#44ff88"; }
+  }
+  const names = missionBonusSelectedByMe.map(sid=>{
+    const p=players.find(x=>x.id===sid); return p?p.name:"?";
+  });
+  document.getElementById("missionBonusSelectedNames").innerText =
+    missionBonusSelectedByMe.length===0 ? "Sélectionnez 3 joueurs" : names.join(", ");
+  const cb = document.getElementById("missionBonusConfirmBtn");
+  cb.disabled = missionBonusSelectedByMe.length !== 3;
+  cb.style.opacity = missionBonusSelectedByMe.length === 3 ? "1" : "0.4";
+}
+
+function confirmMissionBonus(){
+  if(missionBonusSelectedByMe.length !== 3) return;
+  socket.emit("missionBonusChoice", missionBonusSelectedByMe);
+  document.getElementById("missionBonusPanel").style.display = "none";
+}
+
+// ===== FIN MISSION HANDLERS =====
+
+socket.on("tiebreakNeeded", data=>{
+  // Seul le maire voit le panel de tiebreak — les autres joueurs voient un message de statut
+  if(socket.id === mayor){
+    // Géré par tiebreakMayor qui arrive juste après (panel plein écran)
+    document.getElementById("status").innerText="⚖️ Égalité — vous devez trancher !";
+  } else {
+    document.getElementById("status").innerText=
+      "⚖️ Égalité entre "+data.candidates.map(c=>c.name).join(" et ")+". Le Maire doit trancher.";
+  }
+});
+
+socket.on("tiebreakMayor", data=>{
+  // Affiche le panel tiebreak en plein écran fixe pour le maire
+  // (évite que le panel soit invisible si la page est scrollée)
+  const panel=document.getElementById("tiebreakPanel");
+  panel.style.cssText = [
+    "display:flex","flex-direction:column","align-items:center",
+    "justify-content:center","position:fixed","inset:0","z-index:9500",
+    "background:#0a0800","padding:30px","text-align:center"
+  ].join(";");
+  document.getElementById("tiebreakMsg").innerText="⚖️ Égalité ! En tant que Maire, vous devez trancher :";
+  const btns=document.getElementById("tiebreakBtns"); btns.innerHTML="";
+  data.candidates.forEach(c=>{
+    const btn=document.createElement("button");
+    btn.onclick=()=>tiebreakVote(c.id);
+    btn.textContent=c.name;
+    btn.style.cssText="margin:8px;padding:14px 28px;background:#2a1a00;border:2px solid #ffaa00;border-radius:8px;color:#ffaa00;cursor:pointer;font-size:16px;";
+    btns.appendChild(btn);
+  });
+  // Vibration : le Maire doit trancher (toujours de jour — vote du jour ou élection)
+  vibrateIfDay([200, 100, 200, 100, 400]);
+});
+
+function tiebreakVote(id){ socket.emit("tiebreakChoice",id); }
+
+socket.on("tiebreakResolved", data=>{
+  document.getElementById("tiebreakPanel").style.display="none";
+  document.getElementById("status").innerText="⚖️ Le Maire a tranché : "+data.name;
+});
+
+// FIX BUG 1 : mayorTransferPending positionné EN PREMIER, avant le guard socket.id
+socket.on("mayorMustTransfer", dyingId=>{
+  mayorTransferPending = true; // ← EN PREMIER — bloque showNightFallCard immédiatement
+  dyingMayorId = dyingId;      // ← mémorisé pour cibler uniquement le maire mourant dans dawnResult
+
+  // FIX BUG 1 : ferme la nightFallCard si elle est visible (même pattern que chasseurMustShoot)
+  const nfcMayor = document.getElementById("nightFallCard");
+  if(nfcMayor && nfcMayor.className === "show") { nfcMayor.className=""; nfcMayor.style.display=""; }
+  nightCardShownThisNight = false;
+
+  if(socket.id !== dyingId) return;
+
+  // Vibration : le Maire mourant doit désigner un successeur — de jour uniquement
+  if (isDayContext()) vibrateNow([200, 100, 200, 100, 400]);
+
+  // Construit (ou reconstruit) les boutons du panel de transfert à partir de la
+  // liste deadPlayers la plus récente. Appelé à l'arrivée de mayorMustTransfer ET
+  // juste avant l'ouverture réelle du panneau — garantit qu'un joueur mort en même
+  // temps que le maire (ex : cible de la Sorcière) n'apparaît pas comme successeur.
+  const buildMayorTransferButtons = () => {
+    document.getElementById("tiebreakMsg").innerText = "⚰️ Vous êtes mort. Désignez votre successeur :";
+    const btns = document.getElementById("tiebreakBtns"); btns.innerHTML = "";
+    players.filter(p => !deadPlayers.includes(p.id)).forEach(p => {
+      const btn = document.createElement("button");
+      btn.onclick = () => mayorTransfer(p.id);
+      btn.textContent = p.name;
+      btn.style.cssText = "margin:6px;padding:12px 24px;background:#1a1a3a;border:2px solid #8888ff;border-radius:8px;color:#aaaaff;cursor:pointer;font-size:16px;";
+      btns.appendChild(btn);
+    });
+  };
+
+  // Pré-remplit dès maintenant (best-effort) — sera recalculé à l'ouverture.
+  buildMayorTransferButtons();
+
+  // Ouvre le panneau plein écran de désignation du successeur.
+  // BUG FIX : reconstruit les boutons ici (deadPlayers à jour après la carte d'aube).
+  const openTransferPanel = () => {
+    buildMayorTransferButtons(); // ← recalcul avec deadPlayers fraîchement mis à jour
+    const panel = document.getElementById("tiebreakPanel");
+    panel.style.cssText = [
+      "display:flex","flex-direction:column","align-items:center",
+      "justify-content:center","position:fixed","inset:0","z-index:10000",
+      "background:#0a0a0a","padding:30px","text-align:center"
+    ].join(";");
+  };
+
+  const dayCard = document.getElementById("dayDeathCard");
+  if(dayCard && dayCard.className === "show"){
+    // La carte de mort du jour est affichée : on ouvre le panneau dès qu'elle se
+    // ferme (clic ou auto-fermeture). FIX : avant, on attendait `dawnResult` qui
+    // n'arrive JAMAIS après une mort de jour → le Maire mourant restait bloqué,
+    // incapable de désigner son successeur.
+    _dawnOnClose = openTransferPanel;
+    // Filet de sécurité : si la carte ne se ferme pas proprement, on force après 7 s
+    setTimeout(() => { if (mayorTransferPending) openTransferPanel(); }, 7000);
+    return;
+  }
+
+  // Pas de carte affichée → ouvre directement le panneau
+  openTransferPanel();
+});
+
+// FIX BUG #11 : la définition canonique de mayorTransfer est plus bas (ligne ~1772)
+// avec la garde gameIsOver. Cette définition redondante est supprimée.
+
+socket.on("mayorTransferred", targetId=>{
+  mayorTransferPending = false;
+  dyingMayorId = null; // BUG FIX : réinitialise après le transfert
+  const panel = document.getElementById("tiebreakPanel");
+  panel.style.display = "none";
+  panel.style.cssText = "display:none;";
+  const p=players.find(x=>x.id===targetId);
+  if(p) document.getElementById("status").innerText="🏛️ "+p.name+" est le nouveau Maire.";
+});
+
+// CONSEIL DES MORTS — 👑 L'Abdication : le maire vivant désigne son successeur.
+// Réutilise le panneau tiebreak existant, comme mayorMustTransfer, mais avec une
+// formulation différente et sans bloquer mayorTransferPending (le maire est vivant).
+socket.on("mayorMustAbdicate", data=>{
+  const panel = document.getElementById("tiebreakPanel");
+  // Vibration : le Maire doit choisir un successeur (évènement du Conseil, de jour)
+  vibrateIfDay([200, 100, 200, 100, 400]);
+  document.getElementById("tiebreakMsg").innerText = "👑 L'Abdication : désignez votre successeur.";
+  const btns = document.getElementById("tiebreakBtns"); btns.innerHTML = "";
+  (data.candidates || []).forEach(c => {
+    const btn = document.createElement("button");
+    btn.onclick = () => { socket.emit("mayorAbdicationChoice", c.id); };
+    btn.textContent = c.name;
+    btn.style.cssText = "margin:6px;padding:12px 24px;background:#3a2a0a;border:2px solid #ffcc44;border-radius:8px;color:#ffe199;cursor:pointer;font-size:16px;";
+    btns.appendChild(btn);
+  });
+  panel.style.cssText = [
+    "display:flex","flex-direction:column","align-items:center",
+    "justify-content:center","position:fixed","inset:0","z-index:9500",
+    "background:#0a0a0a","padding:30px","text-align:center"
+  ].join(";");
+});
+
+socket.on("mayorAbdicated", data=>{
+  // Ferme le panneau d'abdication chez le maire abdiquant.
+  const panel = document.getElementById("tiebreakPanel");
+  if (panel) { panel.style.display = "none"; panel.style.cssText = "display:none;"; }
+  // Affiche un message à tout le monde.
+  const msg = data.forced
+    ? `👑 ${data.oldMayorName} n'a pas tranché — ${data.newMayorName} hérite de l'écharpe.`
+    : `👑 ${data.oldMayorName} a abdiqué en faveur de ${data.newMayorName}.`;
+  document.getElementById("status").innerText = msg;
+});
+
+socket.on("deadChatMsg", msg=>{ appendChatMsg(msg); });
+
+// ===== CONSEIL DES MORTS — 💬 Les Voix Étouffées =====
+// Chat écrit visible de tous (vivants + morts + MJ). Seuls les vivants écrivent.
+// Le panneau apparaît à l'activation de l'event et disparaît à sa fin (councilEventEnd).
+let silentDayChatActive = false;
+function refreshSilentDayChatVisibility(){
+  const panel = document.getElementById("silentDayChatPanel");
+  if (!panel) return;
+  panel.style.display = silentDayChatActive ? "block" : "none";
+  // Désactive l'input pour les morts ; affiche l'indication "lecture seule".
+  const input = document.getElementById("silentDayChatInput");
+  const hint  = document.getElementById("silentDayChatDeadHint");
+  if (silentDayChatActive){
+    const iAmDead = (deadPlayers || []).includes(socket.id);
+    if (input) input.style.display = iAmDead ? "none" : "flex";
+    if (hint)  hint.style.display  = iAmDead ? "block" : "none";
+  }
+}
+socket.on("silentDayChatStart", () => {
+  silentDayChatActive = true;
+  const div = document.getElementById("silentDayChatMessages");
+  if (div) div.innerHTML = "";
+  refreshSilentDayChatVisibility();
+  // Reçoit l'historique le cas échéant (utile en cas de reconnexion en cours d'event).
+  socket.emit("silentDayChatHistory");
+});
+socket.on("silentDayChatMsg", msg => {
+  const div = document.getElementById("silentDayChatMessages");
+  if (!div) return;
+  const el = document.createElement("div"); el.className = "chat-msg";
+  const nameSpan = document.createElement("span"); nameSpan.className = "chat-name";
+  nameSpan.textContent = msg.name + " ";
+  nameSpan.style.color = "#cc99ff";
+  el.appendChild(nameSpan);
+  el.appendChild(document.createTextNode(msg.text));
+  div.appendChild(el); div.scrollTop = div.scrollHeight;
+  while (div.children.length > 200) div.removeChild(div.firstChild);
+});
+socket.on("silentDayChatHistory", msgs => {
+  if (!msgs) return;
+  const div = document.getElementById("silentDayChatMessages");
+  if (!div) return;
+  div.innerHTML = "";
+  msgs.forEach(m => {
+    const el = document.createElement("div"); el.className = "chat-msg";
+    const nameSpan = document.createElement("span"); nameSpan.className = "chat-name";
+    nameSpan.textContent = m.name + " ";
+    nameSpan.style.color = "#cc99ff";
+    el.appendChild(nameSpan);
+    el.appendChild(document.createTextNode(m.text));
+    div.appendChild(el);
+  });
+  div.scrollTop = div.scrollHeight;
+});
+function sendSilentDayChat(){
+  const inp = document.getElementById("silentDayChatText");
+  if (!inp) return;
+  const text = inp.value.trim();
+  if (!text) return;
+  socket.emit("silentDayChat", { text });
+  inp.value = "";
+}
+
+function appendChatMsg(msg){
+  function makeMsg(containerId, className, nameClass){
+    const div=document.getElementById(containerId);
+    if(!div) return;
+    const el=document.createElement("div"); el.className=className;
+    const nameSpan=document.createElement("span"); nameSpan.className=nameClass;
+    nameSpan.textContent=msg.name;
+    el.appendChild(nameSpan);
+    el.appendChild(document.createTextNode(msg.text));
+    div.appendChild(el); div.scrollTop=div.scrollHeight;
+    while(div.children.length>200) div.removeChild(div.firstChild);
+  }
+  makeMsg("deadChatMessages","chat-msg","chat-name");
+  makeMsg("endChatMessages","end-chat-msg","end-chat-name");
+}
+
+function sendEndChat() {
+  const inp = document.getElementById("endChatText");
+  const text = inp.value.trim(); if(!text) return;
+  socket.emit("deadChat", {text}); inp.value = "";
+}
+function sendDeadChat(){
+  const inp=document.getElementById("deadChatText");
+  const text=inp.value.trim(); if(!text)return;
+  socket.emit("deadChat",{text}); inp.value="";
+}
+
+socket.on("voteStarted", data=>{
+  // Vibration : début de vote du jour (mayorVote ou day) — pas en mission/nuit
+  if(phase === "day" || phase === "mayorVote") vibrateIfDay([100, 50, 100]);
+  currentVoteMode=data.mode;
+  if(data.mode!==2) hasVotedLocked=false;
+  if(data.serverNow && data.endsAt){
+    const networkLatency = Date.now() - data.serverNow;
+    voteEndsAt = data.endsAt + networkLatency;
+  } else {
+    voteEndsAt = data.endsAt;
+  }
+  voteTotalMs=data.duration; voteActive=true;
+  document.getElementById("voteWaitBox").style.display="none";
+  if(data.existingVotes && data.mode!==5){ dayCounts=data.existingVotes; }
+  // Restaure la cible corbeau immédiatement (avant corbeauVotesPublic qui arrive juste après)
+  if(data.corbeauInfo){ corbeauVotesTarget=data.corbeauInfo.targetId; }
+  renderVotesPanel();
+  document.getElementById("voteTimerBox").style.display="block";
+  document.getElementById("timerMode").innerText=VOTE_MODE_CARDS[data.mode]||"";
+  if(voteEndsAt) startCountdown();
+  if(data.mode===5) document.getElementById("status").innerText="🖤 Vote dans l'ombre — votez sans voir les résultats !";
+  // Refonte épuration jour : le vote démarre → ferme l'écran de débat
+  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  // Refonte épuration jour : morts → affiche la vue du vote
+  if (typeof updateDeadVoteView === "function") updateDeadVoteView();
+  scheduleRender();
+});
+
+socket.on("voteTimerEnd",()=>{
+  stopCountdown(); voteActive=false; currentVoteMode=0; hasVotedLocked=false;
+  document.getElementById("voteTimerBox").style.display="none";
+  if(phase !== "day") document.getElementById("voteWaitBox").style.display="none";
+  document.getElementById("status").innerText="✅ Vote terminé !";
+  if(phase === "day"){ voteActive=true; }
+  // Refonte épuration jour : NE PAS rouvrir le débat ici — on enchaîne sur la
+  // résolution du vote (dayVoteResult arrive juste après avec sa carte de mort)
+  // puis le serveur transitionne vers la nuit. Si jamais on restait en day sans
+  // résolution, l'updateDayDebateScreen sera rappelé au prochain change de phase.
+  // Morts : le vote est fini → masque leur vue du vote.
+  if (typeof updateDeadVoteView === "function") updateDeadVoteView();
+  scheduleRender();
+});
+
+socket.on("gameReset", data => {
+  role=null; wolves=[]; lovers=[]; mayor=null; iAmDead=false;
+  deadVisionData=null; nightVictimId=null; mayorCounts={}; dayCounts={}; wolfVotes={};
+  dyingMayorId=null; // BUG FIX : réinitialisation au reset
+  witchSaveUsed=false; witchKillUsed=false; hasVotedLocked=false; voteActive=false;
+  deathLog=[]; lastGameSummary=null; mayorVotedSet.clear();
+  votesDayDetail={}; corbeauVotesTarget=null;
+  idiotRevealed=false; idiotId=null;
+  nightCardShownThisNight = false;
+  gameIsOver = false;
+  mayorTransferPending = false;
+  deadPlayers=[];
+  document.getElementById("deadChatPanel").style.display="none";
+  document.getElementById("deadVisionPanel").style.display="none";
+  document.getElementById("deathLogPanel").style.display="none";
+  const tp=document.getElementById("tiebreakPanel"); tp.style.cssText="display:none;";
+  document.getElementById("votesPanel").style.display="none";
+  document.getElementById("voteTimerBox").style.display="none";
+  document.getElementById("voteWaitBox").style.display="none";
+  document.getElementById("infoPanel").style.display="none";
+  document.getElementById("autoResolveBanner").style.display="none";
+  document.getElementById("petiteFillePanel").style.display="none";
+  document.getElementById("corbeauPanel").style.display="none";
+  document.getElementById("chasseurPanel").style.display="none";
+  document.getElementById("witchDoneBtn").style.display="none";
+  // Reset mission
+  missionActive=false; missionTeamSelected=[]; missionSelectedByMe=[]; missionBonusSelectedByMe=[]; missionCardPlayed=false;
+  ["missionPanel","missionVotePanel","missionBonusPanel","missionBonusResult","missionStatusPanel","missionExplainCard","councilPanel","councilEventCard"].forEach(id=>{
+    const e=document.getElementById(id); if(e) e.style.display="none";
+  });
+  if(_councilEventCardAutoClose) { clearTimeout(_councilEventCardAutoClose); _councilEventCardAutoClose=null; }
+  _pendingCouncilEventData = null;
+  councilCurrentOptions = []; councilHasVoted = false;
+  if(_missionExplainAutoClose) { clearTimeout(_missionExplainAutoClose); _missionExplainAutoClose=null; }
+  ["roleCard","dayDeathCard","nightFallCard"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){ el.className=""; el.style.display=""; el.style.background=""; el.removeAttribute("data-open"); }
+  });
+  // Refonte épuration jour : ferme l'écran de débat et l'écran de mort à un reset
+  const dds = document.getElementById("dayDebateScreen");
+  if (dds) dds.style.display = "none";
+  const dfs = document.getElementById("deadFullScreen");
+  if (dfs) dfs.style.display = "none";
+  // Refonte (mai 2026) : ferme aussi la carte à retourner « Découvre ton rôle »
+  const rrc = document.getElementById("roleRevealCover");
+  if (rrc) rrc.style.display = "none";
+  ["endCard","mayorCard"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el){ el.style.display="none"; el.style.background=""; el.style.animation=""; el.removeAttribute("data-open"); }
+  });
+  document.querySelector("h1")?.style.removeProperty("display");
+  const ps=document.getElementById("playersSection"); if(ps) ps.style.display="";
+  const es=document.getElementById("endScreen"); if(es) es.className="";
+  document.getElementById("deadChatMessages").innerHTML="";
+  document.getElementById("endChatMessages").innerHTML="";
+  document.getElementById("status").innerText="";
+  stopCountdown();
+  updateDeathLog([]);
+  scheduleRender();
+});
+
+function startCountdown(){
+  stopCountdown();
+  countdownInterval=setInterval(()=>{
+    const rem=Math.max(0,Math.ceil((voteEndsAt-Date.now())/1000));
+    const pct=voteTotalMs?Math.max(0,((voteEndsAt-Date.now())/voteTotalMs)*100):0;
+    const v=document.getElementById("timerVal"),f=document.getElementById("timerBarFill");
+    v.innerText=rem+"s";
+    v.className = rem<=10 ? "heartbeat" : (rem<=5 ? "urgent" : "");
+    document.body.classList.toggle("vote-urgent", rem<=10 && rem>0);
+    f.style.width=pct+"%"; f.style.background=rem<=5?"#ff3333":"#ffcc00";
+    if(rem<=0){ document.body.classList.remove("vote-urgent"); stopCountdown(); }
+  },200);
+}
+function stopCountdown(){
+  if(countdownInterval){clearInterval(countdownInterval);countdownInterval=null;}
+  document.body.classList.remove("vote-urgent");
+  const v=document.getElementById("timerVal");
+  if(v){v.classList.remove("urgent"); v.classList.remove("heartbeat");}
+}
+
+function alivePlayers(){ return players.filter(p=>!deadPlayers.includes(p.id)); }
+
+function renderInfoPanel(){
+  if(!role)return;
+  document.getElementById("infoPanel").style.display="block";
+  document.getElementById("infoRole").innerText=ROLE_DISPLAY[role]||role;
+  const ad=document.getElementById("infoAllies"),al=document.getElementById("infoAlliesList"),at=document.getElementById("infoAlliesTitle");
+  if(role==="Loup"&&wolves.length>1){
+    at.innerText="🐺 Vos compagnons :"; al.innerHTML="";
+    wolves.filter(w=>w!==socket.id).forEach(wid=>{const p=players.find(x=>x.id===wid);if(!p)return;const dead=deadPlayers.includes(wid),s=document.createElement("span");s.className="info-badge badge-wolf"+(dead?" badge-dead":"");s.innerText=(dead?"☠️ ":"🐺 ")+p.name;al.appendChild(s);});
+    ad.style.display="block";
+  } else ad.style.display="none";
+  const ld=document.getElementById("infoLovers"),ll=document.getElementById("infoLoversList"),lt=document.getElementById("infoLoversTitle");
+  const myLover=lovers.find(l=>l!==socket.id);
+  if(lovers.includes(socket.id)&&myLover){
+    lt.innerText="💘 Votre amoureux·se :"; ll.innerHTML="";
+    const p=players.find(x=>x.id===myLover);if(p){const dead=deadPlayers.includes(myLover),s=document.createElement("span");s.className="info-badge badge-lover"+(dead?" badge-dead":"");s.innerText=(dead?"☠️ ":"❤️ ")+p.name;ll.appendChild(s);}
+    ld.style.display="block";
+  } else if(role==="Cupidon"&&lovers.length===2){
+    lt.innerText="💘 Les amoureux choisis :"; ll.innerHTML="";
+    lovers.forEach(lid=>{const p=players.find(x=>x.id===lid);if(!p)return;const s=document.createElement("span");s.className="info-badge badge-lover";s.innerText="❤️ "+p.name;ll.appendChild(s);});
+    ld.style.display="block";
+  } else ld.style.display="none";
+
+  // Compteur visuel des potions (sorcière uniquement)
+  const pd = document.getElementById("infoPotions");
+  const pl = document.getElementById("infoPotionsList");
+  if (role === "Sorcière" && pd && pl) {
+    pl.innerHTML = "";
+    const lifeBadge = document.createElement("span");
+    lifeBadge.className = "info-badge";
+    if (witchSaveUsed) {
+      lifeBadge.style.cssText = "background:#1a0a0a;color:#996666;text-decoration:line-through;border:1px solid #442222;";
+      lifeBadge.innerText = "❌ Potion de vie utilisée";
+    } else {
+      lifeBadge.style.cssText = "background:#0a1a0a;color:#88ff88;border:1px solid #224422;";
+      lifeBadge.innerText = "✅ Potion de vie disponible";
+    }
+    const killBadge = document.createElement("span");
+    killBadge.className = "info-badge";
+    if (witchKillUsed) {
+      killBadge.style.cssText = "background:#1a0a0a;color:#996666;text-decoration:line-through;border:1px solid #442222;";
+      killBadge.innerText = "❌ Potion de mort utilisée";
+    } else {
+      killBadge.style.cssText = "background:#1a0a1a;color:#cc88ff;border:1px solid #442244;";
+      killBadge.innerText = "💀 Potion de mort disponible";
+    }
+    pl.appendChild(lifeBadge);
+    pl.appendChild(document.createElement("br"));
+    pl.appendChild(killBadge);
+    pd.style.display = "block";
+  } else if (pd) {
+    pd.style.display = "none";
+  }
+}
+
+function renderDeadVision(){
+  if(!deadVisionData)return;
+  document.getElementById("deadVisionPanel").style.display="block";
+  const rl=document.getElementById("deadRolesList"); rl.innerHTML="<strong style='font-size:12px;color:#cc6666;'>Rôles :</strong><br>";
+  players.forEach(p=>{
+    const r=deadVisionData.roles[p.id]||"?";
+    const isDead=deadPlayers.includes(p.id),isMayor=deadVisionData.mayor===p.id,isLover=deadVisionData.lovers?.includes(p.id);
+    let badges="";if(isDead)badges+="☠️";if(isMayor)badges+="🏛️";if(isLover)badges+="❤️";
+    rl.innerHTML+=`<div class="dead-role-row"><span>${p.name} ${badges}</span><span>${ROLE_DISPLAY[r]||r}</span></div>`;
+  });
+}
+
+function renderVotesPanel(){
+  const panel=document.getElementById("votesPanel"),title=document.getElementById("votesPanelTitle"),content=document.getElementById("votesContent");
+  content.innerHTML="";
+  let counts={},barClass="",show=false,wolfDetail=false;
+  if(phase==="mayorVote"&&Object.keys(mayorCounts).length>0){
+    title.innerText="🏛️ Votes Maire"; counts=mayorCounts; barClass="mayor-bar"; show=true;
+  } else if(phase==="day"&&currentVoteMode!==5&&(Object.keys(dayCounts).length>0||corbeauVotesTarget)){
+    title.innerText="☀️ Votes du jour"; show=true;
+  } else if(phase==="wolves"&&role==="Loup"&&Object.keys(wolfVotes).length>0){
+    title.innerText="🐺 Votes loups";
+    Object.values(wolfVotes).forEach(t=>{counts[t]=(counts[t]||0)+1;});
+    barClass="wolf-bar"; show=true; wolfDetail=true;
+  }
+  if(!show){panel.style.display="none";return;}
+  panel.style.display="block";
+  if(phase==="day"&&currentVoteMode!==5){
+    const allCounts = {...dayCounts};
+    if(corbeauVotesTarget && !deadPlayers.includes(corbeauVotesTarget)){
+      allCounts[corbeauVotesTarget] = (allCounts[corbeauVotesTarget]||0) + 2;
+    }
+    const total = Object.values(allCounts).reduce((a,b)=>a+b,0)||1;
+    Object.entries(allCounts).sort((a,b)=>b[1]-a[1]).forEach(([pid,c])=>{
+      const p=players.find(x=>x.id===pid); if(!p) return;
+      const row=document.createElement("div"); row.className="vote-row";
+      const realVotes = dayCounts[pid]||0;
+      const corbeauBonus = corbeauVotesTarget===pid ? 2 : 0;
+      let countLabel = c+" voix";
+      if(corbeauBonus>0) countLabel = realVotes+" + 🪶×2";
+      row.innerHTML=`<span class="vote-name">${p.name}</span><div class="vote-bar-wrap"><div class="vote-bar ${barClass}" style="width:${Math.round((c/total)*100)}%"></div></div><span class="vote-count">${countLabel}</span>`;
+      content.appendChild(row);
+    });
+    const detailEntries = Object.entries(votesDayDetail);
+    if(detailEntries.length>0){
+      const list=document.createElement("div"); list.className="vote-detail-list";
+      detailEntries.forEach(([voterId,targetId])=>{
+        const voter=players.find(x=>x.id===voterId);
+        const target=players.find(x=>x.id===targetId);
+        if(!voter||!target) return;
+        const row=document.createElement("div"); row.className="vote-detail-row";
+        const isMe=voterId===socket.id, votedForMe=targetId===socket.id, votedSelf=voterId===targetId;
+        row.innerHTML=`<span class="vdr-voter${isMe?" is-me":""}">${isMe?"👤 Vous":voter.name}</span><span class="vdr-arrow">→</span><span class="vdr-target${votedForMe?" voted-me":votedSelf?" voted-self":""}">${target.name}${votedForMe?" ⚠️":""}</span>`;
+        list.appendChild(row);
+      });
+      content.appendChild(list);
+    }
+    if(corbeauVotesTarget){
+      const target=players.find(x=>x.id===corbeauVotesTarget);
+      if(target){ const badge=document.createElement("div"); badge.className="corbeau-badge"; badge.innerHTML=`🪶 2 votes mystérieux sur <strong>${target.name}</strong>`; content.appendChild(badge); }
+    }
+    return;
+  }
+  const total=Object.values(counts).reduce((a,b)=>a+b,0)||1;
+  Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([pid,c])=>{
+    const p=players.find(x=>x.id===pid);if(!p)return;
+    const row=document.createElement("div");row.className="vote-row";
+    row.innerHTML=`<span class="vote-name">${p.name}</span><div class="vote-bar-wrap"><div class="vote-bar ${barClass}" style="width:${Math.round((c/total)*100)}%"></div></div><span class="vote-count">${c}</span>`;
+    content.appendChild(row);
+  });
+  if(wolfDetail){const d=document.createElement("div");d.className="vote-detail";Object.entries(wolfVotes).forEach(([vid,tid])=>{const a=players.find(x=>x.id===vid),b=players.find(x=>x.id===tid);if(a&&b)d.innerHTML+="🐺 "+a.name+" → "+b.name+"<br>";});content.appendChild(d);}
+}
+
+function voteMayor(id) { if(gameIsOver) return; socket.emit("voteMayor",id); }
+function voteWolf(id)  { if(gameIsOver) return; socket.emit("voteWolf",id); }
+// AMÉLIORATION 2 : un loup valide sa proie ; quand tous les loups vivants ont validé
+// sur la même cible, le serveur lock automatiquement.
+let _wolfHasConfirmed = false;
+function wolfConfirm() {
+  if (gameIsOver || _wolfHasConfirmed) return;
+  // Faut avoir voté pour valider
+  if (!wolfVotes[socket.id]) {
+    document.getElementById("status").innerText = "🐺 Choisissez d'abord une proie avant de valider.";
+    return;
+  }
+  socket.emit("wolfConfirm");
+}
+function updateWolfConfirmPanel() {
+  const panel = document.getElementById("wolfConfirmPanel");
+  if (!panel) return;
+  const isWolfActive = phase === "wolves" && role === "Loup" && !iAmDead;
+  if (!isWolfActive) { panel.style.display = "none"; return; }
+  panel.style.display = "block";
+  const btn = document.getElementById("wolfConfirmBtn");
+  if (_wolfHasConfirmed) {
+    btn.disabled = true;
+    btn.style.opacity = "0.4";
+    btn.style.cursor = "default";
+    btn.innerHTML = "✅ Choix validé — en attente des autres loups…";
+  } else {
+    btn.disabled = false;
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+    btn.innerHTML = wolfVotes[socket.id]
+      ? "🐺 Valider ma proie"
+      : "🐺 Choisissez d'abord une proie";
+  }
+}
+socket.on("wolfConfirmStatus", data => {
+  if (!data) return;
+  _wolfHasConfirmed = data.confirmed && data.confirmed.includes(socket.id);
+  const status = document.getElementById("wolfConfirmStatus");
+  if (status) {
+    const c = (data.confirmed || []).length;
+    status.innerText = `${c} / ${data.total} loup${data.total>1?"s":""} ${c>1?"ont":"a"} validé`;
+  }
+  updateWolfConfirmPanel();
+});
+socket.on("wolfConfirmReject", data => {
+  _wolfHasConfirmed = false;
+  if (data && data.reason) {
+    document.getElementById("status").innerText = "⚠️ " + data.reason;
+  }
+  updateWolfConfirmPanel();
+});
+function mayorTransfer(id){ if(gameIsOver) return; socket.emit("mayorTransferChoice",id); }
+function chasseurShoot(id){
+  const target = players.find(p=>p.id===id);
+  socket.emit("chasseurAction",id);
+  // Ferme le panel plein écran
+  const panel = document.getElementById("chasseurPanel");
+  panel.style.cssText = "display:none;";
+  document.getElementById("status").innerText="🔫 Vous avez tiré !";
+  // Carte narrative avant la vision spectateur
+  document.getElementById("deathEmoji").innerText = "🔫";
+  document.getElementById("deathTitle").innerText = "Votre dernière balle…";
+  document.getElementById("deathText").innerText  = target
+    ? `Vous avez tiré sur ${target.name}. Votre devoir est accompli. Vous rejoignez les rangs des morts.`
+    : "Votre devoir est accompli. Vous rejoignez les rangs des morts.";
+  const card = document.getElementById("dayDeathCard");
+  card.style.background = "radial-gradient(ellipse at center,#1a0800 0%,#080300 100%)";
+  card.className = "show";
+  nightCardShownThisNight = false;
+  _dawnOnClose = null;
+  setTimeout(() => closeDawnCard(), 5000);
+}
+function seerChoice(id){socket.emit("seerChoice",id);}
+function witchKill(id) {socket.emit("witchKill",id);}
+function witchSave()   {socket.emit("witchSave");}
+function witchDone()   {socket.emit("witchDone");document.getElementById("status").innerText="🌙 Tour de la Sorcière terminé…";}
+
+function voteDay(id){
+  if(gameIsOver||!voteActive||iAmDead)return;
+  if(currentVoteMode===2&&hasVotedLocked)return;
+  socket.emit("voteDay",id);
+  if(currentVoteMode===2){hasVotedLocked=true;scheduleRender();}
+}
+
+function selectLover(id){
+  window.selected=window.selected||[];
+  if(window.selected.includes(id))return;
+  window.selected.push(id);
+  if(window.selected.length===2){socket.emit("cupidChoice",window.selected);window.selected=[];document.getElementById("status").innerText="💘 Amoureux choisis !";}
+  else document.getElementById("status").innerText="💘 Choisissez un second amoureux…";
+}
+
+function renderChasseurTargets(){
+  const panel = document.getElementById("chasseurPanel");
+  panel.innerHTML = [
+    "<div style='font-size:64px;margin-bottom:20px;'>🔫</div>",
+    "<div style='font-size:22px;font-weight:bold;color:#ff8833;margin-bottom:8px;'>Vous êtes mort…</div>",
+    "<div style='font-size:15px;color:#ccc;margin-bottom:24px;'>En tant que Chasseur, vous emportez un joueur avec vous.</div>",
+    "<div id='chasseurTargets'></div>"
+  ].join("");
+  const div = document.getElementById("chasseurTargets");
+  players.forEach(p=>{
+    if(!deadPlayers.includes(p.id)){
+      const btn = document.createElement("button");
+      btn.onclick = () => chasseurShoot(p.id);
+      btn.textContent = p.name;
+      btn.style.cssText = "margin:6px;padding:12px 24px;background:#2a0a00;border:2px solid #ff6600;border-radius:8px;color:#ff8833;cursor:pointer;font-size:16px;";
+      div.appendChild(btn);
+    }
+  });
+}
+
+function render(){
+  const div=document.getElementById("players");div.innerHTML="";
+  iAmDead=deadPlayers.includes(socket.id);
+  const sorted=sortedPlayers();
+  sorted.forEach((p,idx)=>{
+    const isDead=deadPlayers.includes(p.id),isLover=lovers.includes(p.id),canSeeLove=role==="Cupidon"||lovers.includes(socket.id)||iAmDead;
+    let tags="";
+    if(isDead)tags+="☠️";
+    if(p.id===mayor)tags+="🏛️";
+    if(isLover&&canSeeLove)tags+="❤️";
+    if((role==="Loup"&&wolves.includes(p.id))||(iAmDead&&deadVisionData?.wolves?.includes(p.id)))tags+="🐺";
+    if(idiotRevealed&&p.id===idiotId) tags+="🤡";
+    let voteInfo="";
+    if(phase==="mayorVote"){
+      if(mayorVotedSet.has(p.id)) voteInfo=` <span style="font-size:11px;color:#888;font-style:italic;">A voté</span>`;
+      if(iAmDead && mayorCounts[p.id]) voteInfo=` (${mayorCounts[p.id]}✉️)`;
+    }
+    let btn=""; let hasActiveBtn=false;
+    if(!iAmDead){
+      if(phase==="mayorVote"&&!isDead&&p.id!==socket.id){btn+=`<button onclick="voteMayor('${p.id}')">🏛️ Voter</button>`;hasActiveBtn=true;}
+      if(phase==="cupid"&&role==="Cupidon"&&!isDead){btn+=`<button onclick="selectLover('${p.id}')">💘 Choisir</button>`;hasActiveBtn=true;}
+      if(phase==="wolves"&&role==="Loup"&&!isDead&&p.id!==socket.id&&!wolves.includes(p.id)){btn+=`<button onclick="voteWolf('${p.id}')">🐺 Attaquer</button>`;hasActiveBtn=true;}
+      if(phase==="seer"&&role==="Voyante"&&!isDead&&p.id!==socket.id){btn+=`<button onclick="seerChoice('${p.id}')">🔮 Voir</button>`;hasActiveBtn=true;}
+      if(phase==="witch"&&role==="Sorcière"&&!isDead&&p.id===nightVictimId&&!witchSaveUsed){btn+=`<button onclick="witchSave()">🧪 Sauver</button>`;hasActiveBtn=true;}
+      if(phase==="witch"&&role==="Sorcière"&&!isDead&&p.id!==socket.id&&p.id!==nightVictimId&&!witchKillUsed){btn+=`<button onclick="witchKill('${p.id}')">💀 Tuer</button>`;hasActiveBtn=true;}
+      if(phase==="day"&&voteActive&&!isDead&&p.id!==socket.id&&!gameIsOver){
+        const lockedMode2 = currentVoteMode===2 && hasVotedLocked;
+        const lockedNoir  = currentVoteMode===5 && hasVotedLocked;
+        const idiotLocked = idiotRevealed && socket.id===idiotId;
+        const disabled = lockedMode2 || lockedNoir || idiotLocked;
+        btn+=`<button onclick="voteDay('${p.id}')" ${disabled?"disabled":""}>🗳️ Voter</button>`;
+        if(!disabled) hasActiveBtn=true;
+      }
+    }
+    let noirBadge="";
+    if(phase==="day"&&currentVoteMode===5&&p.id===socket.id&&hasVotedLocked){
+      noirBadge=` <span style="font-size:11px;color:#888;font-style:italic;">A voté</span>`;
+    }
+    // Refonte (mai 2026) : les joueurs ne voient PLUS le rôle des morts dans la
+    // liste. Un simple ☠️ marque les morts (la ligne est déjà stylée « dead-row »).
+    // Le MJ garde la chronique complète de son côté.
+    let deathInfo = "";
+    if (isDead) {
+      deathInfo = ` <span style="color:#777;font-size:11px;margin-left:6px;">☠️</span>`;
+    }
+    const row=document.createElement("div");row.className="player-row"+(isDead?" dead-row":"")+(hasActiveBtn?" actionable-row":"");
+    row.innerHTML=`${playerAvatar(p,32)}<div class="player-name${isDead?" mort":""}">${p.name}${deathInfo}${voteInfo}${noirBadge}</div><div class="player-tags">${tags}</div><div class="player-btns">${btn}</div>`;
+    // Séparateur vivants/morts — utilise idx au lieu de indexOf (O(1))
+    const prevP = idx > 0 ? sorted[idx-1] : null;
+    if(isDead && prevP && !deadPlayers.includes(prevP.id)){
+      const sep=document.createElement("div");
+      sep.style.cssText="text-align:center;font-size:10px;color:#333;padding:4px 0;letter-spacing:1px;text-transform:uppercase;";
+      sep.innerText="— morts —";
+      div.appendChild(sep);
+    }
+    div.appendChild(row);
+  });
+  const wd=document.getElementById("witchDoneBtn");
+  if(wd)wd.style.display=(phase==="witch"&&role==="Sorcière"&&!iAmDead)?"block":"none";
+  const pfPanel=document.getElementById("petiteFillePanel");
+  if(pfPanel) pfPanel.style.display=(phase==="wolves"&&role==="PetiteFille"&&!iAmDead)?"block":"none";
+  // Refonte (mai 2026) : à chaque rendu, on ré-affirme l'écran de mort épuré.
+  // Garantit qu'un mort ne voit JAMAIS la liste joueurs / les boutons voter,
+  // même si un event a été manqué. Idempotent (no-op si déjà dans le bon état).
+  if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
+  // Idem pour l'écran de débat : ré-affirmé à chaque rendu pour qu'il apparaisse
+  // de façon fiable dès le jour, même si un changement de phase a été manqué.
+  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  // Idem pour le voile « garde les yeux fermés » : ré-affirmé à chaque rendu
+  // pour qu'il apparaisse dès le début de la nuit.
+  if (typeof updateNightCover === "function") updateNightCover();
+}
+</script>
+</body>
+</html>

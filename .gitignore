@@ -1,0 +1,10 @@
+node_modules/
+logs/
+snapshots/
+.env
+.sync_probe
+*.log
+*.bak
+.DS_Store
+Thumbs.db
+.claude/

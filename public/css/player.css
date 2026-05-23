@@ -1,0 +1,236 @@
+/* ============================================================
+   Loup-Garou — Interface joueur
+   Extrait de public/index.html (modularisation légère)
+   ============================================================ */
+
+* { box-sizing: border-box; }
+body { background:#111; color:#eee; text-align:center; font-family:Arial,sans-serif; margin:0; padding:10px; }
+h1 { margin-bottom:8px; }
+button { margin:4px; padding:8px 14px; cursor:pointer; border-radius:6px; border:1px solid #555; background:#222; color:#eee; font-size:14px; }
+button:hover { background:#333; }
+button:disabled { opacity:0.35; cursor:not-allowed; }
+
+/* IDENTITE */
+#infoPanel { display:none; background:#1a1a2e; border:1px solid #444; border-radius:10px; margin:10px auto; max-width:480px; padding:12px 16px; text-align:left; }
+#infoPanel h3 { margin:0 0 10px; text-align:center; font-size:12px; color:#888; letter-spacing:1px; text-transform:uppercase; }
+.info-role { font-size:20px; font-weight:bold; text-align:center; padding:8px; border-radius:8px; background:#252540; margin-bottom:8px; }
+.info-section { margin-top:8px; font-size:13px; color:#bbb; border-top:1px solid #2a2a2a; padding-top:8px; }
+.info-section strong { color:#eee; display:block; margin-bottom:4px; }
+.info-badge { display:inline-block; margin:2px 3px; padding:3px 9px; border-radius:12px; font-size:13px; background:#333; color:#eee; }
+.badge-wolf  { background:#3a1010; color:#ff8080; border:1px solid #662222; }
+.badge-lover { background:#3a102a; color:#ff80cc; border:1px solid #662244; }
+.badge-dead  { opacity:0.45; text-decoration:line-through; }
+
+/* TIEBREAK */
+#tiebreakPanel { display:none; background:#1a1000; border:2px solid #ffaa00; border-radius:10px; margin:10px auto; max-width:480px; padding:14px 16px; }
+#tiebreakPanel h3 { color:#ffaa00; margin:0 0 8px; font-size:14px; }
+
+/* CHAT DES MORTS */
+#deadChatPanel { display:none; background:#100a0a; border:1px solid #442222; border-radius:10px; margin:10px auto; max-width:480px; padding:12px 16px; text-align:left; }
+#deadChatPanel h3 { margin:0 0 8px; text-align:center; font-size:12px; color:#aa4444; letter-spacing:1px; text-transform:uppercase; }
+#deadChatMessages { max-height:160px; overflow-y:auto; margin-bottom:8px; font-size:13px; }
+.chat-msg { padding:3px 0; border-bottom:1px solid #1a0a0a; }
+.chat-msg .chat-name { color:#aa6666; font-weight:bold; margin-right:6px; font-size:11px; }
+#deadChatInput { display:flex; gap:6px; }
+#deadChatText { flex:1; background:#111; border:1px solid #442222; border-radius:6px; color:#eee; padding:6px 10px; font-size:13px; }
+
+/* VISION MORT */
+#deadVisionPanel { display:none; background:#1a0808; border:1px solid #553333; border-radius:10px; margin:10px auto; max-width:480px; padding:12px 16px; text-align:left; }
+#deadVisionPanel h3 { margin:0 0 10px; text-align:center; font-size:12px; color:#cc6666; letter-spacing:1px; text-transform:uppercase; }
+.dead-role-row { display:flex; justify-content:space-between; align-items:center; padding:4px 6px; border-bottom:1px solid #2a1a1a; font-size:13px; }
+
+/* VOTES */
+#votesPanel { display:none; background:#1a1a1a; border:1px solid #444; border-radius:10px; margin:10px auto; max-width:480px; padding:12px 16px; text-align:left; }
+#votesPanel h3 { margin:0 0 10px; text-align:center; font-size:12px; color:#888; letter-spacing:1px; text-transform:uppercase; }
+.vote-row { display:flex; align-items:center; padding:5px 0; border-bottom:1px solid #222; font-size:13px; gap:8px; }
+.vote-name { min-width:80px; }
+.vote-bar-wrap { flex:1; background:#2a2a2a; border-radius:4px; height:8px; overflow:hidden; }
+.vote-bar { height:100%; border-radius:4px; background:#4455dd; transition:width 0.4s; }
+.vote-bar.wolf-bar  { background:#bb2222; }
+.vote-bar.mayor-bar { background:#999900; }
+.vote-count { min-width:50px; text-align:right; font-size:12px; color:#888; }
+.vote-detail { margin-top:8px; font-size:12px; color:#666; border-top:1px solid #222; padding-top:6px; line-height:1.9; }
+.vote-detail-list { margin-top:8px; border-top:1px solid #1f1f1f; padding-top:5px; }
+.vote-detail-row { display:flex; align-items:center; padding:2px 0; font-size:12px; gap:4px; border-bottom:1px solid #161616; }
+.vote-detail-row:last-child { border:none; }
+.vdr-voter  { flex:1; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.vdr-voter.is-me { color:#aaaaff; font-weight:bold; }
+.vdr-arrow  { color:#333; flex-shrink:0; font-size:10px; }
+.vdr-target { flex:1; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#888; }
+.vdr-target.voted-me { color:#ff6666; font-weight:bold; }
+.vdr-target.voted-self { color:#ffaa44; }
+.corbeau-badge { margin-top:6px; padding:4px 8px; background:#0a0a0a; border:1px solid #2a2a2a; border-radius:5px; font-size:11px; color:#555; }
+
+/* TIMER */
+#voteTimerBox { display:none; background:#111; border:1px solid #555; border-radius:10px; margin:8px auto; max-width:480px; padding:12px 16px; text-align:center; }
+.timer-label { font-size:11px; color:#666; margin-bottom:4px; text-transform:uppercase; letter-spacing:1px; }
+#timerVal { font-size:40px; font-weight:bold; color:#ffcc00; line-height:1.1; }
+#timerVal.urgent { color:#ff3333; animation:pulse 0.5s infinite alternate; }
+.timer-mode { font-size:12px; color:#888; margin-top:4px; }
+#timerBar { height:6px; background:#222; border-radius:3px; margin-top:8px; overflow:hidden; }
+#timerBarFill { height:100%; background:#ffcc00; border-radius:3px; transition:width 0.25s,background 0.25s; }
+#voteWaitBox { display:none; background:#1a1a10; border:1px solid #555500; border-radius:10px; margin:8px auto; max-width:480px; padding:12px 16px; font-size:13px; color:#aaaa44; }
+
+/* CARTE DE RÔLE */
+#roleCard { display:none; position:fixed; inset:0; z-index:9998; background:radial-gradient(ellipse at center,#001030 0%,#000818 100%); align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:30px; }
+#roleCard.show { display:flex; animation:fadeIn 0.5s ease forwards; }
+#roleCard.hiding { animation:fadeOut 0.6s ease forwards; }
+#roleCard .rc-emoji { font-size:80px; margin-bottom:16px; animation:cardPop 0.5s ease 0.2s both; position:relative; display:inline-block; }
+#roleCard .rc-title { font-size:26px; font-weight:bold; color:#fff; margin-bottom:12px; animation:cardSlide 0.5s ease 0.3s both; }
+#roleCard .rc-role  { font-size:18px; color:#aaddff; margin-bottom:16px; animation:cardSlide 0.5s ease 0.35s both; }
+#roleCard .rc-text  { font-size:13px; color:rgba(255,255,255,0.75); max-width:360px; line-height:1.8; font-style:italic; animation:cardSlide 0.5s ease 0.4s both; margin-bottom:14px; }
+#roleCard .rc-mission { font-size:13px; color:#ffcc66; max-width:360px; line-height:1.6; animation:cardSlide 0.5s ease 0.5s both; margin-bottom:8px; }
+#roleCard .rc-win     { font-size:12px; color:rgba(255,255,255,0.45); max-width:360px; animation:cardSlide 0.5s ease 0.55s both; letter-spacing:.5px; }
+
+/* PETITE FILLE PANEL */
+#petiteFillePanel { display:none; background:#1a0a2a; border:2px solid #cc66ff; border-radius:10px; margin:10px auto; max-width:480px; padding:14px 16px; text-align:left; }
+#petiteFillePanel h3 { color:#cc66ff; margin:0 0 8px; font-size:14px; text-align:center; }
+#petiteFillePanel p  { font-size:12px; color:#aaa; margin-bottom:10px; text-align:center; }
+
+/* CHASSEUR */
+#chasseurPanel { display:none; background:#3a1a00; border:2px solid #ff6600; padding:15px; margin:10px auto; max-width:400px; border-radius:8px; }
+#chasseurPanel h3 { color:#ff6600; margin-top:0; }
+#dayDeathCard { display:none; position:fixed; inset:0; z-index:9999; background:radial-gradient(ellipse at center,#1a0808 0%,#0a0000 100%); align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:30px; }
+#dayDeathCard.show { display:flex; animation:fadeIn 0.5s ease forwards; }
+#dayDeathCard.hiding { animation:fadeOut 0.6s ease forwards; }
+#nightFallCard { display:none; position:fixed; inset:0; z-index:9999; background:radial-gradient(ellipse at center,#0a0a25 0%,#000010 100%); align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:30px; }
+#nightFallCard.show { display:flex; animation:fadeIn 0.5s ease forwards; }
+#nightFallCard.hiding { animation:fadeOut 0.6s ease forwards; }
+.card-emoji { font-size:80px; margin-bottom:16px; animation:cardPop 0.5s ease 0.2s both; }
+.card-title { font-size:26px; font-weight:bold; color:#fff; margin-bottom:12px; animation:cardSlide 0.5s ease 0.3s both; }
+.card-text  { font-size:15px; color:rgba(255,255,255,0.85); max-width:360px; line-height:1.7; font-style:italic; animation:cardSlide 0.5s ease 0.4s both; }
+
+@keyframes fadeIn  { from{opacity:0}to{opacity:1} }
+@keyframes fadeOut { from{opacity:1}to{opacity:0} }
+@keyframes cardPop   { from{transform:scale(0.5);opacity:0}to{transform:scale(1);opacity:1} }
+@keyframes cardSlide { from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1} }
+@keyframes pulse { from{opacity:1}to{opacity:0.3} }
+
+/* PULSE HEARTBEAT sur le timer */
+#timerVal.urgent { color:#ff3333; animation:pulse 0.5s infinite alternate; }
+#timerVal.heartbeat { color:#ff3333; animation:heartbeatPulse 0.8s ease infinite; }
+@keyframes heartbeatPulse {
+  0%   { transform:scale(1);   opacity:1; }
+  14%  { transform:scale(1.15);opacity:1; }
+  28%  { transform:scale(1);   opacity:1; }
+  42%  { transform:scale(1.08);opacity:0.9; }
+  70%  { transform:scale(1);   opacity:1; }
+  100% { transform:scale(1);   opacity:1; }
+}
+body.vote-urgent { animation:bgPulse 0.8s ease infinite; }
+@keyframes bgPulse { 0%,100%{background:#111;} 50%{background:#1a0808;} }
+
+/* BANNIÈRE HORS-LIGNE */
+#offlineBanner { display:none; position:fixed; inset:0; z-index:99999; background:#0a0a0a; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:30px; }
+#offlineBanner.show { display:flex; }
+#offlineBanner .ob-emoji { font-size:60px; margin-bottom:20px; animation:pulse 1.5s infinite alternate; }
+#offlineBanner .ob-title { font-size:22px; color:#555; margin-bottom:12px; }
+#offlineBanner .ob-sub   { font-size:14px; color:#333; }
+
+/* ===== ÉCRAN DE FIN ===== */
+#endScreen { display:none; max-width:520px; margin:0 auto; padding:0 10px 40px; }
+#endScreen.visible { display:block; animation:fadeIn 0.6s ease forwards; }
+#endScreenTitle { text-align:center; padding:20px 0 6px; font-size:26px; font-weight:bold; color:#fff; }
+#endScreenSubtitle { text-align:center; font-size:13px; color:rgba(255,255,255,0.5); margin-bottom:18px; font-style:italic; }
+#endStats, #endRolesPanel, #endChatPanel { background:#111; border:1px solid #222; border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+#endStats h3, #endRolesPanel h3, #endChatPanel h3 { font-size:11px;color:#555;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px; }
+.stat-row { display:flex;align-items:center;padding:5px 0;border-bottom:1px solid #1a1a1a;font-size:13px;gap:8px; }
+.stat-row:last-child { border-bottom:none; }
+.stat-emoji { font-size:15px;flex-shrink:0;width:20px;text-align:center; }
+.stat-label { color:#555;flex:0 0 160px;font-size:12px; }
+.stat-value { color:#eee;flex:1; }
+.stat-hl    { color:#ffcc44;font-weight:bold; }
+.end-role-row { display:flex;align-items:center;padding:6px 8px;margin:2px 0;border-radius:6px;font-size:13px;gap:8px; }
+.end-role-row.wolf-row   { background:#1a0808; }
+.end-role-row.dead-row   { opacity:0.45; }
+.end-role-row.winner-row { background:#081a08; }
+.end-role-row .ern { flex:1;font-weight:500; }
+.end-role-row .err { color:#888;font-size:12px; }
+.end-role-row .erbadge { font-size:11px;color:#666;margin-left:2px; }
+#endChatMessages { max-height:200px;overflow-y:auto;margin-bottom:10px;font-size:13px; }
+.end-chat-msg { padding:3px 0;border-bottom:1px solid #1a1010; }
+.end-chat-name { color:#888;font-weight:bold;margin-right:6px;font-size:11px; }
+#endChatInput { display:flex;gap:6px; }
+#endChatText { flex:1;background:#0e0e0e;border:1px solid #333;border-radius:6px;color:#eee;padding:6px 10px;font-size:13px; }
+
+/* ============================================================
+   IMMERSION : voile qui respire, révélation rôle, tint ambiant
+   ============================================================ */
+
+/* Voile de nuit : respiration lente + scintillement des étoiles */
+#nightCoverScreen { animation: coverBreathe 5s ease-in-out infinite; }
+@keyframes coverBreathe {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.18); }
+}
+/* Les étoiles de fond (le 2ᵉ enfant absolute du nightCoverScreen) ont leur propre scintillement décalé */
+#nightCoverScreen > div:first-child { animation: starsTwinkle 4s ease-in-out infinite; }
+@keyframes starsTwinkle {
+  0%, 100% { opacity: 0.55; }
+  35%      { opacity: 0.95; }
+  65%      { opacity: 0.70; }
+}
+/* La lune respire elle aussi, plus doucement */
+#nightCoverScreen > div:nth-child(2) > div:first-child { animation: moonPulse 6s ease-in-out infinite; transform-origin:center; }
+@keyframes moonPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px rgba(255,238,200,0.25)); }
+  50%      { transform: scale(1.06); filter: drop-shadow(0 0 18px rgba(255,238,200,0.45)); }
+}
+
+/* Révélation du rôle : flip 3D depuis le dos + halo qui se dissout */
+#roleCard.show .rc-emoji { animation: cardReveal 0.9s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both, emojiHover 3s ease-in-out 1s infinite; }
+@keyframes cardReveal {
+  0%   { transform: scale(0.2) rotateY(180deg); opacity: 0; filter:blur(8px); }
+  60%  { transform: scale(1.15) rotateY(-15deg); opacity: 1; filter:blur(0); }
+  100% { transform: scale(1) rotateY(0); opacity: 1; filter:blur(0); }
+}
+@keyframes emojiHover {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+/* Halo lumineux derrière l'emoji du rôle */
+#roleCard.show .rc-emoji::after {
+  content: ""; position: absolute; inset: -40px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+  z-index: -1; animation: haloPulse 2s ease-in-out infinite;
+}
+@keyframes haloPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 0.7; transform: scale(1.15); }
+}
+
+/* Teinte ambiante de l'écran selon la phase active (data-phase sur body) */
+:root {
+  --phase-tint: transparent;
+  --phase-tint-edge: transparent;
+}
+body[data-phase="cupid"]      { --phase-tint: rgba(255, 136, 204, 0.05); --phase-tint-edge: rgba(255, 136, 204, 0.12); }
+body[data-phase="sisters"]    { --phase-tint: rgba(237, 147, 177, 0.05); --phase-tint-edge: rgba(237, 147, 177, 0.14); }
+body[data-phase="salvateur"]  { --phase-tint: rgba(120, 200, 230, 0.05); --phase-tint-edge: rgba(120, 200, 230, 0.13); }
+body[data-phase="wolves"]     { --phase-tint: rgba(180, 30, 30, 0.06);   --phase-tint-edge: rgba(180, 30, 30, 0.18); }
+body[data-phase="seer"]       { --phase-tint: rgba(150, 100, 220, 0.05); --phase-tint-edge: rgba(150, 100, 220, 0.13); }
+body[data-phase="witch"]      { --phase-tint: rgba(100, 200, 100, 0.05); --phase-tint-edge: rgba(100, 200, 100, 0.13); }
+body[data-phase="corbeau"]    { --phase-tint: rgba(140, 140, 160, 0.04); --phase-tint-edge: rgba(80, 80, 100, 0.20); }
+body[data-phase="day"]        { --phase-tint: rgba(255, 215, 110, 0.04); --phase-tint-edge: rgba(255, 215, 110, 0.10); }
+body[data-phase="mayorVote"]  { --phase-tint: rgba(255, 215, 0, 0.04);   --phase-tint-edge: rgba(255, 215, 0, 0.10); }
+body[data-phase="chasseur"]   { --phase-tint: rgba(255, 140, 50, 0.06);  --phase-tint-edge: rgba(255, 100, 40, 0.18); }
+/* Overlay subtle qui prend la teinte courante — ne capture pas les clics */
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse at center, var(--phase-tint) 0%, var(--phase-tint-edge) 100%);
+  pointer-events: none;
+  z-index: 1;
+  transition: background 1.2s ease;
+}
+
+/* JOUEURS */
+#playersSection { max-width:480px; margin:0 auto; text-align:left; }
+#playersSection h3 { font-size:11px; color:#555; text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+.player-row { display:flex; align-items:center; justify-content:space-between; padding:7px 10px; margin:3px 0; border:1px solid #222; border-radius:8px; background:#181818; gap:8px; }
+.player-row.dead-row      { opacity:0.38; background:#0e0e0e; filter:grayscale(0.6); }
+.player-row.actionable-row { border-color:rgba(210,155,50,0.55); background:rgba(210,155,50,0.08); }
+.player-name { flex:1; font-size:14px; }
+.player-name.mort { text-decoration:line-through; color:#555; }
+.player-tags { font-size:16px; letter-spacing:2px; min-width:48px; text-align:right; }
+.player-btns { display:flex; flex-wrap:wrap; gap:3px; justify-content:flex-end; }
