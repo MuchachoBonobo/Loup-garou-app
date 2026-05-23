@@ -30,6 +30,43 @@ Application web de Loup-Garou (party game) avec :
 
 ## Modifications récentes (à connaître pour reprendre)
 
+### Lumières — refonte complète + UX + intro gothic (session mai 2026) (`lights.js`, `lights-scenes.json`, `roles.js`, `votes.js`, `council.js`, `phases.js`, `snapshot.js`, `public/index.html`, `public/css/player.css`)
+
+**`flashSequence(key, count)`** — nouvelle fonction dans `lights.js` qui programme N flashes non-interférents avec un gap de 400 ms. Elle appelle `stopEffect()` une seule fois (évite l'annulation mutuelle quand N `flash()` seraient appelés successivement pour plusieurs morts). Exportée dans `module.exports`.
+
+**Timing des flashs — morts de nuit** : `flash.death` retiré de `killPlayer` (exécuté pendant la nuit, invisible aux joueurs). Repositionné sur `dawnResult` (révélation à l'aube) : `flashSequence("flash.death", deaths.length)`. Si plusieurs morts + résultat de mission à révéler, le flash mission arrive après `deaths.length × 750 ms`. Si aucune mort → `flash.dawn` (aube tranquille).
+
+**Timing des flashs — vote du jour** : `flash.death` ajouté au `setTimeout` t=2700ms dans les 4 chemins de résolution (`botMayorTiebreak`, `finishDayTiebreak`, `resolveDayVote`, `handleTiebreakChoice`) — synchronisé avec `soundPlay("death")` et `dayVoteResult`. Pas à t=8200ms (`killPlayer`), invisible car trop tard.
+
+**Nouveaux flash / scènes** dans `lights-scenes.json` :
+- `flash.wolves` : éclat rouge vif (xy 0.68/0.29, bri 254, 300ms) — loups verrouillent leur proie
+- `flash.idiot` : double éclat jaune (bri 230, 300ms, repeat 2) — l'Idiot est révélé
+- `flash.dawn` : lumière dorée douce (bri 200, 700ms) — aube sans mort
+- `pause` : scène très sombre (bri 6, transition 800ms) — lumière atténuée pendant pause MJ
+- `flash.death` : corrigé `duration 220 repeat 4` → `350 repeat 1` (un flash net au lieu de 4 micro-flashs qui s'annulent)
+
+**Nouveaux points de déclenchement** :
+- `votes.js performLockWolfVotes` → `flash.wolves`
+- `votes.js performLockMayorVote` → `flash.bell` + délai 5s avant transition de phase (laisse le MJ annoncer le maire). Guard `if (state.phase !== "mayorVote") return` dans le `setTimeout`.
+- `votes.js handleIdiotDayVoteSurvival` → `flash.idiot`
+- `votes.js` résolution vote (4 chemins) → `flash.death` à t=2700ms
+- `roles.js handleChasseurChoice` → `flash.death` (tir du chasseur)
+- `roles.js performMayorTransfer` → `flash.bell`
+- `roles.js dawnResult` → `flashSequence("flash.death", N)` ou `flash.dawn`
+- `council.js applyAbdication` → `flash.bell`
+- `phases.js pauseGame` → `applyScene("pause")`
+- `phases.js resumeGame` → `applyScene(state.phase)` (retour à la scène de la phase courante)
+
+**UX — surbrillance des lignes actionnables** (`public/index.html`, `public/css/player.css`) : `render()` pose un flag `hasActiveBtn` (vrai seulement si un bouton non-disabled existe pour ce joueur). Classe `.actionable-row` ajoutée à la `player-row` → bordure + fond or translucide. Les boutons disabled (mode 2 verrouillé, émeute verrouillée, idiot survivant) ne déclenchent pas la surbrillance.
+
+**Écran d'intro gothic** (`public/index.html`) : `#introScreen` plein écran au premier chargement — lune animée, emoji loup, silhouette village (🌲🏚️🌲), titre « Loup-Garou », sous-titre « Le village dort… ». Disparaît au toucher, après 6 s, ou immédiatement si `localStorage.lgName` présent (reconnecteur). CSS dans `<style>`, HTML avant `#endCard`, JS en IIFE après `const socket = io()`. Appelé aussi dans le handler `reconnected` pour les reconnecteurs.
+
+**Avatars joueurs** (`public/index.html`, `render()`) : fonction `playerAvatar(p, size)` — `<img>` ronde si photo disponible, sinon cercle initiale/couleur déterministe (palette `AVATAR_PALETTE` de 8 couleurs, hash sur `p.name`). Injecté en premier flex-child de chaque `player-row` dans `render()`.
+
+**Nettoyage automatique des crash-snapshots** (`snapshot.js`) : `cleanOldCrashes(maxAgeDays=7)` parcourt `snapshots/crash-*.json` et supprime les fichiers dont le `mtime` dépasse le seuil. Appelé automatiquement dans `startPeriodicSave` (donc au boot). Exporté pour usage manuel si besoin.
+
+**Git & GitHub** : dépôt initialisé dans `C:\LoupGarouVoteApp`, branch `master` poussée sur `https://github.com/MuchachoBonobo/Loup-garou-app`. `.gitignore` enrichi : `*.bak`, `.claude/`. Note : `day.mp3` (83 MB) et `night.mp3` (86 MB) dépassent la recommandation GitHub 50 MB mais sont sous la limite dure de 100 MB — push accepté avec avertissement.
+
 ### Robustesse + UX — Session mai 2026 (`server.js`, `council.js`, `state.js`, `snapshot.js`, `public/index.html`, `public/mj.html`)
 
 **Reconnexion — IDs manquants** (`server.js`, handler `register`) : trois champs d'état n'étaient pas migrés lors du changement de socket ID : `state.protectedTarget`, `state.lastProtectedTarget`, `state.pendingChasseurAfterTransfer`. Un joueur qui reconnectait pendant la phase `salvateur` (ou juste après) pouvait ne plus être la cible protégée. `state.wolfConfirmed` (Set) était aussi ignoré. Les quatre migrations sont maintenant présentes dans le handler `register` après les migrations existantes.
@@ -473,7 +510,7 @@ Le serveur est éclaté en 7 modules (+ `server.js` bootstrap). Tailles indicati
 | `roles.js` | ~671 | Logique métier des rôles + mission + mort. Sections : `clearMissionTimeouts`/`resetMissionState`/`resolveMissionCards`, `startNightAfterCupid`/`nextNightPhase`/`doResolveNight`, `killPlayer`/`sendDeadVision`, `performChasseurShot`, `performMayorTransfer`, `assignAndStart` (attribution des rôles + start partie), handlers Cupidon/Salvateur/Voyante/Corbeau/Sorcière/Mission. |
 | `phases.js` | ~873 | Orchestration. Sections : `startStuckTimer`, `scheduleBot`, **`setPhase`** (le cœur — applique lumières, narration, démarre auto-vote, etc.), `installPhaseTimeouts`/`clearPhaseTimeouts`, `runBotsForPhase` (logique des bots niveau 2), `checkVictory`, `pauseGame`/`resumeGame`, `resetGameState`, handlers `setPhase`/`pauseGame`/`resumeGame`/`reset`/`replayGame`. |
 | `votes.js` | ~439 | Tous les votes. Sections : `clearVoteTimer`, `resolveVoteWithTiebreak` (égalités → arbitrage maire), `performLockMayorVote`/`performLockWolfVotes`, `checkMayorAutoLock`/`checkWolfConsensus` (mode autonome), `maybeRunBotForTiebreak`, `resolveDayVote`/`startDayVote`, handlers `voteMayor`/`startVote`/`voteDay`/`voteWolf`/`lockDayVotes`/`skipDayVote`/`tiebreakChoice`. |
-| `lights.js` | ~266 | Pilote Philips Hue (CLIP v2, HTTPS LAN, certif autosigné). Pattern fire-and-forget. Export : `applyScene(key)`, `flash(key)`, `reset()`, `status()`. Scènes définies dans `lights-scenes.json` (30 entrées). |
+| `lights.js` | ~290 | Pilote Philips Hue (CLIP v2, HTTPS LAN, certif autosigné). Pattern fire-and-forget. Export : `applyScene(key)`, `flash(key)`, `flashSequence(key, count)`, `reset()`, `status()`, `SCENES`. Flash types : `flash.death`, `flash.victory`, `flash.wolves`, `flash.idiot`, `flash.dawn`, `flash.bell`, `flash.lightning`. Scène `pause` pour la pause MJ. Scènes dans `lights-scenes.json` (33 entrées). |
 
 **Comment trouver une fonction** : la grande majorité des fonctions sont en haut de leur module et exportées via `module.exports = {...}` en fin de fichier. Un `Grep` sur le nom dans le dossier racine pointe directement vers le bon module.
 

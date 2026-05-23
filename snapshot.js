@@ -200,8 +200,28 @@ function dumpCrash(state, err) {
   }
 }
 
+function cleanOldCrashes(maxAgeDays) {
+  const days = (typeof maxAgeDays === 'number' && maxAgeDays > 0) ? maxAgeDays : 7;
+  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+  try {
+    const files = fs.readdirSync(SNAP_DIR).filter(f => /^crash-\d+\.json$/.test(f));
+    let removed = 0;
+    for (const f of files) {
+      const fp = path.join(SNAP_DIR, f);
+      try {
+        const { mtimeMs } = fs.statSync(fp);
+        if (mtimeMs < cutoff) { fs.unlinkSync(fp); removed++; }
+      } catch (_) {}
+    }
+    if (removed > 0) log.info('crash cleanup', `removed ${removed} crash snapshot(s) older than ${days}d`);
+  } catch (e) {
+    log.error('crash cleanup failed', e.message);
+  }
+}
+
 function startPeriodicSave(state) {
   stopPeriodicSave();
+  cleanOldCrashes();
   saveTimer = setInterval(() => saveSnapshot(state), SAVE_INTERVAL_MS);
   log.info('snapshot periodic save started', `interval=${SAVE_INTERVAL_MS}ms`);
 }
@@ -213,5 +233,5 @@ function stopPeriodicSave() {
 module.exports = {
   serializeState, applySnapshot,
   saveSnapshot, loadSnapshot, clearSnapshot, dumpCrash,
-  startPeriodicSave, stopPeriodicSave,
+  startPeriodicSave, stopPeriodicSave, cleanOldCrashes,
 };
