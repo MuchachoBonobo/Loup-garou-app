@@ -403,7 +403,10 @@ function killPlayer(id) {
         if (phases.checkVictory()) return;
         state.dyingMayorId = partner; state.mayorTransferPending = true; state.mayor = null;
         const nightP = ["wolves","seer","corbeau","witch","cupid","mission","missionVote","missionBonus"];
-        state.mayorTransferContext = nightP.includes(state.phase) ? "night" : "day";
+        // Phase "chasseur" : le contexte dépend de chasseurPostContext, pas de la phase courante
+        state.mayorTransferContext = state.phase === "chasseur"
+          ? (state.chasseurPostContext === "day" ? "chasseurFromDay" : "chasseur")
+          : nightP.includes(state.phase) ? "night" : "day";
         state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", partner);
         phases.setPhase("mayorTransfer"); return;
       }
@@ -548,9 +551,13 @@ function performMayorTransfer(targetId) {
         phases.setPhase("day");
       }
     }
-  } else {
-    // BUG FIX : day context → startNightSequence pour Sœurs/Salvateur
+  } else if (ctx === "day") {
+    // Maire mort pendant le vote du jour → enchaîner la nuit
     if (!phases.checkVictory()) startNightSequence();
+  } else {
+    // Contexte inattendu/vide : retour au jour par sécurité
+    log.warn('performMayorTransfer', 'ctx inconnu=' + ctx + ' → fallback setPhase(day)');
+    if (!phases.checkVictory()) phases.setPhase("day");
   }
 }
 

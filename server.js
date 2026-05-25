@@ -231,6 +231,10 @@ io.on("connection", socket => {
       io.emit("newMayor", state.mayor);
       socket.emit("reconnected", buildFullState(socket.id));
       if (state.deadPlayers.includes(socket.id)) socket.emit("deadChatHistory", state.deadChatHistory);
+      // Reconnexion loup en phase wolves : ré-envoie les votes loups pour restaurer le checkmark
+      if (state.phase === "wolves" && state.roles[socket.id] === "Loup") {
+        socket.emit("wolfVotesUpdate", state.votesWolf);
+      }
       // Reconnexion en plein vote de mission : ré-envoie la demande de carte si non jouée
       if (state.phase === "missionVote" && state.mission.team.includes(socket.id) && !state.mission.cards[socket.id]) {
         socket.emit("missionCardChoice", {

@@ -241,6 +241,10 @@ function buildFullState(socketId) {
       title:     ev.title,
       narrative: ev.narrative,
     } : null,
+    myDayVoteId:  state.votesDay[socketId]  || null,
+    myMayorVoteId: state.mayorVote[socketId] || null,
+    isVoteLocked: (state.voteMode === 2 && state.lockedVoters.has(socketId)) ||
+                  (state.voteMode === 5 && !!state.votesDay[socketId]),
   };
 
   // Refonte épuration jour (mai 2026) : en mode piloté MJ, un mort qui reconnecte

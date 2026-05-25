@@ -534,31 +534,55 @@ function dismissIntro() {
 
 // ===== WAKE LOCK (empêche l'écran de s'éteindre pendant la partie) =====
 let wakeLock = null;
+let _wakeLockInterval = null;
 async function requestWakeLock() {
   try {
     if ('wakeLock' in navigator) {
       wakeLock = await navigator.wakeLock.request('screen');
       wakeLock.addEventListener('release', () => { wakeLock = null; });
     }
-  } catch (e) { /* refus utilisateur ou pas supporté */ }
+  } catch (e) {}
 }
 async function releaseWakeLock() {
+  if (_wakeLockInterval) { clearInterval(_wakeLockInterval); _wakeLockInterval = null; }
   if (wakeLock) {
     try { await wakeLock.release(); } catch (e) {}
     wakeLock = null;
   }
 }
+function startWakeLockHeartbeat() {
+  if (_wakeLockInterval) return;
+  // MIUI (Redmi) peut tuer silencieusement le wake lock sans déclencher "release"
+  // → on re-demande toutes les 30s si le lock est absent et la page visible
+  _wakeLockInterval = setInterval(() => {
+    if (!wakeLock && document.visibilityState === 'visible') requestWakeLock();
+  }, 30000);
+}
 // Re-demande quand on revient sur l'onglet (le wake lock se libère automatiquement)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && !wakeLock) requestWakeLock();
+});
+// Re-demande après un changement fullscreen (peut libérer le lock + verrouille l'orientation)
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) {
+    if (!wakeLock) requestWakeLock();
+    if (screen.orientation && screen.orientation.lock)
+      screen.orientation.lock("portrait-primary").catch(() => {});
+  } else {
+    if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock();
+  }
 });
 
 // ===== FULLSCREEN =====
 function toggleFullscreen() {
   const elem = document.documentElement;
   if (!document.fullscreenElement) {
-    if (elem.requestFullscreen) elem.requestFullscreen();
-    else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen().catch(() => {});
+    } else if (elem.webkitRequestFullscreen) {
+      // Safari/WebKit : pas de promesse → orientation gérée par fullscreenchange
+      elem.webkitRequestFullscreen();
+    }
   } else {
     if (document.exitFullscreen) document.exitFullscreen();
     else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
@@ -598,7 +622,8 @@ let mayorTransferPending = false;
 // BUG FIX : mémorise l'id du maire mourant pour ne rouvrir le tiebreakPanel
 // après la carte d'aube QUE pour lui (et non pour tous les joueurs).
 let dyingMayorId = null;
-let currentVoteMode=0, hasVotedLocked=false;
+let currentVoteMode=0, hasVotedLocked=false, myDayVote=null, myMayorVote=null;
+let _heartbeatVibrated=false;
 let countdownInterval=null, voteEndsAt=null, voteTotalMs=null, voteActive=false;
 let iAmDead=false, deadVisionData=null;
 let witchSaveUsed=false, witchKillUsed=false;
@@ -723,9 +748,9 @@ function showMayorCard(name) {
     setTimeout(() => {
       card.style.display = "none";
       card.removeAttribute("data-open");
-      // La nightFallCard ne doit s'afficher qu'à partir de la phase wolves,
-      // JAMAIS pendant la phase cupid (1ère nuit) ni pendant les phases mission
-      if (["wolves","seer","petiteFille","witch"].includes(phase)) {
+      // À la fermeture de la carte Maire, activer le voile si on est déjà en phase
+      // de nuit — notamment cupid (1ère nuit, ~5 s après l'élection) et wolves/seer/witch.
+      if (["cupid","wolves","seer","petiteFille","witch"].includes(phase)) {
         showNightFallCard();
       }
     }, 600);
@@ -923,7 +948,7 @@ socket.on("gameEnd", msg=>{
   card.style.display = "flex"; card.style.animation = "fadeIn 0.6s ease forwards";
   if (lastGameSummary) {
     const summarySnapshot = lastGameSummary;
-    setTimeout(()=>{ if(summarySnapshot) showChronique(summarySnapshot); }, 6000);
+    setTimeout(()=>{ if(summarySnapshot) showPersonalBadgeCard(summarySnapshot); }, 6000);
   }
 
   const endChat = document.getElementById("endChatMessages");
@@ -990,10 +1015,19 @@ function populateEndScreen(data, winner) {
   if (badgesPanel && badgesList && data.badges && Object.keys(data.badges).length > 0) {
     badgesPanel.style.display = "block";
     badgesList.innerHTML = Object.entries(data.badges).map(([name, list]) => {
-      const items = list.map(b => `
-        <span style="display:inline-flex;align-items:center;gap:4px;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:3px 10px;margin:2px;font-size:12px;color:#eee;" title="${b.desc || ''}">
-          <span style="font-size:14px;">${b.emoji}</span>${b.label}
-        </span>`).join("");
+      const items = list.map(b => {
+        const descHtml = b.desc
+          ? `<span style="display:none;font-size:10px;color:#aaa;margin-top:3px;line-height:1.3;">${b.desc}</span>`
+          : "";
+        const toggle = b.desc
+          ? `onclick="var d=this.children[1];d.style.display=d.style.display==='block'?'none':'block';" style="cursor:pointer;"`
+          : `style="cursor:default;"`;
+        return `<span ${toggle}
+          style="display:inline-flex;flex-direction:column;align-items:center;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:3px 10px;margin:2px;font-size:12px;color:#eee;cursor:${b.desc?'pointer':'default'};">
+          <span style="display:flex;align-items:center;gap:4px;"><span style="font-size:14px;">${b.emoji}</span>${b.label}</span>
+          ${descHtml}
+        </span>`;
+      }).join("");
       return `<div style="padding:6px 0;border-bottom:1px solid #1a1a1a;">
         <div style="font-size:12px;color:#888;margin-bottom:4px;font-weight:bold;">${name}</div>
         <div>${items}</div>
@@ -1004,21 +1038,38 @@ function populateEndScreen(data, winner) {
   }
 }
 
-function showChronique(data) {
-  const rd = { "Loup":"🐺 Loup","Voyante":"🔮 Voyante","Sorcière":"🧪 Sorcière","Chasseur":"🔫 Chasseur","Cupidon":"💘 Cupidon","Villageois":"🏠 Villageois","Maire":"🏛️ Maire","PetiteFille":"👧 Petite Fille" };
-  let story = `La partie a duré ${data.nightCount} nuit${data.nightCount>1?"s":""} et ${data.dayCount} jour${data.dayCount>1?"s":""}.`;
-  if (data.mayorName) story += ` ${data.mayorName} était le Maire élu.`;
-  if (data.firstDead) story += ` Première victime : ${data.firstDead.name} (${rd[data.firstDead.role]||data.firstDead.role}).`;
-  if (data.witchSaved && data.witchKilled) story += " La Sorcière a utilisé ses deux potions.";
-  else if (data.witchSaved)  story += " La Sorcière a sauvé une vie précieuse.";
-  else if (data.witchKilled) story += " La Sorcière a utilisé sa potion de mort.";
+function showPersonalBadgeCard(summary) {
+  const me = players.find(p => p.id === socket.id);
+  const myName = me?.name;
+  const myBadges = summary?.badges && myName ? summary.badges[myName] : null;
+  if (!myBadges || myBadges.length === 0) return;
+
+  const badgeHtml = myBadges.map(b => {
+    const descHtml = b.desc
+      ? `<span style="display:none;font-size:10px;color:#aaa;margin-top:3px;line-height:1.3;">${b.desc}</span>`
+      : "";
+    const toggle = b.desc
+      ? `onclick="var d=this.children[1];d.style.display=d.style.display==='block'?'none':'block';" style="cursor:pointer;"`
+      : `style="cursor:default;"`;
+    return `<span ${toggle} style="display:inline-flex;flex-direction:column;align-items:center;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:3px 10px;margin:2px;font-size:12px;color:#eee;">
+      <span style="display:flex;align-items:center;gap:4px;"><span style="font-size:14px;">${b.emoji}</span>${b.label}</span>
+      ${descHtml}
+    </span>`;
+  }).join("");
+
   const c = document.getElementById("dayDeathCard");
-  document.getElementById("deathEmoji").innerText = "📖";
-  document.getElementById("deathTitle").innerText = "Chronique du Village";
-  document.getElementById("deathText").innerText  = story;
+  document.getElementById("deathEmoji").innerText  = "🏅";
+  document.getElementById("deathTitle").innerText  = `Tes médailles, ${myName}`;
+  document.getElementById("deathText").innerHTML   = badgeHtml;
   c.style.background = "radial-gradient(ellipse at center,#0a0a1a 0%,#030308 100%)";
   c.className = "show";
-  setTimeout(() => { c.classList.add("hiding"); setTimeout(()=>{c.className="";c.style.display="none";c.style.background="";},600); }, 8000);
+  setTimeout(() => {
+    c.classList.add("hiding");
+    setTimeout(() => {
+      c.className = ""; c.style.display = "none"; c.style.background = "";
+      document.getElementById("deathText").innerHTML = "";
+    }, 600);
+  }, 8000);
 }
 
 let _dawnOnClose = null;
@@ -1178,8 +1229,8 @@ function join() {
   document.getElementById("name").style.display = "none";
   document.querySelector("#lobby > button[onclick='join()']").style.display = "none";
   document.getElementById("photoSection").style.display = "block";
-  // Active le wake lock dès qu'on rejoint la partie
   requestWakeLock();
+  startWakeLockHeartbeat();
 }
 
 // Selfie : redimensionnement client-side puis envoi base64 au serveur
@@ -1251,6 +1302,10 @@ socket.on("reconnected", state => {
   if (typeof state.mjPilotedDay === "boolean") mjPilotedDay = state.mjPilotedDay;
   mayorVotedSet.clear();
   if(state.mayorVote) Object.keys(state.mayorVote).forEach(id=>mayorVotedSet.add(id));
+  myMayorVote = state.myMayorVoteId || null;
+  myDayVote   = state.myDayVoteId   || null;
+  hasVotedLocked = !!state.isVoteLocked;
+  requestWakeLock();
   // Refonte épuration jour : on ne force plus l'ouverture de voteWaitBox à la
   // reconnexion en phase=day. Si un vote est en cours, voteTimerBox sera ouvert
   // juste en dessous. Sinon, updateDayDebateScreen() ouvrira l'écran de débat.
@@ -1360,6 +1415,7 @@ socket.on("votesDayPublic",    d=>{
   const newVoters = Object.keys(d).filter(v => d[v] === socket.id && !previousVoters.has(v));
   if (newVoters.length > 0 && phase === "day") vibrateIfDay(80);
   votesDayDetail=d;
+  if(d[socket.id] && !myDayVote) myDayVote=d[socket.id];
   renderVotesPanel();
   updateDeadVoteView();  // morts : rafraîchit la vue du vote
 });
@@ -1371,6 +1427,7 @@ socket.on("wolfVotesUpdate",   v=>{
   _wolfHasConfirmed = false;
   renderVotesPanel();
   if (typeof updateWolfConfirmPanel === "function") updateWolfConfirmPanel();
+  scheduleRender();
 });
 
 // ===== ANTI-TRICHE — voile de nuit + bouton reveal du rôle le jour =====
@@ -1658,7 +1715,7 @@ socket.on("phase", p=>{
   // Ne pas cacher tiebreakPanel si on entre en mayorTransfer :
   // mayorMustTransfer l'a déjà ouvert (ou va l'ouvrir) pour le maire mourant
   if(p !== "mayorTransfer") document.getElementById("tiebreakPanel").style.display="none";
-  if(p!=="mayorVote") { mayorCounts={}; mayorVotedSet.clear(); }
+  if(p!=="mayorVote") { mayorCounts={}; mayorVotedSet.clear(); myMayorVote=null; }
   if(p!=="day") { dayCounts={}; votesDayDetail={}; }
   // corbeauVotesTarget : ne le remettre à null qu'à la nuit suivante (phase wolves/cupid)
   // il doit persister pendant tout le jour et être visible dès phase=day
@@ -1666,11 +1723,12 @@ socket.on("phase", p=>{
   if(p!=="wolves") wolfVotes={};
   // Ne PAS remettre witchSaveUsed/witchKillUsed à false en phase wolves :
   // les potions sont à usage unique pour toute la partie (reset dans gameReset).
-  // Refonte (mai 2026) : la carte « la nuit tombe » s'affiche dès la PREMIÈRE
-  // phase de nuit (peu importe laquelle), pas seulement cupid/wolves — le garde
-  // `nightCardShownThisNight` dans showNightFallCard la limite à une fois par nuit.
-  // Conséquence : le voile « garde les yeux fermés » apparaît dès le début de la nuit.
-  if(["sisters","salvateur","wolves","seer","corbeau","witch"].includes(p)) {
+  // Le voile « garde les yeux fermés » doit apparaître dès la PREMIÈRE phase de nuit.
+  // Sur la 1ère nuit c'est la phase cupid (le garde nightCardShownThisNight limite à 1×/nuit).
+  // Si la carte Maire est encore ouverte quand cupid démarre, showNightFallCard retourne
+  // immédiatement (guard mayorCard) — c'est la callback de showMayorCard qui la rappellera
+  // à la fermeture de la carte (~5 s après l'élection).
+  if(["cupid","sisters","salvateur","wolves","seer","corbeau","witch"].includes(p)) {
     showNightFallCard();
   }
   if(p==="day"){
@@ -2728,6 +2786,7 @@ socket.on("voteStarted", data=>{
   // Vibration : début de vote du jour (mayorVote ou day) — pas en mission/nuit
   if(phase === "day" || phase === "mayorVote") vibrateIfDay([100, 50, 100]);
   currentVoteMode=data.mode;
+  myDayVote=null;
   if(data.mode!==2) hasVotedLocked=false;
   if(data.serverNow && data.endsAt){
     const networkLatency = Date.now() - data.serverNow;
@@ -2753,7 +2812,7 @@ socket.on("voteStarted", data=>{
 });
 
 socket.on("voteTimerEnd",()=>{
-  stopCountdown(); voteActive=false; currentVoteMode=0; hasVotedLocked=false;
+  stopCountdown(); voteActive=false; currentVoteMode=0; hasVotedLocked=false; myDayVote=null;
   document.getElementById("voteTimerBox").style.display="none";
   if(phase !== "day") document.getElementById("voteWaitBox").style.display="none";
   document.getElementById("status").innerText="✅ Vote terminé !";
@@ -2771,7 +2830,7 @@ socket.on("gameReset", data => {
   role=null; wolves=[]; lovers=[]; mayor=null; iAmDead=false;
   deadVisionData=null; nightVictimId=null; mayorCounts={}; dayCounts={}; wolfVotes={};
   dyingMayorId=null; // BUG FIX : réinitialisation au reset
-  witchSaveUsed=false; witchKillUsed=false; hasVotedLocked=false; voteActive=false;
+  witchSaveUsed=false; witchKillUsed=false; hasVotedLocked=false; voteActive=false; myDayVote=null; myMayorVote=null;
   deathLog=[]; lastGameSummary=null; mayorVotedSet.clear();
   votesDayDetail={}; corbeauVotesTarget=null;
   idiotRevealed=false; idiotId=null;
@@ -2830,6 +2889,7 @@ socket.on("gameReset", data => {
 
 function startCountdown(){
   stopCountdown();
+  _heartbeatVibrated=false;
   countdownInterval=setInterval(()=>{
     const rem=Math.max(0,Math.ceil((voteEndsAt-Date.now())/1000));
     const pct=voteTotalMs?Math.max(0,((voteEndsAt-Date.now())/voteTotalMs)*100):0;
@@ -2838,11 +2898,16 @@ function startCountdown(){
     v.className = rem<=10 ? "heartbeat" : (rem<=5 ? "urgent" : "");
     document.body.classList.toggle("vote-urgent", rem<=10 && rem>0);
     f.style.width=pct+"%"; f.style.background=rem<=5?"#ff3333":"#ffcc00";
+    if(rem<=10 && rem>0 && !_heartbeatVibrated){
+      _heartbeatVibrated=true;
+      vibrateIfDay([120,80,120,80,200]);
+    }
     if(rem<=0){ document.body.classList.remove("vote-urgent"); stopCountdown(); }
   },200);
 }
 function stopCountdown(){
   if(countdownInterval){clearInterval(countdownInterval);countdownInterval=null;}
+  _heartbeatVibrated=false;
   document.body.classList.remove("vote-urgent");
   const v=document.getElementById("timerVal");
   if(v){v.classList.remove("urgent"); v.classList.remove("heartbeat");}
@@ -2977,8 +3042,8 @@ function renderVotesPanel(){
   if(wolfDetail){const d=document.createElement("div");d.className="vote-detail";Object.entries(wolfVotes).forEach(([vid,tid])=>{const a=players.find(x=>x.id===vid),b=players.find(x=>x.id===tid);if(a&&b)d.innerHTML+="🐺 "+a.name+" → "+b.name+"<br>";});content.appendChild(d);}
 }
 
-function voteMayor(id) { if(gameIsOver) return; socket.emit("voteMayor",id); }
-function voteWolf(id)  { if(gameIsOver) return; socket.emit("voteWolf",id); }
+function voteMayor(id) { if(gameIsOver) return; socket.emit("voteMayor",id); myMayorVote=id; scheduleRender(); }
+function voteWolf(id)  { if(gameIsOver) return; socket.emit("voteWolf",id); wolfVotes[socket.id]=id; scheduleRender(); }
 // AMÉLIORATION 2 : un loup valide sa proie ; quand tous les loups vivants ont validé
 // sur la même cible, le serveur lock automatiquement.
 let _wolfHasConfirmed = false;
@@ -3058,8 +3123,11 @@ function witchDone()   {socket.emit("witchDone");document.getElementById("status
 function voteDay(id){
   if(gameIsOver||!voteActive||iAmDead)return;
   if(currentVoteMode===2&&hasVotedLocked)return;
+  if(currentVoteMode===5&&hasVotedLocked)return;
   socket.emit("voteDay",id);
-  if(currentVoteMode===2){hasVotedLocked=true;scheduleRender();}
+  myDayVote=id;
+  if(currentVoteMode===2){hasVotedLocked=true;}
+  scheduleRender();
 }
 
 function selectLover(id){
@@ -3068,6 +3136,7 @@ function selectLover(id){
   window.selected.push(id);
   if(window.selected.length===2){socket.emit("cupidChoice",window.selected);window.selected=[];document.getElementById("status").innerText="💘 Amoureux choisis !";}
   else document.getElementById("status").innerText="💘 Choisissez un second amoureux…";
+  scheduleRender();
 }
 
 function renderChasseurTargets(){
@@ -3109,9 +3178,19 @@ function render(){
     }
     let btn=""; let hasActiveBtn=false;
     if(!iAmDead){
-      if(phase==="mayorVote"&&!isDead&&p.id!==socket.id){btn+=`<button onclick="voteMayor('${p.id}')">🏛️ Voter</button>`;hasActiveBtn=true;}
-      if(phase==="cupid"&&role==="Cupidon"&&!isDead){btn+=`<button onclick="selectLover('${p.id}')">💘 Choisir</button>`;hasActiveBtn=true;}
-      if(phase==="wolves"&&role==="Loup"&&!isDead&&p.id!==socket.id&&!wolves.includes(p.id)){btn+=`<button onclick="voteWolf('${p.id}')">🐺 Attaquer</button>`;hasActiveBtn=true;}
+      if(phase==="mayorVote"&&!isDead&&p.id!==socket.id){
+        if(myMayorVote===p.id){btn+=`<span class="voted-check">✅</span>`;hasActiveBtn=true;}
+        else{btn+=`<button onclick="voteMayor('${p.id}')">🏛️ Voter</button>`;hasActiveBtn=true;}
+      }
+      if(phase==="cupid"&&role==="Cupidon"&&!isDead){
+        const _sel=window.selected||[];
+        if(_sel.includes(p.id)){btn+=`<span class="voted-check">💘</span>`;hasActiveBtn=true;}
+        else{btn+=`<button onclick="selectLover('${p.id}')">💘 Choisir</button>`;hasActiveBtn=true;}
+      }
+      if(phase==="wolves"&&role==="Loup"&&!isDead&&p.id!==socket.id&&!wolves.includes(p.id)){
+        if(wolfVotes[socket.id]===p.id){btn+=`<span class="voted-check">✅</span>`;hasActiveBtn=true;}
+        else{btn+=`<button onclick="voteWolf('${p.id}')">🐺 Attaquer</button>`;hasActiveBtn=true;}
+      }
       if(phase==="seer"&&role==="Voyante"&&!isDead&&p.id!==socket.id){btn+=`<button onclick="seerChoice('${p.id}')">🔮 Voir</button>`;hasActiveBtn=true;}
       if(phase==="witch"&&role==="Sorcière"&&!isDead&&p.id===nightVictimId&&!witchSaveUsed){btn+=`<button onclick="witchSave()">🧪 Sauver</button>`;hasActiveBtn=true;}
       if(phase==="witch"&&role==="Sorcière"&&!isDead&&p.id!==socket.id&&p.id!==nightVictimId&&!witchKillUsed){btn+=`<button onclick="witchKill('${p.id}')">💀 Tuer</button>`;hasActiveBtn=true;}
@@ -3119,9 +3198,14 @@ function render(){
         const lockedMode2 = currentVoteMode===2 && hasVotedLocked;
         const lockedNoir  = currentVoteMode===5 && hasVotedLocked;
         const idiotLocked = idiotRevealed && socket.id===idiotId;
-        const disabled = lockedMode2 || lockedNoir || idiotLocked;
-        btn+=`<button onclick="voteDay('${p.id}')" ${disabled?"disabled":""}>🗳️ Voter</button>`;
-        if(!disabled) hasActiveBtn=true;
+        const locked = lockedMode2 || lockedNoir || idiotLocked;
+        if(myDayVote===p.id){
+          btn+=`<span class="voted-check">✅</span>`;
+          hasActiveBtn=true;
+        } else if(!locked){
+          btn+=`<button onclick="voteDay('${p.id}')">🗳️ Voter</button>`;
+          hasActiveBtn=true;
+        }
       }
     }
     let noirBadge="";

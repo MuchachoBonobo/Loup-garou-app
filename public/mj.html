@@ -414,6 +414,15 @@ setMJConnected(socket.connected);
 
 let players=[], roles={}, mayorId=null, loversIds=[], deadIds=[];
 let isGameOver = false;
+// Contexte post-aube : true dès que dawnResult a joué la musique de jour.
+// Empêche chasseur/mayorTransfer de repasser en musique de nuit quand ils sont
+// déclenchés par une mort de nuit (chasseur/maire tués la nuit → tir à l'aube).
+// Remis à false à l'entrée de la prochaine vraie phase de nuit (wolves, cupid…).
+let _mjDawnContext = false;
+// Verrou anti-vote-prématuré : le MJ ne peut pas lancer le vote avant que les
+// joueurs aient eu le temps de voir la carte d'aube (7 s) + fermeture (0,6 s).
+// Remis à 0 à chaque reset de partie.
+let _mjLaunchVoteUnlocksAt = 0;
 
 // Protection : confirme avant de fermer l'onglet si une partie est en cours
 window.addEventListener("beforeunload", e => {
@@ -1066,7 +1075,16 @@ socket.on("phase", p=>{
   // Musique de nuit : dès que la nuit commence (cupid en 1ʳᵉ nuit, sisters ensuite),
   // et tout au long des phases nocturnes. La phase sisters joue sisters.mp3 PAR-DESSUS
   // (canal audio séparé) sans interrompre l'ambiance.
-  if(["cupid","sisters","salvateur","wolves","corbeau","seer","petiteFille","witch","chasseur","mayorTransfer"].includes(p)) playAmbiance("night");
+  // Vraies phases de nuit : musique de nuit + reset du flag post-aube
+  if(["cupid","sisters","salvateur","wolves","corbeau","seer","petiteFille","witch"].includes(p)){
+    _mjDawnContext = false;
+    playAmbiance("night");
+  }
+  // chasseur/mayorTransfer peuvent être déclenchés à l'aube (mort de nuit) ou en plein jour
+  // → musique de nuit seulement si on vient d'une vraie phase de nuit, pas d'un contexte post-aube
+  else if(["chasseur","mayorTransfer"].includes(p) && !_mjDawnContext){
+    playAmbiance("night");
+  }
 
   // Sister music : démarre dès l'entrée en phase sisters (avant même que le MJ
   // lance le timer), s'arrête en fade-out à la sortie de phase.
@@ -1150,7 +1168,9 @@ socket.on("dawnResult", data=>{
   if(mr==="success") alertMsg += " | 🎭 Mission RÉUSSIE";
   else if(mr==="fail") alertMsg += " | 🎭 Mission ÉCHOUÉE";
   showAlert(alertMsg, deaths.length?"info":"success");
-  if(!isGameOver) playAmbiance("day");
+  if(!isGameOver) { playAmbiance("day"); _mjDawnContext = true; }
+  // Verrou : les joueurs voient la carte d'aube 7 s + 0,6 s de fermeture → 9 s de sécurité
+  _mjLaunchVoteUnlocksAt = Date.now() + 9000;
 });
 
 socket.on("gameEnd", msg=>{
@@ -1318,6 +1338,8 @@ function showMjDeathCard(emoji, subtitle, name, role, narrative) {
 socket.on("dayVoteResult", data=>{
   showAlert(`☠️ ${data.name} éliminé — ${data.role}`, "info");
   showMjDeathCard("⚖️", "Le verdict du village", data.name, data.role, data.narrative);
+  // Empêche le MJ de lancer le vote suivant avant que les joueurs aient vu la carte de mort (5 s + 0,6 s fermeture + marge)
+  _mjLaunchVoteUnlocksAt = Date.now() + 6500;
   try { if (typeof speakNarration === "function") speakNarration(`${data.name} a été désigné par le village. Son rôle était ${data.role}.`); } catch(_) {}
 });
 // Refonte (mai 2026) : le Chasseur a tiré → le MJ voit qui il a emporté.
@@ -1493,7 +1515,15 @@ function skipDayVote(){ socket.emit("skipDayVote"); }
 function lockMayor()  { socket.emit("lockMayorVote"); }
 function lockWolves() { socket.emit("lockWolfVotes"); }
 function lockDay()    { socket.emit("lockDayVotes"); }
-function launchVote() { socket.emit("startVote",selectedMode); playEffect("church_bell"); }
+function launchVote() {
+  if (Date.now() < _mjLaunchVoteUnlocksAt) {
+    const s = Math.ceil((_mjLaunchVoteUnlocksAt - Date.now()) / 1000);
+    showAlert(`⏳ Attendez encore ${s}s — les joueurs voient encore la carte d'aube`, "warning");
+    return;
+  }
+  socket.emit("startVote", selectedMode);
+  playEffect("church_bell");
+}
 function mjSendDeadChat(){ const inp=document.getElementById("mjDeadChatText"); const t=inp.value.trim(); if(!t)return; socket.emit("deadChat",{text:t}); inp.value=""; }
 function replayGame(){
   socket.emit("replayGame",{

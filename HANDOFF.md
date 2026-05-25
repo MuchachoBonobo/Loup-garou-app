@@ -30,6 +30,47 @@ Application web de Loup-Garou (party game) avec :
 
 ## Modifications récentes (à connaître pour reprendre)
 
+### UX vote du jour + battement de cœur (mai 2026) (`public/index.html`, `public/css/player.css`)
+
+**Battement de cœur renforcé** : animation `heartbeatPulse` plus ample (scale 1.4 au lieu de 1.15, cycle 0.65s), `bgPulse` plus rouge (`#280404`). À l'entrée des 10 dernières secondes, une vibration unique `[120,80,120,80,200]` est déclenchée via `vibrateIfDay` (flag `_heartbeatVibrated` resetté à chaque `startCountdown`/`stopCountdown`).
+
+**Checkmark de vote** : nouvelle variable `myDayVote` (id de la cible courante). Dans `render()`, si `myDayVote===p.id` → affiche `<span class="voted-check">✅</span>` ; sinon affiche le bouton Voter (ou rien si verrouillé). Changer de vote déplace le check automatiquement. Resets : `voteStarted`, `voteTimerEnd`, `gameReset`. Restauration depuis `votesDayDetail[socket.id]` au `votesDayPublic` (reconnexion mode 1). Mode 5 (anonyme) : `myDayVote` posé localement au moment du clic, non transmis aux autres.
+
+### Bug fix — Cascade nuit, écran débat post-transfert jour, carte médailles personnelle (mai 2026) (`roles.js`, `public/mj.html`, `public/index.html`)
+
+**Bug A — Nuit lancée automatiquement après cascade première nuit** (`roles.js`)
+Scénario : Chasseur tue le Maire (Chasseur tirant en phase `chasseur`). Si la cible du Chasseur est un amant de Cupidon dont le partenaire est le Maire, le bloc amants `killPlayer` (ligne ~406) calculait `mayorTransferContext = "day"` au lieu de `"chasseur"` car la phase `"chasseur"` n'était pas dans la liste `nightP`.
+**Fix 1** : ce bloc utilise désormais le même calcul que les autres blocs : `state.phase === "chasseur" ? (chasseurPostContext==="day" ? "chasseurFromDay" : "chasseur") : nightP.includes(state.phase) ? "night" : "day"`.
+**Fix 2** : dans `performMayorTransfer()`, le `else` final (fallback pour ctx inconnus/vides) n'appelle plus `startNightSequence()` mais `phases.setPhase("day")`. Le `ctx === "day"` est rendu explicite (`else if`).
+
+**Bug B — Écran de débat absent après transfert de maire en cours de journée** (`public/mj.html`)
+Cause : `dayVoteResult` déclenche `showDeathCard()` côté joueur (5 s auto-close). Si le MJ cliquait "Lancer le vote" avant la fermeture de la carte (5,6 s), `currentVoteMode` passait à non-zéro et `updateDayDebateScreen()` ne s'affichait jamais.
+**Fix** : dans le handler `dayVoteResult` du MJ, `_mjLaunchVoteUnlocksAt = Date.now() + 6500` est posé (5 s carte + 0,6 s fermeture + 0,9 s tampon).
+
+**Feature — Carte médailles personnelle en fin de partie** (`public/index.html`)
+L'ancienne `showChronique()` (Chronique du Village) est remplacée par `showPersonalBadgeCard()`. La carte affiche uniquement les médailles gagnées par le joueur courant (lookup dans `summary.badges[myName]`). Si aucune médaille → aucune carte affichée.
+
+### Bug fix — Vote prématuré + tooltips médailles (mai 2026) (`public/mj.html`, `public/index.html`)
+
+**Bug 3 — Écran de débat absent si le MJ lance le vote dans les 9 premières secondes après l'aube** (`public/mj.html`)
+Cause : les joueurs voient la `dayDeathCard` pendant 7 s (auto-close). Si le MJ clique "Lancer le vote" pendant cette fenêtre, `voteStarted` arrive et pose `currentVoteMode !== 0`. Quand la `dayDeathCard` se ferme, `updateDayDebateScreen()` vérifie `!voteRunning` → false → écran de débat jamais affiché.
+**Fix** : nouveau flag `_mjLaunchVoteUnlocksAt` posé à `Date.now() + 9000` dans le handler `dawnResult`. Dans `launchVote()`, si `Date.now() < _mjLaunchVoteUnlocksAt`, un message d'attente est affiché via `showAlert` et l'emit est bloqué (9 s = 7 s carte aube + 0,6 s fermeture + 1,4 s tampon).
+
+**Feature — Médailles cliquables avec description** (`public/index.html`)
+Au clic sur un badge dans `#endBadgesPanel`, un texte explicatif (champ `desc` de `badges.js`) apparaît/disparaît sous le chip. La description est rendue dans un `<span>` caché à l'intérieur du chip ; l'`onclick` bascule `display:none ↔ block`.
+
+### Bug fix — Musique de nuit et voile Cupidon (mai 2026) (`public/mj.html`, `public/index.html`)
+
+**Bug 1 — Musique de nuit pendant mayorTransfer en contexte jour** (`public/mj.html`)
+Quand la sorcière-maire se sauve la nuit, tue le chasseur avec la potion de mort, et que le chasseur tire sur le maire à l'aube, les phases `chasseur` puis `mayorTransfer` déclenchaient `playAmbiance("night")` même si `dawnResult` venait de passer en musique de jour.
+**Fix** : nouveau flag `_mjDawnContext` (false par défaut). Posé à `true` dans le handler `dawnResult` quand `playAmbiance("day")` est joué. Effacé à l'entrée des vraies phases de nuit (`cupid`, `wolves`, etc.). Pour `chasseur` et `mayorTransfer`, la musique de nuit n'est jouée que si `!_mjDawnContext`.
+
+**Bug 2 — Voile « garde les yeux fermés » absent pendant la phase Cupidon** (`public/index.html`)
+La 1ʳᵉ nuit, le voile n'apparaissait pas pendant la phase Cupidon. Cause double :
+- `showNightFallCard()` n'était pas appelé à l'entrée de `cupid` (liste line 1673 excluait `cupid`).
+- La callback de fermeture de la carte Maire (`showMayorCard`) ne rappelait pas `showNightFallCard()` pour `cupid` (liste line 728 excluait `cupid`).
+**Fix** : `cupid` ajouté aux deux listes. Le guard `mayorCard.hasAttribute("data-open")` dans `showNightFallCard` gère proprement la séquence : appel immédiat retourné (carte encore ouverte) → la callback de fermeture de la carte Maire (~5 s après l'élection) appelle `showNightFallCard()` → le voile apparaît. Le serveur attendait déjà `nightCardShown` pendant la phase `cupid` (server.js ligne ~393).
+
 ### Lumières — refonte complète + UX + intro gothic (session mai 2026) (`lights.js`, `lights-scenes.json`, `roles.js`, `votes.js`, `council.js`, `phases.js`, `snapshot.js`, `public/index.html`, `public/css/player.css`)
 
 **`flashSequence(key, count)`** — nouvelle fonction dans `lights.js` qui programme N flashes non-interférents avec un gap de 400 ms. Elle appelle `stopEffect()` une seule fois (évite l'annulation mutuelle quand N `flash()` seraient appelés successivement pour plusieurs morts). Exportée dans `module.exports`.

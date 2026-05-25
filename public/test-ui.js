@@ -144,8 +144,8 @@ check('E6: badge "A voté" présent',el('players')&&el('players').innerHTML.incl
 recv('mayorCountsPublic',{[P[0].id]:3,[P[1].id]:2});await sleep(D);
 checkVisible('E7: votesPanel visible avec comptes maire','votesPanel');
 recv('gameCycle',{day:1,night:0});await sleep(D);
-checkVisible('E8: cycleCounter visible','cycleCounter');
-check('E9: cycleCounter contient Jour',el('cycleCounter')&&el('cycleCounter').innerHTML.includes('Jour'));
+check('E8: cycleCounter retiré (refonte)',!el('cycleCounter'));
+check('E9: (cycleCounter absent — refonte)',!el('cycleCounter'));
 
 // F. CUPID
 forceCloseAllCards();
@@ -253,7 +253,7 @@ forceCloseAllCards();
 recv('phase','day');recv('yourRole',{role:'Villageois',wolves:[]});
 try{witchSaveUsed=false;witchKillUsed=false;iAmDead=false;deadPlayers=[];}catch(e){}
 await sleep(D);forceRender();await sleep(D);
-checkVisible('K1: voteWaitBox visible','voteWaitBox');
+checkHidden('K1: voteWaitBox caché avant voteStarted','voteWaitBox');
 check('K2: boutons "🗳️ Voter" présents',playerBtns('🗳️ Voter').length>0);
 recv('voteStarted',{mode:2,duration:90000,endsAt:Date.now()+90000,serverNow:Date.now(),existingVotes:{}});
 try{hasVotedLocked=true;currentVoteMode=2;}catch(e){}await sleep(D);forceRender();await sleep(D);
@@ -272,8 +272,8 @@ check('K6: Idiot révélé — boutons disabled',activeBtns('🗳️ Voter').len
 try{idiotRevealed=false;idiotId=null;}catch(e){}
 recv('yourRole',{role:'Villageois',wolves:[]});await sleep(D);
 recv('phase','day');await sleep(D);
-checkVisible('K7: narrativeBanner visible','narrativeBanner');
-check('K8: narrativeBanner texte jour',el('narrativeBanner')&&el('narrativeBanner').innerHTML.includes('village'));
+check('K7: narrativeBanner retiré (refonte)',!el('narrativeBanner'));
+check('K8: (narrativeBanner absent — refonte)',!el('narrativeBanner'));
 recv('autoResolve','✅ Tout le village a voté !');await sleep(D);
 checkVisible('K9: autoResolveBanner visible','autoResolveBanner');
 
@@ -404,11 +404,11 @@ check('S5: bouton "Continuer" présent',sB.length>0);check('S6: bouton cliquable
 await closeCard(closeDawnCard);checkHidden('S7: dayDeathCard fermée','dayDeathCard');checkNoCards('S8: aucune carte après');
 recv('dawnResult',{deaths:[],saved:false,witchKilled:false,nightNum:2});await sleep(D+50);
 checkOnlyCard('S9: nuit calme — dayDeathCard','dayDeathCard');
-check('S10: titre calme',el('deathTitle')&&el('deathTitle').innerText.toLowerCase().includes('calm'));
+check('S10: titre calme',el('deathTitle')&&el('deathTitle').innerText.toLowerCase().includes('paisible'));
 await closeCard(closeDawnCard);
 recv('dawnResult',{deaths:[],saved:true,witchKilled:false,nightNum:3});await sleep(D+50);
 checkOnlyCard('S11: sauvé — dayDeathCard','dayDeathCard');
-check('S12: texte mentionne sorcière/sauvé',el('deathText')&&(el('deathText').innerText.toLowerCase().includes('sorci')||el('deathText').innerText.toLowerCase().includes('sauv')));
+check('S12: texte mentionne survie',el('deathText')&&(el('deathText').innerText.toLowerCase().includes('surv')||el('deathText').innerText.toLowerCase().includes('sauv')));
 await closeCard(closeDawnCard);
 if(typeof deathLog!=='undefined'){const bad=deathLog.find(d=>d.role==='?'||!d.role);check('S13: rôles dans deathLog non "?"',!bad,bad?JSON.stringify(bad):'');}
 
@@ -448,7 +448,7 @@ recv('deadVision',{roles:RL,wolves:WOLVES,lovers:LOVERS,mayor:P[5].id});await sl
 checkVisible('U4: deadVisionPanel visible','deadVisionPanel');
 check('U5: deadVisionPanel contient des rôles',el('deadRolesList')&&el('deadRolesList').innerHTML.trim()!=='');
 recv('deadPlayers',[socket.id]);try{iAmDead=true;deadPlayers=[socket.id];}catch(e){}await sleep(D);forceRender();await sleep(D);
-checkVisible('U6: deadBanner visible pour mort','deadBanner');
+checkVisible('U6: deadFullScreen visible pour mort','deadFullScreen');
 checkVisible('U7: deadChatPanel visible pour mort','deadChatPanel');
 recv('deadChatMsg',{name:'Alice',text:'Je savais que Bob était loup',ts:Date.now()});await sleep(D);
 check('U8: message chat appendé',el('deadChatMessages')&&el('deadChatMessages').innerHTML.includes('Alice'));
@@ -491,7 +491,7 @@ if(el('dayDeathCard')&&el('dayDeathCard').className==='show')await closeCard(clo
 recv('dayVoteResult',{id:P[0].id,name:P[0].name,role:'Loup'});await sleep(D+50);
 checkOnlyCard('W1: dayVoteResult — seule dayDeathCard','dayDeathCard');
 check('W2: titre contient le nom',el('deathTitle')&&el('deathTitle').innerText.includes(P[0].name));
-check('W3: texte contient le rôle',el('deathText')&&el('deathText').innerText.includes('Loup'));
+check('W3: texte contient le nom',el('deathText')&&el('deathText').innerText.includes(P[0].name));
 const wB=el('dayDeathCard')?Array.from(el('dayDeathCard').querySelectorAll('button')):[];
 check('W4: bouton "Continuer" présent',wB.length>0);
 await closeCard(closeDawnCard);checkHidden('W5: dayDeathCard fermée','dayDeathCard');
@@ -647,7 +647,7 @@ check('ZZ10: petiteFillePanel caché',el('petiteFillePanel')&&el('petiteFillePan
 check('ZZ11: witchDoneBtn caché',el('witchDoneBtn')&&el('witchDoneBtn').style.display==='none');
 check('ZZ12: chasseurPanel caché',el('chasseurPanel')&&el('chasseurPanel').style.display==='none');
 check('ZZ13: tiebreakPanel caché',el('tiebreakPanel')&&(el('tiebreakPanel').style.display==='none'||(el('tiebreakPanel').style.cssText||'').includes('display:none')));
-check('ZZ14: deadBanner caché',el('deadBanner')&&el('deadBanner').style.display==='none');
+checkHidden('ZZ14: deadFullScreen caché après reset','deadFullScreen');
 check('ZZ15: deadChatPanel caché',el('deadChatPanel')&&el('deadChatPanel').style.display==='none');
 check('ZZ16: deadVisionPanel caché',el('deadVisionPanel')&&el('deadVisionPanel').style.display==='none');
 check('ZZ17: infoPanel caché',el('infoPanel')&&el('infoPanel').style.display==='none');
