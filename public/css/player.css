@@ -121,6 +121,31 @@ body.vote-urgent { animation:bgPulse 0.65s ease infinite; }
 @keyframes bgPulse { 0%,100%{background:#111;} 50%{background:#280404;} }
 .voted-check { font-size:22px; line-height:1; }
 
+/* BANNIÈRE ACTION EN COURS (chasseur / transfert maire) */
+#actionPendingBanner {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9150;
+  background: rgba(10,6,2,0.92);
+  border: 1px solid #4a2800;
+  border-radius: 12px;
+  padding: 10px 24px;
+  font-size: 14px;
+  color: #cc9966;
+  text-align: center;
+  white-space: nowrap;
+  animation: actionPulse 2.5s ease-in-out infinite;
+  pointer-events: none;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.7);
+}
+@keyframes actionPulse {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 1; }
+}
+
 /* BANNIÈRE HORS-LIGNE */
 #offlineBanner { display:none; position:fixed; inset:0; z-index:99999; background:#0a0a0a; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:30px; }
 #offlineBanner.show { display:flex; }

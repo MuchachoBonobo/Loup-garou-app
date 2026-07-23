@@ -300,6 +300,9 @@
   </div>
 </div>
 
+<!-- BANNIÈRE ACTION EN COURS (chasseur / transfert maire) -->
+<div id="actionPendingBanner"></div>
+
 <div id="infoPanel">
   <h3>Votre identité</h3>
   <!-- Bouton anti-triche jour : maintenir pour révéler -->
@@ -908,7 +911,7 @@ socket.on("gameEnd", msg=>{
    "witchDoneBtn","petiteFillePanel","corbeauPanel","chasseurPanel",
    "deadChatPanel","deadVisionPanel","deathLogPanel","playersSection",
    "missionPanel","missionVotePanel","missionBonusPanel","missionStatusPanel","missionBonusResult",
-   "dayDebateScreen","deadFullScreen"
+   "dayDebateScreen","deadFullScreen","actionPendingBanner"
   ].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
   document.querySelector("h1")?.style.setProperty("display","none");
   const lobby = document.getElementById("lobby"); if(lobby) lobby.style.display="none";
@@ -1312,8 +1315,8 @@ socket.on("reconnected", state => {
   if(phase==="day"){ voteActive=true; }
   if(state.voteTimerEnd && Date.now() < state.voteTimerEnd){
     voteEndsAt=state.voteTimerEnd;
-    // Durées à jour (refonte mai 2026) : mode 1 = 60s, mode 2 = 200s, mode 4 = 30s, mode 5 = 60s
-    const modeDurations={1:60000,2:200000,4:30000,5:60000};
+    // Durées à jour (refonte mai 2026) : mode 1 = 60s, mode 2 = 60s, mode 4 = 30s, mode 5 = 60s
+    const modeDurations={1:60000,2:60000,4:30000,5:60000};
     voteTotalMs=modeDurations[state.voteMode]||60000;
     voteActive=true;
     currentVoteMode=state.voteMode||0;
@@ -1691,6 +1694,21 @@ function clearNightSecrets() {
   });
 }
 
+function updateActionPendingBanner() {
+  const banner = document.getElementById("actionPendingBanner");
+  if (!banner) return;
+  if (gameIsOver) { banner.style.display = "none"; return; }
+  if (phase === "chasseur" && !isChasseurDead) {
+    banner.innerHTML = "🔫 Le Chasseur choisit sa cible…";
+    banner.style.display = "block";
+  } else if (phase === "mayorTransfer" && socket.id !== dyingMayorId) {
+    banner.innerHTML = "🏛️ Le Maire désigne son successeur…";
+    banner.style.display = "block";
+  } else {
+    banner.style.display = "none";
+  }
+}
+
 socket.on("phase", p=>{
   if (gameIsOver && p !== "lobby") return;
   _prevPhase = phase;
@@ -1791,6 +1809,7 @@ socket.on("phase", p=>{
   if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
   // Refonte épuration jour : réévalue la vue du vote des morts (masquée hors vote).
   if (typeof updateDeadVoteView === "function") updateDeadVoteView();
+  updateActionPendingBanner();
 });
 
 const ROLE_EMOJI = Object.fromEntries(Object.entries(ROLE_EXPLAIN).map(([k,v])=>[k,v.emoji||"🎭"]));
@@ -2105,6 +2124,7 @@ socket.on("chasseurMustShoot", hunterId=>{
       "<div style='font-size:15px;color:#aaa;'>Avant de mourir, le Chasseur emporte quelqu'un avec lui.</div>"
     ].join("");
   }
+  updateActionPendingBanner();
 });
 
 socket.on("loversDeathInfo", data=>{
@@ -2592,6 +2612,7 @@ socket.on("mayorMustTransfer", dyingId=>{
   if(nfcMayor && nfcMayor.className === "show") { nfcMayor.className=""; nfcMayor.style.display=""; }
   nightCardShownThisNight = false;
 
+  updateActionPendingBanner();
   if(socket.id !== dyingId) return;
 
   // Vibration : le Maire mourant doit désigner un successeur — de jour uniquement
@@ -2650,6 +2671,7 @@ socket.on("mayorMustTransfer", dyingId=>{
 socket.on("mayorTransferred", targetId=>{
   mayorTransferPending = false;
   dyingMayorId = null; // BUG FIX : réinitialise après le transfert
+  updateActionPendingBanner();
   const panel = document.getElementById("tiebreakPanel");
   panel.style.display = "none";
   panel.style.cssText = "display:none;";
@@ -2847,6 +2869,7 @@ socket.on("gameReset", data => {
   document.getElementById("voteWaitBox").style.display="none";
   document.getElementById("infoPanel").style.display="none";
   document.getElementById("autoResolveBanner").style.display="none";
+  document.getElementById("actionPendingBanner").style.display="none";
   document.getElementById("petiteFillePanel").style.display="none";
   document.getElementById("corbeauPanel").style.display="none";
   document.getElementById("chasseurPanel").style.display="none";

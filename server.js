@@ -76,7 +76,7 @@ process.on('unhandledRejection', (reason) => {
   log.error('UNHANDLED REJECTION', err.message, 'dump=' + (file || 'failed'));
 });
 
-const PORT = 3000;
+const PORT = parseInt(process.env.PORT) || 3000;
 app.use(express.static("public"));
 
 // Alias court pour l'URL du MJ : /mj → public/mj.html
@@ -234,6 +234,16 @@ io.on("connection", socket => {
       // Reconnexion loup en phase wolves : ré-envoie les votes loups pour restaurer le checkmark
       if (state.phase === "wolves" && state.roles[socket.id] === "Loup") {
         socket.emit("wolfVotesUpdate", state.votesWolf);
+      }
+      // Reconnexion en phase de nuit : ré-envoie la demande d'action pour éviter blocage 45-90s
+      if (state.phase === "corbeau" && state.roles[socket.id] === "Corbeau" && !state.deadPlayers.includes(socket.id)) {
+        socket.emit("corbeauTurn");
+      }
+      if (state.phase === "witch" && state.roles[socket.id] === "Sorcière" && !state.deadPlayers.includes(socket.id)) {
+        socket.emit("nightVictim", state.nightTarget);
+      }
+      if (state.phase === "chasseur" && state.currentChasseurShooter === socket.id) {
+        socket.emit("chasseurMustShoot", socket.id);
       }
       // Reconnexion en plein vote de mission : ré-envoie la demande de carte si non jouée
       if (state.phase === "missionVote" && state.mission.team.includes(socket.id) && !state.mission.cards[socket.id]) {
@@ -403,6 +413,13 @@ io.on("connection", socket => {
   // ===== REJOUER / RESET =====
   socket.on("replayGame", config => phases.handleReplayGame(socket, config));
   socket.on("reset",      ()     => phases.handleReset(socket));
+  // Reset complet (tests automatisés uniquement) : efface aussi la liste des joueurs
+  socket.on("fullReset",  ()     => {
+    if (!isMJ(socket.id)) return;
+    phases.resetGameState(false);
+    state.io.emit("gameReset", { players: [] });
+    phases.setPhase("lobby");
+  });
 
   // ===== DÉCONNEXION =====
   socket.on("disconnect", () => {

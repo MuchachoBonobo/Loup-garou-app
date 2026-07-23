@@ -177,7 +177,7 @@ function installPhaseTimeouts(p) {
   if (p === "witch") {
     state.witchTimeout = setTimeout(() => {
       if (state.phase === "witch") {
-        state.io.emit("autoResolve", "⏱ La Sorcière a trop tardé — passage automatique à l'aube.");
+        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Sorcière a trop tardé — passage automatique à l'aube.");
         roles.doResolveNight();
       }
     }, WITCH_TIMEOUT_MS);
@@ -186,7 +186,7 @@ function installPhaseTimeouts(p) {
   if (p === "seer") {
     state.seerTimeout = setTimeout(() => {
       if (state.phase !== "seer") return;
-      state.io.emit("autoResolve", "⏱ La Voyante a tardé — passage automatique.");
+      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Voyante a tardé — passage automatique.");
       const next = roles.nextNightPhase("seer");
       if (next === "corbeau") {
         const corbeauId = Object.keys(state.roles).find(id => state.roles[id] === "Corbeau" && !state.deadPlayers.includes(id));
@@ -203,7 +203,7 @@ function installPhaseTimeouts(p) {
   if (p === "corbeau") {
     state.corbeauTimeout = setTimeout(() => {
       if (state.phase === "corbeau") {
-        state.io.emit("autoResolve", "⏱ Le Corbeau a tardé — passage automatique.");
+        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Le Corbeau a tardé — passage automatique.");
         state.corbeauTarget = "skip";
         const next = roles.nextNightPhase("corbeau");
         if (next === "witch") {
@@ -218,7 +218,7 @@ function installPhaseTimeouts(p) {
   if (p === "cupid") {
     state.cupidTimeout = setTimeout(() => {
       if (state.phase === "cupid") {
-        state.io.emit("autoResolve", "⏱ Cupidon n'a pas choisi — passage automatique à la nuit.");
+        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Cupidon n'a pas choisi — passage automatique à la nuit.");
         roles.startNightSequence();
       }
     }, CUPID_TIMEOUT_MS);
@@ -227,7 +227,7 @@ function installPhaseTimeouts(p) {
   if (p === "salvateur") {
     state.salvateurTimeout = setTimeout(() => {
       if (state.phase === "salvateur") {
-        state.io.emit("autoResolve", "⏱ Le Salvateur a tardé — la nuit avance sans protection.");
+        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Le Salvateur a tardé — la nuit avance sans protection.");
         state.protectedTarget = null;
         setPhase("wolves");
       }
@@ -241,7 +241,7 @@ function installPhaseTimeouts(p) {
   if (p === "sisters") {
     state.sistersTimeout = setTimeout(() => {
       if (state.phase === "sisters") {
-        state.io.emit("autoResolve", "⏱ Phase Sœurs bloquée depuis 5 min — passage automatique.");
+        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Phase Sœurs bloquée depuis 5 min — passage automatique.");
         roles.startNightAfterSisters();
       }
     }, 5 * 60 * 1000);

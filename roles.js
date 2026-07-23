@@ -210,6 +210,46 @@ function doResolveNight() {
     }
   }
 
+  // BUG FIX (mai 2026) : même logique si la boucle a été interrompue par `chasseur`.
+  // Sans ce bloc, les morts restantes dans `deaths` (p.ex. cible de la Sorcière) ne
+  // sont jamais ajoutées à state.deadPlayers — elles restent « vivantes » côté client.
+  if (state.phase === "chasseur") {
+    for (const d of deaths) {
+      if (state.deadPlayers.includes(d.id)) continue;
+      if (!state.gameStats.firstDead) state.gameStats.firstDead = { name: d.name, role: d.role };
+      state.gameStats.deathLog.push(d);
+      state.deadPlayers.push(d.id);
+      const _k = playerName(d.id).toLowerCase();
+      if (state.playerRegistry[_k]) state.playerRegistry[_k].isDead = true;
+      state.io.emit("deadPlayers", state.deadPlayers);
+      state.io.emit("playerDied", { id: d.id, role: state.roles[d.id], name: playerName(d.id) });
+      if (d.id === state.mayor && !state.mayorTransferPending) {
+        state.dyingMayorId = d.id; state.mayorTransferPending = true;
+        state.dyingMayorWasChasseur = false; state.mayorTransferContext = "chasseur";
+        state.mayor = null;
+        state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", d.id);
+      }
+      if (state.lovers.includes(d.id)) {
+        const _p = state.lovers.find(l => l !== d.id);
+        if (_p && !state.deadPlayers.includes(_p)) {
+          state.deadPlayers.push(_p);
+          const _pk = playerName(_p).toLowerCase();
+          if (state.playerRegistry[_pk]) state.playerRegistry[_pk].isDead = true;
+          state.io.emit("deadPlayers", state.deadPlayers);
+          state.io.emit("loversDeathInfo", { id: _p, name: playerName(_p), role: state.roles[_p] });
+          state.io.emit("playerDied", { id: _p, role: state.roles[_p], name: playerName(_p) });
+          state.gameStats.deathLog.push(buildDeath(_p, "amour"));
+          if (_p === state.mayor && !state.mayorTransferPending) {
+            state.dyingMayorId = _p; state.mayorTransferPending = true;
+            state.dyingMayorWasChasseur = false; state.mayorTransferContext = "chasseur";
+            state.mayor = null;
+            state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", _p);
+          }
+        }
+      }
+    }
+  }
+
   state.nightTarget = null;
   state.witchKillTarget = null;
   state.witchSaveActive = false;

@@ -30,6 +30,30 @@ Application web de Loup-Garou (party game) avec :
 
 ## Modifications récentes (à connaître pour reprendre)
 
+### Correctifs audit bugs (mai 2026) (`roles.js`, `server.js`, `phases.js`, `public/index.html`)
+
+Quatre bugs corrigés suite à un audit complet :
+
+**BUG 1 — Morts perdues si chasseur tué la nuit et sorcière a aussi agi** (`roles.js`)  
+Si `doResolveNight()` s'interrompait pour passer en phase `chasseur`, les morts restantes dans `deaths` (ex: cible de la Sorcière) n'étaient jamais ajoutées à `state.deadPlayers`. Ces joueurs restaient « vivants » côté client. Fix : bloc catch-up symétrique au bloc `mayorTransfer` déjà existant — manipulation directe de `state.deadPlayers` sans appel à `killPlayer` pour ne pas provoquer de changements de phase intempestifs.
+
+**BUG 2 — Reconnexion pendant phase Corbeau/Sorcière/Chasseur bloquait l'UI 45-90s** (`server.js`)  
+Le handler de reconnexion ne ré-émettait pas `corbeauTurn`, `nightVictim`, ni `chasseurMustShoot`. Ajout de 3 blocs conditionnels après le bloc existant `wolfVotesUpdate`.
+
+**BUG 3 — Barre de progression erronée après reconnexion en mode 2** (`public/index.html`)  
+`modeDurations[2]` valait 200000 ms au lieu de 60000 ms → barre trop longue. Corrigé.
+
+**BUG 4 — Message `autoResolve` visible par tous les joueurs pour les timeouts nocturnes** (`phases.js`)  
+Les timeouts Sorcière, Voyante, Corbeau, Cupidon, Salvateur, Sœurs émettaient en broadcast. Changé en `if (state.mjSocketId) state.io.to(state.mjSocketId).emit(...)` pour envoyer uniquement au MJ.
+
+### Bannière « action en cours » — Chasseur et transfert de maire (mai 2026) (`public/index.html`, `public/css/player.css`)
+
+Quand le Chasseur ou le Maire mourant choisit sa cible/successeur, les autres joueurs voient maintenant un bandeau fixe en bas d'écran : `#actionPendingBanner` (z-index 9150, animation `actionPulse` douce). Il s'affiche par-dessus l'UI normale mais n'écrase pas les cartes narratives (z-index 9998+).
+
+- **Chasseur** : `updateActionPendingBanner()` appelé dans `chasseurMustShoot` — condition `phase === "chasseur" && !isChasseurDead` (le Chasseur lui-même a `isChasseurDead=true` et voit son panel de tir plein écran z-index 9500).
+- **Transfert maire** : appelé dans `mayorMustTransfer` avant le `return` anticipé — condition `phase === "mayorTransfer" && socket.id !== dyingMayorId` (le Maire mourant gère son propre tiebreakPanel z-index 10000).
+- **Nettoyage** : masqué dans le handler `phase` (sortie de phase), `mayorTransferred`, `gameEnd` et `gameReset`.
+
 ### UX vote du jour + battement de cœur (mai 2026) (`public/index.html`, `public/css/player.css`)
 
 **Battement de cœur renforcé** : animation `heartbeatPulse` plus ample (scale 1.4 au lieu de 1.15, cycle 0.65s), `bgPulse` plus rouge (`#280404`). À l'entrée des 10 dernières secondes, une vibration unique `[120,80,120,80,200]` est déclenchée via `vibrateIfDay` (flag `_heartbeatVibrated` resetté à chaque `startCountdown`/`stopCountdown`).
@@ -123,6 +147,25 @@ La 1ʳᵉ nuit, le voile n'apparaissait pas pendant la phase Cupidon. Cause doub
 **Écran d'intro gothic** (`public/index.html`) : nouvel `#introScreen` plein écran affiché au premier chargement (lune animée, emoji loup, titre LOUP-GAROU). Disparaît au toucher, après 6 secondes, ou immédiatement pour les reconnecteurs (`localStorage.lgName` présent). CSS dans `<style>`, HTML avant `#endCard`, JS en IIFE au démarrage.
 
 **Avatars dans la liste joueurs** (`public/index.html`, `render()`) : nouvelle fonction `playerAvatar(p, size)` — retourne une `<img>` ronde si le joueur a une photo, sinon un cercle initiale/couleur déterministe (palette de 8). Injecté en premier flex-child de chaque `player-row` dans `render()`.
+
+### Runner de tests d'intégration (mai 2026) (`_run_scenarios.js`, `server.js`)
+
+**Fichier** : `_run_scenarios.js` — runner autonome, `node _run_scenarios.js`. Lance un serveur sur le port 3099, connecte de vrais sockets socket.io-client, et vérifie 5 scénarios bout-en-bout. Tous les scénarios passent (7/7 assertions). Durée : ~160s (S5 autoMode est le plus long).
+
+**Événement `fullReset`** (`server.js`) : nouvel événement MJ qui appelle `resetGameState(false)` (vide `state.players`) pour isoler chaque scénario. Sans ça, les sockets du scénario N resteraient dans `state.players` et l'attribution de rôles du scénario N+1 serait faussée.
+
+**Scénarios** :
+- **S1** — Chasseur tué la nuit + Sorcière empoisonne : vérifie que les deux morts sont dans `deadPlayers` après `dawnResult` (régression bug 1).
+- **S2** — Reconnexion Corbeau pendant sa phase : vérifie la réception de `corbeauTurn` après reconnexion (régression bug 2).
+- **S3** — Reconnexion Sorcière pendant sa phase : vérifie la réception de `nightVictim` après reconnexion (régression bug 2).
+- **S4** — Chasseur lynché au vote du jour : vérifie que `chasseurMustShoot` est reçu après `lockDayVotes`. Note de timing : `lockDayVotes → 800ms → resolveDayVote → 8200ms → killPlayer(chasseur) → chasseurMustShoot` = ~9s ; timeout du test = 13s.
+- **S5** — Smoke test autoMode bots : partie complète sans intervention humaine, `gameEnd` dans les 245s. Config : 5 bots, 1 loup, 1 voyante (1 seul loup garantit le consensus et évite le timeout loups 120s).
+
+**Pièges à retenir** :
+- Les listeners (`deadPlayers`, `phase`) doivent être posés AVANT l'action qui déclenche l'événement (race condition socket.io-client).
+- `dawnResult` et `phase:"day"` sont émis dans la même boucle synchrone ; les deux promesses peuvent être créées en parallèle avant le déclenchement.
+- Le vote du jour avec `mjPilotedDay:true` requiert `mj.emit("startVote")` d'abord ; les votes arrivant avant le démarrage officiel sont rejetés.
+- Ne pas tuer le maire (players[0]) avec les loups — déclencherait `mayorTransfer` avant `phase:day`.
 
 ### Bug fixes — Audit serveur (mai 2026) (`roles.js`, `phases.js`, `votes.js`, `state.js`)
 
