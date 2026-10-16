@@ -1,10 +1,10 @@
 /**
- * _run_scenarios.js — Runner de tests d'intégration pour LoupGarouVoteApp
+ * tests/scenarios.js — Runner de tests d'intégration pour LoupGarouVoteApp
  *
  * Lance un serveur sur le port 3099, connecte de vrais sockets socket.io-client,
  * et vérifie le comportement bout-en-bout pour 5 scénarios ciblés.
  *
- * Usage : node _run_scenarios.js
+ * Usage : npm test   (ou : node tests/scenarios.js)
  *
  * Scénarios :
  *  S1 — BUG 1 regression : Chasseur tué la nuit + Sorcière empoisonne aussi
@@ -18,6 +18,12 @@
 const { spawn }    = require("child_process");
 const { io: ioc }  = require("socket.io-client");
 const path         = require("path");
+const os           = require("os");
+const fs           = require("fs");
+
+// Dossier de sauvegarde jetable : le serveur de test ne doit pas laisser une
+// partie « à reprendre » dans le vrai dossier snapshots/.
+const TEST_SNAP_DIR = path.join(os.tmpdir(), "loupgarou-tests-snapshots");
 
 const TEST_PORT = 3099;
 const BASE_URL  = `http://localhost:${TEST_PORT}`;
@@ -433,8 +439,8 @@ async function main() {
   console.log("═".repeat(62));
 
   const server = spawn("node", ["server.js"], {
-    cwd:   path.join(__dirname),
-    env:   { ...process.env, PORT: String(TEST_PORT), LIGHTS_ENABLED: "false" },
+    cwd:   path.join(__dirname, ".."),
+    env:   { ...process.env, PORT: String(TEST_PORT), LIGHTS_ENABLED: "false", SNAPSHOT_DIR: TEST_SNAP_DIR },
     stdio: ["ignore", "pipe", "pipe"]
   });
 
@@ -456,6 +462,7 @@ async function main() {
 
   server.kill();
   await sleep(300);
+  try { fs.rmSync(TEST_SNAP_DIR, { recursive: true, force: true }); } catch (_) {}
 
   console.log("\n" + "═".repeat(62));
   console.log("RAPPORT FINAL");

@@ -1,6 +1,6 @@
 /**
  * test-hue.js — Diagnostic direct de la connexion Philips Hue.
- * Lance :  node test-hue.js
+ * Lance :  npm run test:hue   (ou : node outils/test-hue.js)
  * Lit le .env tout seul, envoie UNE commande au Bridge, affiche le resultat.
  */
 const https = require('https');
@@ -10,7 +10,7 @@ const path  = require('path');
 // --- Lecture manuelle du .env (independante des variables d'environnement) ---
 const env = {};
 try {
-  fs.readFileSync(path.join(__dirname, '.env'), 'utf8').split(/\r?\n/).forEach(line => {
+  fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8').split(/\r?\n/).forEach(line => {
     const m = line.match(/^\s*([^#=]+?)\s*=\s*(.*)\s*$/);
     if (m) env[m[1]] = m[2];
   });

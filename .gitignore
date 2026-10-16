@@ -1,10 +1,16 @@
+# Dépendances, journaux, sauvegardes de partie (régénérés automatiquement)
 node_modules/
-logs/
-snapshots/
-.env
-.sync_probe
+code/logs/
+code/snapshots/
 *.log
+
+# Secrets (clé des lumières Hue) — jamais versionnés
+.env
+
+# Divers
 *.bak
+.sync_probe
 .DS_Store
 Thumbs.db
 .claude/
+~$*

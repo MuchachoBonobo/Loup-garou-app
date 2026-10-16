@@ -17,7 +17,9 @@ const fs   = require('fs');
 const path = require('path');
 const log  = require('./logger');
 
-const SNAP_DIR  = path.join(__dirname, 'snapshots');
+// SNAPSHOT_DIR permet aux tests d'utiliser un dossier jetable (sinon une partie
+// de test serait proposée en « reprise » au prochain vrai lancement).
+const SNAP_DIR  = process.env.SNAPSHOT_DIR || path.join(__dirname, 'snapshots');
 try { if (!fs.existsSync(SNAP_DIR)) fs.mkdirSync(SNAP_DIR, { recursive: true }); } catch (_) {}
 
 const SNAP_FILE = path.join(SNAP_DIR, 'state-snapshot.json');

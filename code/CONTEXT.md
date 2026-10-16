@@ -1,6 +1,6 @@
 # Contexte produit — LoupGarouVoteApp
 
-Ce document décrit le **pourquoi** et le **pour qui** du projet. Le **quoi** et le **comment** sont dans `HANDOFF.md`.
+Ce document décrit le **pourquoi** et le **pour qui** du projet, du point de vue des décisions de conception. Le **quoi** et le **comment** sont dans `HANDOFF.md`. La version « commerciale » (pitch, offre, prospection) est tenue par Alexandre dans `../gestion/` — à relire avant toute décision qui touche le public « inconnus / clients ».
 
 ## Vision
 
@@ -8,9 +8,13 @@ Offrir aux joueurs un **moment interactif, immersif et mémorable** autour du je
 
 L'immersion passe par :
 - Une **mise en scène** soignée (narration vocale, lumières connectées Hue, cartes plein écran, sons d'ambiance).
-- Une **mécanique fluide** qui efface autant que possible la friction du MJ humain (auto-démarrage des votes, transitions de phase, narration assistée).
-- Des **moments forts** dramatisés (Conseil des Morts, évènements narratifs, sprint final 30s, voile de nuit en filet de sécurité).
+- Une **mécanique fluide** qui efface autant que possible la friction du MJ humain (verrouillages automatiques des votes de nuit et du maire, transitions de phase, narration assistée) — tout en laissant au MJ la main sur le rythme du jour (c'est lui qui lance le vote).
+- Des **moments forts** dramatisés (Conseil des Morts, évènements narratifs, battement de cœur des 10 dernières secondes de vote, voile de nuit en filet de sécurité).
 - Des **cartes narratives plein écran** (récap de nuit, évènements du Conseil des Morts) qui jouent un double rôle : **renforcer l'ambiance** pour les joueurs, et **soulager le MJ** en lui donnant un support visuel et un texte de synthèse à raconter — il n'a pas à tout improviser.
+
+## Principe directeur : l'app au service de la table
+
+En présentiel, chaque seconde passée les yeux sur le téléphone est une seconde volée au jeu social (regards, bluff, accusations). Depuis la refonte du jour (mai 2026), la règle est : **le téléphone ne s'allume que quand le joueur doit agir**. Le jour, les joueurs voient un écran « regardez-vous, débattez » ; le vote n'apparaît que quand le MJ le lance ; les morts ont un écran épuré. Toute nouvelle fonctionnalité doit être jugée aussi sur ce critère : est-ce qu'elle ramène les yeux vers l'écran sans nécessité ?
 
 ## Public
 

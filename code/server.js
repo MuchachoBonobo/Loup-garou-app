@@ -77,7 +77,7 @@ process.on('unhandledRejection', (reason) => {
 });
 
 const PORT = parseInt(process.env.PORT) || 3000;
-app.use(express.static("public"));
+app.use(express.static(require("path").join(__dirname, "public")));
 
 // Alias court pour l'URL du MJ : /mj → public/mj.html
 app.get("/mj", (req, res) => res.sendFile(__dirname + "/public/mj.html"));

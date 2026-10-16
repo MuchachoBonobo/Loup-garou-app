@@ -1,4 +1,4 @@
-// Runner headless pour test-ui.js — usage: node _run_tests.js
+// Runner headless pour public/test-ui.js — usage: node tests/ui-headless.js (serveur lancé, puppeteer-core requis)
 // Lance Chrome headless, charge l'app sur localhost:3000, exécute le test,
 // capture les console.log/warn et sort le rapport final.
 const puppeteer = require('puppeteer-core');

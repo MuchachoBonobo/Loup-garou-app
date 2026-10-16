@@ -1,25 +1,42 @@
 # LoupGarouVoteApp — Instructions pour Claude
 
-Bienvenue. Ce projet est une application web de Loup-Garou (party game) pensée pour le jeu en présentiel. Avant de répondre à une demande sur ce projet, **lis impérativement** :
+Application web de Loup-Garou (party game) pensée pour le jeu en présentiel : téléphones des joueurs + tablette du Maître du Jeu, sur le Wi-Fi d'un PC qui fait tourner le serveur, avec lumières Philips Hue optionnelles.
 
-1. **`CONTEXT.md`** — la vision produit, le public visé, les priorités de décision. C'est ce qui doit guider tes choix de design et de priorisation.
-2. **`HANDOFF.md`** — l'état technique du code : architecture, rôles implémentés, modifications récentes, repères dans `server.js` et `mj.html`, bugs à surveiller.
+## Le dossier a deux parties
+
+| Dossier | À qui | Contenu |
+|---------|-------|---------|
+| `code/` | **Claude** — Alexandre n'y va pas | Serveur, interfaces, sons, tests, outils, doc technique. Tu l'organises et le modifies librement (en gardant les conventions ci-dessous). |
+| `gestion/` | **Alexandre** | Pitch, mise en place (Wi-Fi, lancement), lumières, prospection, lanceur `Lancer le jeu.bat`. |
+
+- Dans `gestion/`, tu ne modifies **que sur demande**, avec deux exceptions : (1) si une modification du code change la mise en place (variable `.env`, port, étape de lancement, rôle, durée affichée aux joueurs…), mets à jour la fiche concernée dans le même mouvement et dis-le ; (2) ne jamais y mettre de jargon technique — ces fiches s'adressent à quelqu'un qui ne code pas.
+- Ne casse jamais `gestion/Lancer le jeu.bat` : il appelle `code/start.ps1`. Si tu déplaces `start.ps1`, mets à jour le `.bat`.
+
+## Avant de répondre à une demande
+
+Lis impérativement :
+1. **`code/CONTEXT.md`** — vision produit, public, priorités de décision.
+2. **`code/HANDOFF.md`** — section « État actuel » (vérité du code) + Carte du code + Journal.
 
 ## Conventions de travail
 
-- **Langue** : tout est en français — code, commentaires, narrations, UI, ce document. Réponds en français.
-- **Architecture serveur modulaire** : la logique est éclatée en 7 modules (`state.js`, `narration.js`, `council.js`, `roles.js`, `phases.js`, `votes.js`, `lights.js`) + un `server.js` bootstrap. Voir la "Carte du code" de `HANDOFF.md` pour savoir où vit chaque fonction.
-- **Avant toute modification serveur** : repérer le module concerné via la Carte du code, puis `Grep` sur le nom de fonction pour confirmer la ligne. Les modules sont petits (200-900 lignes) donc une lecture ciblée suffit.
-- **`public/index.html` (~2200 lignes) et `public/mj.html` (~1240 lignes)** : à lire par portions avec `offset`/`limit`, ou cibler via `Grep`.
-- **Convention `state.js`** : ne JAMAIS faire `const { players } = state` au top d'un module — toujours accéder via `state.players` pour conserver la mutabilité partagée.
-- **Après toute modification** : exécuter `node --check <fichier-modifié>.js` pour valider la syntaxe.
-- **Ne jamais bloquer le moteur de jeu** sur des appels externes (cf. pattern fire-and-forget de `lights.js` : timeout court, pas d'`await`, pas de `throw`).
+- **Langue** : tout en français — code, commentaires, narrations, UI, documents. Réponds en français, simplement : Alexandre n'est pas développeur.
+- **Git** : dépôt à la racine, branche `master`. `git pull` en début de session.
+- **Architecture** : `code/server.js` est un bootstrap ; la logique vit dans `state`, `phases`, `roles`, `votes`, `council`, `narration`, `lights` (+ `badges`, `death-narratives`, `snapshot`, `logger`). Repérer le module via la Carte du code, puis `Grep` pour la ligne.
+- **`public/index.html` (~3300 lignes) et `public/mj.html` (~1700 lignes)** : lire par portions (`offset`/`limit`) ou via `Grep`.
+- **Convention `state.js`** : ne JAMAIS faire `const { players } = state` — toujours `state.players`.
+- **Cycle `phases` ↔ `roles` ↔ `votes`** : terminer ces modules par `Object.assign(module.exports, {...})`, jamais `module.exports = {...}`.
+- **Chemins** : toujours relatifs à `__dirname` (le serveur peut être lancé depuis n'importe quel dossier).
+- **Après toute modification** : `node --check <fichier>.js` ; après une modification serveur qui touche au déroulé, `npm test` dans `code/` (~160 s). Relancer le serveur pour tester (Node garde les anciens modules en mémoire).
+- **Modification visible** : tester dans le navigateur (preview `loupgarou`, `.claude/launch.json`, port 3000) avant de considérer la tâche terminée.
+- **Ne jamais bloquer le moteur de jeu** sur des appels externes (pattern fire-and-forget de `lights.js` : timeout court, pas d'`await`, pas de `throw`).
+- **Secrets** : `code/.env` contient la clé Hue — jamais versionné, jamais affiché.
 
 ## Avant de proposer une fonctionnalité
 
-Passe-la au filtre de `CONTEXT.md` :
+Passe-la au filtre de `code/CONTEXT.md` :
 1. Est-ce que ça aide les joueurs à passer un bon moment ?
-2. Est-ce que ça renforce l'immersion ?
+2. Est-ce que ça renforce l'immersion (et ça ne ramène pas les yeux vers l'écran sans nécessité) ?
 3. Est-ce que ça tient pour un public d'inconnus ?
 4. Est-ce maintenable en temps libre ?
 
@@ -27,4 +44,4 @@ Si tu hésites sur une priorité ou une direction, **demande** plutôt que de pa
 
 ## Mise à jour de la documentation
 
-Quand une modification significative est apportée au code, **mets à jour `HANDOFF.md`** (section "Modifications récentes") dans le même mouvement. Quand la vision ou le public évolue, mets à jour `CONTEXT.md`.
+Après une modification significative : entrée datée en tête du **Journal** de `code/HANDOFF.md`, et mise à jour de sa section « État actuel » si le comportement change. Vision ou public qui évolue → `code/CONTEXT.md`. Mise en place qui change → fiche de `gestion/`.

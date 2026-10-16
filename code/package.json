@@ -1,12 +1,14 @@
 {
   "name": "loupgarouvoteapp",
   "version": "1.0.0",
-  "description": "",
+  "description": "Loup-Garou en présentiel : serveur local + interfaces joueurs et Maître du Jeu",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js",
-    "lint": "eslint . --ext .js"
+    "test": "node tests/scenarios.js",
+    "test:ui": "node tests/ui-headless.js",
+    "test:hue": "node outils/test-hue.js",
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "",

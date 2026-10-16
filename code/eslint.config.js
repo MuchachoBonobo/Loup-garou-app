@@ -5,7 +5,7 @@
 module.exports = [
   {
     // Fichiers Node côté serveur
-    files: ["*.js", "scripts/**/*.js"],
+    files: ["*.js", "tests/**/*.js", "outils/**/*.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "commonjs",
