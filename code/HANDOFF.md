@@ -161,6 +161,12 @@ Après toute modification serveur : **arrêter et relancer** le serveur (Node ga
 
 ## Journal (du plus récent au plus ancien)
 
+### 2026-10-17 — Prospection, site internet, dossier privé
+- **Le dépôt GitHub est PUBLIC** : les coordonnées de prospects vont dans `gestion/prive/` (ignoré par Git, ajouté au `.gitignore`), jamais dans les fiches versionnées. `4 - Prospection.md` ne garde qu'un résumé anonyme des demandes.
+- Deux demandes d'entreprises reçues via le site (30 et 90 personnes) : le marché semble venir des entreprises plus que des particuliers, avec des groupes plus grands qu'une partie (8 à 15 joueurs) → piste « plusieurs parties à tour de rôle / plusieurs tables ».
+- **Site internet** : dossier `C:\Users\alexa\Desktop\site-loupgarou` (hors dépôt), hébergé sur **Netlify** (mise à jour par glisser-déposer du dossier dans l'onglet Deploys), domaine `lanuitduvillage.fr`, formulaire via Formspree. Textes alignés sur le jeu réel (couleurs des lumières, 8 à 15 joueurs, ~30 min par partie), chevauchement « Découvrir » / bouton corrigé. Le guide de déploiement, qui était publié par erreur, est rangé dans `gestion/5 - Site internet (deploiement).md`. Les avis du site sont de vrais retours de parties tests.
+- Le pitch (`gestion/1 - Pitch du jeu.md`) est enregistré par Word en UTF-16 : le relire/écrire dans cet encodage.
+
 ### 2026-10-16 — Réorganisation du dossier en `code/` + `gestion/`, documentation remise à jour
 - Tout le technique est déplacé dans `code/` ; nouveau dossier `gestion/` (pitch, mise en place Wi-Fi, lumières, prospection) pour Alexandre, avec `Lancer le jeu.bat`. Nouveau `LISEZMOI.md` à la racine.
 - Renommages : `_run_scenarios.js` → `tests/scenarios.js`, `_run_tests.js` → `tests/ui-headless.js`, `test-hue.js` → `outils/test-hue.js`, `ANALYSE_RAPPORT.md` → `docs/ANALYSE-2026-05-07.md`. Chemins internes corrigés (`cwd` du runner, `.env` lu par test-hue).

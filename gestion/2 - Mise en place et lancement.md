@@ -22,7 +22,8 @@ Ton **ordinateur** fait tourner le jeu. Tous les appareils (tablette du MJ, tél
 | Une enceinte branchée à la tablette du MJ | La musique et les sons sortent de l'appareil du MJ | Fortement conseillé |
 | Un chargeur pour la tablette du MJ | L'écran reste allumé toute la partie | Conseillé |
 | Bridge + ampoules Philips Hue | Les lumières d'ambiance | Non — voir `3 - Lumieres Philips Hue.md` |
-| Un téléphone par joueur | Rôle, votes, actions de nuit | Oui |
+| Un téléphone par joueur (8 à 15 joueurs) | Rôle, votes, actions de nuit | Oui |
+| Des batteries externes et un ou deux téléphones de rechange | Pour un joueur à court de batterie ou sans smartphone | Conseillé |
 
 ## Avant la soirée (une seule fois sur un nouvel ordinateur ou un nouveau réseau)
 

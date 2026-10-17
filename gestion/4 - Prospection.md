@@ -35,7 +35,7 @@ Prix : à définir (à compléter après les premières soirées : temps réel, 
 
 | Question | Réponse |
 |----------|---------|
-| Combien de joueurs ? | Environ 6 à 15 par partie. |
+| Combien de joueurs ? | De 8 à 15 par partie. Au-delà, plusieurs parties à tour de rôle. |
 | Il faut connaître le jeu ? | Non, le MJ explique, et chaque joueur a la description de son rôle sur son téléphone. |
 | Et si le Wi-Fi du lieu ne marche pas ? | On apporte notre propre réseau. |
 | Et si ça plante ? | La partie est sauvegardée toutes les 5 secondes et reprend là où elle en était. |
@@ -51,8 +51,30 @@ Prix : à définir (à compléter après les premières soirées : temps réel, 
 - [ ] Les **prix** des formules.
 - [ ] Vérifier le statut pour facturer (auto-entrepreneur ou autre) et l'assurance pour le matériel prêté.
 
+## Demandes reçues
+
+Le détail (noms, coordonnées, échanges) est dans `prive/Suivi des contacts.md`. Ici, seulement ce qu'on en apprend sur le marché.
+
+| Reçue | Qui | Besoin | Taille | Suite donnée |
+|-------|-----|--------|--------|--------------|
+| Mi-octobre 2026, via le site | Comité d'animation d'une entreprise (Lyon 9ᵉ) | Soirée Halloween dans les locaux, une ou plusieurs parties, plaquette + tarifs demandés | ~30 personnes | Déclinée poliment, contact gardé pour plus tard |
+| Mi-octobre 2026, via le site | Un service d'un organisme public | Séminaire « qui change de l'ordinaire » | 90 personnes | Appel prévu pour en savoir plus |
+
+**Ce que ça montre déjà** : deux demandes en une semaine, et les deux viennent d'**entreprises**, pas de particuliers (le site vise pourtant les EVJF et anniversaires). Les groupes sont **plus grands qu'une partie** (30 et 90 pour 8 à 15 joueurs) : il faut une réponse « grands groupes » (plusieurs parties à tour de rôle, ou plusieurs tables avec plusieurs animateurs). Les premières parties tests entre amis sont faites ; avant de répondre à des professionnels, il faut encore roder l'expérience (plus de parties, durée réelle, déroulé avec des inconnus).
+
+### Préparer l'appel du séminaire (90 personnes)
+
+But : comprendre leur besoin, **sans s'engager** ni donner de prix. Tu peux le dire franchement : l'offre entreprise est en cours de construction.
+
+- **Quand ?** Date du séminaire, et combien de temps pour cette activité (une soirée, une demi-journée, un créneau pendant la journée ?).
+- **Où ?** Leurs locaux, un lieu loué ? Combien de salles disponibles en même temps ?
+- **Comment ils l'imaginent ?** Tout le monde en même temps, ou une activité parmi d'autres où les gens tournent ?
+- **Pourquoi ?** Cohésion d'équipe, détente, faire se rencontrer des gens qui ne se connaissent pas ?
+- **Le public** : âges, est-ce qu'ils connaissent le Loup-Garou ?
+- **Budget** : ont-ils une enveloppe ? (Une collectivité publique a souvent une procédure : devis, bon de commande, facture.)
+- **Comment ont-ils trouvé le site ?** Utile pour savoir ce qui marche.
+- **Pourrait-on les recontacter** quand l'offre entreprise sera prête ?
+
 ## Suivi des contacts
 
-| Date | Structure | Contact | Cible | Ce qui a été dit / proposé | Prochaine étape | Statut |
-|------|-----------|---------|-------|----------------------------|-----------------|--------|
-|      |           |         |       |                            |                 |        |
+Le suivi (noms, mails, téléphones) est dans **`prive/Suivi des contacts.md`**. Ce dossier reste sur l'ordinateur et n'est jamais envoyé sur GitHub, qui est public : ne mets pas de coordonnées de prospects dans les autres fiches.
