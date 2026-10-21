@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>La Nuit du Village — Nocturne</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  :root { --nuit:#0a0910; --encre:#ece5d3; --pale:#b9b09c; --or:#d4a857; --sang:#c14545; --filet:rgba(212,168,87,.28); }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { background:var(--nuit); }
+  body { font-family:'Cormorant Garamond',Georgia,serif; color:var(--encre); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .page { width:210mm; height:297mm; margin:0 auto; position:relative; overflow:hidden; padding:16mm 16mm 13mm;
+          background:
+            radial-gradient(90mm 70mm at 78% 12%, rgba(142,95,209,.22), transparent 70%),
+            radial-gradient(110mm 80mm at 10% 70%, rgba(193,69,69,.10), transparent 70%),
+            var(--nuit);
+          display:flex; flex-direction:column; }
+  .etoiles { position:absolute; inset:0; pointer-events:none;
+    background-image:
+      radial-gradient(.6mm .6mm at 12% 9%, #fff8e0 99%, transparent),
+      radial-gradient(.4mm .4mm at 31% 17%, #fff 99%, transparent),
+      radial-gradient(.5mm .5mm at 52% 6%, #fff8e0 99%, transparent),
+      radial-gradient(.4mm .4mm at 63% 22%, #fff 99%, transparent),
+      radial-gradient(.6mm .6mm at 92% 31%, #fff 99%, transparent),
+      radial-gradient(.4mm .4mm at 7% 36%, #fff8e0 99%, transparent),
+      radial-gradient(.4mm .4mm at 44% 29%, #fff 99%, transparent),
+      radial-gradient(.5mm .5mm at 85% 4%, #fff8e0 99%, transparent); opacity:.75; }
+  .lune { position:absolute; right:22mm; top:20mm; width:46mm; height:46mm; border-radius:50%;
+          background:radial-gradient(circle at 35% 35%, #fff8e0, #d4c89a 50%, #6e5e3a 100%);
+          box-shadow:0 0 30mm rgba(244,232,200,.25); }
+  .haut { position:relative; }
+  .kicker { font-family:'IBM Plex Mono',monospace; font-size:8.5pt; letter-spacing:.28em; text-transform:uppercase; color:var(--or); }
+  h1 { font-family:'Cinzel',serif; font-weight:900; font-size:48pt; line-height:.98; margin:7mm 0 5mm; max-width:125mm; }
+  h1 em { font-style:normal; color:var(--sang); }
+  .accroche { font-style:italic; font-size:16pt; color:var(--pale); max-width:115mm; line-height:1.3; }
+
+  .trois { position:relative; display:grid; grid-template-columns:repeat(3,1fr); gap:7mm; margin-top:14mm; padding-top:6mm; border-top:1px solid var(--filet); }
+  .trois .n { font-family:'IBM Plex Mono',monospace; font-size:8.5pt; color:var(--or); letter-spacing:.2em; }
+  .trois h2 { font-family:'Cinzel',serif; font-size:13pt; font-weight:700; line-height:1.15; margin:2mm 0 2mm; color:var(--encre); }
+  .trois p { font-size:12pt; line-height:1.32; color:var(--pale); }
+
+  .citation { position:relative; margin:11mm 0 9mm; text-align:center; }
+  .citation p { font-style:italic; font-size:17pt; line-height:1.3; }
+  .citation cite { display:block; font-style:normal; font-family:'IBM Plex Mono',monospace; font-size:8.5pt; letter-spacing:.2em; color:var(--or); margin-top:2.5mm; }
+
+  .formule { position:relative; margin-top:auto; display:grid; grid-template-columns:1.1fr 1fr; gap:8mm; border:1px solid var(--filet); padding:6mm 7mm; }
+  .formule .titre { font-family:'IBM Plex Mono',monospace; font-size:8.5pt; letter-spacing:.24em; text-transform:uppercase; color:var(--or); margin-bottom:2.5mm; }
+  .formule .prix { font-family:'Cinzel',serif; font-weight:900; font-size:30pt; line-height:1; }
+  .formule .prix small { font-size:12pt; font-weight:500; color:var(--pale); font-family:'Cormorant Garamond',serif; font-style:italic; }
+  .formule p { font-size:12pt; line-height:1.35; color:var(--pale); margin-top:2mm; }
+  .formule ul { list-style:none; font-size:12pt; line-height:1.5; color:var(--encre); }
+  .formule li::before { content:"·"; color:var(--or); margin-right:2.5mm; font-weight:700; }
+
+  .contact { position:relative; display:flex; justify-content:space-between; align-items:flex-end; margin-top:7mm; }
+  .contact .marque { font-family:'Cinzel',serif; font-weight:700; font-size:15pt; letter-spacing:.06em; color:var(--or); }
+  .contact .lieu { font-family:'IBM Plex Mono',monospace; font-size:8.5pt; letter-spacing:.18em; color:var(--pale); text-transform:uppercase; margin-top:1mm; }
+  .contact .c { text-align:right; font-size:14pt; }
+  .contact .c span { display:block; font-size:12pt; color:var(--pale); }
+</style>
+</head>
+<body>
+<section class="page">
+  <div class="etoiles"></div>
+  <div class="lune"></div>
+
+  <div class="haut">
+    <div class="kicker">Animation Loup-Garou · Entreprises</div>
+    <h1>Ce soir, l'un de vos collègues est un <em>loup</em>.</h1>
+    <p class="accroche">Une heure de Loup-Garou dans vos locaux, la lumière éteinte, le narrateur au micro. À vous de le démasquer avant le lever du jour.</p>
+  </div>
+
+  <div class="trois">
+    <div>
+      <div class="n">I</div>
+      <h2>La salle devient le village</h2>
+      <p>Les lumières suivent la partie : rouge quand les loups chassent, doré au lever du jour, un éclair à chaque mort. Musique et effets sonores à chaque phase.</p>
+    </div>
+    <div>
+      <div class="n">II</div>
+      <h2>Un rôle secret, un seul écran</h2>
+      <p>Chacun découvre son rôle sur son téléphone, sans rien installer. Ensuite l'écran se fait oublier : on se regarde, on doute, on accuse.</p>
+    </div>
+    <div>
+      <div class="n">III</div>
+      <h2>Même mort, on joue</h2>
+      <p>Les éliminés forment le Conseil des Morts et votent en secret ce qui frappera le village le lendemain.</p>
+    </div>
+  </div>
+
+  <div class="citation">
+    <p>« J'avais déjà joué au Loup-Garou, mais là c'est autre chose.<br>Les lumières, le rythme, l'ambiance : on est complètement dedans. »</p>
+    <cite>Thomas M.</cite>
+  </div>
+
+  <div class="formule">
+    <div>
+      <div class="titre">La formule</div>
+      <div class="prix">300 € <small>la première heure</small></div>
+      <p>Environ deux parties, jusqu'à 15 participants. Heure supplémentaire : 150 €. Au-delà de 15 personnes, sur devis.</p>
+    </div>
+    <div>
+      <div class="titre">Inclus</div>
+      <ul>
+        <li>Un Maître du Jeu</li>
+        <li>Lumières et sonorisation</li>
+        <li>Installation et rangement</li>
+        <li>Déplacement jusqu'à 30 km de Lyon</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="contact">
+    <div>
+      <div class="marque">La Nuit du Village</div>
+      <div class="lieu">Lyon · Villeurbanne · 30 km autour</div>
+    </div>
+    <div class="c">alexandre@ivanez.com<span>lanuitduvillage.fr</span></div>
+  </div>
+</section>
+</body>
+</html>

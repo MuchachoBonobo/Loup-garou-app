@@ -73,6 +73,9 @@ function makeMJ() {
     s.once("connect", () => {
       s.emit("registerMJ");
       s.emit("discardCrashRecovery");
+      // Nuit rythmée par le MJ : le MJ de test clique « Passer à l'étape suivante »
+      // une demi-seconde après chaque pause entre deux rôles de nuit.
+      s.on("etapeNuitEnAttente", () => setTimeout(() => s.emit("mjEtapeSuivante"), 500));
       resolve(s);
     });
     s.once("connect_error", reject);

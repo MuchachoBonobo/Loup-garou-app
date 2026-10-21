@@ -6,7 +6,7 @@
 
 const {
   state, alivePlayers, playerName, hasRole, isMJ, fisherYates, resetActivity,
-  CUPID_SOUND_MS, SISTERS_TIMEOUT_MS,
+  CUPID_SOUND_MS, SISTERS_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS,
 } = require('./state');
 
 const lights = require('./lights');
@@ -65,10 +65,82 @@ function resolveMissionCards() {
 
   // Enregistre le résultat mais ne le révèle PAS encore au broadcast.
   // → la révélation se fera dans doResolveNight() via missionReveal.
-  phases.setPhase("cupid");
+  startFirstNight();
 }
 
 // ===== NUIT =====
+// Première nuit : Cupidon ne se réveille que s'il y en a un. Sans Cupidon, la nuit
+// enchaîne directement (avant : l'étape Cupidon attendait 60 s pour rien).
+function startFirstNight() {
+  const cupidonVivant = Object.keys(state.roles).some(id => state.roles[id] === "Cupidon" && !state.deadPlayers.includes(id));
+  if (cupidonVivant) allerEtapeNuit("cupid");
+  else startNightSequence();
+}
+
+// ===== NUIT RYTHMÉE PAR LE MJ =====
+// Toute transition d'une étape de nuit à la suivante passe par allerEtapeNuit().
+// Hors mode autonome, on s'arrête d'abord en phase « nightPause » : aucun rôle actif,
+// tous les téléphones affichent le voile « garde les yeux fermés », la voix demande au
+// rôle précédent de fermer les yeux, et le MJ voit un grand bouton « Passer à l'étape
+// suivante ». Le rôle suivant ne se réveille (et son écran ne s'allume) qu'à ce clic :
+// un joueur qui tarde à fermer les yeux ne voit pas qui se réveille après lui.
+const LIBELLES_ETAPES_NUIT = {
+  cupid: "💘 Cupidon", sisters: "👯‍♀️ Les Sœurs jumelles", salvateur: "🛡 Le Salvateur",
+  wolves: "🐺 Les Loups-Garous", seer: "🔮 La Voyante", corbeau: "🪶 Le Corbeau",
+  witch: "🧪 La Sorcière", aube: "☀️ Le lever du jour"
+};
+function nuitRythmeeParMJ() { return !state.autoMode; }
+
+// Étape qui suit un rôle de nuit ("aube" quand la nuit est finie).
+function etapeApres(phaseCourante) {
+  const n = nextNightPhase(phaseCourante);
+  return n === "resolveAuto" ? "aube" : n;
+}
+
+function allerEtapeNuit(etape, options) {
+  const sansPause = !!(options && options.sansPause);
+  if (sansPause || !nuitRythmeeParMJ() || !LIBELLES_ETAPES_NUIT[etape]) { lancerEtapeNuit(etape); return; }
+  state.etapeNuitSuivante = etape;
+  phases.setPhase("nightPause");
+  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("etapeNuitEnAttente", { etape, libelle: LIBELLES_ETAPES_NUIT[etape] });
+}
+
+// Démarre réellement l'étape : messages propres au rôle puis changement de phase.
+function lancerEtapeNuit(etape) {
+  state.etapeNuitSuivante = null;
+  if (etape === "aube") { resoudreNuit(); return; }
+  if (etape === "sisters") {
+    const aliveSisters = Object.keys(state.roles).filter(id => state.roles[id] === "Sœurs" && !state.deadPlayers.includes(id));
+    // Option B : on n'envoie PAS les noms aux sœurs — elles se reconnaissent IRL.
+    aliveSisters.forEach(sid => state.io.to(sid).emit("sistersTurn", { count: aliveSisters.length }));
+    // Le MJ reçoit l'info détaillée pour pouvoir rappeler qui doit se réveiller.
+    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("sistersInfoMJ", { sisters: aliveSisters.map(id => ({ id, name: playerName(id) })) });
+  }
+  if (etape === "salvateur") {
+    const salvateurId = Object.keys(state.roles).find(id => state.roles[id] === "Salvateur" && !state.deadPlayers.includes(id));
+    if (salvateurId) state.io.to(salvateurId).emit("salvateurTurn", {
+      lastProtectedId:   state.lastProtectedTarget || null,
+      lastProtectedName: state.lastProtectedTarget ? playerName(state.lastProtectedTarget) : null
+    });
+  }
+  if (etape === "corbeau") {
+    const corbeauId = Object.keys(state.roles).find(cid => state.roles[cid] === "Corbeau" && !state.deadPlayers.includes(cid));
+    if (corbeauId) state.io.to(corbeauId).emit("corbeauTurn");
+  }
+  if (etape === "witch") {
+    const witchId = Object.keys(state.roles).find(wid => state.roles[wid] === "Sorcière" && !state.deadPlayers.includes(wid));
+    if (witchId) state.io.to(witchId).emit("nightVictim", state.nightTarget);
+  }
+  phases.setPhase(etape);
+}
+
+// Le MJ a vérifié que tout le monde a les yeux fermés : l'étape suivante démarre.
+function handleMJEtapeSuivante(socket) {
+  if (!isMJ(socket.id) || state.phase !== "nightPause" || !state.etapeNuitSuivante) return;
+  log.info('handleMJEtapeSuivante', 'étape=' + state.etapeNuitSuivante);
+  lancerEtapeNuit(state.etapeNuitSuivante);
+}
+
 // Entrée standard d'une nuit : appelée après Cupidon (nuit 1) ET après chaque
 // vote du jour (nuits suivantes). Route séquentiellement :
 //   Sœurs (si ≥2 vivantes) → Salvateur (s'il existe) → Loups
@@ -78,35 +150,14 @@ function resolveMissionCards() {
 // setPhase("wolves") directement, contournant ce helper.
 function startNightSequence() {
   const aliveSisters = Object.keys(state.roles).filter(id => state.roles[id] === "Sœurs" && !state.deadPlayers.includes(id));
-  if (aliveSisters.length >= 2) {
-    const sistersInfo = aliveSisters.map(id => ({ id, name: playerName(id) }));
-    aliveSisters.forEach(sid => {
-      state.io.to(sid).emit("sistersTurn", {
-        count: aliveSisters.length,
-        // Option B : on n'envoie PAS les noms aux sœurs — elles se reconnaissent IRL.
-        // (les noms restent dispos côté serveur si on veut changer plus tard)
-      });
-    });
-    // Le MJ reçoit l'info détaillée pour pouvoir rappeler qui doit se réveiller.
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("sistersInfoMJ", { sisters: sistersInfo });
-    phases.setPhase("sisters");
-  } else {
-    startNightAfterSisters();
-  }
+  if (aliveSisters.length >= 2) allerEtapeNuit("sisters");
+  else startNightAfterSisters();
 }
 
-// Continuation de la nuit une fois la phase Sœurs terminée (timeout 20s).
-function startNightAfterSisters() {
+// Continuation de la nuit une fois la phase Sœurs terminée (ou sautée).
+function startNightAfterSisters(options) {
   const salvateurId = Object.keys(state.roles).find(id => state.roles[id] === "Salvateur" && !state.deadPlayers.includes(id));
-  if (salvateurId) {
-    state.io.to(salvateurId).emit("salvateurTurn", {
-      lastProtectedId:   state.lastProtectedTarget || null,
-      lastProtectedName: state.lastProtectedTarget ? playerName(state.lastProtectedTarget) : null
-    });
-    phases.setPhase("salvateur");
-  } else {
-    phases.setPhase("wolves");
-  }
+  allerEtapeNuit(salvateurId ? "salvateur" : "wolves", options);
 }
 
 function nextNightPhase(after) {
@@ -134,7 +185,10 @@ function nextNightPhase(after) {
   return "resolveAuto";
 }
 
-function doResolveNight() {
+// Fin de nuit : passe par la pause « nightPause » (clic du MJ) avant le lever du jour.
+function doResolveNight(options) { allerEtapeNuit("aube", options); }
+
+function resoudreNuit() {
   // Guard : si deux handlers (ex. witchDone + resolveNight MJ) arrivent dans le même
   // tick, le second est ignoré. inNightResolution est remis à false à la fin.
   if (state.inNightResolution) return;
@@ -691,7 +745,7 @@ function assignAndStart(config, playerList) {
     });
   });
 
-  state.io.emit("rolesMJ", { roles: state.roles, players: state.players });
+  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("rolesMJ", { roles: state.roles, players: state.players });
 
   if (config.mission) {
     state.mission.active = true;
@@ -734,23 +788,24 @@ function handleCupidChoice(socket, data) {
   startNightSequence();
 }
 
-// Le MJ déclenche manuellement le countdown 20s des Sœurs (carte narrative).
-// On clear le fail-safe 5 min posé par installPhaseTimeouts, on (re)pose le vrai
-// timer de 20s et on émet `sistersTimerStart` à toutes les sœurs vivantes pour
-// qu'elles démarrent leur compte à rebours visuel. Idempotent : un clic en double
-// ne crée pas deux timers (on clear avant de reposer).
-function handleMJStartSistersTimer(socket) {
-  if (!isMJ(socket.id)) return;
+// Compte à rebours des Sœurs : démarre automatiquement dès leur réveil (entrée en
+// phase « sisters », c'est-à-dire au clic MJ « Passer à l'étape suivante » —
+// appelé par phases.installPhaseTimeouts). Émet `sistersTimerStart` pour que les
+// Sœurs voient le décompte. Idempotent : un timer en cours est remplacé.
+function demarrerTimerSoeurs() {
   if (state.phase !== "sisters") return;
-  // Clear l'éventuel timer en cours (fail-safe 5 min ou re-clic MJ)
   if (state.sistersTimeout) { clearTimeout(state.sistersTimeout); state.sistersTimeout = null; }
   state.sistersTimerEnd = Date.now() + SISTERS_TIMEOUT_MS;
+  // Fin des 20 s : comme pour tous les rôles, la nuit passe par la pause commune
+  // (voile pour tous, « Sœurs jumelles, fermez les yeux », bouton MJ « Passer à
+  // l'étape suivante ») avant de réveiller le rôle suivant.
   state.sistersTimeout = setTimeout(() => {
+    state.sistersTimeout = null;
     state.sistersTimerEnd = null;
     if (state.phase === "sisters") startNightAfterSisters();
   }, SISTERS_TIMEOUT_MS);
-  log.info('handleMJStartSistersTimer', 'durationMs=' + SISTERS_TIMEOUT_MS);
-  // Notifie tous les clients (les sœurs démarrent leur countdown, le MJ ferme sa carte)
+  log.info('demarrerTimerSoeurs', 'durationMs=' + SISTERS_TIMEOUT_MS);
+  // Notifie tous les clients (les Sœurs démarrent leur décompte, le MJ est prévenu)
   state.io.emit("sistersTimerStart", { durationMs: SISTERS_TIMEOUT_MS, startedAt: Date.now() });
 }
 
@@ -768,27 +823,47 @@ function handleSalvateurAction(socket, targetId) {
   state.io.to(socket.id).emit("salvateurConfirm", { targetId, targetName: playerName(targetId) });
   // Son shield.mp3 côté MJ pour souligner la confirmation
   if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "shield");
-  phases.setPhase("wolves");
+  allerEtapeNuit("wolves");
+}
+
+// ===== VOYANTE =====
+// La vision est envoyée à la Voyante, puis la nuit attend qu'elle confirme avoir vu
+// (« OK, j'ai vu » → seerDone). Filet : SEER_ACK_TIMEOUT_MS si elle ne répond plus.
+// Utilisé par la Voyante humaine et par la Voyante bot (phases.js).
+function seerReveal(seerId, targetId) {
+  if (state.phase !== "seer" || state.seerPendingResult) return;
+  clearTimeout(state.seerTimeout); state.seerTimeout = null;
+  const result = { role: state.roles[targetId], name: playerName(targetId) };
+  state.seerPendingResult = result;
+  state.io.to(seerId).emit("seerResult", result);
+  state.gameStats.seerLog.push({ name: result.name, role: result.role });
+  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "seer");
+  state.seerTimeout = setTimeout(() => {
+    if (state.phase !== "seer") return;
+    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Voyante n'a pas confirmé sa vision — la nuit continue.");
+    advanceAfterSeer();
+  }, SEER_ACK_TIMEOUT_MS);
+}
+
+// Fin du tour de la Voyante : passe à l'étape suivante de la nuit.
+function advanceAfterSeer() {
+  if (state.phase !== "seer") return;
+  clearTimeout(state.seerTimeout); state.seerTimeout = null;
+  state.seerPendingResult = null;
+  allerEtapeNuit(etapeApres("seer"));
 }
 
 function handleSeerChoice(socket, id) {
   if (state.phase !== "seer" || !hasRole(socket.id, "Voyante")) return;
   if (id === socket.id) return;  // la voyante ne peut pas se cibler
   resetActivity();
-  clearTimeout(state.seerTimeout); state.seerTimeout = null;
-  state.io.to(socket.id).emit("seerResult", { role: state.roles[id], name: playerName(id) });
-  state.gameStats.seerLog.push({ name: playerName(id), role: state.roles[id] });
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "seer");
-  const next = nextNightPhase("seer");
-  if (next === "corbeau") {
-    const corbeauId = Object.keys(state.roles).find(cid => state.roles[cid] === "Corbeau" && !state.deadPlayers.includes(cid));
-    if (corbeauId) state.io.to(corbeauId).emit("corbeauTurn");
-    phases.setPhase("corbeau");
-  } else if (next === "witch") {
-    const witchId = Object.keys(state.roles).find(wid => state.roles[wid] === "Sorcière" && !state.deadPlayers.includes(wid));
-    if (witchId) state.io.to(witchId).emit("nightVictim", state.nightTarget);
-    phases.setPhase("witch");
-  } else { doResolveNight(); }
+  seerReveal(socket.id, id);
+}
+
+function handleSeerDone(socket) {
+  if (state.phase !== "seer" || !hasRole(socket.id, "Voyante") || !state.seerPendingResult) return;
+  resetActivity();
+  advanceAfterSeer();
 }
 
 function handleCorbeauAction(socket, targetId) {
@@ -806,12 +881,7 @@ function handleCorbeauAction(socket, targetId) {
   } else {
     if (state.mjSocketId) state.io.to(state.mjSocketId).emit("corbeauMJInfo", { name: null, id: null });
   }
-  const next = nextNightPhase("corbeau");
-  if (next === "witch") {
-    const witchId = Object.keys(state.roles).find(id => state.roles[id] === "Sorcière" && !state.deadPlayers.includes(id));
-    if (witchId) state.io.to(witchId).emit("nightVictim", state.nightTarget);
-    phases.setPhase("witch");
-  } else { doResolveNight(); }
+  allerEtapeNuit(etapeApres("corbeau"));
 }
 
 function handleWitchSave(socket) {
@@ -847,7 +917,7 @@ function handleWitchDone(socket) {
 function handleResolveNight(socket) {
   if (!isMJ(socket.id) || state.phase !== "witch") return;
   clearTimeout(state.witchTimeout); state.witchTimeout = null;
-  doResolveNight();
+  doResolveNight({ sansPause: true });
 }
 
 function handleChasseurAction(socket, targetId) {
@@ -968,6 +1038,7 @@ Object.assign(module.exports, {
   clearMissionTimeouts, resetMissionState, resolveMissionCards,
   // Nuit
   startNightSequence, startNightAfterSisters, nextNightPhase, doResolveNight,
+  allerEtapeNuit, etapeApres, handleMJEtapeSuivante,
   // Alias historique (gard\u00e9 pour compat \u2014 supprimer apr\u00e8s v\u00e9rif des call-sites)
   startNightAfterCupid: startNightSequence,
   // Morts / transferts
@@ -976,7 +1047,9 @@ Object.assign(module.exports, {
   // Attribution
   assignAndStart,
   // Handlers
-  handleCupidChoice, handleSalvateurAction, handleMJStartSistersTimer, handleSeerChoice, handleCorbeauAction,
+  handleCupidChoice, handleSalvateurAction, demarrerTimerSoeurs, handleSeerChoice, handleSeerDone, handleCorbeauAction,
+  startFirstNight,
+  seerReveal, advanceAfterSeer,
   handleWitchSave, handleWitchKill, handleWitchDone, handleResolveNight,
   handleChasseurAction, handleMayorTransferChoice,
   handleMissionTeamChoice, handleMissionCard, handleMissionBonusChoice,

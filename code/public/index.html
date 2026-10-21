@@ -147,8 +147,8 @@
   <div class="card-emoji" id="deathEmoji">☠️</div>
   <div class="card-title" id="deathTitle"></div>
   <div class="card-text"  id="deathText"></div>
-  <button onclick="closeDawnCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);font-size:14px;cursor:pointer;">
-    Continuer →
+  <button id="deathCardBtn" onclick="closeDawnCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(255,255,255,0.25);background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);font-size:14px;cursor:pointer;">
+    <span id="deathCardBtnLabel">Continuer →</span>
   </button>
 </div>
 <div id="nightFallCard">
@@ -166,8 +166,8 @@
 <div id="dayDebateScreen" style="display:none;position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 30%,#3a2810 0%,#1a1408 60%,#0a0805 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
   <div id="ddSun" style="font-size:88px;margin-bottom:18px;filter:drop-shadow(0 0 28px rgba(255,200,90,0.5));animation:ddSunBreathe 6s ease-in-out infinite;">☀️</div>
   <div style="font-size:13px;color:#998866;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px;">Le jour s'est levé</div>
-  <div style="font-size:24px;font-weight:bold;color:#f0d49a;margin-bottom:18px;line-height:1.3;max-width:360px;">🗣️ Discutez,<br>cherchez les loups.</div>
-  <div style="font-size:14px;color:rgba(240,212,154,0.78);line-height:1.6;max-width:340px;margin-bottom:14px;">Échangez autour de la table, observez les réactions, démasquez les loups-garous.</div>
+  <div id="ddTitre" style="font-size:24px;font-weight:bold;color:#f0d49a;margin-bottom:18px;line-height:1.3;max-width:360px;">🗣️ Discutez,<br>cherchez les loups.</div>
+  <div id="ddTexte" style="font-size:14px;color:rgba(240,212,154,0.78);line-height:1.6;max-width:340px;margin-bottom:14px;">Échangez autour de la table, observez les réactions, démasquez les loups-garous.</div>
   <div style="font-size:13px;color:rgba(240,212,154,0.6);line-height:1.6;max-width:340px;font-style:italic;margin-bottom:26px;">Le Maître du Jeu lancera le vote quand vous serez prêts.</div>
   <div id="ddPlayerBadge" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 22px;background:rgba(255,255,255,0.04);border:1px solid rgba(240,212,154,0.18);border-radius:14px;">
     <img id="ddPhoto" src="" alt="" style="display:none;width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(240,212,154,0.35);">
@@ -364,15 +364,6 @@
 </div>
 <div id="voteWaitBox">🗳️ Vous pouvez déjà voter — le MJ choisira le mode et lancera le timer.</div>
 
-<div id="petiteFillePanel" style="display:none;background:#1a0a2a;border:2px solid #cc66ff;border-radius:10px;margin:10px auto;max-width:480px;padding:16px;text-align:center;">
-  <div style="font-size:28px;margin-bottom:8px;">👧</div>
-  <div style="color:#cc88ff;font-weight:bold;font-size:15px;margin-bottom:8px;">La Petite Fille observe…</div>
-  <div style="color:#888;font-size:13px;line-height:1.6;">
-    Tu peux <strong style="color:#cc88ff;">entrouvrir les yeux</strong> discrètement pendant que les loups votent.<br>
-    <span style="font-size:11px;color:#555;margin-top:6px;display:block;">Attention à ne pas te faire repérer.</span>
-  </div>
-</div>
-
 <div id="corbeauPanel" style="display:none;background:#0a0a0a;border:2px solid #666;border-radius:10px;margin:10px auto;max-width:480px;padding:14px 16px;">
   <h3 style="color:#aaa;margin:0 0 8px;font-size:14px;">🪶 Le Corbeau désigne sa cible</h3>
   <p style="font-size:12px;color:#666;margin-bottom:10px;">Choisissez un joueur qui recevra 2 votes supplémentaires demain, ou passez votre tour.</p>
@@ -520,6 +511,19 @@
 <script>
 const socket = io();
 
+// ===== IDENTITÉ DU JOUEUR, PROPRE À CET ONGLET =====
+// Le prénom et la photo servent à se reconnecter après une coupure (écran verrouillé,
+// onglet mis en veille par le navigateur). Ils sont rangés dans sessionStorage, qui
+// est propre à chaque onglet : avec localStorage (partagé par tous les onglets), tous
+// les onglets d'un même navigateur se reconnectaient sous le DERNIER prénom saisi,
+// ce qui mélangeait les joueurs lors des tests à plusieurs onglets.
+// localStorage ne garde que le dernier prénom, pour pré-remplir le champ.
+function lireIdentite(cle) { try { return sessionStorage.getItem(cle) || ""; } catch (_) { return ""; } }
+function ecrireIdentite(cle, valeur) {
+  try { sessionStorage.setItem(cle, valeur); } catch (_) {}
+  try { localStorage.setItem(cle, valeur); } catch (_) {}
+}
+
 // ===== ÉCRAN D'INTRO =====
 function dismissIntro() {
   const el = document.getElementById("introScreen");
@@ -592,10 +596,27 @@ function toggleFullscreen() {
   }
 }
 
+// Plein écran automatique pour les joueurs : demandé au clic « Rejoindre », puis
+// redemandé au premier toucher chaque fois qu'il a été perdu (écran verrouillé,
+// retour arrière…). Les navigateurs n'autorisent le plein écran qu'en réponse à un
+// geste de l'utilisateur, d'où l'écoute des clics. Sans effet sur iPhone (Safari ne
+// permet pas le plein écran d'une page web).
+function entrerPleinEcran() {
+  if (document.fullscreenElement || document.webkitFullscreenElement) return;
+  const elem = document.documentElement;
+  try {
+    if (elem.requestFullscreen) elem.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+  } catch (_) {}
+}
+document.addEventListener("click", () => {
+  if (lireIdentite("lgName")) entrerPleinEcran();
+}, true);
+
 // ===== VIBRATION (UNIQUEMENT EN PHASE DE JOUR — anti-leak info) =====
 // Les phases de nuit ne déclenchent JAMAIS de vibration : un téléphone qui
 // vibre dans le silence donne une info aux autres joueurs présents.
-const NO_VIBRATE_PHASES = ["cupid","sisters","salvateur","wolves","seer","witch","corbeau","petiteFille",
+const NO_VIBRATE_PHASES = ["cupid","sisters","salvateur","wolves","seer","witch","corbeau","petiteFille","nightPause",
   "mission","missionVote","missionBonus","chasseur"];
 // Vibration brute, sans garde de phase. À n'utiliser qu'après avoir vérifié
 // soi-même qu'on est bien de JOUR (cf. isDayContext pour le Chasseur / le Maire).
@@ -753,7 +774,7 @@ function showMayorCard(name) {
       card.removeAttribute("data-open");
       // À la fermeture de la carte Maire, activer le voile si on est déjà en phase
       // de nuit — notamment cupid (1ère nuit, ~5 s après l'élection) et wolves/seer/witch.
-      if (["cupid","wolves","seer","petiteFille","witch"].includes(phase)) {
+      if (["cupid","wolves","seer","petiteFille","witch","nightPause"].includes(phase)) {
         showNightFallCard();
       }
     }, 600);
@@ -766,16 +787,22 @@ let _wasConnected = false;
 socket.on("connect", () => {
   setConnected(true);
   document.getElementById("offlineBanner").className = "";
-  if (_wasConnected) socket.emit("register", localStorage.getItem("lgName") || "");
+  if (_wasConnected && lireIdentite("lgName")) socket.emit("register", lireIdentite("lgName"));
   _wasConnected = true;
 });
 // Reprise après crash serveur : on re-register automatiquement avec le prénom mémorisé.
 socket.on("gameRestored", () => {
-  const savedName = localStorage.getItem("lgName") || "";
+  const savedName = lireIdentite("lgName");
   if (savedName) {
     setTimeout(() => socket.emit("register", savedName), 300);
   }
 });
+// Retour sur l'onglet ou déverrouillage du téléphone : on se reconnecte tout de
+// suite au lieu d'attendre le prochain essai automatique (jusqu'à 5 s).
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && !socket.connected) socket.connect();
+});
+window.addEventListener("pageshow", () => { if (!socket.connected) socket.connect(); });
 socket.on("disconnect", () => {
   setConnected(false);
   document.getElementById("offlineBanner").className = "show";
@@ -864,6 +891,17 @@ function rebuildDeathInfo() {
   });
 }
 
+// Le serveur annonce chaque mort avec le rôle du défunt : on le mémorise pour
+// l'afficher dans la liste des joueurs.
+socket.on("playerDied", data => {
+  if (!data || !data.id) return;
+  deathInfoById[data.id] = { role: data.role, cause: (deathInfoById[data.id] || {}).cause };
+  if (!deathLog.find(d => d.id === data.id || d.name === data.name)) {
+    deathLog.push({ id: data.id, name: data.name, role: data.role });
+  }
+  scheduleRender();
+});
+
 function updateDeathLog(log) {
   deathLog = log || [];
   rebuildDeathInfo();
@@ -908,7 +946,7 @@ socket.on("gameEnd", msg=>{
 
   ["status","autoResolveBanner",
    "infoPanel","tiebreakPanel","votesPanel","voteTimerBox","voteWaitBox",
-   "witchDoneBtn","petiteFillePanel","corbeauPanel","chasseurPanel",
+   "witchDoneBtn","corbeauPanel","chasseurPanel",
    "deadChatPanel","deadVisionPanel","deathLogPanel","playersSection",
    "missionPanel","missionVotePanel","missionBonusPanel","missionStatusPanel","missionBonusResult",
    "dayDebateScreen","deadFullScreen","actionPendingBanner"
@@ -1081,7 +1119,16 @@ let _dawnOnClose = null;
 // carte récap de nuit → (fermeture) → carte évènement.
 let _pendingCouncilEventData = null;
 
+// Vision de la Voyante en attente de confirmation : la nuit ne reprend que lorsque
+// la Voyante a appuyé sur « OK, j'ai vu » (le serveur attend l'évènement seerDone).
+let _visionVoyanteEnAttente = false;
 function closeDawnCard() {
+  if (_visionVoyanteEnAttente) {
+    _visionVoyanteEnAttente = false;
+    socket.emit("seerDone");
+    const lbl = document.getElementById("deathCardBtnLabel");
+    if (lbl) lbl.textContent = "Continuer →";
+  }
   const c = document.getElementById("dayDeathCard");
   c.classList.add("hiding");
   setTimeout(() => {
@@ -1225,7 +1272,8 @@ function join() {
   if (!name) return;
   // FIX BUG #1 : sauvegarde du nom pour permettre la reconnexion automatique
   // (utilisé ligne ~568 lors d'un reconnect)
-  try { localStorage.setItem("lgName", name); } catch(e) {}
+  ecrireIdentite("lgName", name);
+  entrerPleinEcran();
   socket.emit("register", name);
   // On NE cache PAS encore le lobby : on garde la photo section visible jusqu'au start.
   // L'input nom et bouton Rejoindre se masquent.
@@ -1267,7 +1315,7 @@ function handlePhotoSelected(ev) {
       // Envoi serveur
       socket.emit("setPhoto", dataUri);
       // Mémorise localement (pour reconnexion en cas de crash serveur)
-      try { localStorage.setItem("lgPhoto", dataUri); } catch (_) {}
+      ecrireIdentite("lgPhoto", dataUri);
     };
     img.src = e.target.result;
   };
@@ -1276,7 +1324,7 @@ function handlePhotoSelected(ev) {
 // Si on a déjà une photo en cache local (reconnexion après crash), on la renvoie
 socket.on("connect", () => {
   try {
-    const cachedPhoto = localStorage.getItem("lgPhoto");
+    const cachedPhoto = lireIdentite("lgName") ? lireIdentite("lgPhoto") : "";
     if (cachedPhoto && cachedPhoto.startsWith("data:image/")) {
       setTimeout(() => socket.emit("setPhoto", cachedPhoto), 500);
     }
@@ -1313,8 +1361,9 @@ socket.on("reconnected", state => {
   // reconnexion en phase=day. Si un vote est en cours, voteTimerBox sera ouvert
   // juste en dessous. Sinon, updateDayDebateScreen() ouvrira l'écran de débat.
   if(phase==="day"){ voteActive=true; }
-  if(state.voteTimerEnd && Date.now() < state.voteTimerEnd){
-    voteEndsAt=state.voteTimerEnd;
+  if(state.voteTimerEnd && (state.serverNow ? state.voteTimerEnd > state.serverNow : Date.now() < state.voteTimerEnd)){
+    // Écart d'horloge téléphone ↔ PC compensé (comme pour voteStarted)
+    voteEndsAt=state.voteTimerEnd + (state.serverNow ? Date.now() - state.serverNow : 0);
     // Durées à jour (refonte mai 2026) : mode 1 = 60s, mode 2 = 60s, mode 4 = 30s, mode 5 = 60s
     const modeDurations={1:60000,2:60000,4:30000,5:60000};
     voteTotalMs=modeDurations[state.voteMode]||60000;
@@ -1341,11 +1390,16 @@ socket.on("reconnected", state => {
     }
   }
   renderInfoPanel(); scheduleRender();
+  // Après une reconnexion en plein jour, le bloc « Votre identité » doit redevenir
+  // masqué (bouton « Maintenir pour voir mon rôle ») : sans cet appel il restait affiché.
+  updateRoleRevealBtn();
+  updateNightCover();
   if(iAmDead){
     document.getElementById("deadChatPanel").style.display="block";
     socket.emit("deadChatHistory");
   }
   // FIX BUG AUDIT-F : ré-affiche la carte d'événement Conseil des Morts si actif au moment du reconnect
+  evenementDuJour = (state.activeCouncilEvent && state.activeCouncilEvent.id) || null;
   if (state.activeCouncilEvent) {
     const card = document.getElementById("councilEventCard");
     if (card) {
@@ -1365,7 +1419,8 @@ socket.on("reconnected", state => {
     if (aliveTxt) aliveTxt.innerText = (state.pendingSistersTurn.count || 2) + " sœurs en vie";
     const timerEl = document.getElementById("sistersTimer");
     if (_sistersCountdownInterval) { clearInterval(_sistersCountdownInterval); _sistersCountdownInterval = null; }
-    const endsAt = state.pendingSistersTurn.timerEndsAt;
+    const restant = state.pendingSistersTurn.timerRemainingMs;
+    const endsAt = (restant != null) ? Date.now() + restant : null;
     if (endsAt && Date.now() < endsAt) {
       // Timer en cours côté serveur — on reprend le countdown sur le restant
       const tick = () => {
@@ -1434,13 +1489,15 @@ socket.on("wolfVotesUpdate",   v=>{
 });
 
 // ===== ANTI-TRICHE — voile de nuit + bouton reveal du rôle le jour =====
-const NIGHT_PHASES_FOR_COVER = ['cupid','sisters','salvateur','wolves','seer','corbeau','witch'];
+const NIGHT_PHASES_FOR_COVER = ['cupid','sisters','salvateur','wolves','seer','corbeau','witch','nightPause'];
 function isActiveDuringPhase(p, r) {
   if (!p || !r) return false;
   if (p === 'cupid'     && r === 'Cupidon')                            return true;
   if (p === 'sisters'   && r === 'Sœurs')                              return true;
   if (p === 'salvateur' && r === 'Salvateur')                          return true;
-  if (p === 'wolves'    && (r === 'Loup' || r === 'PetiteFille'))      return true;
+  // La Petite Fille n'a rien à faire à l'écran : elle a le même voile que les autres,
+  // pour que son téléphone ne la distingue pas (elle espionne en vrai, les yeux entrouverts).
+  if (p === 'wolves'    && r === 'Loup')                              return true;
   if (p === 'seer'      && r === 'Voyante')                            return true;
   if (p === 'corbeau'   && r === 'Corbeau')                            return true;
   if (p === 'witch'     && r === 'Sorcière')                           return true;
@@ -1477,22 +1534,39 @@ function updateNightCover() {
 // aucun vote en cours. Le but est de soulager l'écran et renvoyer les joueurs au
 // contact visuel autour de la table. Fermé dès que voteStarted arrive ou que la
 // phase change. Pas affiché aux morts (étape 6 leur donne leur propre écran).
+// Évènement du Conseil des Morts actif aujourd'hui (id, ex. "voteMute"), ou null.
+let evenementDuJour = null;
+// Textes de l'écran de débat : par défaut on invite à discuter ; pendant le Vote Muet,
+// parler est interdit, donc on annonce le silence.
+const DD_TEXTES = {
+  defaut:   { soleil: "☀️", titre: "🗣️ Discutez,<br>cherchez les loups.", texte: "Échangez autour de la table, observez les réactions, démasquez les loups-garous." },
+  voteMute: { soleil: "🤐", titre: "Silence.<br>Le vote va bientôt commencer.", texte: "" }
+};
 function updateDayDebateScreen() {
   const screen = document.getElementById("dayDebateScreen");
   if (!screen) return;
   const voteRunning = currentVoteMode !== 0;  // vote en cours côté joueur
+  // Les Voix Étouffées : le débat se fait par écrit dans le chat de la page normale,
+  // que l'écran de débat recouvrirait. On le laisse donc fermé ce jour-là (les boutons
+  // « Voter » n'apparaissent de toute façon qu'une fois le vote lancé par le MJ).
   const show = (phase === "day")
     && !iAmDead
     && !gameIsOver
     && !voteRunning
+    && evenementDuJour !== "silencedVoices"
     && !isAnyNarrativeCardOpen();
   if (show) {
+    const tx = DD_TEXTES[evenementDuJour] || DD_TEXTES.defaut;
+    const elSoleil = document.getElementById("ddSun"), elTitre = document.getElementById("ddTitre"), elTexte = document.getElementById("ddTexte");
+    if (elSoleil) elSoleil.textContent = tx.soleil;
+    if (elTitre)  elTitre.innerHTML    = tx.titre;
+    if (elTexte)  { elTexte.textContent = tx.texte; elTexte.style.display = tx.texte ? "" : "none"; }
     // Remplit la carte d'identité du joueur
     const me = players.find(p => p.id === socket.id);
     const photoEl = document.getElementById("ddPhoto");
     const nameEl  = document.getElementById("ddName");
     const statEl  = document.getElementById("ddStatus");
-    const myPhoto = me?.photo || (function(){ try { return localStorage.getItem("lgPhoto"); } catch(_){ return null; } })();
+    const myPhoto = me?.photo || (lireIdentite("lgPhoto") || null);
     if (photoEl) {
       if (myPhoto) { photoEl.src = myPhoto; photoEl.style.display = "block"; }
       else         { photoEl.style.display = "none"; }
@@ -1533,7 +1607,7 @@ function updateDeadFullScreen() {
   if (show) {
     // Photo perso
     const me = players.find(p => p.id === socket.id);
-    const myPhoto = me?.photo || (function(){ try { return localStorage.getItem("lgPhoto"); } catch(_){ return null; } })();
+    const myPhoto = me?.photo || (lireIdentite("lgPhoto") || null);
     const photoEl = document.getElementById("dfsPhoto");
     if (photoEl) {
       if (myPhoto) { photoEl.src = myPhoto; photoEl.style.display = "block"; }
@@ -1746,7 +1820,7 @@ socket.on("phase", p=>{
   // Si la carte Maire est encore ouverte quand cupid démarre, showNightFallCard retourne
   // immédiatement (guard mayorCard) — c'est la callback de showMayorCard qui la rappellera
   // à la fermeture de la carte (~5 s après l'élection).
-  if(["cupid","sisters","salvateur","wolves","seer","corbeau","witch"].includes(p)) {
+  if(["cupid","sisters","salvateur","wolves","seer","corbeau","witch","nightPause"].includes(p)) {
     showNightFallCard();
   }
   if(p==="day"){
@@ -1819,7 +1893,7 @@ function showRoleCard(r) {
   const info  = ROLE_EXPLAIN[r] || {};
   // Photo perso si on en a une
   const me = players.find(p => p.id === socket.id);
-  const myPhoto = me?.photo || (function(){ try { return localStorage.getItem("lgPhoto"); } catch(_){ return null; } })();
+  const myPhoto = me?.photo || (lireIdentite("lgPhoto") || null);
   const photoEl = document.getElementById("rcPhoto");
   if (photoEl) {
     if (myPhoto) { photoEl.src = myPhoto; photoEl.style.display = "block"; }
@@ -1839,7 +1913,9 @@ function showRoleCard(r) {
 function closeRoleCard() {
   const card = document.getElementById("roleCard");
   card.classList.add("hiding");
-  setTimeout(() => { card.className=""; card.style.display=""; card.style.background=""; }, 600);
+  // Une fois la carte refermée, on réaffiche ce qu'elle masquait (écran de débat du jour,
+  // voile de nuit) : sans ce rendu, l'écran de débat restait caché et laissait voir la liste.
+  setTimeout(() => { card.className=""; card.style.display=""; card.style.background=""; scheduleRender(); }, 600);
   renderInfoPanel();
 }
 
@@ -1953,8 +2029,8 @@ function salvateurChoose(id) {
 
 // ===== SŒURS JUMELLES =====
 // Option B : on n'affiche PAS les noms des autres sœurs. La carte plein écran
-// invite chaque sœur à se reconnaître IRL. Le compteur 20s reste FIGÉ à 00:20
-// jusqu'à ce que le MJ lance le timer via sa carte narrative (event `sistersTimerStart`).
+// invite chaque sœur à se reconnaître IRL. Le compteur 20 s démarre dès leur réveil
+// (event `sistersTimerStart`, émis juste après `sistersTurn`).
 let _sistersCountdownInterval = null;
 function closeSistersPanel() {
   const p = document.getElementById("sistersPanel");
@@ -1970,7 +2046,7 @@ socket.on("sistersTurn", data => {
   // Nombre de sœurs vivantes (Option B)
   const aliveTxt = document.getElementById("sistersAliveCount");
   if (aliveTxt) aliveTxt.innerText = (data && data.count ? data.count : 2) + " sœurs en vie";
-  // Timer figé à 00:20 — démarrera quand le MJ lancera (sistersTimerStart)
+  // Affiche 00:20 en attendant sistersTimerStart, qui arrive juste après
   const timerEl = document.getElementById("sistersTimer");
   if (timerEl) timerEl.innerText = _sistersFmt(20);
   if (_sistersCountdownInterval) { clearInterval(_sistersCountdownInterval); _sistersCountdownInterval = null; }
@@ -1980,7 +2056,10 @@ socket.on("sistersTimerStart", data => {
   if (role !== "Sœurs") return;
   const timerEl = document.getElementById("sistersTimer");
   const durationMs = (data && data.durationMs) ? data.durationMs : 20000;
-  const startedAt  = (data && data.startedAt)  ? data.startedAt  : Date.now();
+  // On part de l'heure de RÉCEPTION sur ce téléphone, pas de l'heure du serveur :
+  // les deux horloges diffèrent souvent de plusieurs secondes (le compteur affichait
+  // 30 s au lieu de 20 sur un téléphone en retard de 10 s sur le PC).
+  const startedAt  = Date.now();
   if (_sistersCountdownInterval) clearInterval(_sistersCountdownInterval);
   const tick = () => {
     const remainingMs = Math.max(0, durationMs - (Date.now() - startedAt));
@@ -2074,11 +2153,16 @@ socket.on("seerResult", data=>{
   c.style.background = isWolf
     ? "radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)"
     : "radial-gradient(ellipse at center,#050520 0%,#000008 100%)";
+  const photos = document.getElementById("deathPhotos");
+  if (photos) photos.style.display = "none";
   c.className = "show";
   // La voyante joue EN PLEINE NUIT — la nightFallCard a déjà été affichée.
   // Ne pas la rappeler, ne pas toucher à nightCardShownThisNight.
   _dawnOnClose = null;
-  setTimeout(() => closeDawnCard(), 5000);
+  // Pas de fermeture automatique : la nuit attend que la Voyante confirme.
+  _visionVoyanteEnAttente = true;
+  const lbl = document.getElementById("deathCardBtnLabel");
+  if (lbl) lbl.textContent = "OK, j'ai vu ✓";
 });
 
 socket.on("nightVictim", victimId=>{
@@ -2306,6 +2390,7 @@ socket.on("councilResolved", () => {
 let _councilEventCardAutoClose = null;
 socket.on("councilEventActive", data => {
   if (!data) return;
+  evenementDuJour = data.id || null;
   // Refonte (mai 2026) : si la carte d'aube (récap de nuit) est encore ouverte,
   // on met l'évènement en file d'attente — il s'affichera à sa fermeture.
   const dayCard = document.getElementById("dayDeathCard");
@@ -2347,6 +2432,8 @@ function closeCouncilEventCard(){
 }
 
 socket.on("councilEventEnd", () => {
+  evenementDuJour = null;
+  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
   // L'événement actif s'est terminé — masque le chat écrit si actif.
   silentDayChatActive = false;
   if (typeof refreshSilentDayChatVisibility === "function") refreshSilentDayChatVisibility();
@@ -2849,6 +2936,7 @@ socket.on("voteTimerEnd",()=>{
 });
 
 socket.on("gameReset", data => {
+  evenementDuJour = null;
   role=null; wolves=[]; lovers=[]; mayor=null; iAmDead=false;
   deadVisionData=null; nightVictimId=null; mayorCounts={}; dayCounts={}; wolfVotes={};
   dyingMayorId=null; // BUG FIX : réinitialisation au reset
@@ -2870,7 +2958,6 @@ socket.on("gameReset", data => {
   document.getElementById("infoPanel").style.display="none";
   document.getElementById("autoResolveBanner").style.display="none";
   document.getElementById("actionPendingBanner").style.display="none";
-  document.getElementById("petiteFillePanel").style.display="none";
   document.getElementById("corbeauPanel").style.display="none";
   document.getElementById("chasseurPanel").style.display="none";
   document.getElementById("witchDoneBtn").style.display="none";
@@ -3145,6 +3232,7 @@ function witchDone()   {socket.emit("witchDone");document.getElementById("status
 
 function voteDay(id){
   if(gameIsOver||!voteActive||iAmDead)return;
+  if(mjPilotedDay&&currentVoteMode===0)return;  // vote pas encore lancé par le MJ
   if(currentVoteMode===2&&hasVotedLocked)return;
   if(currentVoteMode===5&&hasVotedLocked)return;
   socket.emit("voteDay",id);
@@ -3189,7 +3277,12 @@ function render(){
   sorted.forEach((p,idx)=>{
     const isDead=deadPlayers.includes(p.id),isLover=lovers.includes(p.id),canSeeLove=role==="Cupidon"||lovers.includes(socket.id)||iAmDead;
     let tags="";
-    if(isDead)tags+="☠️";
+    if(isDead){
+      // Rôle du mort (révélé à sa mort) à la place de la tête de mort.
+      const roleMort = (deathInfoById[p.id] && deathInfoById[p.id].role)
+        || ((deathLog.find(d => d.name === p.name) || {}).role);
+      tags += roleMort ? `<span class="role-mort">${ROLE_DISPLAY[roleMort] || roleMort}</span>` : "☠️";
+    }
     if(p.id===mayor)tags+="🏛️";
     if(isLover&&canSeeLove)tags+="❤️";
     if((role==="Loup"&&wolves.includes(p.id))||(iAmDead&&deadVisionData?.wolves?.includes(p.id)))tags+="🐺";
@@ -3217,7 +3310,9 @@ function render(){
       if(phase==="seer"&&role==="Voyante"&&!isDead&&p.id!==socket.id){btn+=`<button onclick="seerChoice('${p.id}')">🔮 Voir</button>`;hasActiveBtn=true;}
       if(phase==="witch"&&role==="Sorcière"&&!isDead&&p.id===nightVictimId&&!witchSaveUsed){btn+=`<button onclick="witchSave()">🧪 Sauver</button>`;hasActiveBtn=true;}
       if(phase==="witch"&&role==="Sorcière"&&!isDead&&p.id!==socket.id&&p.id!==nightVictimId&&!witchKillUsed){btn+=`<button onclick="witchKill('${p.id}')">💀 Tuer</button>`;hasActiveBtn=true;}
-      if(phase==="day"&&voteActive&&!isDead&&p.id!==socket.id&&!gameIsOver){
+      // Jour piloté par le MJ : pas de bouton « Voter » tant que le MJ n'a pas lancé le vote
+      // (currentVoteMode passe à 1, 2, 4 ou 5 à la réception de voteStarted).
+      if(phase==="day"&&voteActive&&(!mjPilotedDay||currentVoteMode!==0)&&!isDead&&p.id!==socket.id&&!gameIsOver){
         const lockedMode2 = currentVoteMode===2 && hasVotedLocked;
         const lockedNoir  = currentVoteMode===5 && hasVotedLocked;
         const idiotLocked = idiotRevealed && socket.id===idiotId;
@@ -3256,8 +3351,6 @@ function render(){
   });
   const wd=document.getElementById("witchDoneBtn");
   if(wd)wd.style.display=(phase==="witch"&&role==="Sorcière"&&!iAmDead)?"block":"none";
-  const pfPanel=document.getElementById("petiteFillePanel");
-  if(pfPanel) pfPanel.style.display=(phase==="wolves"&&role==="PetiteFille"&&!iAmDead)?"block":"none";
   // Refonte (mai 2026) : à chaque rendu, on ré-affirme l'écran de mort épuré.
   // Garantit qu'un mort ne voit JAMAIS la liste joueurs / les boutons voter,
   // même si un event a été manqué. Idempotent (no-op si déjà dans le bon état).

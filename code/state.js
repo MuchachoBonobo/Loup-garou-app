@@ -6,6 +6,12 @@
 // ===== CONSTANTES =====
 const CORBEAU_TIMEOUT_MS        = 45000;
 const SEER_TIMEOUT_MS           = 45000;
+// Après sa vision, la Voyante doit appuyer sur « OK, j'ai vu » ; filet de sécurité
+// si son téléphone ne répond plus (déconnexion, écran verrouillé).
+const SEER_ACK_TIMEOUT_MS       = 30000;
+// Pause entre deux étapes de nuit : filet de sécurité si le MJ ne clique pas
+// (tablette déconnectée…). La nuit continue alors d'elle-même.
+const NIGHT_PAUSE_TIMEOUT_MS    = 3 * 60 * 1000;
 const WITCH_TIMEOUT_MS          = 90000;
 const CUPID_TIMEOUT_MS          = 60000;
 const SALVATEUR_TIMEOUT_MS      = 45000;
@@ -77,6 +83,11 @@ const state = {
 
   // Timeouts divers
   seerTimeout:          null,
+  seerPendingResult:    null,   // vision affichée, en attente du « OK » de la Voyante
+  // Nuit rythmée par le MJ : étape qui démarrera au clic « Passer à l'étape suivante »
+  // ("cupid", "sisters", "salvateur", "wolves", "seer", "corbeau", "witch" ou "aube").
+  etapeNuitSuivante:    null,
+  nightPauseTimeout:    null,
   witchTimeout:         null,
   cupidTimeout:         null,
   chasseurTimeout:      null,
@@ -108,6 +119,7 @@ const state = {
   autoMode:            false,
   autoVoteMode:        1,
   mayorAutoLockTimer:  null,
+  mayorAllVotedNotified: false,  // le MJ a déjà été prévenu que tout le monde a voté pour le maire
   wolfConsensusTimer:  null,
   wolvesAutoLockTimer: null,
   dayAutoStartTimer:   null,
@@ -275,6 +287,8 @@ function buildFullState(socketId) {
         count: aliveSisters.length,
         // sistersTimerEnd est non-null uniquement si le MJ a déjà lancé le 20s
         timerEndsAt: state.sistersTimerEnd || null,
+        // Temps restant calculé ici : le téléphone n'a pas forcément la même heure que le PC.
+        timerRemainingMs: state.sistersTimerEnd ? Math.max(0, state.sistersTimerEnd - Date.now()) : null,
       };
     }
     if (state.phase === "salvateur" && myRole === "Salvateur") {
@@ -285,13 +299,14 @@ function buildFullState(socketId) {
     }
   }
 
+  snapshot.serverNow = Date.now();
   return snapshot;
 }
 
 module.exports = {
   state,
   // Constantes
-  CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS,
+  CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS, WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS,
   SISTERS_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS, VOTE_RATE_MS, CUPID_SOUND_MS,
   STUCK_TIMEOUT_MS, FAST_RESOLVE_MS,

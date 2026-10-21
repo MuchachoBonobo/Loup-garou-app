@@ -11,7 +11,8 @@ const log    = require('./logger');
 const ABDICATION_TIMEOUT_MS = 60000;
 let abdicationTimeout = null;
 
-const COUNCIL_TRIGGER_THRESHOLD = 6;
+// Nombre minimum de morts pour que le Conseil se réunisse en début de journée.
+const COUNCIL_TRIGGER_THRESHOLD = 1;
 
 const COUNCIL_EVENTS = {
   riot: {
@@ -56,10 +57,12 @@ const COUNCIL_EVENTS = {
     narrative: "Le ciel s'assombrit. Au loin, le tonnerre gronde. Une pluie froide commence à fouetter les visages. Le village vivra cette journée sous l'orage.",
     technical: { stormSound: true }
   },
+  // Identifiant interne « fog » conservé (scène de lumière council.fog, sauvegardes) :
+  // l'évènement s'appelait « Le Brouillard » avant de devenir « La Paralysie ».
   fog: {
     id: "fog",
-    title: "🌫 Brouillard",
-    narrative: "Une brume épaisse enveloppe les ruelles. Les silhouettes se confondent. Interdiction de pointer quiconque du doigt — qui pourrait reconnaître l'autre dans cette purée de pois ?",
+    title: "🧊 La Paralysie",
+    narrative: "Un froid étrange engourdit les villageois. Leurs bras pèsent comme de la pierre. Aujourd'hui, personne ne pourra bouger les bras pour s'exprimer : seuls les mots pourront convaincre.",
     technical: null
   },
   fire: {
@@ -214,7 +217,7 @@ function applyCouncilEvent(eventId) {
     }
     if (ev.technical.stormSound && state.mjSocketId) {
       state.io.to(state.mjSocketId).emit("councilStormStart");
-      // Tonnerre toutes les 40 secondes pendant le jour
+      // Tonnerre toutes les 30 secondes pendant le jour
       const tickThunder = () => {
         councilThunderTimer = setTimeout(() => {
           if (state.mjSocketId && state.phase === "day") {
@@ -224,7 +227,7 @@ function applyCouncilEvent(eventId) {
           } else {
             councilThunderTimer = null;
           }
-        }, 40000);
+        }, 30000);
       };
       tickThunder();
     }

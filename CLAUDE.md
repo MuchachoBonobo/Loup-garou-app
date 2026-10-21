@@ -7,9 +7,11 @@ Application web de Loup-Garou (party game) pensée pour le jeu en présentiel : 
 | Dossier | À qui | Contenu |
 |---------|-------|---------|
 | `code/` | **Claude** — Alexandre n'y va pas | Serveur, interfaces, sons, tests, outils, doc technique. Tu l'organises et le modifies librement (en gardant les conventions ci-dessous). |
-| `gestion/` | **Alexandre** | Pitch, mise en place (Wi-Fi, lancement), lumières, prospection, lanceur `Lancer le jeu.bat`. |
+| `gestion/` | **Alexandre** | Documents **Word** (.docx, police Calibri) : pitch, mise en place (Wi-Fi, lancement), lumières, prospection, site internet, prix, prise de contact ; lanceurs `Lancer le jeu.bat` et `Tester les lumieres.bat`. |
 
 - Dans `gestion/`, tu ne modifies **que sur demande**, avec deux exceptions : (1) si une modification du code change la mise en place (variable `.env`, port, étape de lancement, rôle, durée affichée aux joueurs…), mets à jour la fiche concernée dans le même mouvement et dis-le ; (2) ne jamais y mettre de jargon technique — ces fiches s'adressent à quelqu'un qui ne code pas.
+- **Format** : tous les documents de `gestion/` sont des fichiers Word (.docx) qu'Alexandre édite lui-même dans Word. Pour en modifier un : décompresser le .docx et éditer `word/document.xml` (skill docx), ou le régénérer via Word (COM PowerShell) en gardant la police Calibri ; ne jamais le remplacer par du Markdown. Vérifier qu'il n'est pas ouvert dans Word (fichier `~$…` présent = verrouillé).
+- **Données personnelles** : le dépôt GitHub est **public** — coordonnées de prospects uniquement dans `gestion/prive/` (ignoré par Git).
 - Ne casse jamais `gestion/Lancer le jeu.bat` : il appelle `code/start.ps1`. Si tu déplaces `start.ps1`, mets à jour le `.bat`.
 
 ## Avant de répondre à une demande

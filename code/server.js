@@ -27,7 +27,11 @@ const express = require("express");
 const os      = require("os");
 const app  = express();
 const http = require("http").createServer(app);
-const io   = require("socket.io")(http);
+// Délais de détection d'un joueur parti : un téléphone dont l'écran se verrouille, ou
+// un onglet que le navigateur met en veille, ne répond plus pendant un moment. Avec les
+// valeurs par défaut (25 s + 20 s), ces joueurs étaient déclarés partis très vite ; on
+// laisse 25 s + 60 s pour qu'un verrouillage bref passe sans déconnexion visible.
+const io   = require("socket.io")(http, { pingInterval: 25000, pingTimeout: 60000 });
 
 // Modules métier
 const lights    = require("./lights");
@@ -132,6 +136,12 @@ io.on("connection", socket => {
       missionTeam:   state.mission.team,
       missionResult: state.mission.result,
       nightTarget: state.nightTarget ? { id: state.nightTarget, name: playerName(state.nightTarget) } : null,
+      etapeNuitSuivante: state.phase === "nightPause" ? state.etapeNuitSuivante : null,
+      activeCouncilEvent: (state.phase === "day" && state.activeCouncilEvent && council.COUNCIL_EVENTS[state.activeCouncilEvent])
+        ? { id: state.activeCouncilEvent,
+            title: council.COUNCIL_EVENTS[state.activeCouncilEvent].title,
+            narrative: council.COUNCIL_EVENTS[state.activeCouncilEvent].narrative }
+        : null,
     });
     if (state.tiebreakPending) {
       socket.emit("tiebreakMJ", {
@@ -224,11 +234,22 @@ io.on("connection", socket => {
           state.wolfConfirmed.delete(oldId); state.wolfConfirmed.add(socket.id);
         }
       }
+      // Journal des morts : il garde l'identifiant de connexion du défunt ; on le met à
+      // jour pour que son rôle reste affiché à côté de son nom après une reconnexion.
+      if (oldId && oldId !== socket.id) {
+        (state.gameStats.deathLog || []).forEach(d => { if (d.id === oldId) d.id = socket.id; });
+      }
       state.playerRegistry[key].id = socket.id;
       state.playerRegistry[key].oldId = socket.id;
       io.emit("players", state.players);
       io.emit("deadPlayers", state.deadPlayers);
       io.emit("newMayor", state.mayor);
+      // L'écran du MJ repère les rôles par identifiant de connexion : sans cette mise à
+      // jour, il affichait « ? » pour un joueur qui s'était reconnecté.
+      if (state.mjSocketId) {
+        io.to(state.mjSocketId).emit("rolesMJUpdate", { roles: state.roles, players: state.players });
+        io.to(state.mjSocketId).emit("loversInfo", state.lovers);
+      }
       socket.emit("reconnected", buildFullState(socket.id));
       if (state.deadPlayers.includes(socket.id)) socket.emit("deadChatHistory", state.deadChatHistory);
       // Reconnexion loup en phase wolves : ré-envoie les votes loups pour restaurer le checkmark
@@ -244,6 +265,10 @@ io.on("connection", socket => {
       }
       if (state.phase === "chasseur" && state.currentChasseurShooter === socket.id) {
         socket.emit("chasseurMustShoot", socket.id);
+      }
+      // Voyante reconnectée avant d'avoir confirmé sa vision : on la lui remontre
+      if (state.phase === "seer" && state.roles[socket.id] === "Voyante" && state.seerPendingResult) {
+        socket.emit("seerResult", state.seerPendingResult);
       }
       // Reconnexion en plein vote de mission : ré-envoie la demande de carte si non jouée
       if (state.phase === "missionVote" && state.mission.team.includes(socket.id) && !state.mission.cards[socket.id]) {
@@ -352,11 +377,12 @@ io.on("connection", socket => {
   // ===== RÔLES — ACTIONS DE NUIT =====
   socket.on("cupidChoice",     data     => roles.handleCupidChoice(socket, data));
   socket.on("salvateurAction", targetId => roles.handleSalvateurAction(socket, targetId));
-  socket.on("mjStartSistersTimer", ()   => roles.handleMJStartSistersTimer(socket));
+  socket.on("mjEtapeSuivante",   ()  => roles.handleMJEtapeSuivante(socket));
   socket.on("voteWolf",        id       => votes.handleVoteWolf(socket, id));
   socket.on("lockWolfVotes",   ()       => votes.handleLockWolfVotes(socket));
   socket.on("wolfConfirm",     ()       => votes.handleWolfConfirm(socket));
   socket.on("seerChoice",      id       => roles.handleSeerChoice(socket, id));
+  socket.on("seerDone",        ()       => roles.handleSeerDone(socket));
   socket.on("corbeauAction",   targetId => roles.handleCorbeauAction(socket, targetId));
   socket.on("witchSave",       ()       => roles.handleWitchSave(socket));
   socket.on("witchKill",       id       => roles.handleWitchKill(socket, id));
@@ -404,7 +430,7 @@ io.on("connection", socket => {
   });
 
   socket.on("nightCardShown", () => {
-    if (state.mjSocketId && ['cupid','wolves'].includes(state.phase) && !state.nightMusicPlayed) {
+    if (state.mjSocketId && ['cupid','wolves','nightPause'].includes(state.phase) && !state.nightMusicPlayed) {
       state.nightMusicPlayed = true;
       io.to(state.mjSocketId).emit("playNightMusic");
     }

@@ -3,7 +3,7 @@
 
 const {
   state, alivePlayers, playerName, fisherYates, computeCounts, isMJ, resetActivity,
-  WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS,
+  WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS,
   SISTERS_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS,
   MISSION_TEAM_TIMEOUT_MS, MISSION_CARD_TIMEOUT_MS, MISSION_BONUS_TIMEOUT_MS,
@@ -85,10 +85,10 @@ function setPhase(p) {
     } else {
       state.activeCouncilEvent = null;
     }
-    // Conseil des morts : se déclenche chaque début de journée dès qu'au moins
-    // 2 joueurs sont morts. Un nouveau vote est proposé à chaque jour suivant.
-    // Les événements déjà proposés (choisis ou non) ne réapparaissent pas.
-    if (state.deadPlayers.length >= 2) {
+    // Conseil des morts : se déclenche chaque début de journée dès qu'il y a au moins
+    // COUNCIL_TRIGGER_THRESHOLD mort(s) (1 aujourd'hui). Un nouveau vote est proposé à chaque
+    // jour suivant. Les événements déjà proposés (choisis ou non) ne réapparaissent pas.
+    if (state.deadPlayers.length >= council.COUNCIL_TRIGGER_THRESHOLD) {
       setTimeout(() => {
         if (state.phase === "day") council.startCouncil();
       }, 4000);
@@ -187,16 +187,7 @@ function installPhaseTimeouts(p) {
     state.seerTimeout = setTimeout(() => {
       if (state.phase !== "seer") return;
       if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Voyante a tardé — passage automatique.");
-      const next = roles.nextNightPhase("seer");
-      if (next === "corbeau") {
-        const corbeauId = Object.keys(state.roles).find(id => state.roles[id] === "Corbeau" && !state.deadPlayers.includes(id));
-        if (corbeauId) state.io.to(corbeauId).emit("corbeauTurn");
-        setPhase("corbeau");
-      } else if (next === "witch") {
-        const witchId = Object.keys(state.roles).find(id => state.roles[id] === "Sorcière" && !state.deadPlayers.includes(id));
-        if (witchId) state.io.to(witchId).emit("nightVictim", state.nightTarget);
-        setPhase("witch");
-      } else { roles.doResolveNight(); }
+      roles.advanceAfterSeer();
     }, SEER_TIMEOUT_MS);
   }
 
@@ -205,12 +196,7 @@ function installPhaseTimeouts(p) {
       if (state.phase === "corbeau") {
         if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Le Corbeau a tardé — passage automatique.");
         state.corbeauTarget = "skip";
-        const next = roles.nextNightPhase("corbeau");
-        if (next === "witch") {
-          const witchId = Object.keys(state.roles).find(id => state.roles[id] === "Sorcière" && !state.deadPlayers.includes(id));
-          if (witchId) state.io.to(witchId).emit("nightVictim", state.nightTarget);
-          setPhase("witch");
-        } else { roles.doResolveNight(); }
+        roles.allerEtapeNuit(roles.etapeApres("corbeau"));
       }
     }, CORBEAU_TIMEOUT_MS);
   }
@@ -229,22 +215,24 @@ function installPhaseTimeouts(p) {
       if (state.phase === "salvateur") {
         if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Le Salvateur a tardé — la nuit avance sans protection.");
         state.protectedTarget = null;
-        setPhase("wolves");
+        roles.allerEtapeNuit("wolves");
       }
     }, SALVATEUR_TIMEOUT_MS);
   }
 
-  // Sœurs jumelles : le timer 20s N'EST PAS auto-démarré à l'entrée en phase.
-  // C'est le MJ qui le lance via `mjStartSistersTimer` (carte narrative + bouton)
-  // quand il voit que tout le monde dort et que les sœurs ont ouvert les yeux.
-  // On installe juste un fail-safe de 5 min au cas où le MJ se déconnecterait.
-  if (p === "sisters") {
-    state.sistersTimeout = setTimeout(() => {
-      if (state.phase === "sisters") {
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Phase Sœurs bloquée depuis 5 min — passage automatique.");
-        roles.startNightAfterSisters();
-      }
-    }, 5 * 60 * 1000);
+  // Sœurs jumelles : les 20 s démarrent dès leur réveil. Le MJ a déjà vérifié, juste
+  // avant, que tout le monde avait les yeux fermés (pause « Passer à l'étape suivante »).
+  if (p === "sisters") roles.demarrerTimerSoeurs();
+
+  // Pause entre deux étapes de nuit : si le MJ ne clique pas (tablette déconnectée…),
+  // la nuit continue d'elle-même au bout de NIGHT_PAUSE_TIMEOUT_MS.
+  if (p === "nightPause") {
+    state.nightPauseTimeout = setTimeout(() => {
+      if (state.phase !== "nightPause" || !state.etapeNuitSuivante) return;
+      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — la nuit continue.");
+      const etape = state.etapeNuitSuivante;
+      roles.allerEtapeNuit(etape, { sansPause: true });
+    }, NIGHT_PAUSE_TIMEOUT_MS);
   }
 
   if (p === "mission") {
@@ -252,7 +240,7 @@ function installPhaseTimeouts(p) {
       if (state.phase === "mission") {
         state.io.emit("autoResolve", "⏱ Le Maire n'a pas sélectionné son équipe — mission annulée.");
         state.mission.active = false;
-        setPhase("cupid");
+        roles.startFirstNight();
       }
     }, MISSION_TEAM_TIMEOUT_MS);
   }
@@ -326,6 +314,8 @@ function installPhaseTimeouts(p) {
 
 function clearPhaseTimeouts() {
   clearTimeout(state.seerTimeout);          state.seerTimeout          = null;
+  state.seerPendingResult = null;
+  clearTimeout(state.nightPauseTimeout);    state.nightPauseTimeout    = null;
   clearTimeout(state.witchTimeout);         state.witchTimeout         = null;
   clearTimeout(state.cupidTimeout);         state.cupidTimeout         = null;
   clearTimeout(state.salvateurTimeout);     state.salvateurTimeout     = null;
@@ -337,6 +327,7 @@ function clearPhaseTimeouts() {
   roles.clearMissionTimeouts();
   // Mode autonome
   if (state.mayorAutoLockTimer)  { clearTimeout(state.mayorAutoLockTimer);  state.mayorAutoLockTimer  = null; }
+  state.mayorAllVotedNotified = false;
   if (state.wolfConsensusTimer)  { clearTimeout(state.wolfConsensusTimer);  state.wolfConsensusTimer  = null; }
   if (state.wolvesAutoLockTimer) { clearTimeout(state.wolvesAutoLockTimer); state.wolvesAutoLockTimer = null; }
   if (state.dayAutoStartTimer)   { clearTimeout(state.dayAutoStartTimer);   state.dayAutoStartTimer   = null; }
@@ -434,7 +425,7 @@ function runBotsForPhase(p) {
         state.protectedTarget = target.id;
         state.io.to(salvateurBot.id).emit("salvateurConfirm", { targetId: target.id, targetName: playerName(target.id) });
         if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "shield");
-        setPhase("wolves");
+        roles.allerEtapeNuit("wolves");
       });
     }
   }
@@ -448,20 +439,9 @@ function runBotsForPhase(p) {
         const targets = alivePlayers().filter(pl => pl.id !== seerBot.id);
         if (targets.length === 0) return;
         const target = targets[Math.floor(Math.random() * targets.length)];
-        clearTimeout(state.seerTimeout); state.seerTimeout = null;
-        state.io.to(seerBot.id).emit("seerResult", { role: state.roles[target.id], name: playerName(target.id) });
-        state.gameStats.seerLog.push({ name: playerName(target.id), role: state.roles[target.id] });
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "seer");
-        const next = roles.nextNightPhase("seer");
-        if (next === "corbeau") {
-          const corbeauId = Object.keys(state.roles).find(id => state.roles[id] === "Corbeau" && !state.deadPlayers.includes(id));
-          if (corbeauId) state.io.to(corbeauId).emit("corbeauTurn");
-          setPhase("corbeau");
-        } else if (next === "witch") {
-          const witchId = Object.keys(state.roles).find(wid => state.roles[wid] === "Sorcière" && !state.deadPlayers.includes(wid));
-          if (witchId) state.io.to(witchId).emit("nightVictim", state.nightTarget);
-          setPhase("witch");
-        } else { roles.doResolveNight(); }
+        roles.seerReveal(seerBot.id, target.id);
+        // Le bot « lit » sa vision quelques secondes puis confirme, comme un humain.
+        scheduleBot(() => roles.advanceAfterSeer());
       });
     }
   }
@@ -485,12 +465,7 @@ function runBotsForPhase(p) {
           if (state.mjSocketId) state.io.to(state.mjSocketId).emit("corbeauMJInfo", { name: playerName(state.corbeauTarget), id: state.corbeauTarget });
         }
         if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "crow");
-        const next = roles.nextNightPhase("corbeau");
-        if (next === "witch") {
-          const witchId = Object.keys(state.roles).find(id => state.roles[id] === "Sorcière" && !state.deadPlayers.includes(id));
-          if (witchId) state.io.to(witchId).emit("nightVictim", state.nightTarget);
-          setPhase("witch");
-        } else { roles.doResolveNight(); }
+        roles.allerEtapeNuit(roles.etapeApres("corbeau"));
       });
     }
   }
@@ -533,6 +508,9 @@ function runBotsForPhase(p) {
       if (state.idiotRevealed && state.roles[bot.id] === "Idiot") return;
       scheduleBot(() => {
         if (state.phase !== "day" || state.deadPlayers.includes(bot.id)) return;
+        // Jour piloté par le MJ : un bot ne vote qu'une fois le vote lancé officiellement
+        // (comme les humains, cf. handleVoteDay). startDayVote relance les bots à ce moment-là.
+        if (state.mjPilotedDay && state.voteTimer == null) return;
         if (state.votesDay[bot.id] && state.voteMode !== 1) return;
         if (state.voteMode === 2 && state.lockedVoters.has(bot.id)) return;
         const targets = alivePlayers().filter(pl => pl.id !== bot.id);
@@ -862,6 +840,9 @@ function resetGameState(keepPlayers) {
   // Lumières : retour en scène lobby
   try { lights.reset(); } catch (_) {}
   clearTimeout(state.seerTimeout); state.seerTimeout = null;
+  state.seerPendingResult = null;
+  clearTimeout(state.nightPauseTimeout); state.nightPauseTimeout = null;
+  state.etapeNuitSuivante = null;
   clearTimeout(state.witchTimeout); state.witchTimeout = null;
   clearTimeout(state.cupidTimeout); state.cupidTimeout = null;
   clearTimeout(state.corbeauTimeout); state.corbeauTimeout = null;
@@ -885,6 +866,7 @@ function resetGameState(keepPlayers) {
   state.silentDayChatHistory = [];
   council.clearCouncilEffects();
   if (state.mayorAutoLockTimer)  { clearTimeout(state.mayorAutoLockTimer);  state.mayorAutoLockTimer  = null; }
+  state.mayorAllVotedNotified = false;
   if (state.wolfConsensusTimer)  { clearTimeout(state.wolfConsensusTimer);  state.wolfConsensusTimer  = null; }
   if (state.wolvesAutoLockTimer) { clearTimeout(state.wolvesAutoLockTimer); state.wolvesAutoLockTimer = null; }
   if (state.dayAutoStartTimer)   { clearTimeout(state.dayAutoStartTimer);   state.dayAutoStartTimer   = null; }
@@ -936,7 +918,7 @@ function handleSetPhase(socket, p) {
     // utilisé ses deux potions (plus rien à faire pour elle).
     const witchAlive = Object.keys(state.roles).some(id => state.roles[id] === "Sorcière" && !state.deadPlayers.includes(id));
     if (!witchAlive || (state.witchSaveUsed && state.witchKillUsed)) {
-      roles.doResolveNight(); return;
+      roles.doResolveNight({ sansPause: true }); return;
     }
   }
   if (p === "petiteFille") return;

@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>La Nuit du Village — Fiche activité</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  :root { --nuit:#14121c; --sang:#a3242a; --or:#b8893a; --gris:#5c5a62; --fond:#f5f4f1; --filet:#d9d6cf; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:#999; font-family:'IBM Plex Sans',Arial,sans-serif; color:#1b1a1f; font-size:10pt; line-height:1.45; }
+  .page { width:210mm; height:297mm; background:#fff; margin:0 auto; position:relative; overflow:hidden; page-break-after:always; display:flex; flex-direction:column; }
+  .page:last-child { page-break-after:auto; }
+
+  .tete { background:var(--nuit); color:#f1ece0; padding:13mm 15mm 10mm; position:relative; }
+  .tete .marque { font-family:'Cinzel',serif; font-weight:700; font-size:10pt; letter-spacing:.3em; color:var(--or); }
+  .tete h1 { font-size:27pt; line-height:1.12; font-weight:700; margin:5mm 0 3mm; max-width:140mm; }
+  .tete p { font-size:11.5pt; color:#cfc8b8; max-width:135mm; }
+  .tete .lune { position:absolute; right:15mm; top:13mm; width:30mm; height:30mm; border-radius:50%;
+                background:radial-gradient(circle at 38% 38%, #fbf3dc, #d8c89a 55%, #8a7a52); }
+  .tete .etiquette { display:inline-block; margin-top:5mm; border:1px solid var(--or); color:var(--or); font-size:8.5pt; font-weight:600;
+                     letter-spacing:.12em; text-transform:uppercase; padding:1mm 3mm; }
+
+  .chiffres { display:grid; grid-template-columns:repeat(4,1fr); border-bottom:1px solid var(--filet); }
+  .chiffres div { padding:5mm 6mm; border-right:1px solid var(--filet); }
+  .chiffres div:last-child { border-right:0; }
+  .chiffres b { display:block; font-size:19pt; font-weight:700; color:var(--sang); line-height:1.1; }
+  .chiffres span { font-size:9pt; color:var(--gris); }
+
+  .corps { padding:7mm 15mm 0; flex:1; display:flex; flex-direction:column; }
+  h2 { font-size:8.5pt; letter-spacing:.16em; text-transform:uppercase; color:var(--sang); font-weight:700; margin-bottom:2.5mm; }
+  h3 { font-size:11pt; font-weight:600; margin-bottom:1mm; }
+  .grille2 { display:grid; grid-template-columns:1fr 1fr; gap:9mm; }
+  .grille3 { display:grid; grid-template-columns:repeat(3,1fr); gap:6mm; }
+  .sec { margin-bottom:7mm; }
+  .carte { background:var(--fond); padding:4mm 4.5mm; border-top:2.5px solid var(--nuit); }
+  .carte p { color:#3b3940; }
+  .lead { font-size:11pt; color:#2c2a31; }
+
+  table.deroule { width:100%; border-collapse:collapse; }
+  .deroule td { padding:2.3mm 0; border-bottom:1px solid var(--filet); vertical-align:top; }
+  .deroule td:first-child { width:24mm; font-weight:600; color:var(--sang); }
+  ul.coche { list-style:none; }
+  ul.coche li { padding-left:5mm; position:relative; margin-bottom:1.4mm; }
+  ul.coche li::before { content:""; position:absolute; left:0; top:1.9mm; width:2.2mm; height:2.2mm; background:var(--sang); }
+  ul.tiret { list-style:none; }
+  ul.tiret li { padding-left:5mm; position:relative; margin-bottom:1.4mm; }
+  ul.tiret li::before { content:"—"; position:absolute; left:0; color:var(--gris); }
+
+  table.tarifs { width:100%; border-collapse:collapse; margin-top:1mm; }
+  .tarifs th { text-align:left; font-size:8.5pt; letter-spacing:.08em; text-transform:uppercase; color:var(--gris); font-weight:600; padding:2mm 3mm; border-bottom:2px solid var(--nuit); }
+  .tarifs td { padding:3mm; border-bottom:1px solid var(--filet); }
+  .tarifs td.p { font-size:15pt; font-weight:700; text-align:right; white-space:nowrap; }
+  .note { font-size:8.5pt; color:var(--gris); margin-top:2mm; }
+
+  blockquote { font-style:italic; color:#2c2a31; }
+  blockquote cite { display:block; font-style:normal; font-size:8.5pt; color:var(--gris); margin-top:1.5mm; font-weight:600; }
+
+  .pied { margin-top:auto; background:var(--nuit); color:#f1ece0; padding:6mm 15mm; display:flex; justify-content:space-between; align-items:center; }
+  .pied .marque { font-family:'Cinzel',serif; font-weight:900; font-size:13pt; letter-spacing:.08em; }
+  .pied .c { text-align:right; font-size:10.5pt; }
+  .pied .c b { color:var(--or); font-weight:600; }
+  @media print { body { background:none; } .page { margin:0; } }
+</style>
+</head>
+<body>
+
+<section class="page">
+  <header class="tete">
+    <div class="lune"></div>
+    <div class="marque">La Nuit du Village</div>
+    <h1>Loup-Garou immersif pour vos équipes</h1>
+    <p>Une animation d'une heure, chez vous, avec lumières connectées, ambiance sonore et une application qui gère le jeu à la place du papier.</p>
+    <span class="etiquette">Team building · Séminaire · Afterwork</span>
+  </header>
+
+  <div class="chiffres">
+    <div><b>8 à 15</b><span>participants par partie</span></div>
+    <div><b>1 h</b><span>soit environ 2 parties</span></div>
+    <div><b>0</b><span>application à installer</span></div>
+    <div><b>30 km</b><span>autour de Lyon, déplacement inclus</span></div>
+  </div>
+
+  <div class="corps">
+    <div class="sec">
+      <h2>Le principe</h2>
+      <p class="lead">Chaque participant découvre son rôle en secret sur son téléphone : villageois, loup, voyante, sorcière… La nuit, les loups désignent une victime pendant que la salle passe au rouge. Le jour, le village débat et vote pour éliminer un suspect. Les loups gagnent s'ils ne sont pas démasqués à temps.</p>
+    </div>
+
+    <div class="sec grille3">
+      <div class="carte">
+        <h3>Tout le monde parle</h3>
+        <p>Pour accuser ou se défendre, il faut prendre la parole. Les plus discrets s'y mettent vite.</p>
+      </div>
+      <div class="carte">
+        <h3>Les cartes sont rebattues</h3>
+        <p>Les rôles ignorent les services et la hiérarchie. Un nouvel arrivant peut démasquer son manager.</p>
+      </div>
+      <div class="carte">
+        <h3>Personne n'est mis de côté</h3>
+        <p>Les éliminés forment le Conseil des Morts et votent un évènement qui pèse sur la suite.</p>
+      </div>
+    </div>
+
+    <div class="sec grille2">
+      <div>
+        <h2>Déroulé type</h2>
+        <table class="deroule">
+          <tr><td>Avant</td><td>Installation des lumières et du son (en amont, sans vous mobiliser)</td></tr>
+          <tr><td>5 min</td><td>Accueil : chacun scanne un QR code et rejoint la partie</td></tr>
+          <tr><td>~25 min</td><td>Première partie, règles expliquées au fil du jeu</td></tr>
+          <tr><td>~25 min</td><td>Deuxième partie, nouveaux rôles</td></tr>
+          <tr><td>5 min</td><td>Révélation des rôles et médailles de fin de partie</td></tr>
+        </table>
+      </div>
+      <div>
+        <h2>Ce qui fait la différence</h2>
+        <ul class="coche">
+          <li>Lumières de la salle pilotées par le jeu : une couleur par moment de la nuit</li>
+          <li>Narration, musique et effets sonores</li>
+          <li>Votes et décomptes automatiques : pas d'erreur, pas de temps mort</li>
+          <li>Le téléphone ne sert qu'à jouer son rôle : les regards restent autour du cercle</li>
+          <li>Aucune connaissance du jeu requise</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <footer class="pied">
+    <div class="marque">La Nuit du Village</div>
+    <div class="c"><b>alexandre@ivanez.com</b><br>lanuitduvillage.fr</div>
+  </footer>
+</section>
+
+<section class="page">
+  <div class="corps" style="padding-top:13mm">
+    <div class="sec">
+      <h2>Tarifs</h2>
+      <table class="tarifs">
+        <tr><th>Formule</th><th>Détail</th><th style="text-align:right">Prix</th></tr>
+        <tr><td><b>Première heure</b></td><td>Environ 2 parties, jusqu'à 15 participants, un Maître du Jeu</td><td class="p">300 €</td></tr>
+        <tr><td><b>Heure supplémentaire</b></td><td>Pour enchaîner les parties ou faire tourner plusieurs groupes</td><td class="p">150 €</td></tr>
+        <tr><td><b>Déplacement</b></td><td>Inclus jusqu'à 30 km de Lyon, puis au kilomètre</td><td class="p" style="font-size:11pt">0,50 € / km</td></tr>
+      </table>
+      <p class="note">Plus de 15 participants : nous contacter pour un devis adapté. Le prix ne dépend pas du nombre de présents le jour J.</p>
+    </div>
+
+    <div class="sec grille2">
+      <div>
+        <h2>Inclus</h2>
+        <ul class="coche">
+          <li>Animation par un Maître du Jeu</li>
+          <li>Lumières connectées et enceinte</li>
+          <li>Tablette du Maître du Jeu et application</li>
+          <li>Installation et rangement</li>
+        </ul>
+      </div>
+      <div>
+        <h2>À prévoir de votre côté</h2>
+        <ul class="tiret">
+          <li>Une salle que l'on peut plonger dans la pénombre</li>
+          <li>Des chaises disposées en cercle</li>
+          <li>Une prise électrique à proximité</li>
+          <li>Un smartphone par participant</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Questions fréquentes</h2>
+      <div class="grille2" style="gap:6mm 9mm">
+        <div><h3>Faut-il connaître le jeu ?</h3><p>Non. Les règles sont expliquées en début de partie et chacun retrouve la description de son rôle sur son téléphone.</p></div>
+        <div><h3>Et ceux qui n'ont pas de smartphone ?</h3><p>Des téléphones de prêt sont prévus pour dépanner.</p></div>
+        <div><h3>Combien de temps faut-il compter ?</h3><p>Une heure pour deux parties. On peut prolonger : la plupart des groupes en redemandent.</p></div>
+        <div><h3>Où se déroule l'animation ?</h3><p>Dans vos locaux, une salle de réunion ou un lieu de séminaire, à Lyon et jusqu'à 30 km autour.</p></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Ils ont joué</h2>
+      <div class="grille3">
+        <blockquote>« J'avais déjà joué au Loup-Garou, mais là c'est autre chose. Les lumières, le rythme, l'ambiance : on est complètement dedans. »<cite>Thomas M.</cite></blockquote>
+        <blockquote>« Je pensais m'ennuyer en mourant en premier. En fait, on complote en silence pour pourrir la vie des vivants. »<cite>Sophie R.</cite></blockquote>
+        <blockquote>« Personne ne voulait être le dernier à mourir. »<cite>Claire L.</cite></blockquote>
+      </div>
+    </div>
+  </div>
+
+  <footer class="pied">
+    <div>
+      <div class="marque">La Nuit du Village</div>
+      <div style="font-size:9pt;color:#cfc8b8;margin-top:1mm">Animation Loup-Garou immersive · Lyon</div>
+    </div>
+    <div class="c">Une date, un nombre de participants, un lieu :<br><b>alexandre@ivanez.com</b> · lanuitduvillage.fr</div>
+  </footer>
+</section>
+
+</body>
+</html>

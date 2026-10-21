@@ -63,6 +63,7 @@ function serializeState(state) {
     protectedTarget: state.protectedTarget,
     lastProtectedTarget: state.lastProtectedTarget,
     sistersTimerEnd: state.sistersTimerEnd,
+    etapeNuitSuivante: state.etapeNuitSuivante,
     // Mission
     mission: state.mission ? {
       active: state.mission.active,
@@ -131,6 +132,7 @@ function applySnapshot(state, snap) {
   state.protectedTarget = snap.protectedTarget || null;
   state.lastProtectedTarget = snap.lastProtectedTarget || null;
   state.sistersTimerEnd = snap.sistersTimerEnd || null;
+  state.etapeNuitSuivante = snap.etapeNuitSuivante || null;
   if (snap.mission) Object.assign(state.mission, snap.mission);
   state.activeCouncilEvent = snap.activeCouncilEvent || null;
   state.pendingCouncilEvent = snap.pendingCouncilEvent || null;

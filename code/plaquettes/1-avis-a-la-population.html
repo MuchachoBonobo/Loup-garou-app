@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>La Nuit du Village — Avis à la population</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+<style>
+  @page { size: A4; margin: 0; }
+  :root { --papier:#f2e9d6; --encre:#1d1a16; --sang:#8a1c20; --filet:#1d1a16; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:#999; font-family:'Cormorant Garamond',Georgia,serif; color:var(--encre); }
+  .page { width:210mm; height:297mm; background:var(--papier); margin:0 auto; position:relative; overflow:hidden;
+          padding:14mm 15mm; page-break-after:always; }
+  .page:last-child { page-break-after:auto; }
+  .cadre { position:absolute; inset:8mm; border:1.6pt solid var(--encre); pointer-events:none; }
+  .cadre::after { content:""; position:absolute; inset:1.6mm; border:.5pt solid var(--encre); }
+  .contenu { position:relative; height:100%; display:flex; flex-direction:column; }
+
+  .bandeau { text-align:center; border-bottom:1.2pt solid var(--encre); padding-bottom:4mm; }
+  .bandeau .petit { font-family:'Cinzel',serif; font-size:9pt; letter-spacing:.35em; }
+  .bandeau h1 { font-family:'Cinzel',serif; font-weight:900; font-size:44pt; line-height:1; letter-spacing:.04em; margin:3mm 0 2mm; }
+  .bandeau .sous { font-style:italic; font-size:15pt; }
+  .date { display:flex; justify-content:space-between; font-family:'Cinzel',serif; font-size:8.5pt; letter-spacing:.2em;
+          border-bottom:.5pt solid var(--encre); padding:1.5mm 0; margin-bottom:6mm; }
+
+  .une { text-align:center; margin-bottom:5mm; }
+  .une h2 { font-family:'Cinzel',serif; font-weight:700; font-size:25pt; line-height:1.1; color:var(--sang); }
+  .une p { font-size:14pt; margin-top:3mm; font-style:italic; }
+  svg.village { display:block; width:100%; height:34mm; margin:2mm 0 5mm; }
+
+  .colonnes { column-count:2; column-gap:9mm; column-rule:.5pt solid var(--encre); font-size:12pt; line-height:1.32; text-align:justify; hyphens:auto; }
+  .colonnes h3 { font-family:'Cinzel',serif; font-size:11pt; letter-spacing:.08em; margin:0 0 1.5mm; break-after:avoid; text-align:left; }
+  .colonnes p { margin-bottom:3.5mm; }
+  .colonnes p.lettrine::first-letter { font-family:'Cinzel',serif; float:left; font-size:38pt; line-height:.8; padding:1mm 2mm 0 0; color:var(--sang); }
+  .bloc { break-inside:avoid; }
+
+  .pied { margin-top:auto; border-top:1.2pt solid var(--encre); padding-top:3mm; display:flex; justify-content:space-between;
+          font-family:'Cinzel',serif; font-size:9pt; letter-spacing:.12em; }
+
+  /* page 2 */
+  h2.titre { font-family:'Cinzel',serif; font-weight:700; font-size:17pt; letter-spacing:.06em; text-align:center;
+             border-top:1.2pt solid var(--encre); border-bottom:.5pt solid var(--encre); padding:2mm 0; margin:0 0 4mm; }
+  .deroule { list-style:none; font-size:12.5pt; margin-bottom:6mm; }
+  .deroule li { display:grid; grid-template-columns:26mm 1fr; gap:4mm; padding:1.8mm 0; border-bottom:.4pt dotted var(--encre); }
+  .deroule .h { font-family:'Cinzel',serif; font-size:10pt; letter-spacing:.06em; color:var(--sang); padding-top:.6mm; }
+  .deux { display:grid; grid-template-columns:1fr 1fr; gap:8mm; margin-bottom:6mm; }
+  .tarif { border:1.2pt solid var(--encre); padding:4mm 5mm; text-align:center; display:flex; flex-direction:column; justify-content:center; }
+  .tarif .prix { font-family:'Cinzel',serif; font-weight:900; font-size:30pt; color:var(--sang); line-height:1.1; }
+  .tarif .lib { font-size:12.5pt; }
+  .tarif .note { font-size:10.5pt; font-style:italic; margin-top:2mm; }
+  ul.simple { font-size:12pt; line-height:1.35; padding-left:5mm; }
+  ul.simple li { margin-bottom:1.2mm; }
+  .temoins { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5mm; margin-bottom:5mm; }
+  .temoins blockquote { font-style:italic; font-size:11.5pt; line-height:1.3; border-left:1.5pt solid var(--sang); padding-left:3mm; }
+  .temoins cite { display:block; font-style:normal; font-family:'Cinzel',serif; font-size:8.5pt; letter-spacing:.1em; margin-top:1.5mm; }
+  .contact { text-align:center; border:1.6pt solid var(--encre); padding:4mm; margin-top:auto; }
+  .contact .t { font-family:'Cinzel',serif; font-size:13pt; letter-spacing:.1em; }
+  .contact .c { font-size:15pt; margin-top:1.5mm; }
+  .contact .c b { color:var(--sang); }
+  @media print { body { background:none; } .page { margin:0; } }
+</style>
+</head>
+<body>
+
+<section class="page">
+  <div class="cadre"></div>
+  <div class="contenu">
+    <header class="bandeau">
+      <div class="petit">La Nuit du Village · Lyon</div>
+      <h1>AVIS À LA POPULATION</h1>
+      <div class="sous">Des loups se cachent parmi vos collègues.</div>
+    </header>
+    <div class="date"><span>Animation Loup-Garou</span><span>En entreprise & à domicile</span><span>Lyon et environs</span></div>
+
+    <div class="une">
+      <h2>Le Loup-Garou,<br>avec la lumière et le son.</h2>
+      <p>Vous avez sûrement déjà joué au Loup-Garou. Pas comme ça.</p>
+    </div>
+
+    <svg class="village" viewBox="0 0 600 110" preserveAspectRatio="none" aria-hidden="true">
+      <circle cx="470" cy="34" r="22" fill="none" stroke="#1d1a16" stroke-width="1.6"/>
+      <path d="M0 110 V86 H40 V70 L58 56 L76 70 V86 H110 V78 H128 V62 L150 44 L172 62 V86 H200 V60 L214 22 L228 60 V86 H262 V74 L280 60 L298 74 V86 H330 V68 H350 V54 L372 38 L394 54 V86 H430 V76 L446 64 L462 76 V86 H500 V66 L522 50 L544 66 V86 H600 V110 Z" fill="#1d1a16"/>
+      <rect x="138" y="70" width="6" height="8" fill="#f2e9d6"/><rect x="362" y="64" width="6" height="8" fill="#8a1c20"/><rect x="516" y="72" width="6" height="8" fill="#f2e9d6"/>
+    </svg>
+
+    <div class="colonnes">
+      <div class="bloc">
+        <p class="lettrine">Chaque participant reçoit en secret son rôle sur son téléphone. Villageois, Voyante, Sorcière… ou Loup. Puis la nuit tombe : les lumières de la salle changent de couleur, un narrateur appelle les rôles un à un, les loups choisissent leur victime. Au matin, le village débat et vote. Il faut convaincre, douter, accuser — et parfois mentir.</p>
+      </div>
+      <div class="bloc">
+        <h3>Ce qui change tout</h3>
+        <p><b>La mise en scène.</b> Rouge quand les loups chassent, violet pour la Voyante, lumière dorée au lever du jour, un éclair à chaque mort. Musique et effets sonores accompagnent chaque phase.</p>
+        <p><b>Le téléphone reste discret.</b> Il sert à découvrir son rôle et à voter, puis s'efface : on joue en se regardant, pas en fixant un écran.</p>
+        <p><b>Les éliminés continuent de jouer.</b> Ils forment le Conseil des Morts et votent en secret un évènement qui bouleversera la journée suivante.</p>
+      </div>
+      <div class="bloc">
+        <h3>Pourquoi en équipe</h3>
+        <p>Le Loup-Garou fait parler tout le monde, y compris ceux qui se connaissent peu. Les rôles mélangent les services et les niveaux hiérarchiques : le stagiaire peut démasquer le directeur. On en ressort avec des souvenirs communs et quelques rancunes amicales.</p>
+      </div>
+      <div class="bloc">
+        <h3>Aucune connaissance requise</h3>
+        <p>Les règles sont expliquées au début et chaque joueur trouve la description de son rôle sur son téléphone. Rien à installer : un QR code suffit.</p>
+      </div>
+      <div class="bloc">
+        <h3>Onze rôles</h3>
+        <p>Loups, Villageois, Voyante, Sorcière, Cupidon, Chasseur, Petite Fille, Idiot du village, Corbeau, Salvateur et Sœurs jumelles. Le Maître du Jeu compose la distribution selon le groupe.</p>
+      </div>
+    </div>
+
+    <footer class="pied"><span>8 à 15 joueurs par partie</span><span>Environ 30 min la partie</span><span>11 rôles</span></footer>
+  </div>
+</section>
+
+<section class="page">
+  <div class="cadre"></div>
+  <div class="contenu">
+    <h2 class="titre">Déroulé d'une heure</h2>
+    <ol class="deroule">
+      <li><span class="h">Avant</span><span>Installation des lumières et du son dans votre salle, sans vous déranger.</span></li>
+      <li><span class="h">5 min</span><span>Accueil, chacun scanne le QR code et prend son selfie de villageois.</span></li>
+      <li><span class="h">Partie 1</span><span>Les rôles sont distribués, la première nuit tombe. Environ 30 minutes.</span></li>
+      <li><span class="h">Partie 2</span><span>Nouvelle donne, nouveaux rôles. Les démasqués de la première partie veulent leur revanche.</span></li>
+      <li><span class="h">Fin</span><span>Révélation des rôles et remise des médailles : Roi du Bluff, Chef de meute, Cœur brisé…</span></li>
+    </ol>
+
+    <div class="deux">
+      <div class="tarif">
+        <div class="lib">Première heure</div>
+        <div class="prix">300 €</div>
+        <div class="lib">environ 2 parties, jusqu'à 15 participants</div>
+        <div class="note">Heure supplémentaire : 150 €</div>
+      </div>
+      <div>
+        <h3 style="font-family:'Cinzel',serif;font-size:11pt;letter-spacing:.08em;margin-bottom:2mm">Inclus</h3>
+        <ul class="simple">
+          <li>L'animation par un Maître du Jeu</li>
+          <li>Lumières connectées et sonorisation</li>
+          <li>L'application, sans rien à installer</li>
+          <li>Le déplacement jusqu'à 30 km de Lyon</li>
+        </ul>
+        <h3 style="font-family:'Cinzel',serif;font-size:11pt;letter-spacing:.08em;margin:3mm 0 2mm">De votre côté</h3>
+        <ul class="simple">
+          <li>Une salle que l'on peut assombrir</li>
+          <li>Des chaises en cercle et une prise électrique</li>
+          <li>Un smartphone par participant</li>
+        </ul>
+      </div>
+    </div>
+    <p style="font-size:11pt;font-style:italic;text-align:center;margin:-2mm 0 6mm">Plus de 15 participants : sur devis. Au-delà de 30 km : 0,50 € par km.</p>
+
+    <h2 class="titre">Pour quelles occasions</h2>
+    <p style="font-size:12.5pt;text-align:center;margin-bottom:6mm">Séminaire · Afterwork · Soirée d'équipe · Fête de fin d'année · Halloween · Anniversaire · EVJF / EVG</p>
+
+    <h2 class="titre">Ils ont joué</h2>
+    <div class="temoins">
+      <blockquote>« On s'est endormis à trois heures du matin. Personne ne voulait être le dernier à mourir. »<cite>Claire L.</cite></blockquote>
+      <blockquote>« J'avais déjà joué au Loup-Garou, mais là c'est autre chose. Les lumières, le rythme, l'ambiance. »<cite>Thomas M.</cite></blockquote>
+      <blockquote>« J'ai adoré être morte : on complote en silence pour pourrir la vie des vivants. »<cite>Sophie R.</cite></blockquote>
+    </div>
+
+    <div class="contact">
+      <div class="t">Pour organiser votre soirée</div>
+      <div class="c"><b>alexandre@ivanez.com</b> · lanuitduvillage.fr</div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

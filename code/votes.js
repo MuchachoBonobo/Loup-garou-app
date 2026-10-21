@@ -98,6 +98,7 @@ function resolveVoteWithTiebreak(counts, context, onResolved) {
 // ===== LOCK MAIRE / LOUPS =====
 function performLockMayorVote() {
   if (state.phase !== "mayorVote") return;
+  state.mayorAllVotedNotified = false;
   if (state.mayorAutoLockTimer) { clearTimeout(state.mayorAutoLockTimer); state.mayorAutoLockTimer = null; }
   const count = computeCounts(state.mayorVote);
   resolveVoteWithTiebreak(count, "mayor", (winnerId) => {
@@ -125,7 +126,7 @@ function performLockMayorVote() {
         });
         phases.setPhase("mission");
       } else {
-        phases.setPhase("cupid");
+        roles.startFirstNight();
       }
     }, 5000);
   });
@@ -142,28 +143,26 @@ function performLockWolfVotes() {
   if (state.wolfConfirmed) state.wolfConfirmed.clear();
   // Flash : les loups ont désigné leur proie
   try { lights.flash("flash.wolves"); } catch (_) {}
-  const next = roles.nextNightPhase("wolves");
-  if (next === "seer") { phases.setPhase("seer"); }
-  else if (next === "corbeau") {
-    const corbeauId = Object.keys(state.roles).find(id => state.roles[id] === "Corbeau" && !state.deadPlayers.includes(id));
-    if (corbeauId) state.io.to(corbeauId).emit("corbeauTurn");
-    phases.setPhase("corbeau");
-  } else if (next === "witch") {
-    const witchId = Object.keys(state.roles).find(id => state.roles[id] === "Sorcière" && !state.deadPlayers.includes(id));
-    if (witchId) state.io.to(witchId).emit("nightVictim", state.nightTarget);
-    phases.setPhase("witch");
-  } else { roles.doResolveNight(); }
+  roles.allerEtapeNuit(roles.etapeApres("wolves"));
 }
 
 // ===== AUTO-LOCK DU VOTE MAIRE =====
 // AMÉLIORATION 1 : on verrouille dès que tout le monde a voté, en mode autonome
 // comme en mode MJ — le MJ n'a plus besoin d'attendre/cliquer.
+// Quand tout le monde a voté pour le maire : verrouillage automatique en mode
+// autonome uniquement. Sinon c'est le MJ qui verrouille (bouton du panneau
+// « Vote du Maire ») ; on le prévient simplement que tout le monde a voté.
 function checkMayorAutoLock() {
   if (state.phase !== "mayorVote") return;
   const alive = alivePlayers();
   if (alive.length === 0) return;
   const allVoted = alive.every(p => state.mayorVote[p.id] !== undefined);
-  if (allVoted) performLockMayorVote();
+  if (!allVoted) return;
+  if (state.autoMode) { performLockMayorVote(); return; }
+  if (state.mjSocketId && !state.mayorAllVotedNotified) {
+    state.mayorAllVotedNotified = true;
+    state.io.to(state.mjSocketId).emit("autoResolve", "🏛️ Tout le monde a voté pour le maire — cliquez sur « Valider le Maire ».");
+  }
 }
 
 function checkWolfConsensus() {
@@ -412,6 +411,8 @@ function startDayVote(mode) {
   // Lumières : tamise doucement la pièce quand le vote démarre — la nuit approche.
   try { lights.applyScene("dayVote"); } catch (_) {}
   state.voteTimer = setTimeout(() => { resolveDayVote(); }, duration + 800);
+  // Jour piloté : les bots attendaient le lancement officiel du vote pour voter.
+  if (state.mjPilotedDay) phases.runBotsForPhase("day");
 }
 
 // ===== HANDLERS SOCKETS =====

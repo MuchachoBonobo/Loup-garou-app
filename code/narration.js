@@ -38,6 +38,12 @@ const NARRATIONS = {
     "Les envoyés ont parlé. Leur secret se révélera demain. Cupidon, lève-toi."
   ],
 
+  // Mission terminée, pas de Cupidon dans la partie : la nuit enchaîne sur les loups.
+  "missionVote_to_wolves": [
+    "Les cartes sont jouées. Le résultat sera révélé à l'aube. La nuit tombe : loups-garous, réveillez-vous.",
+    "Les envoyés ont parlé. Leur secret se révélera demain. Que la meute ouvre les yeux."
+  ],
+
   // === Cupidon → loups ===
   "cupid_to_wolves": [
     "Cupidon a tissé le fil de l'amour. Il referme les yeux. Loups-garous, réveillez-vous.",
@@ -128,6 +134,27 @@ const NARRATIONS = {
     "Les potions sont scellées. L'aube se lève sur le village. Ouvrez les yeux.",
     "La sorcière dort à nouveau. Le jour pointe. Que les villageois s'éveillent."
   ],
+  // === Nuit rythmée par le MJ : pause entre deux étapes (nightPause) ===
+  // En entrant dans la pause, on endort le rôle précédent ; en sortant, on réveille le suivant.
+  "*_to_nightPause": [
+    "La nuit tombe sur le village. Que chacun ferme les yeux.",
+    "Le village s'endort. Fermez tous les yeux."
+  ],
+  "cupid_to_nightPause":     ["Cupidon, ferme les yeux."],
+  "sisters_to_nightPause":   ["Sœurs jumelles, fermez les yeux."],
+  "salvateur_to_nightPause": ["Salvateur, ferme les yeux."],
+  "wolves_to_nightPause":    ["Loups-garous, fermez les yeux.", "La meute se rendort. Loups, fermez les yeux."],
+  "seer_to_nightPause":      ["Voyante, ferme les yeux."],
+  "corbeau_to_nightPause":   ["Corbeau, ferme les yeux."],
+  "witch_to_nightPause":     ["Sorcière, ferme les yeux."],
+  "nightPause_to_cupid":     ["Cupidon, ouvre les yeux. Désigne les deux amoureux."],
+  "nightPause_to_wolves":    ["Loups-garous, ouvrez les yeux. Choisissez votre victime.", "Que la meute s'éveille et désigne sa proie."],
+  "nightPause_to_seer":      ["Voyante, ouvre les yeux. Désigne celui dont tu veux connaître le rôle."],
+  "nightPause_to_corbeau":   ["Corbeau, ouvre les yeux. Qui accuseras-tu demain ?"],
+  "nightPause_to_witch":     ["Sorcière, ouvre les yeux. Voici la victime des loups."],
+  "nightPause_to_day":       ["Le jour se lève sur le village. Ouvrez les yeux.", "L'aube pointe. Villageois, réveillez-vous."],
+  "nightPause_to_missionBonus": ["Le jour se lève sur une mission réussie. Maire, l'information est à toi."],
+
   "witch_to_missionBonus": [
     "La sorcière range ses fioles. Le jour se lève sur une mission réussie. Maire, l'information est à toi.",
     "La nuit s'achève. La mission a réussi. Maire, choisis trois personnes à inspecter."

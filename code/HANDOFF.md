@@ -41,18 +41,18 @@ Application web de Loup-Garou pour jouer **en présentiel** : chaque joueur sur 
 
 ### Rôles (11)
 Loup, Villageois, Voyante, Sorcière, Cupidon, Chasseur, Petite Fille, Idiot du village, Corbeau, Salvateur, Sœurs jumelles (0 ou 2). Configuration au lobby côté MJ (`mjSectionStart`) + case « Mission ».
-- La Petite Fille n'a **aucune mécanique serveur** : c'est une carte de rôle, l'espionnage se joue en vrai (elle entrouvre les yeux pendant les Loups).
+- La Petite Fille n'a **aucune mécanique** : c'est une carte de rôle, l'espionnage se joue en vrai (elle entrouvre les yeux pendant les Loups). Son téléphone affiche le même voile que les autres pendant les Loups (aucun panneau dédié).
 - L'Idiot survit à tout vote du village (égalité comprise), meurt de toute autre cause.
 
 ### Déroulé d'une partie
 1. **Lobby** : les joueurs scannent le QR, saisissent leur prénom, prennent un selfie (optionnel). Le MJ règle les rôles, ajoute des bots s'il veut tester, lance.
 2. **Révélation du rôle** : carte face cachée à retourner + vibration.
-3. **Élection du Maire** (verrouillage automatique quand tout le monde a voté).
+3. **Élection du Maire** : le MJ valide (« ✅ Valider le Maire »), même quand tout le monde a voté — il est alors prévenu par une alerte. Verrouillage automatique seulement en mode autonome.
 4. **Mission** (si activée) : le maire choisit 3 envoyés (il peut s'inclure), cartes secrètes Réussite/Échec, bonus d'inspection si réussite.
-5. **Nuit** : Cupidon (1ʳᵉ nuit) → Sœurs (si 2 vivantes ; le MJ lance leur timer de 20 s) → Salvateur → Loups (bouton « Valider ma proie », verrouillage auto au consensus) → Voyante → Corbeau → Sorcière (sautée si plus de potions) → résolution. Les phases des rôles morts sont sautées. Voile « garde les yeux fermés » pour tous ceux qui ne jouent pas.
-6. **Aube** : carte des morts (photos seulement, pas de rôle côté joueurs ; le MJ a le récit complet + rôle).
+5. **Nuit rythmée par le MJ** (hors mode autonome) : entre deux étapes, phase `nightPause` (tous les écrans voilés, la voix endort le rôle précédent) et grande carte MJ « ▶ Passer à l'étape suivante » ; le rôle suivant ne se réveille qu'au clic (filet 3 min). Ordre : Cupidon (1ʳᵉ nuit, seulement s'il y a un Cupidon : `roles.startFirstNight`) → Sœurs (si 2 vivantes ; leurs 20 s démarrent seules au réveil) → Salvateur → Loups (bouton « Valider ma proie », verrouillage auto au consensus) → Voyante (la nuit attend son « OK, j'ai vu », filet 30 s) → Corbeau → Sorcière (sautée si plus de potions) → résolution. Les phases des rôles morts sont sautées. Voile « garde les yeux fermés » pour tous ceux qui ne jouent pas.
+6. **Aube** : carte des morts (photos seulement ; le MJ a le récit complet + rôle). Dans la liste des joueurs, chaque mort affiche ensuite son rôle à droite (évènement `playerDied`).
 7. **Jour piloté par le MJ** (`mjPilotedDay`, défaut ON) : écran « débattez ensemble » côté joueurs, le MJ lance le vote quand il veut (bouton bloqué ~9 s après l'aube pour laisser la carte se fermer). Égalité → le maire tranche. Chasseur, transfert d'écharpe et cascades d'amoureux gérés partout.
-8. **Conseil des Morts** : chaque début de journée dès que **2 joueurs ou plus sont morts**, les morts votent un évènement appliqué le jour suivant. Les évènements déjà proposés ne reviennent pas tant que la réserve n'est pas épuisée (puis nouveau cycle, notifié au MJ).
+8. **Conseil des Morts** : chaque début de journée dès qu'**au moins 1 joueur est mort** (`council.COUNCIL_TRIGGER_THRESHOLD`), les morts votent un évènement appliqué le jour suivant. Les évènements déjà proposés ne reviennent pas tant que la réserve n'est pas épuisée (puis nouveau cycle, notifié au MJ).
 9. **Fin** : écran de victoire, rôles révélés, médailles personnelles (14 badges, `badges.js`).
 
 ### Votes du jour (`votes.js startDayVote`)
@@ -67,7 +67,7 @@ Loup, Villageois, Voyante, Sorcière, Cupidon, Chasseur, Petite Fille, Idiot du 
 Le « sprint final » (raccourci à 30 s quand tout le monde a voté) n'existe qu'en jour non piloté / mode autonome. Battement de cœur + vibration sur les 10 dernières secondes. La cloche sonne côté MJ au lancement du vote.
 
 ### Conseil des Morts — 18 évènements (`council.js COUNCIL_EVENTS`)
-Émeute, Le Jugement, La Panique, La Paranoïa, La Folie, L'Éclipse, Tempête, Brouillard, Incendie, Les Chuchotements, Le Tribunal, La Cloche du Village, Les Dernières Volontés, Le Vent, Les Morts Murmurent, Le Vote Muet, Les Voix Étouffées (chat écrit pour la journée), L'Abdication (le maire désigne son successeur). La plupart sont des contraintes sociales que le MJ fait respecter ; la règle exacte s'affiche sur la carte MJ (`MJ_EVENT_RULES` dans `mj.html`).
+Émeute, Le Jugement, La Panique, La Paranoïa, La Folie, L'Éclipse, Tempête (tonnerre toutes les 30 s), La Paralysie (ex-Brouillard, id `fog`), Incendie, Les Chuchotements, Le Tribunal, La Cloche du Village, Les Dernières Volontés, Le Vent, Les Morts Murmurent, Le Vote Muet, Les Voix Étouffées (chat écrit pour la journée), L'Abdication (le maire désigne son successeur). La plupart sont des contraintes sociales que le MJ fait respecter ; la règle exacte s'affiche sur la carte MJ (`MJ_EVENT_RULES` dans `mj.html`).
 
 ### Modes particuliers
 - **Mode autonome** : la partie tourne sans clic MJ (votes auto-démarrés, verrouillages auto). ⚠ Les libellés du menu « mode du vote » dans `mj.html` (90 s / 10 s) ne correspondent plus aux durées réelles du serveur (60 s / 30 s) — à corriger.
@@ -127,7 +127,6 @@ Après toute modification serveur : **arrêter et relancer** le serveur (Node ga
 
 - **Étape 8 de la refonte du jour** : playtest réel, mesurer le temps d'écran des joueurs en journée, puis supprimer le toggle `mjPilotedDay` et le mode legacy si validé.
 - Corriger les libellés du mode autonome dans `mj.html` (durées affichées ≠ durées réelles).
-- `COUNCIL_TRIGGER_THRESHOLD = 6` est exporté mais inutilisé (le vrai seuil est « ≥ 2 morts », dans `phases.js`) : nettoyer ou réaligner.
 - `server.js.bak` (ancien serveur monolithique, non versionné) traîne dans `code/` : peut être supprimé.
 - Ajouter `puppeteer-core` en devDependency si on veut garder `npm run test:ui`.
 
@@ -161,11 +160,81 @@ Après toute modification serveur : **arrêter et relancer** le serveur (Node ga
 
 ## Journal (du plus récent au plus ancien)
 
+### 2026-10-21 (suite 6) — Conseil des Morts dès le premier mort
+- Demande d'Alexandre : le Conseil se réunit dès qu'il y a **au moins 1 mort** (avant : 2). Le seuil vit désormais dans `council.COUNCIL_TRIGGER_THRESHOLD` (= 1), lu par `phases.setPhase("day")` ; la constante, auparavant à 6 et inutilisée, est enfin branchée.
+
+### 2026-10-21 (suite 5) — Conseil des Morts : La Paralysie, Tempête plus fréquente
+- « 🌫 Le Brouillard » (interdit de pointer du doigt) devient **« 🧊 La Paralysie »** : interdit de bouger les bras pour s'exprimer. Identifiant interne `fog` conservé (scène Hue `council.fog`, sauvegardes) ; récit, titre et règle MJ (`MJ_EVENT_RULES.fog`) réécrits ; scène lumineuse passée du gris de brume à un bleu glacé.
+- **Tempête** : tonnerre (et éclair Hue) toutes les **30 s** au lieu de 40.
+
+### 2026-10-21 (suite 4) — Sœurs : décompte automatique au réveil
+- Les 20 s des Sœurs démarrent dès l'entrée en phase `sisters` (`phases.installPhaseTimeouts` → `roles.demarrerTimerSoeurs`), donc au clic MJ « Passer à l'étape suivante ». Supprimés : carte MJ `#sistersLauncherCard`, `mjLaunchSistersTimer`, évènement `mjStartSistersTimer`, `handleMJStartSistersTimer`, filet de 5 min (le décompte se termine toujours), et deux branches mortes du handler `phase` de `mj.html` (« mission » / « lobby », rattachées à l'ancienne carte et jamais exécutées). Le MJ reçoit une alerte « Les Sœurs jumelles ont 20 secondes… ».
+- Plus aucun cas particulier : chaque rôle de nuit est réveillé par le même clic MJ et suivi de la même pause.
+- Vérifié par script (pause avant les Sœurs, décompte de 20 s reçu au réveil sans autre clic, pause commune après, loups au clic) ; `npm test` 7/7.
+
+### 2026-10-21 (suite 3) — Sœurs alignées sur la règle commune
+- Demande d'Alexandre : « pas de cas particulier ». Le bouton « Passer à la suite » propre aux Sœurs (`sistersTimeUp`, `mjSistersNext`, `handleMJSistersNext`, écran « Ferme les yeux. ») est supprimé. À la fin des 20 s, `startNightAfterSisters()` passe par la pause commune (`nightPause` + « Passer à l'étape suivante »). Il reste aux Sœurs, et à elles seules, le bouton MJ « Lancer le timer des Sœurs (20s) » au début de leur tour.
+- Le 1er rôle de la nuit passe aussi par la pause (Cupidon la 1ʳᵉ nuit, sinon Sœurs / Salvateur / Loups). Vérifié par script : pause avant les Sœurs, Sœurs réveillées au clic seulement, pause après les 20 s, loups au clic ; pause avant Cupidon la 1ʳᵉ nuit. `npm test` 7/7.
+
+### 2026-10-21 (suite 2) — Nuit rythmée par le MJ
+- **Demande d'Alexandre** (option 3 parmi celles proposées) : un joueur qui tarde à fermer les yeux ne doit pas voir l'écran du rôle suivant s'allumer. À chaque fin d'étape de nuit, la nuit s'arrête et le MJ clique « Passer à l'étape suivante ».
+- **Mécanisme** (`roles.js`) : point de passage unique `allerEtapeNuit(etape, { sansPause })` → phase `nightPause` (`state.etapeNuitSuivante`) + évènement MJ `etapeNuitEnAttente` ; clic `mjEtapeSuivante` → `handleMJEtapeSuivante` → `lancerEtapeNuit`, qui regroupe les messages propres à chaque rôle (`sistersTurn`, `salvateurTurn`, `corbeauTurn`, `nightVictim`) puis `setPhase`. Étapes : cupid, sisters, salvateur, wolves, seer, corbeau, witch, `aube` (= `resoudreNuit`, ex-corps de `doResolveNight` ; `doResolveNight()` passe désormais par la pause). `etapeApres(phase)` traduit `nextNightPhase`.
+- **Tous les chemins y passent** : humains, bots (`phases.runBotsForPhase`), délais de secours (Corbeau, Salvateur, Sorcière, Voyante, Cupidon), fin des loups (`votes.performLockWolfVotes`), début de nuit (`startNightSequence`, `startFirstNight`, mission annulée). **Sans pause** : mode autonome, actions forcées par le MJ (`handleResolveNight`, `handleSetPhase`), sortie des Sœurs après « Passer à la suite » (le MJ vient déjà de cliquer). Filet `NIGHT_PAUSE_TIMEOUT_MS` = 3 min.
+- **Côté joueurs** : `nightPause` ajoutée aux phases de nuit (voile pour tous, pas de vibration, carte « la nuit tombe »). **Côté MJ** : carte `#etapeSuivanteCard` (libellé du rôle suivant), restaurée à la reconnexion (`mjReconnected.etapeNuitSuivante`), musique de nuit, aide-mémoire. Narration : `*_to_nightPause`, `<rôle>_to_nightPause` (« … ferme les yeux »), `nightPause_to_<rôle>` (« … ouvre les yeux »), `nightPause_to_day`. Scène Hue `nightPause` (bleu nuit très sombre). Sauvegarde : `etapeNuitSuivante` dans les snapshots.
+- `tests/scenarios.js` : le MJ de test clique automatiquement 0,5 s après chaque `etapeNuitEnAttente`.
+- Vérifié : script `socket.io-client` (10/10 : pause en début de nuit, aucune avance sans clic, loups → Voyante → Sorcière → jour à chaque clic, la Sorcière ne reçoit la victime qu'après le clic) ; navigateur (carte MJ « Étape suivante : 🐺 Les Loups-Garous », voile « Garde les yeux fermés » côté joueur) ; `npm test` 7/7.
+- Fiche `gestion/2 - Mise en place et lancement.docx` : « La nuit avance à ton rythme ».
+
+### 2026-10-21 (suite) — Sœurs : le MJ passe à la suite ; minuteurs indépendants de l'horloge du téléphone
+- **Fin des 20 s des Sœurs** : la nuit ne continue plus toute seule. `roles.handleMJStartSistersTimer` pose `state.sistersTimeUp` et émet `sistersTimeUp` (carte MJ « Le temps des Sœurs est écoulé » + bouton « ▶ Passer à la suite » → `mjSistersNext` → `roles.handleMJSistersNext` → `startNightAfterSisters`). Côté Sœurs : 00:00 + « Ferme les yeux. ». Filet de 5 min inchangé. Reconnexion MJ (`mjReconnected.sistersTimeUp / sistersTimerRunning`) et Sœur (`pendingSistersTurn.timeUp`) gérées.
+- **Bug « 30 s affichées au lieu de 20 »** : le compte à rebours des Sœurs utilisait l'heure du **serveur** (`startedAt`) comparée à l'heure du **téléphone** ; un téléphone en retard de 10 s affichait 30 s (le serveur, lui, coupait bien à 20 s). Le décompte part désormais de l'heure de réception. Même défaut corrigé pour le vote du jour **après une reconnexion** (`buildFullState.serverNow` + `pendingSistersTurn.timerRemainingMs`) ; `voteStarted` / `voteResumed` compensaient déjà l'écart.
+- Aide-mémoire MJ des Sœurs et fiche `gestion/2 - Mise en place et lancement.docx` mis à jour.
+- Vérifié : script `socket.io-client` (phase reste `sisters` après 21 s et 3 s de plus, MJ et Sœurs prévenus, `wolves` après le clic) ; navigateur (compteur à 00:20 avec une horloge simulée en retard de 10 s, écran de fin des Sœurs, carte MJ) ; `npm test` 7/7.
+- **Question ouverte** (posée par Alexandre) : éviter qu'un joueur qui vient de finir son rôle de nuit, encore les yeux ouverts, voie l'écran du joueur suivant s'allumer. Pistes proposées, non construites : pause de transition entre deux rôles de nuit, écrans identiques jusqu'au toucher, nuit rythmée par le MJ.
+
+### 2026-10-21 — Retours de partie test : plein écran, identité, MJ, maire, Petite Fille, Voyante, rôle des morts, évènement du jour
+- **Plein écran** (`index.html` `entrerPleinEcran`) : demandé au clic « Rejoindre », puis au premier clic chaque fois qu'il a été perdu (geste utilisateur obligatoire). Sans effet sur iPhone (Safari ne le permet pas). Non vérifiable dans le navigateur intégré de Claude (il n'accorde pas le plein écran) : à confirmer sur Android.
+- **Identité affichée en continu le jour** : le handler `reconnected` n'appelait pas `updateRoleRevealBtn()` → après une reconnexion (fréquente), le bloc « Votre identité » restait visible. Corrigé (+ `updateNightCover()`).
+- **MJ : « ? » à la place du rôle d'un joueur reconnecté** : le MJ indexe les rôles par identifiant de connexion. `server.js register` émet désormais `rolesMJUpdate` + `loversInfo` au MJ après le remappage, et met aussi à jour les identifiants de `gameStats.deathLog`.
+- **Sécurité** : `rolesMJ` (tous les rôles) était diffusé à **tous les téléphones** au lancement (`io.emit`). Désormais envoyé au seul MJ.
+- **Vote du maire** : `checkMayorAutoLock` ne verrouille plus qu'en mode autonome ; sinon alerte MJ unique (`mayorAllVotedNotified`). Aide-mémoire MJ mis à jour.
+- **Petite Fille** : panneau `#petiteFillePanel` et son code supprimés ; elle n'est plus « active » pendant les Loups (`isActiveDuringPhase`) → même voile que tout le monde.
+- **Voyante** : `roles.seerReveal` / `advanceAfterSeer` / `handleSeerDone` (nouvel évènement `seerDone`). La nuit attend « OK, j'ai vu » (`state.seerPendingResult`, filet `SEER_ACK_TIMEOUT_MS` = 30 s). Le bot Voyante passe par les mêmes fonctions et confirme après un délai. Vision renvoyée si la Voyante se reconnecte avant de confirmer.
+- **Rôle des morts dans la liste** : remplace la tête de mort à droite (`.role-mort`), alimenté par `playerDied` (déjà diffusé avec le rôle) + `deathLog`. Choix d'Alexandre, qui revient sur la décision de mai (« les joueurs ne voient plus le rôle des morts »).
+- **MJ : évènement du jour** : bandeau `#councilActiveBanner` avec titre + règle (`MJ_EVENT_RULES`) + bouton « 📖 Revoir la carte » ; restauré à la reconnexion du MJ (`mjReconnected.activeCouncilEvent`).
+- **Bug corrigé au passage — première nuit sans Cupidon** : la nuit 1 passait toujours par la phase `cupid` et attendait 60 s (`CUPID_TIMEOUT_MS`) quand il n'y avait pas de Cupidon. `roles.startFirstNight()` saute l'étape. Narration `missionVote_to_wolves` ajoutée.
+- Vérifié : navigateur (MJ + joueuse + bots) pour maire, nuit sans Cupidon, Voyante bot, identité après coupure, rôles MJ sans « ? », rôle des morts, bandeau MJ, carte Voyante (« OK » obligatoire), voile de la Petite Fille (simulé) ; script `socket.io-client` pour la Voyante humaine (la nuit reste en `seer` sans « OK », passe au jour après) ; `npm test` 7/7.
+
+### 2026-10-18 — Écran de débat adapté au Vote Muet et aux Voix Étouffées
+- **Décision d'Alexandre** : le MJ lance le vote à chaque fois, y compris pour les évènements qui modifient le vote (aucun ne le démarre automatiquement) ; le Vote Muet garde 90 s.
+- `public/index.html` : variable `evenementDuJour` (posée par `councilEventActive` et à la reconnexion, remise à `null` par `councilEventEnd` et `gameReset`). `updateDayDebateScreen()` lit `DD_TEXTES` : pendant le **Vote Muet**, l'écran annonce seulement « Silence. Le vote va bientôt commencer. » (🤐) au lieu de « Discutez ». Pendant **Les Voix Étouffées**, l'écran de débat reste fermé : il recouvrait le chat écrit `#silentDayChatPanel`, ce qui rendait l'évènement injouable (bug antérieur). C'est sans risque depuis que les boutons « Voter » n'existent qu'une fois le vote lancé.
+- Vérifié dans le navigateur (évènements simulés côté joueur) : écran « Silence » pour le Vote Muet ; chat « La Place du Parchemin » visible et 0 bouton « Voter » pour Les Voix Étouffées ; retour à l'écran normal sans évènement.
+
+### 2026-10-18 — Jour piloté : plus de vote possible avant le lancement par le MJ
+- **Bug** : pendant la journée, avant « Lancer le vote », les joueurs voyaient la liste avec des boutons « Voter » et les votes des bots. Trois causes cumulées :
+  1. `phases.js runBotsForPhase("day")` : les bots votaient dès l'aube, sans le garde `voteTimer` que `handleVoteDay` applique aux humains → leurs votes s'affichaient chez tous ;
+  2. `index.html render()` créait les boutons « Voter » dès que `voteActive` (mis à `true` à l'aube), en comptant sur l'écran de débat pour les masquer ;
+  3. `closeRoleCard()` ne redessinait pas la page : après fermeture de la carte de rôle, l'écran de débat restait caché jusqu'au prochain évènement.
+- **Correctifs** : garde `mjPilotedDay && voteTimer == null` dans le vote des bots, et `startDayVote` relance `phases.runBotsForPhase("day")` en mode piloté ; boutons et `voteDay()` conditionnés à `!mjPilotedDay || currentVoteMode !== 0` ; `scheduleRender()` à la fermeture de la carte de rôle.
+- Vérifié dans le navigateur (MJ + 1 joueur + 5 bots) : avant le lancement, écran de débat affiché, 0 bouton, 0 vote ; après « Lancer le vote », 5 boutons et 5 votes de bots. `npm test` 7/7.
+- **À vérifier** : la 1ʳᵉ nuit est restée >30 s en phase `cupid` dans une partie **sans Cupidon** (le joueur humain n'avait pas encore retourné sa carte de rôle). Probablement l'attente de `nightCardShown` puis le timeout de 60 s, mais à confirmer.
+
+### 2026-10-18 — Reconnexions : identité par onglet, délai de détection allongé
+- **Bug** : en testant avec un onglet par joueur, tous les onglets se reconnectaient sous le **dernier prénom saisi** (le prénom de reconnexion vivait dans `localStorage`, partagé par tous les onglets) ; les autres joueurs perdaient leur place. Visible dans les journaux : chaque onglet déconnecté ~75 s après l'ouverture du suivant (onglets en arrière-plan mis en veille par Chrome), puis un seul prénom revenait.
+- **Correctif** (`public/index.html`) : prénom et photo de reconnexion dans `sessionStorage` (propre à l'onglet, survit au rechargement) via `lireIdentite` / `ecrireIdentite` ; `localStorage` ne sert plus qu'à pré-remplir le champ et à sauter l'intro. Pas de `register` automatique si l'onglet n'a pas d'identité. Reconnexion immédiate sur `visibilitychange` / `pageshow` (joueur et MJ).
+- `server.js` : Socket.io `pingInterval 25 s / pingTimeout 60 s` (au lieu de 25 / 20) : un verrouillage d'écran bref ne déclenche plus de déconnexion.
+- Vérifié : 3 onglets (Alice, Bruno, Chloé) coupés puis reconnectés reviennent chacun sous leur prénom ; `npm test` 7/7. Une déconnexion pendant que le téléphone est verrouillé reste normale (le navigateur met la page en pause) — l'important est le retour sous le bon prénom.
+- Fiche `gestion/2 - Mise en place et lancement.docx` : dépannage « site inaccessible » (Wi-Fi SFR FON, redémarrage, Node.js Privé + Public), téléphone verrouillé, essai la veille d'une prestation, test à plusieurs onglets.
+
+### 2026-10-17 (suite) — Documents de gestion passés en Word, grille de prix
+- Tous les documents de `gestion/` (y compris `Prise de contact/` et `prive/`) sont désormais des **.docx** en Calibri, fabriqués via Word (COM) à partir des anciens .md, qui ont été supprimés. Word est maintenant la source : ne pas recréer de .md.
+- Nouveaux : `gestion/6 - Prix.docx` (300 € la 1ʳᵉ heure, 150 € l'heure suivante, jusqu'à 15 personnes ; ×2 avec 2 MJ ; déplacement compris jusqu'à 30 km de Lyon puis 0,50 €/km) et `gestion/Prise de contact/Guide d'appel - seminaire 90 personnes.docx`.
+- **À construire si une prestation à 2 MJ se concrétise** : faire tourner deux parties simultanées (deux serveurs sur deux ports, `PORT` et `SNAPSHOT_DIR` distincts, deux groupes Hue).
+
 ### 2026-10-17 — Prospection, site internet, dossier privé
-- **Le dépôt GitHub est PUBLIC** : les coordonnées de prospects vont dans `gestion/prive/` (ignoré par Git, ajouté au `.gitignore`), jamais dans les fiches versionnées. `4 - Prospection.md` ne garde qu'un résumé anonyme des demandes.
+- **Le dépôt GitHub est PUBLIC** : les coordonnées de prospects vont dans `gestion/prive/` (ignoré par Git, ajouté au `.gitignore`), jamais dans les fiches versionnées. `4 - Prospection` ne garde qu'un résumé anonyme des demandes.
 - Deux demandes d'entreprises reçues via le site (30 et 90 personnes) : le marché semble venir des entreprises plus que des particuliers, avec des groupes plus grands qu'une partie (8 à 15 joueurs) → piste « plusieurs parties à tour de rôle / plusieurs tables ».
-- **Site internet** : dossier `C:\Users\alexa\Desktop\site-loupgarou` (hors dépôt), hébergé sur **Netlify** (mise à jour par glisser-déposer du dossier dans l'onglet Deploys), domaine `lanuitduvillage.fr`, formulaire via Formspree. Textes alignés sur le jeu réel (couleurs des lumières, 8 à 15 joueurs, ~30 min par partie), chevauchement « Découvrir » / bouton corrigé. Le guide de déploiement, qui était publié par erreur, est rangé dans `gestion/5 - Site internet (deploiement).md`. Les avis du site sont de vrais retours de parties tests.
-- Le pitch (`gestion/1 - Pitch du jeu.md`) est enregistré par Word en UTF-16 : le relire/écrire dans cet encodage.
+- **Site internet** : dossier `C:\Users\alexa\Desktop\site-loupgarou` (hors dépôt), hébergé sur **Netlify** (mise à jour par glisser-déposer du dossier dans l'onglet Deploys), domaine `lanuitduvillage.fr`, formulaire via Formspree. Textes alignés sur le jeu réel (couleurs des lumières, 8 à 15 joueurs, ~30 min par partie), chevauchement « Découvrir » / bouton corrigé. Le guide de déploiement, qui était publié par erreur, est rangé dans `gestion/5 - Site internet (deploiement)`. Les avis du site sont de vrais retours de parties tests.
 
 ### 2026-10-16 — Réorganisation du dossier en `code/` + `gestion/`, documentation remise à jour
 - Tout le technique est déplacé dans `code/` ; nouveau dossier `gestion/` (pitch, mise en place Wi-Fi, lumières, prospection) pour Alexandre, avec `Lancer le jeu.bat`. Nouveau `LISEZMOI.md` à la racine.

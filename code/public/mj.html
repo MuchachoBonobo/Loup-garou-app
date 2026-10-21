@@ -61,18 +61,16 @@
 </div>
 
 <!-- Carte narrative MJ : déclenche le timer 20s des Sœurs jumelles -->
-<div id="sistersLauncherCard" style="display:none;position:fixed;inset:0;z-index:9996;background:radial-gradient(ellipse at center,#3a1428 0%,#1a0814 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
-  <div style="font-size:11px;color:#c97aa0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;">Phase de nuit</div>
-  <div style="font-size:72px;margin-bottom:14px;line-height:1;">👯‍♀️</div>
-  <div style="font-size:22px;font-weight:bold;color:#fbeaf0;margin-bottom:10px;">Les Sœurs jumelles s'éveillent</div>
-  <div style="font-size:14px;color:#ed93b1;margin-bottom:28px;line-height:1.5;max-width:380px;">
-    Attends que tous les joueurs aient fermé les yeux et que les Sœurs aient ouvert les leurs.<br>
-    <span style="font-size:12px;color:#c97aa0;">Puis lance le compte à rebours de 20 secondes.</span>
-  </div>
-  <button onclick="mjLaunchSistersTimer()" style="padding:14px 32px;border-radius:10px;border:2px solid #ed93b1;background:rgba(237,147,177,0.18);color:#fbeaf0;font-size:16px;font-weight:bold;cursor:pointer;">
-    ▶ Lancer le timer des Sœurs (20s)
+<div id="etapeSuivanteCard" style="display:none;position:fixed;inset:0;z-index:9995;background:radial-gradient(ellipse at center,#141a33 0%,#070912 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+  <div style="font-size:11px;color:#8a9ad0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;">Nuit — entre deux rôles</div>
+  <div style="font-size:64px;margin-bottom:12px;line-height:1;">🌙</div>
+  <div style="font-size:15px;color:#aab4e0;margin-bottom:6px;">Étape suivante</div>
+  <div id="etapeSuivanteLibelle" style="font-size:28px;font-weight:bold;color:#eef0ff;margin-bottom:16px;">…</div>
+  <div style="font-size:14px;color:#aab4e0;margin-bottom:28px;line-height:1.5;max-width:380px;">Vérifie que tout le monde a bien les yeux fermés.</div>
+  <button onclick="mjEtapeSuivante()" style="padding:22px 44px;border-radius:14px;border:2px solid #8a9ad0;background:rgba(138,154,208,0.22);color:#ffffff;font-size:22px;font-weight:bold;cursor:pointer;">
+    ▶ Passer à l'étape suivante
   </button>
-  <div style="font-size:11px;color:#9c5a78;margin-top:18px;">Filet de sécurité : la phase saute toute seule après 5 min sans clic.</div>
+  <div style="font-size:11px;color:#6a74a0;margin-top:18px;">Filet de sécurité : la nuit continue d'elle-même après 3 min sans clic.</div>
 </div>
 
 <!-- Carte récap MJ : ce qui s'est passé pendant le jour et la nuit -->
@@ -410,6 +408,8 @@ function setMJConnected(ok) {
 }
 socket.on("connect",    () => { setMJConnected(true); socket.emit("registerMJ"); });
 socket.on("disconnect", () => setMJConnected(false));
+// Retour sur l'onglet / réveil de la tablette : reconnexion immédiate.
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !socket.connected) socket.connect(); });
 setMJConnected(socket.connected);
 
 let players=[], roles={}, mayorId=null, loversIds=[], deadIds=[];
@@ -599,8 +599,7 @@ socket.on("councilMurmursStart", () => {
 socket.on("councilEventEnd", () => {
   // Fin du jour avec événement actif → coupe les effets
   if (stormAudio) { stormAudio.pause(); stormAudio.currentTime = 0; stormAudio = null; }
-  const ev = document.getElementById("councilActiveBanner");
-  if (ev) ev.style.display = "none";
+  afficherBandeauEvenement(null);
   // Cache la carte narrative si encore affichée
   if (typeof closeCouncilEventCard === "function") closeCouncilEventCard();
   _mjActiveCouncilEvent = null;
@@ -723,7 +722,7 @@ const MJ_EVENT_RULES = {
   madness:        "Toute phrase d'un joueur doit commencer par « Je pense que… » ou « Je jure que… ». (À faire respecter.)",
   eclipse:        "Ambiance seulement : la musique de nuit joue en plein jour. Aucun effet de règle — annoncez l'atmosphère.",
   storm:          "Ambiance seulement : un orage gronde toute la journée. Aucun effet de règle.",
-  fog:            "Interdit de pointer quiconque du doigt. Les accusations se font uniquement à l'oral. (À faire respecter.)",
+  fog:            "Interdit de bouger les bras pour s'exprimer : pas de gestes, pas de doigt pointé, les bras restent immobiles. (À faire respecter.)",
   fire:           "Le maire PERD son pouvoir d'arbitrage : en cas d'égalité au vote, c'est le hasard qui tranche (automatique).",
   whispers:       "Les joueurs ne peuvent parler qu'à VOIX BASSE toute la journée. (À faire respecter.)",
   tribunal:       "Pour parler, un joueur doit se LEVER face à l'assemblée. Assis = pas de parole. (À faire respecter.)",
@@ -754,18 +753,43 @@ function showMjCouncilEventCard(data) {
   try { speakNarration(data.title + ". " + (MJ_EVENT_RULES[data.id] || data.narrative || "")); } catch(_) {}
 }
 
+// Bandeau permanent de l'évènement du jour : le MJ y retrouve la règle à tout moment,
+// et peut rouvrir la carte complète (titre, récit, règle) s'il l'a oubliée.
+let _mjEvenementDuJour = null;
+function afficherBandeauEvenement(data) {
+  _mjEvenementDuJour = data || null;
+  const banner = document.getElementById("councilActiveBanner");
+  if (!banner) return;
+  if (!data) { banner.style.display = "none"; return; }
+  const regle = MJ_EVENT_RULES[data.id] || "";
+  banner.style.display = "block";
+  banner.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <strong>🪦 Événement du jour : ${data.title}</strong>
+      <button onclick="revoirCarteEvenement()" style="padding:6px 12px;border-radius:6px;border:1px solid #884488;background:rgba(204,153,204,0.12);color:#cc99cc;font-size:12px;cursor:pointer;">📖 Revoir la carte</button>
+    </div>` + (regle ? `<div style="margin-top:6px;font-size:13px;color:#e0c8e0;line-height:1.45;">📋 ${regle}</div>` : "");
+}
+// Rouvre la carte complète, sans relancer la voix du narrateur.
+function revoirCarteEvenement() {
+  const data = _mjEvenementDuJour;
+  if (!data) return;
+  const card = document.getElementById("councilEventCard");
+  if (!card) return;
+  document.getElementById("councilEventTitle").innerText = data.title || "";
+  const narr = document.getElementById("councilEventNarrative");
+  if (narr) narr.innerText = data.narrative || "";
+  const rule = document.getElementById("councilEventRule");
+  if (rule) rule.innerText = MJ_EVENT_RULES[data.id] || "(Règle non répertoriée — voir le récit ci-dessus.)";
+  card.style.display = "flex";
+}
+
 // Évènement du Conseil mis en attente tant que la carte récap de nuit est ouverte.
 let _mjPendingCouncilEvent = null;
 socket.on("councilEventActive", data => {
   if (!data) return;
   // Trace l'event actif pour les autres handlers (label vote du jour, etc.)
   _mjActiveCouncilEvent = data.id;
-  // Bandeau MJ permanent avec l'événement actif
-  const banner = document.getElementById("councilActiveBanner");
-  if (banner) {
-    banner.style.display = "block";
-    banner.innerHTML = `<strong>🪦 Événement du jour :</strong> ${data.title}`;
-  }
+  // Bandeau MJ permanent avec l'événement actif (titre + règle + « Revoir la carte »)
+  afficherBandeauEvenement(data);
   // Refonte (mai 2026) : séquence au début du jour — la carte récap de nuit
   // d'abord, l'évènement ensuite. Si dayRecapCard est ouverte, on met en file.
   const recap = document.getElementById("dayRecapCard");
@@ -992,7 +1016,7 @@ socket.on("sistersInfoMJ", data => {
 
 // ===== INDICATEUR PHASE NUIT =====
 function updateNightBar(currentPhase) {
-  const nightPhases = ['cupid','sisters','salvateur','wolves','seer','petiteFille','witch'];
+  const nightPhases = ['cupid','sisters','salvateur','wolves','seer','petiteFille','witch','nightPause'];
   const missionPhases = ['mission','missionVote','missionBonus'];
   const bar = document.getElementById("nightPhaseBar");
   const mBar = document.getElementById("missionPhaseBar");
@@ -1076,7 +1100,7 @@ socket.on("phase", p=>{
   // et tout au long des phases nocturnes. La phase sisters joue sisters.mp3 PAR-DESSUS
   // (canal audio séparé) sans interrompre l'ambiance.
   // Vraies phases de nuit : musique de nuit + reset du flag post-aube
-  if(["cupid","sisters","salvateur","wolves","corbeau","seer","petiteFille","witch"].includes(p)){
+  if(["cupid","sisters","salvateur","wolves","corbeau","seer","petiteFille","witch","nightPause"].includes(p)){
     _mjDawnContext = false;
     playAmbiance("night");
   }
@@ -1091,16 +1115,9 @@ socket.on("phase", p=>{
   if (p === "sisters") playSistersLoop();
   else                 stopSistersLoop();
 
-  // Carte narrative MJ : « Lancer le timer des Sœurs »
-  const sl = document.getElementById("sistersLauncherCard");
-  if (sl) sl.style.display = (p === "sisters") ? "flex" : "none";
-  else if(["mission","missionVote","missionBonus"].includes(p)) {
-    // Phase mission : entre l'élection du maire et la première nuit — pas de musique de nuit
-    // On garde la musique de lobby en cours, ou le silence
-  }
-  else if(p==="lobby"){
-    if(!isGameOver){ stopAmbiance(); stopHeartbeat(); }
-  }
+  // Grande carte « Passer à l'étape suivante » : visible uniquement entre deux rôles de nuit
+  const esc = document.getElementById("etapeSuivanteCard");
+  if (esc) esc.style.display = (p === "nightPause") ? "flex" : "none";
 });
 
 // ===== MISSION — EVENTS MJ =====
@@ -1159,6 +1176,8 @@ socket.on("missionMJInfo", data=>{
 
 // ===== TRIGGERS MUSICAUX =====
 socket.on("rolesMJ", data=>{ roles=data.roles; renderRoles(); playAmbiance("lobby"); });
+// Un joueur s'est reconnecté (nouvel identifiant) : on remet à jour la liste des rôles.
+socket.on("rolesMJUpdate", data=>{ roles=data.roles||roles; if(data.players) players=data.players; renderRoles(); });
 socket.on("playNightMusic", ()=>{ if(!isGameOver) playAmbiance("night"); });
 
 socket.on("dawnResult", data=>{
@@ -1191,6 +1210,13 @@ socket.on("gameEnd", msg=>{
 
 socket.on("mjReconnected", state=>{
   currentPhaseForBar = state.phase || "lobby";
+  if (state.activeCouncilEvent) { _mjActiveCouncilEvent = state.activeCouncilEvent.id; afficherBandeauEvenement(state.activeCouncilEvent); }
+  if (state.phase === "nightPause") {
+    const lib = document.getElementById("etapeSuivanteLibelle");
+    if (lib) lib.textContent = LIBELLES_ETAPES_NUIT_MJ[state.etapeNuitSuivante] || "…";
+    const esc = document.getElementById("etapeSuivanteCard");
+    if (esc) esc.style.display = "flex";
+  }
   document.getElementById("mjPhaseDisplay").innerText=phaseLabel(state.phase||"lobby");
   updateNightBar(state.phase||"lobby");
   updateMJLayout(state.phase||"lobby");
@@ -1473,11 +1499,26 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 function v(id){return document.getElementById(id)?.value||0;}
-function mjLaunchSistersTimer(){
-  socket.emit("mjStartSistersTimer");
-  const sl = document.getElementById("sistersLauncherCard");
-  if (sl) sl.style.display = "none";
+// Le décompte des Sœurs démarre seul à leur réveil : le MJ en est simplement informé.
+socket.on("sistersTimerStart", data => {
+  const s = Math.round(((data && data.durationMs) || 20000) / 1000);
+  showAlert(`👯‍♀️ Les Sœurs jumelles ont ${s} secondes pour se reconnaître.`, "info");
+});
+// Nuit rythmée par le MJ : libellé de l'étape qui démarrera au clic
+socket.on("etapeNuitEnAttente", data => {
+  const lib = document.getElementById("etapeSuivanteLibelle");
+  if (lib) lib.textContent = (data && data.libelle) || "…";
+  const esc = document.getElementById("etapeSuivanteCard");
+  if (esc) esc.style.display = "flex";
+});
+function mjEtapeSuivante(){
+  socket.emit("mjEtapeSuivante");
+  const esc = document.getElementById("etapeSuivanteCard");
+  if (esc) esc.style.display = "none";
 }
+const LIBELLES_ETAPES_NUIT_MJ = { cupid:"💘 Cupidon", sisters:"👯‍♀️ Les Sœurs jumelles", salvateur:"🛡 Le Salvateur",
+  wolves:"🐺 Les Loups-Garous", seer:"🔮 La Voyante", corbeau:"🪶 Le Corbeau", witch:"🧪 La Sorcière", aube:"☀️ Le lever du jour" };
+
 
 // ===== REPRISE APRÈS CRASH =====
 socket.on("crashRecoveryAvailable", data => {
@@ -1558,16 +1599,17 @@ function selectMode(m){
 function phaseLabel(p){
   return{lobby:"lobby",mayorVote:"🏛️ Vote Maire",cupid:"💘 Cupidon",sisters:"👯‍♀️ Sœurs jumelles",
          salvateur:"🛡 Salvateur",wolves:"🐺 Loups",
-         seer:"🔮 Voyante",petiteFille:"👧 Petite Fille",witch:"🧪 Sorcière",
+         seer:"🔮 Voyante",petiteFille:"👧 Petite Fille",witch:"🧪 Sorcière",nightPause:"🌙 Entre deux rôles",
          chasseur:"🔫 Chasseur",day:"☀️ Jour",mayorTransfer:"🏛️ Transfert Maire",
          mission:"🎭 Mission — Équipe",missionVote:"🎭 Mission — Vote",missionBonus:"🔍 Mission — Bonus"}[p]||p;
 }
 
 // ===== CHEAT SHEET MJ — aide-mémoire contextuel par phase =====
 const MJ_CHEATSHEET = {
-  mayorVote:    { title:"🏛️ Vote du Maire",     lines:["Demande au village d'élire son maire", "Le maire tranche en cas d'égalité", "Verrouille manuellement OU attends que tous votent"] },
+  nightPause:   { title:"🌙 Entre deux rôles",     lines:["« … ferme les yeux »", "Vérifie que tout le monde a bien les yeux fermés", "Puis clique sur « Passer à l'étape suivante »"] },
+  mayorVote:    { title:"🏛️ Vote du Maire",     lines:["Demande au village d'élire son maire", "Le maire tranche en cas d'égalité", "Quand tout le monde a voté, clique sur « Valider le Maire »"] },
   cupid:        { title:"💘 Cupidon",             lines:["« Cupidon, ouvre les yeux »", "Il désigne 2 amoureux (en silence)", "« Cupidon, ferme les yeux »"] },
-  sisters:      { title:"👯‍♀️ Sœurs jumelles",  lines:["Vérifie que tout le monde dort", "« Sœurs jumelles, ouvrez les yeux »", "Lance le timer 20 s via la carte plein écran", "« Sœurs jumelles, fermez les yeux »"] },
+  sisters:      { title:"👯‍♀️ Sœurs jumelles",  lines:["Vérifie que tout le monde dort", "« Sœurs jumelles, ouvrez les yeux »", "Les 20 s démarrent toutes seules à leur réveil", "À la fin, la nuit marque une pause comme pour les autres rôles"] },
   salvateur:    { title:"🛡 Salvateur",            lines:["« Salvateur, ouvre les yeux »", "Il pointe qui il protège (≠ d'hier)", "« Salvateur, ferme les yeux »"] },
   wolves:       { title:"🐺 Loups-Garous",         lines:["« Loups-garous, ouvrez les yeux »", "Ils désignent une proie en silence", "Validation auto si consensus, sinon clique « Valider l'attaque »", "« Loups-garous, fermez les yeux »"] },
   seer:         { title:"🔮 Voyante",              lines:["« Voyante, ouvre les yeux »", "Elle pointe un joueur — tu lui montres son rôle silencieusement", "« Voyante, ferme les yeux »"] },
