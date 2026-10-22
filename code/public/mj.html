@@ -221,10 +221,10 @@
       <label style="font-size:12px;color:#aaa;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span>🗳️ Mode du vote du jour (fixe pour toute la partie) :</span>
         <select id="autoVoteMode" style="background:#0e0e0e;border:1px solid #335533;color:#88cc88;padding:4px 8px;border-radius:5px;font-size:12px;">
-          <option value="1">⏱ Libre (90s)</option>
-          <option value="2">🔒 Verrouillé (90s)</option>
-          <option value="4">⚡ Express (10s)</option>
-          <option value="5">🖤 Noir (60s)</option>
+          <option value="1">⏱ Libre (60s)</option>
+          <option value="2">🔒 Verrouillé (60s)</option>
+          <option value="4">⚡ Express (30s)</option>
+          <option value="5">🖤 Anonyme (60s)</option>
         </select>
       </label>
       <div style="margin-top:6px;font-size:11px;color:#666;line-height:1.5;">
@@ -243,7 +243,7 @@
     </label>
     <div style="margin-top:6px;font-size:11px;color:#776644;line-height:1.5;">
       Le vote ne démarre pas automatiquement — c'est vous qui le lancez. Les joueurs voient seulement une carte de jour puis un écran de débat épuré (pas d'interface de vote tant que vous n'avez pas cliqué « Lancer le vote »).<br>
-      <span style="color:#554433;">Décochez pour retrouver le comportement classique (vote auto à 2 s, durée 200 s).</span>
+      <span style="color:#554433;">Décochez pour retrouver le comportement classique (vote lancé automatiquement 2 s après l'aube, durée 60 s).</span>
     </div>
   </div>
 
@@ -396,7 +396,6 @@
   <button onclick="closeQRFullscreen()" style="margin-top:34px;padding:12px 34px;border-radius:8px;border:1px solid rgba(138,147,176,0.4);background:rgba(138,147,176,0.12);color:#c8cee0;font-size:14px;cursor:pointer;">✕ Fermer</button>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const socket = io();
@@ -1014,9 +1013,12 @@ socket.on("sistersInfoMJ", data => {
   showAlert(`👯‍♀️ Sœurs jumelles à réveiller : ${names}`, "info");
 });
 
+// Phases de nuit (barre de progression et musique de nuit) : une seule liste.
+const MJ_PHASES_NUIT = ['cupid','sisters','salvateur','wolves','seer','corbeau','witch','nightPause'];
+
 // ===== INDICATEUR PHASE NUIT =====
 function updateNightBar(currentPhase) {
-  const nightPhases = ['cupid','sisters','salvateur','wolves','seer','petiteFille','witch','nightPause'];
+  const nightPhases = MJ_PHASES_NUIT;
   const missionPhases = ['mission','missionVote','missionBonus'];
   const bar = document.getElementById("nightPhaseBar");
   const mBar = document.getElementById("missionPhaseBar");
@@ -1100,7 +1102,7 @@ socket.on("phase", p=>{
   // et tout au long des phases nocturnes. La phase sisters joue sisters.mp3 PAR-DESSUS
   // (canal audio séparé) sans interrompre l'ambiance.
   // Vraies phases de nuit : musique de nuit + reset du flag post-aube
-  if(["cupid","sisters","salvateur","wolves","corbeau","seer","petiteFille","witch","nightPause"].includes(p)){
+  if(MJ_PHASES_NUIT.includes(p)){
     _mjDawnContext = false;
     playAmbiance("night");
   }
@@ -1562,7 +1564,7 @@ function launchVote() {
     showAlert(`⏳ Attendez encore ${s}s — les joueurs voient encore la carte d'aube`, "warning");
     return;
   }
-  socket.emit("startVote", selectedMode);
+  socket.emit("startVote", 1);
   playEffect("church_bell");
 }
 function mjSendDeadChat(){ const inp=document.getElementById("mjDeadChatText"); const t=inp.value.trim(); if(!t)return; socket.emit("deadChat",{text:t}); inp.value=""; }
@@ -1588,18 +1590,13 @@ function replayGame(){
   document.getElementById("replayPanel").style.display="none";
 }
 
-let selectedMode=1;
 // Conservé pour compatibilité (les boutons mode ont été retirés : seul le mode 1 est lançable manuellement,
 // les modes 2/4/5 sont déclenchés uniquement par un évènement du Conseil des Morts).
-function selectMode(m){
-  selectedMode=m;
-  [1,2,4,5].forEach(n=>{ const el=document.getElementById("btn-mode"+n); if(el) el.classList.toggle("active",n===m); });
-}
 
 function phaseLabel(p){
   return{lobby:"lobby",mayorVote:"🏛️ Vote Maire",cupid:"💘 Cupidon",sisters:"👯‍♀️ Sœurs jumelles",
          salvateur:"🛡 Salvateur",wolves:"🐺 Loups",
-         seer:"🔮 Voyante",petiteFille:"👧 Petite Fille",witch:"🧪 Sorcière",nightPause:"🌙 Entre deux rôles",
+         seer:"🔮 Voyante",witch:"🧪 Sorcière",nightPause:"🌙 Entre deux rôles",
          chasseur:"🔫 Chasseur",day:"☀️ Jour",mayorTransfer:"🏛️ Transfert Maire",
          mission:"🎭 Mission — Équipe",missionVote:"🎭 Mission — Vote",missionBonus:"🔍 Mission — Bonus"}[p]||p;
 }
@@ -1613,7 +1610,6 @@ const MJ_CHEATSHEET = {
   salvateur:    { title:"🛡 Salvateur",            lines:["« Salvateur, ouvre les yeux »", "Il pointe qui il protège (≠ d'hier)", "« Salvateur, ferme les yeux »"] },
   wolves:       { title:"🐺 Loups-Garous",         lines:["« Loups-garous, ouvrez les yeux »", "Ils désignent une proie en silence", "Validation auto si consensus, sinon clique « Valider l'attaque »", "« Loups-garous, fermez les yeux »"] },
   seer:         { title:"🔮 Voyante",              lines:["« Voyante, ouvre les yeux »", "Elle pointe un joueur — tu lui montres son rôle silencieusement", "« Voyante, ferme les yeux »"] },
-  petiteFille:  { title:"👧 Petite Fille",         lines:["Phase silencieuse — elle entrouvre les yeux pendant les Loups"] },
   corbeau:      { title:"🪶 Corbeau",              lines:["« Corbeau, ouvre les yeux »", "Il désigne un joueur (ou passe) — 2 votes contre demain", "« Corbeau, ferme les yeux »"] },
   witch:        { title:"🧪 Sorcière",             lines:["« Sorcière, ouvre les yeux. Voici la victime des loups »", "Elle peut : sauver (potion vie), tuer (potion mort), ou rien", "« Sorcière, ferme les yeux »"] },
   day:          { title:"☀️ Le jour — à toi de jouer", lines:["1. Annonce les morts de la nuit à voix haute (carte récap = ton support)", "2. Ouvre le débat : « Le village se réveille… à vous de parler »", "3. Laisse les joueurs discuter — ils n'ont PAS leur écran, c'est voulu", "4. Quand le débat est mûr, clique « 🚀 Lancer le vote (60s) »", "5. Le maire tranche en cas d'égalité — le vote fini, la nuit revient seule"] },
@@ -1710,9 +1706,9 @@ let _gameJoinUrl = "";
     const url=`http://${data.ip}:${data.port}`;
     _gameJoinUrl = url;
     document.getElementById("gameUrl").innerText=url;
-    const qrDiv=document.getElementById("qrcode"); qrDiv.innerHTML="";
-    try{ new QRCode(qrDiv,{text:url,width:140,height:140,colorDark:"#ffffff",colorLight:"#111111",correctLevel:QRCode.CorrectLevel.M}); }
-    catch(e){qrDiv.innerText=url;}
+    // QR code dessiné par le serveur (/api/qr.svg) : fonctionne sans Internet.
+    const qrDiv=document.getElementById("qrcode");
+    qrDiv.innerHTML=`<img src="/api/qr.svg?theme=sombre&t=${Date.now()}" alt="QR code" width="140" height="140" style="display:block;">`;
   }catch(e){document.getElementById("gameUrl").innerText="Erreur IP";}
 })();
 
@@ -1724,9 +1720,7 @@ function showQRFullscreen(){
   if (!overlay || !box) return;
   box.innerHTML = "";
   if (_gameJoinUrl) {
-    try {
-      new QRCode(box, { text:_gameJoinUrl, width:300, height:300, colorDark:"#0a0a0a", colorLight:"#ffffff", correctLevel:QRCode.CorrectLevel.M });
-    } catch(e) { box.innerText = _gameJoinUrl; }
+    box.innerHTML = `<img src="/api/qr.svg?t=${Date.now()}" alt="QR code" width="300" height="300" style="display:block;">`;
     if (urlEl) urlEl.innerText = _gameJoinUrl;
   } else {
     box.innerText = "Adresse indisponible";

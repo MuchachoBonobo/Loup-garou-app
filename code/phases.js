@@ -58,7 +58,6 @@ function setPhase(p) {
   if (p === "day") {
     state.gameStats.dayCount++;
     state.nightMusicPlayed = false;
-    state.io.emit("gameCycle", { day: state.gameStats.dayCount, night: state.gameStats.nightCount });
 
     // === Carte narrative MJ ===
     if (state.mjSocketId && state.pendingDayRecap) {
@@ -104,7 +103,6 @@ function setPhase(p) {
 
   if (p === "mayorVote" && !state.gameStats.startTime) state.gameStats.startTime = Date.now();
   if (p === "wolves") {
-    state.io.emit("gameCycle", { day: state.gameStats.dayCount, night: state.gameStats.nightCount });
     if (!state.skipWolvesSoundOnce) {
       if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "wolves");
     }
@@ -921,7 +919,6 @@ function handleSetPhase(socket, p) {
       roles.doResolveNight({ sansPause: true }); return;
     }
   }
-  if (p === "petiteFille") return;
   setPhase(p);
 }
 

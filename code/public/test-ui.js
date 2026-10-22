@@ -176,9 +176,8 @@ chkNoEv('G6: Sorcière NE reçoit PAS wolfVotesUpdate',vWitch,'wolfVotesUpdate')
 recv('yourRole',{role:'Villageois',wolves:[]});await sleep(D);forceRender();await sleep(D);
 checkNoBtns('G7: pas de "Attaquer" pour Villageois','🐺 Attaquer');
 recv('yourRole',{role:'PetiteFille',wolves:[]});await sleep(D);forceRender();await sleep(D);
-checkVisible('G8: petiteFillePanel visible','petiteFillePanel');
+check('G8: Petite Fille pendant les loups : même voile que les autres (pas « active »)',!isActiveDuringPhase('wolves','PetiteFille'));
 recv('phase','day');await sleep(D);forceRender();await sleep(D);
-checkHidden('G9: petiteFillePanel caché hors wolves','petiteFillePanel');
 try{nightCardShownThisNight=false;}catch(e){}
 
 // H. SEER
@@ -643,7 +642,6 @@ check('ZZ6: dayDeathCard reset',cardHidden('dayDeathCard'));
 check('ZZ7: playersSection visible',el('playersSection')&&el('playersSection').style.display!=='none');
 check('ZZ8: voteActive=false',typeof voteActive==='undefined'||voteActive===false);
 check('ZZ9: corbeauPanel caché',el('corbeauPanel')&&el('corbeauPanel').style.display==='none');
-check('ZZ10: petiteFillePanel caché',el('petiteFillePanel')&&el('petiteFillePanel').style.display==='none');
 check('ZZ11: witchDoneBtn caché',el('witchDoneBtn')&&el('witchDoneBtn').style.display==='none');
 check('ZZ12: chasseurPanel caché',el('chasseurPanel')&&el('chasseurPanel').style.display==='none');
 check('ZZ13: tiebreakPanel caché',el('tiebreakPanel')&&(el('tiebreakPanel').style.display==='none'||(el('tiebreakPanel').style.cssText||'').includes('display:none')));

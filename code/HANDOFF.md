@@ -35,9 +35,10 @@ C:\LoupGarouVoteApp\
 Application web de Loup-Garou pour jouer **en présentiel** : chaque joueur sur son téléphone, le Maître du Jeu (MJ) sur une tablette ou un PC, tout le monde sur le même Wi-Fi que l'ordinateur qui fait tourner le serveur.
 
 - Serveur Node.js + Express 5 + Socket.io 4, port **3000** (variable `PORT` pour changer).
-- Joueurs : `http://<ip>:3000/` — MJ : `http://<ip>:3000/mj` (ou `/mj.html`). Le panneau MJ affiche un QR code de connexion (route `/api/ip` = première IPv4 non interne de la machine).
+- Joueurs : `http://<ip>:3000/` — MJ : `http://<ip>:3000/mj` (ou `/mj.html`). Le panneau MJ affiche un QR code de connexion, dessiné par le serveur (`/api/qr.svg`, bibliothèque npm `qrcode`) à partir de `/api/ip` (première IPv4 non interne de la machine). **Le jeu ne fait plus aucune requête vers Internet** : il fonctionne sur un routeur sans connexion.
 - Lancement : `gestion\Lancer le jeu.bat` (double-clic), ou `code\start.ps1`, ou `npm start` dans `code\`. `server.js` lit lui-même `code\.env` au démarrage.
 - Lumières Philips Hue optionnelles (`LIGHTS_ENABLED=true` dans `.env` — **actuellement activé** sur le PC d'Alexandre).
+- **Réseau de jeu** (depuis le 2026-10-22) : routeur de voyage **GL.iNet Opal (GL-SFT1200)**, Wi-Fi « La nuit du village », réseau `192.168.8.0/24`, réglages en `192.168.8.1`. Adresses réservées dans le routeur : **PC du jeu `192.168.8.231`** (MAC `D0:39:57:A7:B5:61`) → jeu toujours en `http://192.168.8.231:3000` ; **Bridge Hue `192.168.8.147`** (MAC `C4:29:96:62:40:E2`, branché sur une prise LAN de l'Opal) → `HUE_BRIDGE_IP=192.168.8.147`. À la maison, câble box SFR → prise WAN de l'Opal (Internet) ; en prestation, pas de WAN, jeu hors ligne. Le PC doit être sur « La nuit du village » pour voir le Bridge.
 
 ### Rôles (11)
 Loup, Villageois, Voyante, Sorcière, Cupidon, Chasseur, Petite Fille, Idiot du village, Corbeau, Salvateur, Sœurs jumelles (0 ou 2). Configuration au lobby côté MJ (`mjSectionStart`) + case « Mission ».
@@ -48,7 +49,7 @@ Loup, Villageois, Voyante, Sorcière, Cupidon, Chasseur, Petite Fille, Idiot du 
 1. **Lobby** : les joueurs scannent le QR, saisissent leur prénom, prennent un selfie (optionnel). Le MJ règle les rôles, ajoute des bots s'il veut tester, lance.
 2. **Révélation du rôle** : carte face cachée à retourner + vibration.
 3. **Élection du Maire** : le MJ valide (« ✅ Valider le Maire »), même quand tout le monde a voté — il est alors prévenu par une alerte. Verrouillage automatique seulement en mode autonome.
-4. **Mission** (si activée) : le maire choisit 3 envoyés (il peut s'inclure), cartes secrètes Réussite/Échec, bonus d'inspection si réussite.
+4. **Mission** (si activée) : le maire choisit 3 envoyés (**il ne peut pas s'inclure** — règle confirmée par Alexandre le 2026-10-22), cartes secrètes Réussite/Échec, bonus d'inspection si réussite.
 5. **Nuit rythmée par le MJ** (hors mode autonome) : entre deux étapes, phase `nightPause` (tous les écrans voilés, la voix endort le rôle précédent) et grande carte MJ « ▶ Passer à l'étape suivante » ; le rôle suivant ne se réveille qu'au clic (filet 3 min). Ordre : Cupidon (1ʳᵉ nuit, seulement s'il y a un Cupidon : `roles.startFirstNight`) → Sœurs (si 2 vivantes ; leurs 20 s démarrent seules au réveil) → Salvateur → Loups (bouton « Valider ma proie », verrouillage auto au consensus) → Voyante (la nuit attend son « OK, j'ai vu », filet 30 s) → Corbeau → Sorcière (sautée si plus de potions) → résolution. Les phases des rôles morts sont sautées. Voile « garde les yeux fermés » pour tous ceux qui ne jouent pas.
 6. **Aube** : carte des morts (photos seulement ; le MJ a le récit complet + rôle). Dans la liste des joueurs, chaque mort affiche ensuite son rôle à droite (évènement `playerDied`).
 7. **Jour piloté par le MJ** (`mjPilotedDay`, défaut ON) : écran « débattez ensemble » côté joueurs, le MJ lance le vote quand il veut (bouton bloqué ~9 s après l'aube pour laisser la carte se fermer). Égalité → le maire tranche. Chasseur, transfert d'écharpe et cascades d'amoureux gérés partout.
@@ -126,9 +127,9 @@ Après toute modification serveur : **arrêter et relancer** le serveur (Node ga
 ## Tâches en attente
 
 - **Étape 8 de la refonte du jour** : playtest réel, mesurer le temps d'écran des joueurs en journée, puis supprimer le toggle `mjPilotedDay` et le mode legacy si validé.
-- Corriger les libellés du mode autonome dans `mj.html` (durées affichées ≠ durées réelles).
 - `server.js.bak` (ancien serveur monolithique, non versionné) traîne dans `code/` : peut être supprimé.
-- Ajouter `puppeteer-core` en devDependency si on veut garder `npm run test:ui`.
+- Ajouter `puppeteer-core` en devDependency si on veut garder `npm run test:ui` (absent : le test d'interface ne peut pas tourner).
+- Doublons structurels laissés en l'état (risque de divergence) : les bots recopient la logique des humains au lieu de l'appeler (vote du jour et son « sprint final » dans `phases.runBotsForPhase` vs `votes.handleVoteDay`, Salvateur, Sorcière). À factoriser un jour, avec les tests d'intégration comme filet.
 
 ## Idées / améliorations potentielles (non implémentées)
 
@@ -159,6 +160,28 @@ Après toute modification serveur : **arrêter et relancer** le serveur (Node ga
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-22 (suite) — Plein écran moins insistant ; règle de la mission confirmée
+- **Plein écran** (`index.html`) : demandé au clic « Rejoindre », puis une seule fois au premier toucher après une reconnexion (`_pleinEcranADemander`, réarmé dans le handler `connect` quand `_wasConnected` et dans `reconnected`). Un joueur qui quitte le plein écran n'est plus forcé d'y revenir à chaque toucher. Vérifié dans le navigateur en comptant les demandes : 1 au clic « Rejoindre », 0 sur deux touchers suivants, 1 de plus après une reconnexion.
+- **Mission** : Alexandre confirme que le maire **ne peut pas** s'inclure dans sa mission. C'est ce que fait le code ; l'entrée « Bug fix #4 » du Journal de mai, qui disait l'inverse, est marquée comme annulée.
+
+### 2026-10-22 — Mise en place du routeur « La nuit du village »
+- Routeur GL.iNet Opal reçu et configuré avec Alexandre. Premier essai : câbles inversés (box sur une prise LAN, Bridge sur la prise WAN) → le PC recevait une adresse de la box et le Bridge restait invisible. Corrigé : box → WAN, Bridge → LAN.
+- Bridge retrouvé en `192.168.8.147` ; `.env` mis à jour (`HUE_BRIDGE_IP`), la clé Hue reste valable ; test des lumières OK. Réservations d'adresses faites par Alexandre dans l'Opal (PC `192.168.8.231`, Bridge `192.168.8.147`).
+- `outils/test-hue.js` : messages à jour (« Lancer le jeu.bat », Wi-Fi « La nuit du village »).
+- Fiches `gestion/2 - Mise en place` (partie « Le réseau du jeu » : branchements, adresses fixes, partage du Wi-Fi par QR Android) et `gestion/3 - Lumières` (Bridge sur le routeur, condition Wi-Fi) mises à jour.
+
+### 2026-10-21 (suite 8) — Contrôle général du code
+- Méthode : scripts d'audit (fonctions jamais appelées hors définition/export, évènements socket envoyés sans écouteur et inversement, champs de `state` jamais lus, `getElementById` sans élément, sélecteurs CSS sans usage, scènes Hue sans usage), puis vérification manuelle de chaque candidat. Résultat : les 81 champs de `state`, toutes les fonctions serveur, les 41 scènes et tous les éléments recherchés sont utilisés.
+- **Corrigé** : `gameCycle` émis sans écouteur (supprimé) ; `missionError` jamais affiché (écouteur ajouté côté joueur) ; `corbeauConfirm` écouté mais jamais envoyé (le serveur l'envoie au Corbeau) ; phase fantôme `petiteFille` retirée de 7 listes (+ garde de `handleSetPhase`) ; listes de phases de nuit recopiées → `NIGHT_PHASES_FOR_COVER` (joueur) et `MJ_PHASES_NUIT` (MJ) — la barre de nuit du MJ disparaissait pendant le Corbeau, la carte du maire oubliait Sœurs/Salvateur/Corbeau ; écran de fin : table de rôles locale incomplète (Corbeau, Salvateur, Sœurs) remplacée par `ROLE_DISPLAY` ; `ROLE_LABEL` des récits de mort dédoublonné (`death-narratives.js`) ; libellés du mode autonome alignés sur les vraies durées (60/60/30/60 s) et texte « durée 200 s » corrigé ; morts : `playApplause`, `DEATH_ROLE_EMOJI`, `selectMode`/`selectedMode` ; CSS orphelins (`#petiteFillePanel`, `.btn.purple`, `.grid3`, `.mode-grid`, `.mode-btn`, `.sfx-grid`) ; commentaire « 19 events » ; `public/test-ui.js` adapté (Petite Fille sans panneau).
+- **Conservé volontairement** : transitions de narration directes (`wolves_to_seer`…) — utilisées en mode autonome, sans pause ; `fullReset` (tests) ; les trois fonctions auto-exécutées (`initIntro`, `initQR`, `bootRestore`).
+- Vérifié : audits relancés (plus aucun candidat), `npm test` 7/7, scripts nuit MJ 10/10, Sœurs 7/7, Conseil 11/11, pages MJ et joueur sans erreur.
+
+### 2026-10-21 (suite 7) — QR code sans Internet
+- L'écran MJ chargeait `qrcode.min.js` depuis cdnjs : sans Internet (routeur de voyage), le QR code ne s'affichait pas. Désormais le serveur le dessine : route `GET /api/qr.svg` (`?theme=sombre` pour le petit QR du panneau, noir sur blanc sinon), dépendance npm `qrcode` (^1.5.4). Plus aucune ressource externe dans `public/`.
+- Vérifié : les deux QR s'affichent, toutes les requêtes restent locales, le SVG servi est identique à celui de l'adresse attendue ; `npm test` 7/7.
+- **À savoir** : Alexandre n'utilise pas la narration vocale pour l'instant (la dépendance de certaines voix à Internet n'est donc pas un problème aujourd'hui).
+- Préparation du kit de prestation (discussion) : enceinte, lampes pour les ampoules Hue, câble réseau, multiprise et rallonge, chargeurs, batteries externes, téléphones de prêt, support de tablette, QR imprimés (Wi-Fi + jeu), cartes de rôles papier en secours, RC Pro. À faire à réception du routeur : **réservation d'adresse** pour le PC et le Bridge Hue (QR imprimé stable, lumières sans reconfiguration).
 
 ### 2026-10-21 (suite 6) — Conseil des Morts dès le premier mort
 - Demande d'Alexandre : le Conseil se réunit dès qu'il y a **au moins 1 mort** (avant : 2). Le seuil vit désormais dans `council.COUNCIL_TRIGGER_THRESHOLD` (= 1), lu par `phases.setPhase("day")` ; la constante, auparavant à 6 et inutilisée, est enfin branchée.
@@ -566,7 +589,7 @@ Les morts ne voient plus la vision spectateur complète pendant la partie, seule
 **Symptôme** : la narration TTS « le village s'endort, les loups se réveillent » jouait sur le MJ avant l'annonce de la victoire quand le vote du jour scellait la fin de partie via un chemin tiebreak.
 **Fix** : ajout d'un `if (phases.checkVictory()) return;` dans les deux chemins tiebreak (`resolveVoteWithTiebreak` callback + `handleTiebreakChoice`) avant `phases.setPhase("wolves")`. Garde supplémentaire dans `narration.narrate` : l'émission TTS dans le `setTimeout(900ms)` ne se déclenche plus si `state.phase` a changé entre-temps (cas où setPhase wolves est appelé puis setPhase lobby).
 
-#### Bug fix #4 — Le maire peut s'envoyer en mission (`roles.js`, `votes.js`)
+#### Bug fix #4 — Le maire peut s'envoyer en mission (`roles.js`, `votes.js`) — ⚠ ANNULÉ : le code refuse que le maire s'inclue, et c'est la règle voulue (Alexandre, 2026-10-22)
 **Symptôme** : le maire ne pouvait pas s'inclure parmi les 3 envoyés de la mission — utile pourtant pour qu'il vérifie s'il est loup en cas de réussite.
 **Fix** : suppression du filtre `id !== state.mayor` côté validation serveur (`handleMissionTeamChoice` dans `roles.js`). La liste envoyée au maire au lancement de mission (`votes.js` autour de la ligne 67) inclut désormais le maire lui-même.
 

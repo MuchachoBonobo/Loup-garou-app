@@ -596,11 +596,13 @@ function toggleFullscreen() {
   }
 }
 
-// Plein écran automatique pour les joueurs : demandé au clic « Rejoindre », puis
-// redemandé au premier toucher chaque fois qu'il a été perdu (écran verrouillé,
-// retour arrière…). Les navigateurs n'autorisent le plein écran qu'en réponse à un
-// geste de l'utilisateur, d'où l'écoute des clics. Sans effet sur iPhone (Safari ne
-// permet pas le plein écran d'une page web).
+// Plein écran automatique pour les joueurs, à deux moments seulement :
+//  - au clic « Rejoindre » (arrivée dans le lobby) ;
+//  - après une reconnexion, au premier toucher qui suit (les navigateurs n'autorisent
+//    le plein écran qu'en réponse à un geste de l'utilisateur).
+// Si le joueur quitte lui-même le plein écran, on ne le lui remet PAS : il a sûrement
+// une bonne raison. Sans effet sur iPhone (Safari ne le permet pas pour une page web).
+let _pleinEcranADemander = false;   // vrai après une reconnexion, jusqu'au prochain toucher
 function entrerPleinEcran() {
   if (document.fullscreenElement || document.webkitFullscreenElement) return;
   const elem = document.documentElement;
@@ -610,13 +612,15 @@ function entrerPleinEcran() {
   } catch (_) {}
 }
 document.addEventListener("click", () => {
+  if (!_pleinEcranADemander) return;
+  _pleinEcranADemander = false;
   if (lireIdentite("lgName")) entrerPleinEcran();
 }, true);
 
 // ===== VIBRATION (UNIQUEMENT EN PHASE DE JOUR — anti-leak info) =====
 // Les phases de nuit ne déclenchent JAMAIS de vibration : un téléphone qui
 // vibre dans le silence donne une info aux autres joueurs présents.
-const NO_VIBRATE_PHASES = ["cupid","sisters","salvateur","wolves","seer","witch","corbeau","petiteFille","nightPause",
+const NO_VIBRATE_PHASES = ["cupid","sisters","salvateur","wolves","seer","witch","corbeau","nightPause",
   "mission","missionVote","missionBonus","chasseur"];
 // Vibration brute, sans garde de phase. À n'utiliser qu'après avoir vérifié
 // soi-même qu'on est bien de JOUR (cf. isDayContext pour le Chasseur / le Maire).
@@ -774,20 +778,23 @@ function showMayorCard(name) {
       card.removeAttribute("data-open");
       // À la fermeture de la carte Maire, activer le voile si on est déjà en phase
       // de nuit — notamment cupid (1ère nuit, ~5 s après l'élection) et wolves/seer/witch.
-      if (["cupid","wolves","seer","petiteFille","witch","nightPause"].includes(phase)) {
+      if (NIGHT_PHASES_FOR_COVER.includes(phase)) {
         showNightFallCard();
       }
     }, 600);
   }, 5000);
 }
 
-function playApplause() {}
 
 let _wasConnected = false;
 socket.on("connect", () => {
   setConnected(true);
   document.getElementById("offlineBanner").className = "";
-  if (_wasConnected && lireIdentite("lgName")) socket.emit("register", lireIdentite("lgName"));
+  if (_wasConnected && lireIdentite("lgName")) {
+    socket.emit("register", lireIdentite("lgName"));
+    // Reconnexion (lobby comme partie) : plein écran redemandé au prochain toucher
+    _pleinEcranADemander = true;
+  }
   _wasConnected = true;
 });
 // Reprise après crash serveur : on re-register automatiquement avec le prénom mémorisé.
@@ -878,7 +885,6 @@ socket.on("voteResumed", data => {
 let deathLog = [];
 
 // Dictionnaires partagés (utilisés aussi par le rendu des joueurs morts dans la liste)
-const DEATH_ROLE_EMOJI = { "Loup":"🐺","Voyante":"🔮","Sorcière":"🧪","Chasseur":"🔫","Cupidon":"💘","Villageois":"🏠","Maire":"🏛️","PetiteFille":"👧","Idiot":"🤡","Corbeau":"🪶","Salvateur":"🛡","Sœurs":"👯‍♀️" };
 const DEATH_CAUSE_LABEL = { "loups":"par les loups", "sorcière":"par la Sorcière", "vote":"par le village", "chasseur":"par le Chasseur", "amour":"💔 amour" };
 
 // Map id → {role, cause} pour récupération rapide depuis render()
@@ -998,9 +1004,7 @@ socket.on("gameEnd", msg=>{
 });
 
 function populateEndScreen(data, winner) {
-  const rd = {"Loup":"🐺 Loup","Voyante":"🔮 Voyante","Sorcière":"🧪 Sorcière","Chasseur":"🔫 Chasseur",
-              "Cupidon":"💘 Cupidon","Villageois":"🏠 Villageois","Maire":"🏛️ Maire",
-              "PetiteFille":"👧 Petite Fille","Idiot":"🤡 Idiot"};
+  const rd = ROLE_DISPLAY;  // table commune (l'ancienne copie locale oubliait Corbeau, Salvateur, Sœurs)
   const stats = [];
   let durationStr = `${data.nightCount} nuit${data.nightCount>1?"s":""} · ${data.dayCount} jour${data.dayCount>1?"s":""}`;
   if (data.durationMs) {
@@ -1341,6 +1345,8 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 socket.on("reconnected", state => {
+  // Reconnexion : le plein écran sera redemandé au prochain toucher (une seule fois)
+  _pleinEcranADemander = true;
   dismissIntro();
   document.getElementById("lobby").style.display = "none";
   setConnected(true);
@@ -1820,7 +1826,7 @@ socket.on("phase", p=>{
   // Si la carte Maire est encore ouverte quand cupid démarre, showNightFallCard retourne
   // immédiatement (guard mayorCard) — c'est la callback de showMayorCard qui la rappellera
   // à la fermeture de la carte (~5 s après l'élection).
-  if(["cupid","sisters","salvateur","wolves","seer","corbeau","witch","nightPause"].includes(p)) {
+  if(NIGHT_PHASES_FOR_COVER.includes(p)) {
     showNightFallCard();
   }
   if(p==="day"){
@@ -2074,6 +2080,11 @@ socket.on("sistersTimerStart", data => {
 });
 // La fermeture du panneau Sœurs en cas de changement de phase est gérée
 // dans le gros handler socket.on("phase", ...) plus haut.
+
+// Sélection de mission refusée par le serveur (équipe invalide)
+socket.on("missionError", msg => {
+  document.getElementById("status").innerText = "⚠️ " + msg;
+});
 
 socket.on("corbeauConfirm", data=>{
   document.getElementById("corbeauPanel").style.display = "none";

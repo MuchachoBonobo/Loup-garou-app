@@ -15,12 +15,7 @@ const log    = require('./logger');
 const deathNarratives = require('./death-narratives');
 
 // Libellés français des rôles (pour les récits de mort + révélation)
-const ROLE_LABEL = {
-  Loup: "Loup-Garou", Voyante: "Voyante", Sorcière: "Sorcière",
-  Chasseur: "Chasseur", Cupidon: "Cupidon", Villageois: "Villageois",
-  PetiteFille: "Petite Fille", Idiot: "l'Idiot du village",
-  Corbeau: "Corbeau", Salvateur: "Salvateur", Sœurs: "une des Sœurs jumelles",
-};
+const { ROLE_LABEL } = deathNarratives;
 
 function buildDeath(id, cause) {
   const role = state.roles[id];
@@ -871,6 +866,7 @@ function handleCorbeauAction(socket, targetId) {
   clearTimeout(state.corbeauTimeout); state.corbeauTimeout = null;
   resetActivity();
   state.corbeauTarget = (targetId === "skip" || !targetId) ? "skip" : targetId;
+  socket.emit("corbeauConfirm", { targetId: state.corbeauTarget });
   if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "crow");
   if (state.corbeauTarget !== "skip") {
     state.io.emit("corbeauVotesPublic", { targetId: state.corbeauTarget, targetName: playerName(state.corbeauTarget) });

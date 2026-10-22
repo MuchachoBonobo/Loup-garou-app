@@ -51,22 +51,15 @@ body { background:#0a0a0a; color:#eee; font-family:'Segoe UI',Arial,sans-serif; 
 .btn.danger  { background:#2a0a0a; border-color:#aa0000; color:#ff5555; }
 .btn.blue    { background:#0a0a2a; border-color:#4444cc; color:#8888ff; }
 .btn.yellow  { background:#1a1500; border-color:#aaaa00; color:#ffff44; }
-.btn.purple  { background:#1a0a2a; border-color:#8833cc; color:#cc88ff; }
 .btn-group { display:flex; flex-wrap:wrap; gap:6px; }
 
 .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
 
 .config-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
 .config-item { display:flex; align-items:center; gap:5px; font-size:13px; color:#888; }
 .config-item input[type="number"] { width:52px; background:#0e0e0e; border:1px solid #333; border-radius:5px; color:#ccc; padding:4px 6px; text-align:center; }
 .config-item input[type="checkbox"] { width:16px; height:16px; cursor:pointer; accent-color:#4444aa; }
 
-.mode-grid { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:10px; }
-.mode-btn { padding:9px 8px; border-radius:7px; border:1px solid #222; background:#0e0e0e; color:#666; cursor:pointer; font-size:11px; text-align:center; transition:all 0.15s; }
-.mode-btn:hover { border-color:#444; color:#ccc; }
-.mode-btn.active { border-color:#00aa33; background:#051505; color:#00ee44; }
-.mode-btn strong { display:block; font-size:12px; margin-bottom:2px; }
 
 #timerDisplay { display:none; font-size:44px; font-weight:900; text-align:center; color:#ffcc00; margin:6px 0; line-height:1; }
 #timerDisplay.urgent { color:#ff3333; animation:pulse 0.5s infinite alternate; }
@@ -80,7 +73,6 @@ body { background:#0a0a0a; color:#eee; font-family:'Segoe UI',Arial,sans-serif; 
 .audio-dot.err { background:#cc3333; }
 @keyframes blink { from{opacity:1}to{opacity:0.4} }
 
-.sfx-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px; }
 .sfx-btn { padding:10px 6px; border-radius:8px; border:1px solid #222; background:#0e0e0e; color:#888; cursor:pointer; font-size:11px; text-align:center; transition:all 0.15s; display:flex; flex-direction:column; align-items:center; gap:3px; }
 .sfx-btn:hover { border-color:#555; color:#eee; background:#1a1a1a; }
 .sfx-btn:active { transform:scale(0.95); }

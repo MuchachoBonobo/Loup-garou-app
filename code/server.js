@@ -99,6 +99,26 @@ function getLocalIPv4() {
 }
 app.get("/api/ip", (req, res) => res.json({ ip: getLocalIPv4(), port: PORT }));
 
+// QR code de connexion des joueurs, dessiné par le serveur (image SVG) : il s'affiche
+// même sans Internet (avant, l'écran MJ téléchargeait un outil depuis un site externe).
+// ?theme=sombre → modules clairs sur fond sombre (petit QR du panneau MJ) ;
+// sinon noir sur blanc (QR plein écran, le plus facile à scanner).
+const QRCode = require("qrcode");
+app.get("/api/qr.svg", async (req, res) => {
+  const url = `http://${getLocalIPv4()}:${PORT}`;
+  const sombre = req.query.theme === "sombre";
+  try {
+    const svg = await QRCode.toString(url, {
+      type: "svg", errorCorrectionLevel: "M", margin: 1,
+      color: sombre ? { dark: "#ffffffff", light: "#111111ff" } : { dark: "#0a0a0aff", light: "#ffffffff" }
+    });
+    res.set("Cache-Control", "no-store").type("image/svg+xml").send(svg);
+  } catch (e) {
+    log.warn("QR code impossible à générer", e && e.message);
+    res.status(500).end();
+  }
+});
+
 // Events autorisés pendant la pause (chat post-game, MJ qui reprend, etc.)
 const ALLOWED_DURING_PAUSE = new Set([
   "registerMJ", "register",

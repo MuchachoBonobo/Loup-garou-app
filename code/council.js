@@ -135,7 +135,7 @@ let councilThunderTimer = null;
 function pickRandomCouncilOptions(count = 3) {
   let available = Object.keys(COUNCIL_EVENTS).filter(id => !state.councilUsedEvents.includes(id));
   // Second cycle : tous les événements ont déjà été proposés — on repart de zéro.
-  // Possible dans les longues parties (19 events × 3/session = ~7 sessions avant épuisement).
+  // Possible dans les longues parties (18 évènements, 3 proposés par séance : 6 séances avant épuisement).
   if (available.length === 0) {
     state.councilUsedEvents = [];
     available = Object.keys(COUNCIL_EVENTS);

@@ -17,12 +17,7 @@ const deathNarratives = require('./death-narratives');
 let tiebreakTimeout = null;
 const TIEBREAK_TIMEOUT_MS = 30000;
 
-const VOTE_ROLE_LABEL = {
-  Loup: "Loup-Garou", Voyante: "Voyante", Sorcière: "Sorcière",
-  Chasseur: "Chasseur", Cupidon: "Cupidon", Villageois: "Villageois",
-  PetiteFille: "Petite Fille", Idiot: "l'Idiot du village",
-  Corbeau: "Corbeau", Salvateur: "Salvateur", Sœurs: "une des Sœurs jumelles",
-};
+const VOTE_ROLE_LABEL = deathNarratives.ROLE_LABEL;
 function buildVoteNarrative(name, role, cause) {
   return deathNarratives.buildDeathNarrative({
     role, cause, name, roleLabel: VOTE_ROLE_LABEL[role] || role

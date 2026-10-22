@@ -62,16 +62,16 @@ const req = https.request({
     console.log('  ' + buf);
     console.log('');
     if (res.statusCode === 200) {
-      console.log('OK ! Le bandeau devrait etre ROUGE maintenant.');
-      console.log('   -> Si oui : la connexion Hue marche, le souci venait du chargement du .env.');
-      console.log('   -> Relance le jeu avec  .\\start.ps1  (et PAS  node server.js  tout seul).');
+      console.log('OK ! Les lumieres devraient etre ROUGES maintenant.');
+      console.log('   -> Si oui : la connexion Hue marche.');
+      console.log('   -> Lance le jeu avec  Lancer le jeu.bat  (dossier gestion) : les lumieres suivront la partie.');
     } else {
       console.log('X Le Bridge a refuse la commande. Le message ci-dessus indique pourquoi');
       console.log('  (souvent : mauvais HUE_GROUP_ID ou cle invalide).');
     }
   });
 });
-req.on('error',   e => console.log('X ERREUR RESEAU : ' + e.message + '\n  -> Verifie HUE_BRIDGE_IP et que le PC est sur le meme reseau que le Bridge.'));
+req.on('error',   e => console.log('X ERREUR RESEAU : ' + e.message + '\n  -> Verifie que le PC est connecte au Wi-Fi "La nuit du village" et que le Bridge est branche sur le routeur.'));
 req.on('timeout', () => { console.log('X TIMEOUT : le Bridge ne repond pas a ' + env.HUE_BRIDGE_IP); req.destroy(); });
 req.write(body);
 req.end();
