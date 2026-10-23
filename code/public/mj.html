@@ -186,6 +186,7 @@
     <div class="config-item">🐺 <input id="rp_loup" type="number" value="2" min="1"></div>
     <div class="config-item">👧 <input id="rp_petiteFille" type="number" value="0" min="0"></div>
     <div class="config-item">🤡 <input id="rp_idiot" type="number" value="0" min="0"></div>
+    <div class="config-item">😇 <input id="rp_ange" type="number" value="0" min="0"></div>
     <div class="config-item">🪶 <input id="rp_corbeau" type="number" value="0" min="0"></div>
     <div class="config-item">🛡 <input id="rp_salvateur" type="number" value="0" min="0"></div>
     <div class="config-item">👯‍♀️ <input id="rp_sisters" type="number" value="0" min="0" max="2" step="2" title="0 ou 2 sœurs"></div>
@@ -205,6 +206,7 @@
     <div class="config-item">🐺<input id="loup"       type="number" value="2" min="1"></div>
     <div class="config-item">👧<input id="petiteFille" type="number" value="0" min="0"></div>
     <div class="config-item">🤡<input id="idiot"      type="number" value="0" min="0"></div>
+    <div class="config-item">😇<input id="ange"       type="number" value="0" min="0" title="Ange : gagne seul s'il est éliminé au 1er vote"></div>
     <div class="config-item">🪶<input id="corbeau"    type="number" value="0" min="0"></div>
     <div class="config-item">🛡<input id="salvateur"  type="number" value="0" min="0"></div>
     <div class="config-item">👯‍♀️<input id="sisters" type="number" value="0" min="0" max="2" step="2" title="0 ou 2 sœurs jumelles"></div>
@@ -906,7 +908,7 @@ socket.on("voteResumed", data => {
 
 const roleEmoji = {
   "Loup":"🐺","Voyante":"🔮","Sorcière":"🧪","Chasseur":"🔫",
-  "Cupidon":"💘","Villageois":"🏠","Maire":"🏛️","PetiteFille":"👧","Idiot":"🤡","Corbeau":"🪶","Salvateur":"🛡","Sœurs":"👯‍♀️"
+  "Cupidon":"💘","Villageois":"🏠","Maire":"🏛️","PetiteFille":"👧","Idiot":"🤡","Ange":"😇","Corbeau":"🪶","Salvateur":"🛡","Sœurs":"👯‍♀️"
 };
 
 // ===== AUDIO =====
@@ -915,6 +917,7 @@ const SOUNDS = {
   endgame_village:"sounds/endgame_village.mp3",
   endgame_loups:"sounds/endgame_loups.mp3",
   endgame_amoureux:"sounds/endgame_amoureux.mp3",
+  endgame_ange:"sounds/endgame_ange.mp3",
   wolves:"sounds/wolves_attack.mp3", witch:"sounds/witch.mp3",
   seer:"sounds/seer.mp3", death:"sounds/death.mp3",
   heartbeat:"sounds/heartbeat.mp3", applause:"sounds/applause.mp3",
@@ -922,6 +925,7 @@ const SOUNDS = {
   crow:"sounds/crow.mp3", thunder:"sounds/thunder.mp3", church_bell:"sounds/church_bell.mp3",
   cupid:"sounds/cupid.mp3",
   sisters:"sounds/sisters.mp3", shield:"sounds/shield.mp3",
+  petite_fille:"sounds/petite_fille.mp3",
   // Conseil des Morts — ambiances qui remplacent la musique du jour
   rainynight:"sounds/rainynight.mp3",
   murmures:"sounds/Murmures.mp3"
@@ -944,10 +948,15 @@ function playAmbiance(k){
   if(ambianceName===k && ambianceAudio && !ambianceAudio.paused)return;
   stopAmbiance();
   try{
-    const labels={lobby:"🎮 Phase 1…",night:"🌙 Nuit",day:"☀️ Jour",endgame_village:"🏆 Victoire Villageois",endgame_loups:"🐺 Victoire Loups",endgame_amoureux:"💘 Victoire Amoureux"};
+    const labels={lobby:"🎮 Phase 1…",night:"🌙 Nuit",day:"☀️ Jour",endgame_village:"🏆 Victoire Villageois",endgame_loups:"🐺 Victoire Loups",endgame_amoureux:"💘 Victoire Amoureux",endgame_ange:"😇 Victoire de l'Ange"};
+    // Musique de secours si le fichier manque (endgame_ange.mp3 est à fournir)
+    const secours={endgame_ange:"endgame_village"};
     ambianceAudio=new Audio(SOUNDS[k]||k);
     ambianceAudio.loop=true; ambianceAudio.volume=masterVolume*0.4; ambianceName=k;
-    ambianceAudio.play().then(()=>{dotSet(true);lblSet(labels[k]||("🔊 "+k));}).catch(()=>dotSet(false,true));
+    ambianceAudio.play().then(()=>{dotSet(true);lblSet(labels[k]||("🔊 "+k));}).catch(err=>{
+      if(secours[k] && err && err.name!=="NotAllowedError" && ambianceName===k){ ambianceName=""; playAmbiance(secours[k]); }
+      else dotSet(false,true);
+    });
   }catch(e){}
 }
 function stopAmbiance(){ if(ambianceAudio){ambianceAudio.pause();ambianceAudio.currentTime=0;ambianceAudio=null;} ambianceName=""; dotSet(false); lblSet("Silence"); }
@@ -998,7 +1007,14 @@ function startHeartbeat(){
 function stopHeartbeat(){ if(heartbeatAudio){heartbeatAudio.pause();heartbeatAudio.currentTime=0;heartbeatAudio=null;} }
 
 socket.on("soundPlay", k=>{
-  if(["wolves","witch","seer","death","drum_roll","crowd_gasp","applause","crow","cupid","thunder","church_bell","shield"].includes(k)) playEffect(k);
+  if(["wolves","witch","seer","petite_fille","death","drum_roll","crowd_gasp","applause","crow","cupid","thunder","church_bell","shield"].includes(k)) playEffect(k);
+});
+// Petite Fille : ses 3 joueurs et la réponse (avec, pour le MJ seul, le nom des loups)
+socket.on("petiteFilleMJInfo", data=>{
+  const noms = (data.names || []).join(", ");
+  showAlert(data.auMoinsUnLoup
+    ? `👧 Petite Fille : ${noms} → 🐺 au moins un loup (${(data.loups || []).join(", ")})`
+    : `👧 Petite Fille : ${noms} → ✅ aucun loup`, "info");
 });
 socket.on("corbeauMJInfo", data=>{
   if(data.id) showAlert(`🪶 Corbeau cible : ${data.name} — 2 votes supplémentaires demain`, "warn");
@@ -1014,7 +1030,7 @@ socket.on("sistersInfoMJ", data => {
 });
 
 // Phases de nuit (barre de progression et musique de nuit) : une seule liste.
-const MJ_PHASES_NUIT = ['cupid','sisters','salvateur','wolves','seer','corbeau','witch','nightPause'];
+const MJ_PHASES_NUIT = ['cupid','sisters','salvateur','wolves','seer','petiteFille','corbeau','witch','nightPause'];
 
 // ===== INDICATEUR PHASE NUIT =====
 function updateNightBar(currentPhase) {
@@ -1038,8 +1054,9 @@ function updateNightBar(currentPhase) {
     { key:'cupid',     label:'💘 Cupidon',    needed: Object.values(roles).includes('Cupidon') },
     { key:'sisters',   label:'👯‍♀️ Sœurs',     needed: Object.entries(roles).filter(([id,r])=>r==='Sœurs' && !deadIds.includes(id)).length >= 2 },
     { key:'salvateur', label:'🛡 Salvateur',  needed: Object.values(roles).some(r=>r==='Salvateur') },
-    { key:'wolves',    label: Object.values(roles).some(r=>r==='PetiteFille') ? '🐺 Loups · 👧' : '🐺 Loups', needed: true },
+    { key:'wolves',    label:'🐺 Loups',      needed: true },
     { key:'seer',      label:'🔮 Voyante',    needed: Object.values(roles).some(r=>r==='Voyante') },
+    { key:'petiteFille', label:'👧 Petite Fille', needed: Object.values(roles).some(r=>r==='PetiteFille') },
     { key:'corbeau',   label:'🪶 Corbeau',    needed: Object.values(roles).some(r=>r==='Corbeau') },
     { key:'witch',     label:'🧪 Sorcière',   needed: Object.values(roles).some(r=>r==='Sorcière') },
   ].filter(s=>s.needed);
@@ -1199,11 +1216,11 @@ socket.on("gameEnd", msg=>{
   document.getElementById("gameEndBanner").style.display="block";
   document.getElementById("gameEndBanner").innerText=msg;
   stopCountdown(); stopHeartbeat();
-  const isWolvesWin=msg.includes("Loups"), isLoversWin=msg.includes("Amoureux");
-  playAmbiance(isWolvesWin?"endgame_loups":isLoversWin?"endgame_amoureux":"endgame_village");
+  const isWolvesWin=msg.includes("Loups"), isLoversWin=msg.includes("Amoureux"), isAngeWin=msg.includes("Ange");
+  playAmbiance(isWolvesWin?"endgame_loups":isLoversWin?"endgame_amoureux":isAngeWin?"endgame_ange":"endgame_village");
   document.getElementById("nightPhaseBar").classList.remove("active");
   document.getElementById("missionPhaseBar").classList.remove("active");
-  ["cupidon","voyante","sorciere","chasseur","loup","petiteFille","idiot","corbeau","salvateur","sisters"].forEach(k=>{
+  ["cupidon","voyante","sorciere","chasseur","loup","petiteFille","idiot","ange","corbeau","salvateur","sisters"].forEach(k=>{
     const src=document.getElementById(k), dst=document.getElementById("rp_"+k);
     if(src&&dst) dst.value=src.value;
   });
@@ -1241,7 +1258,7 @@ socket.on("mjReconnected", state=>{
     }
   }
   // Cible nuit : si les loups ont déjà choisi et qu'on est en phase seer/corbeau/witch
-  if (state.nightTarget && ["seer","corbeau","witch"].includes(state.phase)) {
+  if (state.nightTarget && ["seer","petiteFille","corbeau","witch"].includes(state.phase)) {
     showAlert(`🐺 Cible des Loups : ${state.nightTarget.name}`, "info");
     const wv = document.getElementById("wolfVotes");
     if (wv) wv.innerHTML = `<span style="color:#c66;font-weight:bold;">Cible : ${state.nightTarget.name}</span>`;
@@ -1249,7 +1266,20 @@ socket.on("mjReconnected", state=>{
 });
 
 // ===== EVENTS =====
-socket.on("players", p=>{ players=p; renderPlayers(); renderRoles(); });
+// Un joueur s'est reconnecté (nouvel identifiant) : on corrige les identifiants gardés
+// en mémoire par l'écran du MJ (morts, amoureux, maire, cible du Corbeau).
+let _idsParNomMJ = {};
+function traduireIdsMJ(nouveauxJoueurs) {
+  const table = {};
+  (nouveauxJoueurs || []).forEach(p => { const ancien = _idsParNomMJ[p.name]; if (ancien && ancien !== p.id) table[ancien] = p.id; });
+  _idsParNomMJ = Object.fromEntries((nouveauxJoueurs || []).map(p => [p.name, p.id]));
+  if (!Object.keys(table).length) return;
+  const T = id => (typeof id === "string" && table[id]) ? table[id] : id;
+  deadIds = (deadIds || []).map(T); loversIds = (loversIds || []).map(T); mayorId = T(mayorId);
+  if (typeof corbeauTarget !== "undefined") corbeauTarget = T(corbeauTarget);
+  const r = {}; Object.entries(roles || {}).forEach(([k, v]) => { r[T(k)] = v; }); roles = r;
+}
+socket.on("players", p=>{ traduireIdsMJ(p); players=p; renderPlayers(); renderRoles(); });
 socket.on("loversInfo", list=>{ loversIds=list; renderRoles(); });
 socket.on("newMayor", id=>{ const wasNull=!mayorId; mayorId=id; renderRoles(); if(id&&wasNull) playEffect("applause"); });
 socket.on("mayorVotesMJ",  votes=>{ renderVotes("mayorVotes", votes); renderMissingVoters(votes); });
@@ -1387,8 +1417,9 @@ socket.on("daySkipped",    ()=>showAlert("⏭️ Vote du jour passé.", "info"))
 socket.on("randomElim",    ()=>showAlert("⚠️ Aucun vote — élimination aléatoire !", "warn"));
 socket.on("loversDeathInfo", data=>{ if(data.name) showAlert(`💔 ${data.name} meurt de chagrin.`,"warn"); });
 socket.on("idiotRevealed", data=>showAlert(`🤡 ${data.name} est l'Idiot du Village !`, "info"));
+socket.on("angeRevele", data=>showAlert(`😇 ${data.name} était l'Ange : il gagne seul !`, "success"));
 socket.on("stuckGame", data=>{
-  const label={wolves:"Les Loups",seer:"La Voyante",witch:"La Sorcière",cupid:"Cupidon"};
+  const label={wolves:"Les Loups",seer:"La Voyante",petiteFille:"La Petite Fille",corbeau:"Le Corbeau",witch:"La Sorcière",cupid:"Cupidon"};
   document.getElementById("stuckGameMsg").innerText=`"${label[data.phase]||data.phase}" inactive depuis ${data.idleMinutes} min.`;
   document.getElementById("stuckGameBanner").style.display="block";
 });
@@ -1481,7 +1512,7 @@ function showAlert(msg, type="info"){
 function startGame(){
   socket.emit("assignRoles",{
     cupidon:+v("cupidon"),voyante:+v("voyante"),sorciere:+v("sorciere"),chasseur:+v("chasseur"),
-    loup:+v("loup"),petiteFille:+(v("petiteFille")||0),idiot:+(v("idiot")||0),corbeau:+(v("corbeau")||0),salvateur:+(v("salvateur")||0),sisters:+(v("sisters")||0),
+    loup:+v("loup"),petiteFille:+(v("petiteFille")||0),idiot:+(v("idiot")||0),ange:+(v("ange")||0),corbeau:+(v("corbeau")||0),salvateur:+(v("salvateur")||0),sisters:+(v("sisters")||0),
     mission: document.getElementById("mission")?.checked||false,
     autoMode: document.getElementById("autoMode")?.checked||false,
     autoVoteMode: +(document.getElementById("autoVoteMode")?.value||1),
@@ -1519,7 +1550,7 @@ function mjEtapeSuivante(){
   if (esc) esc.style.display = "none";
 }
 const LIBELLES_ETAPES_NUIT_MJ = { cupid:"💘 Cupidon", sisters:"👯‍♀️ Les Sœurs jumelles", salvateur:"🛡 Le Salvateur",
-  wolves:"🐺 Les Loups-Garous", seer:"🔮 La Voyante", corbeau:"🪶 Le Corbeau", witch:"🧪 La Sorcière", aube:"☀️ Le lever du jour" };
+  wolves:"🐺 Les Loups-Garous", seer:"🔮 La Voyante", petiteFille:"👧 La Petite Fille", corbeau:"🪶 Le Corbeau", witch:"🧪 La Sorcière", aube:"☀️ Le lever du jour" };
 
 
 // ===== REPRISE APRÈS CRASH =====
@@ -1577,6 +1608,7 @@ function replayGame(){
     loup:       +v("rp_loup"),
     petiteFille:+v("rp_petiteFille")||0,
     idiot:      +v("rp_idiot")||0,
+    ange:       +v("rp_ange")||0,
     corbeau:    +v("rp_corbeau")||0,
     salvateur:  +v("rp_salvateur")||0,
     sisters:    +v("rp_sisters")||0,
@@ -1596,7 +1628,7 @@ function replayGame(){
 function phaseLabel(p){
   return{lobby:"lobby",mayorVote:"🏛️ Vote Maire",cupid:"💘 Cupidon",sisters:"👯‍♀️ Sœurs jumelles",
          salvateur:"🛡 Salvateur",wolves:"🐺 Loups",
-         seer:"🔮 Voyante",witch:"🧪 Sorcière",nightPause:"🌙 Entre deux rôles",
+         seer:"🔮 Voyante",petiteFille:"👧 Petite Fille",corbeau:"🪶 Corbeau",witch:"🧪 Sorcière",nightPause:"🌙 Entre deux rôles",
          chasseur:"🔫 Chasseur",day:"☀️ Jour",mayorTransfer:"🏛️ Transfert Maire",
          mission:"🎭 Mission — Équipe",missionVote:"🎭 Mission — Vote",missionBonus:"🔍 Mission — Bonus"}[p]||p;
 }
@@ -1610,12 +1642,13 @@ const MJ_CHEATSHEET = {
   salvateur:    { title:"🛡 Salvateur",            lines:["« Salvateur, ouvre les yeux »", "Il pointe qui il protège (≠ d'hier)", "« Salvateur, ferme les yeux »"] },
   wolves:       { title:"🐺 Loups-Garous",         lines:["« Loups-garous, ouvrez les yeux »", "Ils désignent une proie en silence", "Validation auto si consensus, sinon clique « Valider l'attaque »", "« Loups-garous, fermez les yeux »"] },
   seer:         { title:"🔮 Voyante",              lines:["« Voyante, ouvre les yeux »", "Elle pointe un joueur — tu lui montres son rôle silencieusement", "« Voyante, ferme les yeux »"] },
+  petiteFille:  { title:"👧 Petite Fille",         lines:["« Petite Fille, ouvre les yeux »", "Elle désigne 3 joueurs sur son téléphone (pas elle-même)", "Son écran lui dit s'il y a au moins un loup parmi eux — la réponse s'affiche aussi chez toi", "La nuit attend son « OK, j'ai vu »", "« Petite Fille, ferme les yeux »"] },
   corbeau:      { title:"🪶 Corbeau",              lines:["« Corbeau, ouvre les yeux »", "Il désigne un joueur (ou passe) — 2 votes contre demain", "« Corbeau, ferme les yeux »"] },
   witch:        { title:"🧪 Sorcière",             lines:["« Sorcière, ouvre les yeux. Voici la victime des loups »", "Elle peut : sauver (potion vie), tuer (potion mort), ou rien", "« Sorcière, ferme les yeux »"] },
   day:          { title:"☀️ Le jour — à toi de jouer", lines:["1. Annonce les morts de la nuit à voix haute (carte récap = ton support)", "2. Ouvre le débat : « Le village se réveille… à vous de parler »", "3. Laisse les joueurs discuter — ils n'ont PAS leur écran, c'est voulu", "4. Quand le débat est mûr, clique « 🚀 Lancer le vote (60s) »", "5. Le maire tranche en cas d'égalité — le vote fini, la nuit revient seule"] },
   chasseur:     { title:"🔫 Chasseur",             lines:["Le chasseur vient de mourir — il emporte qui il veut", "Attends son choix (45 s) puis suite normale"] },
   mayorTransfer:{ title:"🏛️ Transfert d'écharpe", lines:["Le maire mourant désigne son successeur (60 s)"] },
-  mission:      { title:"🎭 Mission — sélection",  lines:["Le maire choisit 3 envoyés (peut s'inclure)"] },
+  mission:      { title:"🎭 Mission — sélection",  lines:["Le maire choisit 3 envoyés (il ne peut pas s'inclure)"] },
   missionVote:  { title:"🎭 Mission — vote",       lines:["Les 3 envoyés choisissent secrètement Réussite ou Échec"] },
   missionBonus: { title:"🔍 Inspection bonus",     lines:["Maire choisit 3 joueurs — il saura si un loup est présent"] },
   lobby:        { title:"⏳ Lobby",                lines:["Configure les rôles puis clique « Lancer la partie »"] },

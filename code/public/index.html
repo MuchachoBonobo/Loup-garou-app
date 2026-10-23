@@ -371,6 +371,21 @@
   <button onclick="corbeauSkip()" style="margin-top:8px;width:100%;padding:9px;background:#111;border:1px solid #333;border-radius:6px;color:#555;font-size:13px;cursor:pointer;">⏭ Passer mon tour</button>
 </div>
 
+<!-- Petite Fille : désigne 3 joueurs, apprend s'il y a au moins un loup parmi eux -->
+<div id="petiteFillePanel" style="display:none;background:#140a1e;border:2px solid #7a4fa8;border-radius:10px;margin:10px auto;max-width:480px;padding:16px;">
+  <div style="font-size:24px;text-align:center;margin-bottom:8px;">👧</div>
+  <div style="font-weight:bold;color:#cc88ff;font-size:15px;text-align:center;margin-bottom:6px;">La Petite Fille enquête</div>
+  <div style="font-size:12px;color:#8a6aa8;margin-bottom:12px;text-align:center;line-height:1.6;">
+    Désignez 3 joueurs. Vous saurez s'il y a au moins un Loup parmi eux — mais pas lequel.
+  </div>
+  <div id="petiteFilleBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
+  <div id="petiteFilleSelectedNames" style="margin-top:10px;font-size:12px;color:#cc88ff;text-align:center;min-height:18px;"></div>
+  <button id="petiteFilleConfirmBtn" onclick="confirmPetiteFille()" disabled
+    style="width:100%;margin-top:12px;padding:12px;background:#1e0f2a;border:2px solid #7a4fa8;border-radius:8px;color:#cc88ff;font-size:14px;cursor:pointer;opacity:0.4;">
+    👧 Découvrir
+  </button>
+</div>
+
 <div id="salvateurPanel" style="display:none;background:#08121a;border:2px solid #335a7a;border-radius:10px;margin:10px auto;max-width:480px;padding:14px 16px;">
   <h3 style="color:#88ccff;margin:0 0 8px;font-size:14px;">🛡 Le Salvateur protège un villageois</h3>
   <p style="font-size:12px;color:#5a8aa8;margin-bottom:6px;">Choisissez la personne que vous protégez cette nuit. Si les Loups l'attaquent, elle survit.</p>
@@ -620,7 +635,7 @@ document.addEventListener("click", () => {
 // ===== VIBRATION (UNIQUEMENT EN PHASE DE JOUR — anti-leak info) =====
 // Les phases de nuit ne déclenchent JAMAIS de vibration : un téléphone qui
 // vibre dans le silence donne une info aux autres joueurs présents.
-const NO_VIBRATE_PHASES = ["cupid","sisters","salvateur","wolves","seer","witch","corbeau","nightPause",
+const NO_VIBRATE_PHASES = ["cupid","sisters","salvateur","wolves","seer","petiteFille","witch","corbeau","nightPause",
   "mission","missionVote","missionBonus","chasseur"];
 // Vibration brute, sans garde de phase. À n'utiliser qu'après avoir vérifié
 // soi-même qu'on est bien de JOUR (cf. isDayContext pour le Chasseur / le Maire).
@@ -669,10 +684,13 @@ let missionSelectedByMe = [];   // sélection en cours par le maire (côté clie
 let missionBonusSelectedByMe = []; // sélection bonus en cours
 let missionCardPlayed = false;  // ce joueur a-t-il joué sa carte ?
 
+// ===== PETITE FILLE =====
+let petiteFilleSelection = [];  // les 3 joueurs en cours de sélection (côté client)
+
 const ROLE_DISPLAY = {
   "Loup":"🐺 Loup-Garou","Voyante":"🔮 Voyante","Sorcière":"🧪 Sorcière",
   "Chasseur":"🔫 Chasseur","Cupidon":"💘 Cupidon","Villageois":"🏠 Villageois",
-  "Maire":"🏛️ Maire","PetiteFille":"👧 Petite Fille","Idiot":"🤡 Idiot du Village",
+  "Maire":"🏛️ Maire","PetiteFille":"👧 Petite Fille","Idiot":"🤡 Idiot du Village","Ange":"😇 Ange",
   "Corbeau":"🪶 Corbeau","Salvateur":"🛡 Salvateur","Sœurs":"👯‍♀️ Sœur jumelle"
 };
 
@@ -720,8 +738,8 @@ const ROLE_EXPLAIN = {
     emoji:   "🏛️", bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee44"
   },
   "PetiteFille": {
-    desc:    "Chaque nuit vous pouvez entrouvrir les yeux discrètement pendant que les loups votent.",
-    mission: "Accumulez des informations nuit après nuit. Partagez-les intelligemment pour aider le village.",
+    desc:    "Chaque nuit, après la Voyante, vous désignez 3 joueurs (jamais vous-même). Vous apprenez s'il y a au moins un Loup parmi eux, ou aucun — mais pas lequel. Pendant le tour des Loups, gardez les yeux fermés comme tout le monde.",
+    mission: "Recoupez vos réponses nuit après nuit pour isoler les loups. Partagez-les intelligemment pour aider le village.",
     win:     "Tu gagnes avec les Villageois.",
     emoji:   "👧", bg: "radial-gradient(ellipse at center,#10051a 0%,#050008 100%)", color: "#cc88ff"
   },
@@ -730,6 +748,12 @@ const ROLE_EXPLAIN = {
     mission: "Survivez en jouant la carte de l'innocent. Si vous êtes découvert, votre immunité vous sauve une fois.",
     win:     "Tu gagnes avec les Villageois.",
     emoji:   "🤡", bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee00"
+  },
+  "Ange": {
+    desc:    "Vous n'avez qu'un seul but : vous faire éliminer par le village lors du tout premier vote, au lendemain de la première nuit. Si le village vous désigne à ce moment-là, vous gagnez seul ! Sinon, vous devenez un simple villageois.",
+    mission: "Attirez les soupçons dès le premier jour… sans que le village devine votre jeu.",
+    win:     "Tu gagnes seul si le village t'élimine au 1er vote, sinon avec les Villageois.",
+    emoji:   "😇", bg: "radial-gradient(ellipse at center,#1f1a0a 0%,#0a0804 100%)", color: "#ffe9a8"
   },
   "Corbeau": {
     desc:    "Chaque nuit après la Voyante, vous pouvez désigner un joueur qui commencera le vote du jour suivant avec 2 votes contre lui. Vous pouvez aussi vous cibler vous-même ou passer votre tour.",
@@ -838,6 +862,24 @@ socket.on("idiotRevealed", data => {
   scheduleRender();
 });
 
+// L'Ange désigné au premier vote : il gagne seul (l'écran de fin suit ~5 s après)
+let angeVainqueurNom = null;
+socket.on("angeRevele", data => {
+  angeVainqueurNom = data.name;
+  renderDeathPhotos([{ name: data.name }]);
+  document.getElementById("deathEmoji").innerText = "😇";
+  document.getElementById("deathTitle").innerText = data.name + " était l'Ange !";
+  document.getElementById("deathText").innerText  = "Le village l'a désigné dès le premier vote… exactement ce qu'il voulait. Il s'envole et gagne seul !";
+  const c = document.getElementById("dayDeathCard");
+  c.style.background = "radial-gradient(ellipse at center,#3a3014 0%,#0a0804 100%)";
+  c.className = "show";
+  _dawnOnClose = null;
+  // Pas de fermeture automatique : l'écran de fin arrive ~5 s après et referme la carte
+  // (sinon l'écran « Discutez » réapparaissait une demi-seconde entre les deux).
+  if (data.id === socket.id) vibrateIfDay([300, 100, 300, 100, 500]);
+  else vibrateIfDay([200, 100, 200]);
+});
+
 socket.on("registerError", msg=>{
   const inp=document.getElementById("name");
   if(inp){ inp.style.borderColor="#ff4444"; inp.placeholder=msg; }
@@ -933,7 +975,7 @@ socket.on("gameSummary", data => {
   const es = document.getElementById("endScreen");
   if (es && es.className === "visible") {
     const t = document.getElementById("endScreenTitle").innerText;
-    populateEndScreen(data, t.includes("Loups")?"wolves":t.includes("Amoureux")?"lovers":"villagers");
+    populateEndScreen(data, t.includes("Loups")?"wolves":t.includes("Amoureux")?"lovers":t.includes("Ange")?"ange":"villagers");
   }
 });
 
@@ -952,7 +994,7 @@ socket.on("gameEnd", msg=>{
 
   ["status","autoResolveBanner",
    "infoPanel","tiebreakPanel","votesPanel","voteTimerBox","voteWaitBox",
-   "witchDoneBtn","corbeauPanel","chasseurPanel",
+   "witchDoneBtn","corbeauPanel","chasseurPanel","petiteFillePanel",
    "deadChatPanel","deadVisionPanel","deathLogPanel","playersSection",
    "missionPanel","missionVotePanel","missionBonusPanel","missionStatusPanel","missionBonusResult",
    "dayDebateScreen","deadFullScreen","actionPendingBanner"
@@ -961,18 +1003,24 @@ socket.on("gameEnd", msg=>{
   const lobby = document.getElementById("lobby"); if(lobby) lobby.style.display="none";
 
   document.getElementById("endScreen").className="visible";
+  // Une carte de nuit ou de vote encore ouverte (révélation de l'Ange…) se referme sous l'écran de fin
+  const carteOuverte = document.getElementById("dayDeathCard");
+  if (carteOuverte && carteOuverte.classList.contains("show")) { _dawnOnClose = null; closeDawnCard(); }
 
   const isWolves = msg.includes("Loups");
   const isLovers = msg.includes("Amoureux");
-  const key = isWolves ? "wolves" : isLovers ? "lovers" : "villagers";
+  const isAnge   = msg.includes("Ange");
+  const key = isWolves ? "wolves" : isLovers ? "lovers" : isAnge ? "ange" : "villagers";
   const titleMap = {
     wolves:    "🐺 Les Loups ont gagné !",
     lovers:    "💘 Les Amoureux ont gagné !",
+    ange:      "😇 L'Ange a gagné !",
     villagers: "🏆 Les Villageois ont gagné !"
   };
   const subtitleMap = {
     wolves:    "Le village est tombé. Ils étaient parmi vous depuis le début…",
     lovers:    "Contre toute attente, leur amour a triomphé. Ensemble jusqu'au bout.",
+    ange:      "Le village l'a chassé dès le premier vote… et c'est exactement ce qu'il voulait.",
     villagers: "La vérité a triomphé. Les loups ont été démasqués un par un."
   };
 
@@ -982,13 +1030,15 @@ socket.on("gameEnd", msg=>{
   if (lastGameSummary) populateEndScreen(lastGameSummary, key);
 
   const card = document.getElementById("endCard");
-  const cfgBg = { wolves:"radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)", lovers:"radial-gradient(ellipse at center,#1a0515 0%,#050005 100%)", villagers:"radial-gradient(ellipse at center,#051a05 0%,#000500 100%)" };
+  const cfgBg = { wolves:"radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)", lovers:"radial-gradient(ellipse at center,#1a0515 0%,#050005 100%)", ange:"radial-gradient(ellipse at center,#2a2410 0%,#080600 100%)", villagers:"radial-gradient(ellipse at center,#051a05 0%,#000500 100%)" };
   card.style.background = cfgBg[key];
-  document.getElementById("endEmoji").innerText    = key==="wolves"?"🐺":key==="lovers"?"💘":"🏆";
+  document.getElementById("endEmoji").innerText    = key==="wolves"?"🐺":key==="lovers"?"💘":key==="ange"?"😇":"🏆";
   document.getElementById("endTitle").innerText    = titleMap[key];
   document.getElementById("endSubtitle").innerText = subtitleMap[key];
   let survivorsText = "";
-  if (lastGameSummary?.survivors?.length > 0) {
+  if (key === "ange" && angeVainqueurNom) {
+    survivorsText = `😇 ${angeVainqueurNom}, seul vainqueur`;
+  } else if (lastGameSummary?.survivors?.length > 0) {
     survivorsText = "Survivants : " + lastGameSummary.survivors.map(s=>`${ROLE_EMOJI[s.role]||""} ${s.name}`).join("  ·  ");
   }
   document.getElementById("endSurvivors").innerText = survivorsText;
@@ -1019,6 +1069,10 @@ function populateEndScreen(data, winner) {
     const visions = data.seerLog.map(v => `${ROLE_EMOJI[v.role]||""} ${v.name} (${rd[v.role]||v.role})`).join(", ");
     stats.push({ emoji:"🔮", label:"La Voyante a vu", value: visions });
   }
+  if (data.petiteFilleLog && data.petiteFilleLog.length > 0) {
+    const enquetes = data.petiteFilleLog.map(e => `${(e.names || []).join(", ")} ${e.auMoinsUnLoup ? "🐺" : "✅"}`).join(" · ");
+    stats.push({ emoji:"👧", label:"La Petite Fille a enquêté", value: enquetes });
+  }
   if (data.witchSaved || data.witchKilled) {
     const potions = [];
     if(data.witchSaved)  potions.push("potion de vie ✅");
@@ -1044,7 +1098,9 @@ function populateEndScreen(data, winner) {
   const endRoles = document.getElementById("endRolesList");
   endRoles.innerHTML = allPlayers.map(p => {
     const r = deadVisionData?.roles?.[p.id] || roles[p.id] || "?";
-    const isDead=deadPlayers.includes(p.id), isWolf=r==="Loup", isSurv=data.survivors?.some(s=>s.name===p.name), isMayor=p.id===mayor;
+    const isDead=deadPlayers.includes(p.id), isWolf=r==="Loup", isMayor=p.id===mayor;
+    // Victoire de l'Ange : lui seul est mis en avant, les survivants ont perdu
+    const isSurv = winner==="ange" ? r==="Ange" : data.survivors?.some(s=>s.name===p.name);
     let rowClass="end-role-row"; if(isWolf)rowClass+=" wolf-row"; else if(isSurv)rowClass+=" winner-row"; if(isDead)rowClass+=" dead-row";
     let badges=""; if(isDead)badges+="☠️"; if(isMayor)badges+="🏛️"; if(lovers.includes(p.id))badges+="❤️";
     // Avatar : photo si dispo, sinon emoji du rôle
@@ -1123,13 +1179,14 @@ let _dawnOnClose = null;
 // carte récap de nuit → (fermeture) → carte évènement.
 let _pendingCouncilEventData = null;
 
-// Vision de la Voyante en attente de confirmation : la nuit ne reprend que lorsque
-// la Voyante a appuyé sur « OK, j'ai vu » (le serveur attend l'évènement seerDone).
-let _visionVoyanteEnAttente = false;
+// Réponse de nuit en attente de confirmation (Voyante ou Petite Fille) : la nuit ne
+// reprend que lorsque le joueur a appuyé sur « OK, j'ai vu » — le serveur attend
+// l'évènement noté ici ("seerDone" ou "petiteFilleDone"), null sinon.
+let _confirmationNuitEnAttente = null;
 function closeDawnCard() {
-  if (_visionVoyanteEnAttente) {
-    _visionVoyanteEnAttente = false;
-    socket.emit("seerDone");
+  if (_confirmationNuitEnAttente) {
+    socket.emit(_confirmationNuitEnAttente);
+    _confirmationNuitEnAttente = null;
     const lbl = document.getElementById("deathCardBtnLabel");
     if (lbl) lbl.textContent = "Continuer →";
   }
@@ -1460,6 +1517,9 @@ socket.on("reconnected", state => {
     }
     if (typeof renderSalvateurTargets === "function") renderSalvateurTargets();
   }
+  // Reconnexion pendant le tour de la Petite Fille : choix des 3 joueurs rouvert (si elle
+  // avait déjà sa réponse, le serveur la lui renvoie juste après et le panneau se referme)
+  if (phase === "petiteFille") showPetiteFillePanel(); else closePetiteFillePanel();
   // Refonte épuration jour : après reconnexion, réévalue l'écran de débat
   // (s'ouvre si phase=day, vivant, pas de vote en cours ni de carte ouverte).
   if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
@@ -1469,7 +1529,40 @@ socket.on("reconnected", state => {
 
 socket.on("deadChatHistory", msgs=>{ if(!msgs)return; const div=document.getElementById("deadChatMessages"); div.innerHTML=""; msgs.forEach(appendChatMsg); });
 
-socket.on("players", p=>{ players=p; scheduleRender(); });
+// Un autre joueur s'est reconnecté : il a un nouvel identifiant. On repère qui a changé
+// (par prénom, unique dans une partie) et on corrige tout ce que cette page garde en
+// mémoire avec l'ancien identifiant : votes, coches, cibles, maire, partenaires…
+let _idsParNom = {};
+function traduireIdsApresReconnexion(nouveauxJoueurs) {
+  const table = {};
+  (nouveauxJoueurs || []).forEach(p => { const ancien = _idsParNom[p.name]; if (ancien && ancien !== p.id) table[ancien] = p.id; });
+  _idsParNom = Object.fromEntries((nouveauxJoueurs || []).map(p => [p.name, p.id]));
+  if (!Object.keys(table).length) return;
+  const T  = id => (typeof id === "string" && table[id]) ? table[id] : id;
+  const TL = l => Array.isArray(l) ? l.map(T) : l;
+  const TK = o => { const r = {}; Object.entries(o || {}).forEach(([k, v]) => { r[T(k)] = (typeof v === "string") ? T(v) : v; }); return r; };
+  wolves = TL(wolves); lovers = TL(lovers); deadPlayers = TL(deadPlayers);
+  mayor = T(mayor); myDayVote = T(myDayVote); myMayorVote = T(myMayorVote);
+  nightVictimId = T(nightVictimId); corbeauVotesTarget = T(corbeauVotesTarget);
+  idiotId = T(idiotId); dyingMayorId = T(dyingMayorId); salvateurLastProtectedId = T(salvateurLastProtectedId);
+  mayorCounts = TK(mayorCounts); dayCounts = TK(dayCounts); votesDayDetail = TK(votesDayDetail); wolfVotes = TK(wolfVotes);
+  roles = TK(roles); deathInfoById = TK(deathInfoById);
+  mayorVotedSet = new Set([...mayorVotedSet].map(T));
+  missionTeamSelected = TL(missionTeamSelected); missionSelectedByMe = TL(missionSelectedByMe); missionBonusSelectedByMe = TL(missionBonusSelectedByMe);
+  petiteFilleSelection = TL(petiteFilleSelection);
+  if (Array.isArray(window.selected)) window.selected = window.selected.map(T);
+}
+// Liste des joueurs changée pendant le tour de la Petite Fille (quelqu'un s'est reconnecté) :
+// ses boutons sont reconstruits avec les identifiants à jour, sa sélection est conservée.
+function rafraichirPanneauPetiteFille(){
+  const panel = document.getElementById("petiteFillePanel");
+  if (!panel || panel.style.display !== "block") return;
+  const sel = petiteFilleSelection.slice();
+  showPetiteFillePanel();
+  petiteFilleSelection = sel.filter(id => players.some(p => p.id === id) && !deadPlayers.includes(id) && id !== socket.id);
+  majPetiteFilleSelection();
+}
+socket.on("players", p=>{ traduireIdsApresReconnexion(p); players=p; rafraichirPanneauPetiteFille(); renderInfoPanel(); scheduleRender(); });
 socket.on("mayorCountsPublic", c=>{ mayorCounts=c; renderVotesPanel(); scheduleRender(); });
 socket.on("mayorVoted", voterId=>{ mayorVotedSet.add(voterId); scheduleRender(); });
 socket.on("dayCountsPublic",   c=>{ dayCounts=c;   renderVotesPanel(); updateDeadVoteView(); });
@@ -1495,16 +1588,16 @@ socket.on("wolfVotesUpdate",   v=>{
 });
 
 // ===== ANTI-TRICHE — voile de nuit + bouton reveal du rôle le jour =====
-const NIGHT_PHASES_FOR_COVER = ['cupid','sisters','salvateur','wolves','seer','corbeau','witch','nightPause'];
+const NIGHT_PHASES_FOR_COVER = ['cupid','sisters','salvateur','wolves','seer','petiteFille','corbeau','witch','nightPause'];
 function isActiveDuringPhase(p, r) {
   if (!p || !r) return false;
   if (p === 'cupid'     && r === 'Cupidon')                            return true;
   if (p === 'sisters'   && r === 'Sœurs')                              return true;
   if (p === 'salvateur' && r === 'Salvateur')                          return true;
-  // La Petite Fille n'a rien à faire à l'écran : elle a le même voile que les autres,
-  // pour que son téléphone ne la distingue pas (elle espionne en vrai, les yeux entrouverts).
+  // Pendant les Loups, la Petite Fille a le même voile que tout le monde : elle joue à son tour.
   if (p === 'wolves'    && r === 'Loup')                              return true;
   if (p === 'seer'      && r === 'Voyante')                            return true;
+  if (p === 'petiteFille' && r === 'PetiteFille')                      return true;
   if (p === 'corbeau'   && r === 'Corbeau')                            return true;
   if (p === 'witch'     && r === 'Sorcière')                           return true;
   return false;
@@ -1768,7 +1861,7 @@ function clearNightSecrets() {
   // par dawnResult (qui est émis JUSTE AVANT setPhase("day")). Elle a son propre
   // auto-close de 7s. La fermer ici la fait disparaître instantanément.
   // Panneaux d'action de nuit : on s'assure qu'ils sont tous fermés
-  ["corbeauPanel","salvateurPanel","sistersPanel","witchDoneBtn"].forEach(id=>{
+  ["corbeauPanel","salvateurPanel","sistersPanel","petiteFillePanel","witchDoneBtn"].forEach(id=>{
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
   });
@@ -1805,6 +1898,8 @@ socket.on("phase", p=>{
   if (p === "day") clearNightSecrets();
   // Sœurs : on ferme le panneau si on quitte la phase
   if (p !== "sisters" && typeof closeSistersPanel === "function") closeSistersPanel();
+  // Petite Fille : choix des 3 joueurs ouvert pendant son tour, refermé sinon
+  if (p === "petiteFille") showPetiteFillePanel(); else closePetiteFillePanel();
   if(p!=="chasseur"){
     const cp=document.getElementById("chasseurPanel");
     cp.style.cssText="display:none;";
@@ -2133,6 +2228,8 @@ socket.on("deadPlayers", dead=>{
 });
 
 socket.on("loversInfo", list=>{ lovers=list; renderInfoPanel(); scheduleRender(); });
+// Un autre loup s'est reconnecté (nouvel identifiant) : liste des loups à jour
+socket.on("loupsMisAJour", liste=>{ if(role==="Loup"){ wolves=liste||[]; renderInfoPanel(); scheduleRender(); } });
 socket.on("newMayor", id=>{
   const prevMayor = mayor;
   mayor=id;
@@ -2171,7 +2268,87 @@ socket.on("seerResult", data=>{
   // Ne pas la rappeler, ne pas toucher à nightCardShownThisNight.
   _dawnOnClose = null;
   // Pas de fermeture automatique : la nuit attend que la Voyante confirme.
-  _visionVoyanteEnAttente = true;
+  _confirmationNuitEnAttente = "seerDone";
+  const lbl = document.getElementById("deathCardBtnLabel");
+  if (lbl) lbl.textContent = "OK, j'ai vu ✓";
+});
+
+// ===== PETITE FILLE =====
+// Panneau de choix : ouvert à l'entrée en phase petiteFille (et à la reconnexion),
+// fermé à la réponse du serveur ou dès qu'on quitte la phase.
+function showPetiteFillePanel(){
+  if(role !== "PetiteFille" || iAmDead || gameIsOver) return;
+  petiteFilleSelection = [];
+  const panel = document.getElementById("petiteFillePanel");
+  panel.style.display = "block";
+  const btns = document.getElementById("petiteFilleBtns");
+  btns.innerHTML = "";
+  players.filter(p=>!deadPlayers.includes(p.id) && p.id !== socket.id).forEach(p=>{
+    const btn = document.createElement("button");
+    btn.id = "pfille_" + p.id;
+    btn.textContent = p.name;
+    btn.onclick = () => togglePetiteFille(p.id);
+    btn.style.cssText = "padding:8px 14px;background:#111;border:1px solid #333;border-radius:6px;color:#aaa;cursor:pointer;font-size:13px;";
+    btns.appendChild(btn);
+  });
+  majPetiteFilleSelection();
+}
+function closePetiteFillePanel(){
+  const panel = document.getElementById("petiteFillePanel");
+  if (panel) panel.style.display = "none";
+  petiteFilleSelection = [];
+}
+function togglePetiteFille(id){
+  const idx = petiteFilleSelection.indexOf(id);
+  if(idx >= 0) petiteFilleSelection.splice(idx, 1);
+  else { if(petiteFilleSelection.length >= 3) return; petiteFilleSelection.push(id); }
+  majPetiteFilleSelection();
+}
+// Couleur des boutons, noms choisis et bouton « Découvrir » selon la sélection
+function majPetiteFilleSelection(){
+  players.forEach(p=>{
+    const btn = document.getElementById("pfille_" + p.id);
+    if(!btn) return;
+    const choisi = petiteFilleSelection.includes(p.id);
+    btn.style.background  = choisi ? "#2a1040" : "#111";
+    btn.style.borderColor = choisi ? "#cc88ff" : "#333";
+    btn.style.color       = choisi ? "#e6ccff" : "#aaa";
+  });
+  const names = petiteFilleSelection.map(sid=>{ const p=players.find(x=>x.id===sid); return p?p.name:"?"; });
+  document.getElementById("petiteFilleSelectedNames").innerText =
+    names.length===0 ? "Sélectionnez 3 joueurs" : names.join(", ") + (names.length<3 ? ` (${names.length}/3)` : "");
+  const cb = document.getElementById("petiteFilleConfirmBtn");
+  cb.disabled = petiteFilleSelection.length !== 3;
+  cb.style.opacity = petiteFilleSelection.length === 3 ? "1" : "0.4";
+}
+function confirmPetiteFille(){
+  if(petiteFilleSelection.length !== 3) return;
+  socket.emit("petiteFilleChoice", petiteFilleSelection);
+  const cb = document.getElementById("petiteFilleConfirmBtn");
+  cb.disabled = true; cb.style.opacity = "0.4";
+}
+socket.on("petiteFilleError", msg => {
+  document.getElementById("status").innerText = "⚠️ " + msg;
+  if (phase === "petiteFille") showPetiteFillePanel();
+});
+socket.on("petiteFilleResult", data=>{
+  closePetiteFillePanel();
+  const noms = (data.names || []).join(", ");
+  document.getElementById("deathEmoji").innerText = data.auMoinsUnLoup ? "🐺" : "✨";
+  document.getElementById("deathTitle").innerText = "Ce qu'a découvert la Petite Fille";
+  document.getElementById("deathText").innerText  = data.auMoinsUnLoup
+    ? `Parmi ${noms}, il y a au moins un Loup.`
+    : `Parmi ${noms}, il n'y a aucun Loup.`;
+  const c = document.getElementById("dayDeathCard");
+  c.style.background = data.auMoinsUnLoup
+    ? "radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)"
+    : "radial-gradient(ellipse at center,#10051a 0%,#050008 100%)";
+  const photos = document.getElementById("deathPhotos");
+  if (photos) photos.style.display = "none";
+  c.className = "show";
+  // Comme la Voyante : en pleine nuit, pas de fermeture automatique — la nuit attend son « OK »
+  _dawnOnClose = null;
+  _confirmationNuitEnAttente = "petiteFilleDone";
   const lbl = document.getElementById("deathCardBtnLabel");
   if (lbl) lbl.textContent = "OK, j'ai vu ✓";
 });
@@ -2954,7 +3131,7 @@ socket.on("gameReset", data => {
   witchSaveUsed=false; witchKillUsed=false; hasVotedLocked=false; voteActive=false; myDayVote=null; myMayorVote=null;
   deathLog=[]; lastGameSummary=null; mayorVotedSet.clear();
   votesDayDetail={}; corbeauVotesTarget=null;
-  idiotRevealed=false; idiotId=null;
+  idiotRevealed=false; idiotId=null; angeVainqueurNom=null;
   nightCardShownThisNight = false;
   gameIsOver = false;
   mayorTransferPending = false;
@@ -2972,6 +3149,10 @@ socket.on("gameReset", data => {
   document.getElementById("corbeauPanel").style.display="none";
   document.getElementById("chasseurPanel").style.display="none";
   document.getElementById("witchDoneBtn").style.display="none";
+  closePetiteFillePanel();
+  // Réponse de nuit qui attendait son « OK » : abandonnée avec la partie
+  _confirmationNuitEnAttente = null;
+  const dlbl = document.getElementById("deathCardBtnLabel"); if (dlbl) dlbl.textContent = "Continuer →";
   // Reset mission
   missionActive=false; missionTeamSelected=[]; missionSelectedByMe=[]; missionBonusSelectedByMe=[]; missionCardPlayed=false;
   ["missionPanel","missionVotePanel","missionBonusPanel","missionBonusResult","missionStatusPanel","missionExplainCard","councilPanel","councilEventCard"].forEach(id=>{

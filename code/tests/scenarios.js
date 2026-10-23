@@ -417,7 +417,7 @@ async function s5() {
     mj.emit("assignRoles", {
       loup: 1, chasseur: 0, sorciere: 0, voyante: 1,
       cupidon: 0, corbeau: 0, salvateur: 0, sisters: 0,
-      petiteFille: 0, idiot: 0, mission: false,
+      petiteFille: 1, idiot: 0, mission: false,
       autoMode: true, autoVoteMode: 4, mjPilotedDay: false
     });
 
@@ -428,6 +428,264 @@ async function s5() {
     check("S5-gameEnd reçu dans les temps", result, result ? "" : "timeout 240s sans gameEnd");
   } catch (e) {
     ko("S5 crash", e.message);
+  } finally {
+    await closeAll(all);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// Helper : nuit où le loup unique tue `victime`, puis attend le jour.
+// ═══════════════════════════════════════════════════════════
+async function nuitLoupUnique(players, loupP, victime) {
+  const dayP = waitForPhase(players[0].s, "day", 20000);
+  loupP.s.emit("voteWolf", victime.s.id);
+  await sleep(100);
+  loupP.s.emit("wolfConfirm");
+  await dayP;
+  await sleep(300);
+}
+
+// ═══════════════════════════════════════════════════════════
+// S6 — Ange désigné au premier vote du village : il gagne seul.
+// ═══════════════════════════════════════════════════════════
+async function s6() {
+  console.log("\n▶ S6 — Ange désigné au premier vote");
+  const all = [];
+  try {
+    const NAMES = ["s6_A","s6_B","s6_C","s6_D","s6_E"];
+    const cfg   = { loup:1, ange:1, chasseur:0, sorciere:0, voyante:0, cupidon:0, corbeau:0,
+                    salvateur:0, sisters:0, petiteFille:0, idiot:0, mission:false };
+    const { mj, players, roleOf } = await setupGame(all, NAMES, cfg);
+    const loupP = players.find(p => roleOf[p.name] === "Loup");
+    const angeP = players.find(p => roleOf[p.name] === "Ange");
+    if (!loupP || !angeP) { ko("S6-setup", JSON.stringify(roleOf)); return; }
+
+    // Nuit 1 : le loup tue un villageois qui n'est pas le maire (évite mayorTransfer)
+    const victime = players.find(p => roleOf[p.name] === "Villageois" && p !== players[0]);
+    await nuitLoupUnique(players, loupP, victime);
+
+    // Jour 1 : tous votent l'Ange (lui vote le loup)
+    mj.emit("startVote");
+    await sleep(300);
+    players.filter(p => p !== victime).forEach(p => p.s.emit("voteDay", p === angeP ? loupP.s.id : angeP.s.id));
+    await sleep(300);
+
+    const reveleP = waitFor(mj, "angeRevele", 12000);
+    const finP    = waitFor(mj, "gameEnd", 16000);
+    mj.emit("lockDayVotes");
+    const revele = await reveleP.catch(() => null);
+    check("S6-l'Ange est révélé", revele && revele.id === angeP.s.id, JSON.stringify(revele));
+    const fin = await finP.catch(() => null);
+    check("S6-la partie se termine sur la victoire de l'Ange", typeof fin === "string" && fin.includes("Ange"), String(fin));
+  } catch (e) {
+    ko("S6 crash", e.message);
+  } finally {
+    await closeAll(all);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// S7 — Premier vote passé par le MJ : l'Ange perd sa chance et meurt
+// comme un villageois s'il est désigné au vote suivant.
+// ═══════════════════════════════════════════════════════════
+async function s7() {
+  console.log("\n▶ S7 — Ange désigné après un premier vote passé");
+  const all = [];
+  try {
+    const NAMES = ["s7_A","s7_B","s7_C","s7_D","s7_E","s7_F"];
+    const cfg   = { loup:1, ange:1, chasseur:0, sorciere:0, voyante:0, cupidon:0, corbeau:0,
+                    salvateur:0, sisters:0, petiteFille:0, idiot:0, mission:false };
+    const { mj, players, roleOf } = await setupGame(all, NAMES, cfg);
+    const loupP = players.find(p => roleOf[p.name] === "Loup");
+    const angeP = players.find(p => roleOf[p.name] === "Ange");
+    if (!loupP || !angeP) { ko("S7-setup", JSON.stringify(roleOf)); return; }
+    const villageois = players.filter(p => roleOf[p.name] === "Villageois" && p !== players[0]);
+
+    // Nuit 1, puis le MJ passe le vote du jour 1
+    await nuitLoupUnique(players, loupP, villageois[0]);
+    const nuit2P = waitForPhase(players[0].s, "wolves", 20000);
+    mj.emit("skipDayVote");
+    await nuit2P;
+    await nuitLoupUnique(players, loupP, villageois[1]);
+
+    // Jour 2 : tous votent l'Ange
+    let angeRevele = false;
+    mj.on("angeRevele", () => { angeRevele = true; });
+    mj.emit("startVote");
+    await sleep(300);
+    players.filter(p => p !== villageois[0] && p !== villageois[1])
+      .forEach(p => p.s.emit("voteDay", p === angeP ? loupP.s.id : angeP.s.id));
+    await sleep(300);
+
+    const resultP = waitFor(mj, "dayVoteResult", 12000);
+    mj.emit("lockDayVotes");
+    const res = await resultP.catch(() => null);
+    check("S7-l'Ange est éliminé comme un villageois", res && res.id === angeP.s.id && res.role === "Ange", JSON.stringify(res));
+    check("S7-pas de victoire de l'Ange", !angeRevele);
+  } catch (e) {
+    ko("S7 crash", e.message);
+  } finally {
+    await closeAll(all);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// S8 — Petite Fille : chaque nuit, 3 joueurs désignés → « au moins un loup » ou « aucun ».
+// Nuit 1 : choix invalide refusé, puis 3 joueurs dont le loup ; la nuit attend son « OK ».
+// Nuit 2 : 3 villageois → aucun loup.
+// ═══════════════════════════════════════════════════════════
+async function s8() {
+  console.log("\n▶ S8 — Petite Fille enquêtrice (2 nuits)");
+  const all = [];
+  try {
+    const NAMES = ["s8_A","s8_B","s8_C","s8_D","s8_E","s8_F","s8_G"];
+    const cfg   = { loup:1, petiteFille:1, chasseur:0, sorciere:0, voyante:0, cupidon:0, corbeau:0,
+                    salvateur:0, sisters:0, idiot:0, mission:false };
+    const { mj, players, roleOf } = await setupGame(all, NAMES, cfg);
+    const loupP = players.find(p => roleOf[p.name] === "Loup");
+    const pfP   = players.find(p => roleOf[p.name] === "PetiteFille");
+    if (!loupP || !pfP) { ko("S8-setup", JSON.stringify(roleOf)); return; }
+    const villageois = players.filter(p => roleOf[p.name] === "Villageois" && p !== players[0]);
+    let mjInfo = null;
+    mj.on("petiteFilleMJInfo", d => { mjInfo = d; });
+
+    // Nuit 1 : le loup tue un villageois, puis c'est au tour de la Petite Fille
+    const pfTourP = waitForPhase(pfP.s, "petiteFille", 20000);
+    loupP.s.emit("voteWolf", villageois[0].s.id);
+    await sleep(100);
+    loupP.s.emit("wolfConfirm");
+    await pfTourP;
+    check("S8-la Petite Fille se réveille après les Loups (pas de Voyante)", true);
+
+    // Choix invalide : elle-même dans la liste
+    const erreurP = waitFor(pfP.s, "petiteFilleError", 4000);
+    pfP.s.emit("petiteFilleChoice", [pfP.s.id, loupP.s.id, villageois[1].s.id]);
+    const erreur = await erreurP.catch(() => null);
+    check("S8-se désigner elle-même est refusé", typeof erreur === "string", String(erreur));
+
+    // Choix valide avec le loup
+    const resP = waitFor(pfP.s, "petiteFilleResult", 4000);
+    pfP.s.emit("petiteFilleChoice", [loupP.s.id, villageois[1].s.id, villageois[2].s.id]);
+    const res = await resP.catch(() => null);
+    check("S8-nuit 1 : « au moins un loup »", res && res.auMoinsUnLoup === true && res.names.length === 3, JSON.stringify(res));
+    await sleep(300);
+    check("S8-le MJ voit la réponse et le nom du loup", mjInfo && mjInfo.auMoinsUnLoup && mjInfo.loups.includes(loupP.name), JSON.stringify(mjInfo));
+
+    // La nuit attend son « OK »
+    let jour = false;
+    const onPhase = p => { if (p === "day") jour = true; };
+    players[0].s.on("phase", onPhase);
+    await sleep(1500);
+    check("S8-la nuit attend le « OK » de la Petite Fille", !jour);
+    const day1P = waitForPhase(players[0].s, "day", 20000);
+    pfP.s.emit("petiteFilleDone");
+    await day1P;
+    players[0].s.off("phase", onPhase);
+    await sleep(300);
+
+    // Jour 1 passé, nuit 2 : 3 villageois → aucun loup
+    const nuit2P = waitForPhase(players[0].s, "wolves", 20000);
+    mj.emit("skipDayVote");
+    await nuit2P;
+    const pfTour2P = waitForPhase(pfP.s, "petiteFille", 20000);
+    loupP.s.emit("voteWolf", villageois[1].s.id);
+    await sleep(100);
+    loupP.s.emit("wolfConfirm");
+    await pfTour2P;
+    const trois = players.filter(p => roleOf[p.name] === "Villageois" && p !== villageois[0] && p !== villageois[1]).slice(0, 3);
+    const res2P = waitFor(pfP.s, "petiteFilleResult", 4000);
+    pfP.s.emit("petiteFilleChoice", trois.map(p => p.s.id));
+    const res2 = await res2P.catch(() => null);
+    check("S8-nuit 2 : « aucun loup »", res2 && res2.auMoinsUnLoup === false, JSON.stringify(res2) + " choisis=" + trois.map(p => p.name));
+    const day2P = waitForPhase(players[0].s, "day", 20000);
+    pfP.s.emit("petiteFilleDone");
+    const day2 = await day2P.then(() => true).catch(() => false);
+    check("S8-après son « OK », le jour 2 se lève", day2);
+  } catch (e) {
+    ko("S8 crash", e.message);
+  } finally {
+    await closeAll(all);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// S9 — Boutons du MJ pendant le suspense d'un vote clos (double appui sur
+// « Terminer », « Lancer le vote », « Passer vote ») : un seul dépouillement.
+// ═══════════════════════════════════════════════════════════
+async function s9() {
+  console.log("\n▶ S9 — Boutons du MJ pendant le suspense du vote");
+  const all = [];
+  try {
+    const NAMES = ["s9_A","s9_B","s9_C","s9_D","s9_E","s9_F","s9_G"];
+    const cfg   = { loup:1, chasseur:0, sorciere:0, voyante:0, cupidon:0, corbeau:0,
+                    salvateur:0, sisters:0, petiteFille:0, idiot:0, ange:0, mission:false };
+    const { mj, players, roleOf } = await setupGame(all, NAMES, cfg);
+    const loupP = players.find(p => roleOf[p.name] === "Loup");
+    const villageois = players.filter(p => roleOf[p.name] === "Villageois" && p !== players[0]);
+    await nuitLoupUnique(players, loupP, villageois[0]);
+
+    let resultats = 0, lancements = 0, nuits = 0;
+    mj.on("dayVoteResult", () => resultats++);
+    mj.on("voteStartedMJ", () => lancements++);
+    mj.on("phase", p => { if (p === "wolves") nuits++; });
+    mj.emit("startVote", 1);
+    await sleep(400);
+    players.filter(p => p !== villageois[0] && p !== villageois[1]).forEach(p => p.s.emit("voteDay", villageois[1].s.id));
+    await sleep(400);
+    mj.emit("lockDayVotes");
+    await sleep(2000); mj.emit("lockDayVotes");
+    await sleep(1000); mj.emit("startVote", 1);
+    await sleep(1000); mj.emit("skipDayVote");
+    await sleep(9000);
+    check("S9-le vote n'est dépouillé qu'une fois", resultats === 1, resultats + " résultats");
+    check("S9-aucun vote relancé pendant le suspense", lancements === 1, lancements + " lancements");
+    check("S9-une seule nuit démarre ensuite", nuits <= 1, nuits + " nuits");
+  } catch (e) {
+    ko("S9 crash", e.message);
+  } finally {
+    await closeAll(all);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// S10 — Partie gagnée à l'aube (nuit résolue d'urgence par le MJ) : pendant les 7 s
+// avant l'écran de fin, des clics tardifs ne relancent pas une deuxième aube.
+// ═══════════════════════════════════════════════════════════
+async function s10() {
+  console.log("\n▶ S10 — Clics tardifs pendant une fin de partie à l'aube");
+  const all = [];
+  try {
+    const NAMES = ["s10_A","s10_B","s10_C","s10_D"];
+    const cfg   = { loup:1, sorciere:1, chasseur:0, voyante:0, cupidon:0, corbeau:0,
+                    salvateur:0, sisters:0, petiteFille:0, idiot:0, ange:0, mission:false };
+    const { mj, players, roleOf } = await setupGame(all, NAMES, cfg);
+    const loupP = players.find(p => roleOf[p.name] === "Loup");
+    const sorcP = players.find(p => roleOf[p.name] === "Sorcière");
+    const vill  = players.filter(p => roleOf[p.name] === "Villageois");
+    const v1 = vill.find(p => p !== players[0]) || vill[0];   // pas le maire : évite la transmission d'écharpe
+    const v2 = vill.find(p => p !== v1);
+    if (!loupP || !sorcP || !v1 || !v2) { ko("S10-setup", JSON.stringify(roleOf)); return; }
+    let aubes = 0, fins = [];
+    mj.on("dawnResult", () => aubes++);
+    mj.on("gameEnd", m => fins.push(m));
+
+    const sorcTourP = waitForPhase(sorcP.s, "witch", 20000);
+    loupP.s.emit("voteWolf", v1.s.id);
+    await sleep(100);
+    loupP.s.emit("wolfConfirm");
+    await sorcTourP;
+    sorcP.s.emit("witchKill", v2.s.id);   // loup + sorcière restants : victoire des loups à l'aube
+    await sleep(300);
+    mj.emit("resolveNight");               // résolution d'urgence, sans pause
+    await sleep(1500);
+    sorcP.s.emit("witchDone");             // clics tardifs
+    await sleep(800);
+    mj.emit("lockWolfVotes");
+    await sleep(8000);
+    check("S10-une seule aube", aubes === 1, aubes + " aubes");
+    check("S10-une seule fin de partie, gagnée par les Loups", fins.length === 1 && fins[0].includes("Loups"), JSON.stringify(fins));
+  } catch (e) {
+    ko("S10 crash", e.message);
   } finally {
     await closeAll(all);
   }
@@ -457,7 +715,7 @@ async function main() {
   });
   console.log("  Serveur test prêt : " + BASE_URL + "\n");
 
-  for (const scenario of [s1, s2, s3, s4, s5]) {
+  for (const scenario of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10]) {
     try { await scenario(); }
     catch (e) { ko("crash non rattrapé", e.message); }
     await sleep(800);

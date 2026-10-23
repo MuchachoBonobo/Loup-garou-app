@@ -177,6 +177,7 @@ recv('yourRole',{role:'Villageois',wolves:[]});await sleep(D);forceRender();awai
 checkNoBtns('G7: pas de "Attaquer" pour Villageois','🐺 Attaquer');
 recv('yourRole',{role:'PetiteFille',wolves:[]});await sleep(D);forceRender();await sleep(D);
 check('G8: Petite Fille pendant les loups : même voile que les autres (pas « active »)',!isActiveDuringPhase('wolves','PetiteFille'));
+check('G8b: Petite Fille active pendant son propre tour',isActiveDuringPhase('petiteFille','PetiteFille'));
 recv('phase','day');await sleep(D);forceRender();await sleep(D);
 try{nightCardShownThisNight=false;}catch(e){}
 

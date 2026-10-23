@@ -9,6 +9,10 @@ const SEER_TIMEOUT_MS           = 45000;
 // Après sa vision, la Voyante doit appuyer sur « OK, j'ai vu » ; filet de sécurité
 // si son téléphone ne répond plus (déconnexion, écran verrouillé).
 const SEER_ACK_TIMEOUT_MS       = 30000;
+// Petite Fille : même rythme que la Voyante (45 s pour désigner ses 3 joueurs, puis
+// 30 s de filet pour appuyer sur « OK, j'ai vu » une fois la réponse affichée).
+const PETITE_FILLE_TIMEOUT_MS     = 45000;
+const PETITE_FILLE_ACK_TIMEOUT_MS = 30000;
 // Pause entre deux étapes de nuit : filet de sécurité si le MJ ne clique pas
 // (tablette déconnectée…). La nuit continue alors d'elle-même.
 const NIGHT_PAUSE_TIMEOUT_MS    = 3 * 60 * 1000;
@@ -57,6 +61,9 @@ const state = {
   voteTimerEnd:         null,
   lockedVoters:         new Set(),
   dayResolutionPending: false,
+  // Vote du jour clos, résultat en cours d'annonce (suspense, égalité à trancher) : les
+  // boutons du vote sont ignorés jusqu'au changement de phase (remis à false par setPhase).
+  resolutionJourEnCours: false,
   fastResolveTriggered: false,
   voteRateLimit:        new Map(),
 
@@ -70,6 +77,8 @@ const state = {
   corbeauTarget:    null,
   corbeauTimeout:   null,
   idiotRevealed:    false,
+  nbVotesJour:      0,     // votes du jour résolus ou passés (l'Ange gagne au 1er)
+  angeVainqueur:    null,  // id de l'Ange désigné au 1er vote, le temps de la révélation
   nightMusicPlayed: false,
 
   // Salvateur
@@ -84,9 +93,14 @@ const state = {
   // Timeouts divers
   seerTimeout:          null,
   seerPendingResult:    null,   // vision affichée, en attente du « OK » de la Voyante
+  petiteFilleTimeout:       null,
+  petiteFillePendingResult: null,  // réponse affichée, en attente du « OK » de la Petite Fille
   // Nuit rythmée par le MJ : étape qui démarrera au clic « Passer à l'étape suivante »
-  // ("cupid", "sisters", "salvateur", "wolves", "seer", "corbeau", "witch" ou "aube").
+  // ("cupid", "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch" ou "aube").
   etapeNuitSuivante:    null,
+  // Reconnexions : ancien identifiant de connexion → identifiant actuel du même joueur.
+  // Permet d'accepter un choix envoyé depuis un écran construit avant la reconnexion.
+  aliasIds:             {},
   nightPauseTimeout:    null,
   witchTimeout:         null,
   cupidTimeout:         null,
@@ -147,6 +161,7 @@ const state = {
   // avant l'écran de fin de partie.
   inNightResolution:   false,
   pendingEndGame:      null,
+  pendingEndGameTimer: null,  // les 7 s avant l'écran de fin : annulées par un reset
   // AMÉLIORATION 2 : ids des loups qui ont validé leur choix de proie (Set)
   wolfConfirmed:       new Set(),
 
@@ -184,6 +199,7 @@ const state = {
     deathLog:    [],
     survivors:   [],
     seerLog:     [],
+    petiteFilleLog: [],  // { names: [3 prénoms], auMoinsUnLoup } par nuit
     startTime:   null,
   },
 };
@@ -303,10 +319,19 @@ function buildFullState(socketId) {
   return snapshot;
 }
 
+// Identifiant actuel d'un joueur, même si on reçoit un ancien identifiant (écran ouvert
+// avant une reconnexion). Renvoie l'identifiant tel quel s'il n'a jamais changé.
+function idActuel(id) {
+  let courant = id, garde = 0;
+  while (typeof courant === "string" && state.aliasIds[courant] && garde++ < 20) courant = state.aliasIds[courant];
+  return courant;
+}
+
 module.exports = {
-  state,
+  state, idActuel,
   // Constantes
-  CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS, WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS,
+  CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS,
+  PETITE_FILLE_TIMEOUT_MS, PETITE_FILLE_ACK_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS, WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS,
   SISTERS_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS, VOTE_RATE_MS, CUPID_SOUND_MS,
   STUCK_TIMEOUT_MS, FAST_RESOLVE_MS,

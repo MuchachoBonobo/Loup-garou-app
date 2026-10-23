@@ -4,6 +4,7 @@
 const {
   state, alivePlayers, playerName, fisherYates, computeCounts, isMJ, resetActivity,
   WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS,
+  PETITE_FILLE_TIMEOUT_MS,
   SISTERS_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS,
   MISSION_TEAM_TIMEOUT_MS, MISSION_CARD_TIMEOUT_MS, MISSION_BONUS_TIMEOUT_MS,
@@ -25,7 +26,7 @@ function startStuckTimer() {
   resetActivity();
   function scheduleAlert() {
     state.stuckGameTimer = setTimeout(() => {
-      if (state.mjSocketId && ['wolves','seer','witch','cupid'].includes(state.phase)) {
+      if (state.mjSocketId && ['wolves','seer','petiteFille','witch','cupid'].includes(state.phase)) {
         state.io.to(state.mjSocketId).emit('stuckGame', {
           phase: state.phase,
           idleMinutes: Math.round((Date.now() - state.lastActivityTime) / 60000)
@@ -50,6 +51,8 @@ function scheduleBot(callback) {
 function setPhase(p) {
   const previousPhase = state.phase;
   state.phase = p;
+  // Toute nouvelle phase clôt la résolution du vote du jour (votes.resolveDayVote)
+  state.resolutionJourEnCours = false;
   log.info('setPhase', previousPhase, '->', p);
   state.io.emit("phase", state.phase);
   // Narration IA : annonce la transition (jouée sur le MJ via TTS)
@@ -117,14 +120,27 @@ function setPhase(p) {
   clearPhaseTimeouts();
   installPhaseTimeouts(p);
 
-  if (['wolves','seer','corbeau','witch','cupid'].includes(p)) {
+  if (['wolves','seer','petiteFille','corbeau','witch','cupid'].includes(p)) {
     startStuckTimer();
   } else {
     resetActivity();
     if (state.stuckGameTimer) { clearTimeout(state.stuckGameTimer); state.stuckGameTimer = null; }
   }
 
-  // ===== MODE AUTONOME =====
+  armerMinuteriesAutomatiques(p);
+
+  // Mode entraînement : déclenche les actions automatiques des bots
+  runBotsForPhase(p);
+
+  // === Lumières connectées ===
+  try { lights.applyScene(p); } catch (_) {}
+}
+
+// ===== MINUTERIES DU MODE AUTONOME ET DU JOUR NON PILOTÉ =====
+// Appelée à l'entrée d'une phase ET à la reprise après une pause (pauseGame les efface :
+// sans ce réarmement, les loups, l'élection du maire ou le lancement du vote du jour
+// restaient bloqués après une pause en mode autonome).
+function armerMinuteriesAutomatiques(p) {
   if (state.autoMode) {
     if (p === "mayorVote") {
       state.mayorAutoLockTimer = setTimeout(() => {
@@ -156,12 +172,6 @@ function setPhase(p) {
       }
     }, DAY_AUTO_START_DELAY_MS);
   }
-
-  // Mode entraînement : déclenche les actions automatiques des bots
-  runBotsForPhase(p);
-
-  // === Lumières connectées ===
-  try { lights.applyScene(p); } catch (_) {}
 }
 
 // ===== INSTALLATION DES TIMEOUTS PAR PHASE =====
@@ -187,6 +197,14 @@ function installPhaseTimeouts(p) {
       if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Voyante a tardé — passage automatique.");
       roles.advanceAfterSeer();
     }, SEER_TIMEOUT_MS);
+  }
+
+  if (p === "petiteFille") {
+    state.petiteFilleTimeout = setTimeout(() => {
+      if (state.phase !== "petiteFille") return;
+      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Petite Fille a tardé — passage automatique.");
+      roles.advanceAfterPetiteFille();
+    }, PETITE_FILLE_TIMEOUT_MS);
   }
 
   if (p === "corbeau") {
@@ -313,6 +331,8 @@ function installPhaseTimeouts(p) {
 function clearPhaseTimeouts() {
   clearTimeout(state.seerTimeout);          state.seerTimeout          = null;
   state.seerPendingResult = null;
+  clearTimeout(state.petiteFilleTimeout);   state.petiteFilleTimeout   = null;
+  state.petiteFillePendingResult = null;
   clearTimeout(state.nightPauseTimeout);    state.nightPauseTimeout    = null;
   clearTimeout(state.witchTimeout);         state.witchTimeout         = null;
   clearTimeout(state.cupidTimeout);         state.cupidTimeout         = null;
@@ -444,6 +464,20 @@ function runBotsForPhase(p) {
     }
   }
 
+  // Petite Fille : 3 joueurs vivants au hasard (jamais elle-même), puis « OK » comme un humain
+  if (p === "petiteFille") {
+    const pfBot = aliveBots.find(b => state.roles[b.id] === "PetiteFille");
+    if (pfBot) {
+      scheduleBot(() => {
+        if (state.phase !== "petiteFille") return;
+        const candidats = fisherYates(alivePlayers().filter(pl => pl.id !== pfBot.id));
+        if (candidats.length < 3) return;
+        roles.petiteFilleReveal(pfBot.id, candidats.slice(0, 3).map(pl => pl.id));
+        scheduleBot(() => roles.advanceAfterPetiteFille());
+      });
+    }
+  }
+
   // Corbeau
   if (p === "corbeau") {
     const corbeauBot = aliveBots.find(b => state.roles[b.id] === "Corbeau");
@@ -505,7 +539,7 @@ function runBotsForPhase(p) {
     aliveBots.forEach(bot => {
       if (state.idiotRevealed && state.roles[bot.id] === "Idiot") return;
       scheduleBot(() => {
-        if (state.phase !== "day" || state.deadPlayers.includes(bot.id)) return;
+        if (state.phase !== "day" || state.deadPlayers.includes(bot.id) || state.resolutionJourEnCours) return;
         // Jour piloté par le MJ : un bot ne vote qu'une fois le vote lancé officiellement
         // (comme les humains, cf. handleVoteDay). startDayVote relance les bots à ce moment-là.
         if (state.mjPilotedDay && state.voteTimer == null) return;
@@ -701,6 +735,7 @@ function checkVictory() {
     witchKilled: state.gameStats.witchKilled,
     deathLog: state.gameStats.deathLog,
     seerLog: state.gameStats.seerLog,
+    petiteFilleLog: state.gameStats.petiteFilleLog || [],
     durationMs: state.gameStats.startTime ? Date.now() - state.gameStats.startTime : null,
     survivors: alive.map(p => ({ name: p.name, role: state.roles[p.id] })),
     totalPlayers: state.players.length,
@@ -743,6 +778,10 @@ function checkVictory() {
     }
   };
 
+  // L'Ange désigné au premier vote du village gagne seul (votes.handleAngeVictoire)
+  if (state.angeVainqueur) {
+    endGame("ange", "😇 L'Ange a gagné ! Désigné dès le premier vote, il s'envole seul vers la victoire."); return true;
+  }
   if (aliveWolves.length === 0) {
     if (state.lovers.length === 2 && alive.length === 2 && alive.every(p => state.lovers.includes(p.id))) {
       endGame("lovers", "💘 Les Amoureux ont gagné ! Ils sont les derniers survivants."); return true;
@@ -771,7 +810,12 @@ function pauseGame() {
     state.pausedVoteRemainingMs = null;
   }
 
+  // Une réponse de nuit déjà affichée (Voyante, Petite Fille) survit à la pause : le joueur
+  // pourra confirmer après la reprise (clearPhaseTimeouts l'effaçait).
+  const visionEnAttente = state.seerPendingResult, reponsePetiteFille = state.petiteFillePendingResult;
   clearPhaseTimeouts();
+  state.seerPendingResult = visionEnAttente;
+  state.petiteFillePendingResult = reponsePetiteFille;
   if (state.stuckGameTimer) { clearTimeout(state.stuckGameTimer); state.stuckGameTimer = null; }
 
   state.io.emit("gamePaused", { phase: state.phase, voteRemainingMs: state.pausedVoteRemainingMs });
@@ -791,8 +835,19 @@ function resumeGame() {
   state.pausedVoteRemainingMs = null;
 
   installPhaseTimeouts(state.phase);
+  armerMinuteriesAutomatiques(state.phase);
 
-  if (['wolves','seer','corbeau','witch','cupid'].includes(state.phase)) {
+  // Réponse de nuit en attente de « OK » : renvoyée au joueur (un « OK » tapé pendant la
+  // pause a été ignoré, sa carte s'était fermée)
+  const vivantAvecRole = r => Object.keys(state.roles).find(id => state.roles[id] === r && !state.deadPlayers.includes(id));
+  if (state.phase === "seer" && state.seerPendingResult && vivantAvecRole("Voyante")) {
+    state.io.to(vivantAvecRole("Voyante")).emit("seerResult", state.seerPendingResult);
+  }
+  if (state.phase === "petiteFille" && state.petiteFillePendingResult && vivantAvecRole("PetiteFille")) {
+    state.io.to(vivantAvecRole("PetiteFille")).emit("petiteFilleResult", state.petiteFillePendingResult);
+  }
+
+  if (['wolves','seer','petiteFille','corbeau','witch','cupid'].includes(state.phase)) {
     startStuckTimer();
   }
 
@@ -817,17 +872,21 @@ function resetGameState(keepPlayers) {
   state.witchKillTarget = null;
   state.nightTarget = null;
   state.idiotRevealed = false;
+  state.nbVotesJour = 0;
+  state.angeVainqueur = null;
   state.nightMusicPlayed = false;
   state.corbeauTarget = null;
   votes.clearVoteTimer();
   state.lockedVoters.clear();
   state.voteMode = 1;
   state.dayResolutionPending = false;
+  state.resolutionJourEnCours = false;
   state.fastResolveTriggered = false;
   state.lastDayVoteDeath = null;
   state.pendingDayRecap = null;
   state.inNightResolution = false;
   state.pendingEndGame = null;
+  if (state.pendingEndGameTimer) { clearTimeout(state.pendingEndGameTimer); state.pendingEndGameTimer = null; }
   // Salvateur
   state.protectedTarget = null;
   state.lastProtectedTarget = null;
@@ -839,8 +898,11 @@ function resetGameState(keepPlayers) {
   try { lights.reset(); } catch (_) {}
   clearTimeout(state.seerTimeout); state.seerTimeout = null;
   state.seerPendingResult = null;
+  clearTimeout(state.petiteFilleTimeout); state.petiteFilleTimeout = null;
+  state.petiteFillePendingResult = null;
   clearTimeout(state.nightPauseTimeout); state.nightPauseTimeout = null;
   state.etapeNuitSuivante = null;
+  state.aliasIds = {};
   clearTimeout(state.witchTimeout); state.witchTimeout = null;
   clearTimeout(state.cupidTimeout); state.cupidTimeout = null;
   clearTimeout(state.corbeauTimeout); state.corbeauTimeout = null;
@@ -885,7 +947,7 @@ function resetGameState(keepPlayers) {
     dayCount: 0, nightCount: 0,
     firstDead: null, mayorName: null,
     witchSaved: false, witchKilled: false,
-    deathLog: [], survivors: [], seerLog: [],
+    deathLog: [], survivors: [], seerLog: [], petiteFilleLog: [],
     startTime: null
   };
 

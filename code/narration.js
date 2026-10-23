@@ -102,6 +102,24 @@ const NARRATIONS = {
     "La meute s'endort. L'aube se lève. Villageois, ouvrez les yeux."
   ],
 
+  // === Petite Fille (après la Voyante) ===
+  "*_to_petiteFille": [
+    "Petite Fille, ouvre les yeux. Désigne trois joueurs : tu sauras si un loup se cache parmi eux.",
+    "Que la Petite Fille s'éveille. Trois noms, une seule question : la meute est-elle parmi eux ?"
+  ],
+  "petiteFille_to_corbeau": [
+    "La Petite Fille garde son secret. Elle referme les yeux. Corbeau, à toi.",
+    "La Petite Fille retourne au sommeil. Corbeau, lève-toi et marque ta cible."
+  ],
+  "petiteFille_to_witch": [
+    "La Petite Fille referme les yeux. Sorcière, c'est ton tour.",
+    "La Petite Fille dort à nouveau. Sorcière, ouvre les yeux."
+  ],
+  "petiteFille_to_day": [
+    "La Petite Fille garde son secret. La nuit s'achève. Que le village se réveille.",
+    "La Petite Fille se rendort. L'aube se lève."
+  ],
+
   // === Voyante → suite ===
   "seer_to_corbeau": [
     "La voyante a vu ce qu'elle devait voir. Elle referme les yeux. Corbeau, à toi.",
@@ -145,11 +163,13 @@ const NARRATIONS = {
   "salvateur_to_nightPause": ["Salvateur, ferme les yeux."],
   "wolves_to_nightPause":    ["Loups-garous, fermez les yeux.", "La meute se rendort. Loups, fermez les yeux."],
   "seer_to_nightPause":      ["Voyante, ferme les yeux."],
+  "petiteFille_to_nightPause": ["Petite Fille, ferme les yeux."],
   "corbeau_to_nightPause":   ["Corbeau, ferme les yeux."],
   "witch_to_nightPause":     ["Sorcière, ferme les yeux."],
   "nightPause_to_cupid":     ["Cupidon, ouvre les yeux. Désigne les deux amoureux."],
   "nightPause_to_wolves":    ["Loups-garous, ouvrez les yeux. Choisissez votre victime.", "Que la meute s'éveille et désigne sa proie."],
   "nightPause_to_seer":      ["Voyante, ouvre les yeux. Désigne celui dont tu veux connaître le rôle."],
+  "nightPause_to_petiteFille": ["Petite Fille, ouvre les yeux. Désigne trois joueurs : tu sauras si un loup se cache parmi eux."],
   "nightPause_to_corbeau":   ["Corbeau, ouvre les yeux. Qui accuseras-tu demain ?"],
   "nightPause_to_witch":     ["Sorcière, ouvre les yeux. Voici la victime des loups."],
   "nightPause_to_day":       ["Le jour se lève sur le village. Ouvrez les yeux.", "L'aube pointe. Villageois, réveillez-vous."],

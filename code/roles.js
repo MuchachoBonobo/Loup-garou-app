@@ -1,12 +1,12 @@
-// roles.js — Logique de tous les rôles : Salvateur, Voyante, Sorcière, Cupidon, Corbeau,
-// Chasseur, Idiot ; mécanique mort, transfert maire, résolution de nuit, attribution
+// roles.js — Logique de tous les rôles : Salvateur, Voyante, Petite Fille, Sorcière, Cupidon,
+// Corbeau, Chasseur, Idiot ; mécanique mort, transfert maire, résolution de nuit, attribution
 // initiale, mission. Inclut tous les handlers socket des rôles.
 //
 // Dépendances circulaires (phases, votes) résolues via require('./module').fn() à l'usage.
 
 const {
   state, alivePlayers, playerName, hasRole, isMJ, fisherYates, resetActivity,
-  CUPID_SOUND_MS, SISTERS_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS,
+  CUPID_SOUND_MS, SISTERS_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS, PETITE_FILLE_ACK_TIMEOUT_MS,
 } = require('./state');
 
 const lights = require('./lights');
@@ -16,6 +16,14 @@ const deathNarratives = require('./death-narratives');
 
 // Libellés français des rôles (pour les récits de mort + révélation)
 const { ROLE_LABEL } = deathNarratives;
+
+// Phases où une mort compte comme « de nuit » : après une transmission d'écharpe, la
+// partie reprend alors au jour (et non sur une nouvelle nuit). Doit contenir TOUTES les
+// étapes de nuit, y compris la pause du MJ (« nightPause ») : c'est pendant cette pause
+// que la nuit se résout quand le MJ la rythme. Les phases de la mission sont rangées ici
+// depuis toujours (elles précèdent la première nuit).
+const PHASES_DE_NUIT = ["cupid", "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch",
+  "nightPause", "mission", "missionVote", "missionBonus"];
 
 function buildDeath(id, cause) {
   const role = state.roles[id];
@@ -81,8 +89,8 @@ function startFirstNight() {
 // un joueur qui tarde à fermer les yeux ne voit pas qui se réveille après lui.
 const LIBELLES_ETAPES_NUIT = {
   cupid: "💘 Cupidon", sisters: "👯‍♀️ Les Sœurs jumelles", salvateur: "🛡 Le Salvateur",
-  wolves: "🐺 Les Loups-Garous", seer: "🔮 La Voyante", corbeau: "🪶 Le Corbeau",
-  witch: "🧪 La Sorcière", aube: "☀️ Le lever du jour"
+  wolves: "🐺 Les Loups-Garous", seer: "🔮 La Voyante", petiteFille: "👧 La Petite Fille",
+  corbeau: "🪶 Le Corbeau", witch: "🧪 La Sorcière", aube: "☀️ Le lever du jour"
 };
 function nuitRythmeeParMJ() { return !state.autoMode; }
 
@@ -93,6 +101,9 @@ function etapeApres(phaseCourante) {
 }
 
 function allerEtapeNuit(etape, options) {
+  // Partie gagnée à l'aube, écran de fin dans quelques secondes : la nuit est finie.
+  // (Sinon un clic tardif — « Valider l'attaque », « J'ai terminé »… — relançait une aube.)
+  if (state.pendingEndGameTimer) return;
   const sansPause = !!(options && options.sansPause);
   if (sansPause || !nuitRythmeeParMJ() || !LIBELLES_ETAPES_NUIT[etape]) { lancerEtapeNuit(etape); return; }
   state.etapeNuitSuivante = etape;
@@ -102,6 +113,7 @@ function allerEtapeNuit(etape, options) {
 
 // Démarre réellement l'étape : messages propres au rôle puis changement de phase.
 function lancerEtapeNuit(etape) {
+  if (state.pendingEndGameTimer) return;  // partie déjà gagnée (voir allerEtapeNuit)
   state.etapeNuitSuivante = null;
   if (etape === "aube") { resoudreNuit(); return; }
   if (etape === "sisters") {
@@ -155,8 +167,17 @@ function startNightAfterSisters(options) {
   allerEtapeNuit(salvateurId ? "salvateur" : "wolves", options);
 }
 
+// La Petite Fille joue si elle est vivante ET qu'il reste au moins 3 autres joueurs
+// vivants à désigner (en dessous, sa règle « 3 personnes » n'est plus applicable).
+function petiteFillePeutJouer() {
+  const pfId = Object.keys(state.roles).find(id => state.roles[id] === "PetiteFille" && !state.deadPlayers.includes(id));
+  return !!pfId && alivePlayers().filter(p => p.id !== pfId).length >= 3;
+}
+
+// Ordre de la nuit après les Loups : Voyante → Petite Fille → Corbeau → Sorcière.
 function nextNightPhase(after) {
   const seerAlive    = Object.keys(state.roles).some(id => state.roles[id] === "Voyante"  && !state.deadPlayers.includes(id));
+  const pfCanPlay    = petiteFillePeutJouer();
   const corbeauAlive = Object.keys(state.roles).some(id => state.roles[id] === "Corbeau"  && !state.deadPlayers.includes(id));
   // AMÉLIORATION 4 : la phase sorcière n'a de sens que si elle est vivante ET qu'il
   // lui reste au moins une potion. Sinon on saute directement à la résolution.
@@ -164,11 +185,18 @@ function nextNightPhase(after) {
   const witchHasPotions = witchAlive && !(state.witchSaveUsed && state.witchKillUsed);
   if (after === "wolves") {
     if (seerAlive)        return "seer";
+    if (pfCanPlay)        return "petiteFille";
     if (corbeauAlive)     return "corbeau";
     if (witchHasPotions)  return "witch";
     return "resolveAuto";
   }
   if (after === "seer") {
+    if (pfCanPlay)        return "petiteFille";
+    if (corbeauAlive)     return "corbeau";
+    if (witchHasPotions)  return "witch";
+    return "resolveAuto";
+  }
+  if (after === "petiteFille") {
     if (corbeauAlive)     return "corbeau";
     if (witchHasPotions)  return "witch";
     return "resolveAuto";
@@ -346,6 +374,10 @@ function resoudreNuit() {
     }
     state.lastDayVoteDeath = null;
     state.inNightResolution = false;
+    // Une victoire constatée pendant cette nuit attendait d'être annoncée : le Chasseur
+    // tire d'abord, la victoire sera réévaluée après son tir (performChasseurShot). Sans
+    // cet oubli volontaire, cette fin de partie périmée ressurgissait à l'aube suivante.
+    state.pendingEndGame = null;
     return;
   }
 
@@ -402,7 +434,9 @@ function resoudreNuit() {
     }
     const fire = state.pendingEndGame;
     state.pendingEndGame = null;
-    setTimeout(() => { try { fire(); } catch (_) {} }, 7000);
+    // Minuteur mémorisé : un reset pendant ces 7 s l'annule (sinon la fin de partie
+    // tombait au milieu de la partie suivante).
+    state.pendingEndGameTimer = setTimeout(() => { state.pendingEndGameTimer = null; try { fire(); } catch (_) {} }, 7000);
     return;
   }
 
@@ -459,8 +493,7 @@ function killPlayer(id) {
         if (partner === state.mayor) {
           state.dyingMayorId = partner; state.mayorTransferPending = true; state.mayor = null;
           state.dyingMayorWasChasseur = true;
-          const nightP = ["wolves","seer","corbeau","witch","cupid","mission","missionVote","missionBonus"];
-          state.mayorTransferContext = state.phase === "chasseur" ? "chasseur" : nightP.includes(state.phase) ? "night" : "day";
+          state.mayorTransferContext = state.phase === "chasseur" ? "chasseur" : PHASES_DE_NUIT.includes(state.phase) ? "night" : "day";
           state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", partner);
           phases.setPhase("mayorTransfer"); return;
         } else if (isMayorDying) {
@@ -473,8 +506,7 @@ function killPlayer(id) {
           // Mémorise le chasseur en attente — il tirera dans performMayorTransfer après le transfert.
           state.pendingChasseurAfterTransfer = partner;
           state.chasseurPostContext = (state.phase === "day") ? "day" : "night";
-          const nightP = ["wolves","seer","corbeau","witch","cupid","mission","missionVote","missionBonus"];
-          state.mayorTransferContext = state.phase === "chasseur" ? "chasseur" : nightP.includes(state.phase) ? "night" : "day";
+          state.mayorTransferContext = state.phase === "chasseur" ? "chasseur" : PHASES_DE_NUIT.includes(state.phase) ? "night" : "day";
           state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", id);
           phases.setPhase("mayorTransfer");
           return; // ← CRUCIAL : ne pas tomber dans le bloc chasseur ci-dessous
@@ -491,11 +523,10 @@ function killPlayer(id) {
         if (state.phase === "lobby") { phases.checkVictory(); return; }
         if (phases.checkVictory()) return;
         state.dyingMayorId = partner; state.mayorTransferPending = true; state.mayor = null;
-        const nightP = ["wolves","seer","corbeau","witch","cupid","mission","missionVote","missionBonus"];
         // Phase "chasseur" : le contexte dépend de chasseurPostContext, pas de la phase courante
         state.mayorTransferContext = state.phase === "chasseur"
           ? (state.chasseurPostContext === "day" ? "chasseurFromDay" : "chasseur")
-          : nightP.includes(state.phase) ? "night" : "day";
+          : PHASES_DE_NUIT.includes(state.phase) ? "night" : "day";
         state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", partner);
         phases.setPhase("mayorTransfer"); return;
       }
@@ -509,10 +540,9 @@ function killPlayer(id) {
     }
     state.dyingMayorId = id; state.mayorTransferPending = true; state.mayor = null;
     state.dyingMayorWasChasseur = isChasseurDying;
-    const nightPhases = ["wolves","seer","corbeau","witch","cupid","mission","missionVote","missionBonus"];
     state.mayorTransferContext = state.phase === "chasseur"
       ? (state.chasseurPostContext === "day" ? "chasseurFromDay" : "chasseur")
-      : nightPhases.includes(state.phase) ? "night" : "day";
+      : PHASES_DE_NUIT.includes(state.phase) ? "night" : "day";
     state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", id);
     phases.setPhase("mayorTransfer"); return;
   } else if (isMayorDying && state.mayorTransferPending) {
@@ -665,6 +695,7 @@ function assignAndStart(config, playerList) {
     numLoups +
     (+(config.petiteFille) || 0) +
     (+(config.idiot)       || 0) +
+    (+(config.ange)        || 0) +
     (+(config.corbeau)     || 0) +
     (+(config.salvateur)   || 0) +
     numSisters;
@@ -716,6 +747,7 @@ function assignAndStart(config, playerList) {
   add("Loup", config.loup);
   add("PetiteFille", config.petiteFille);
   add("Idiot", config.idiot);
+  add("Ange", config.ange);
   add("Corbeau", config.corbeau);
   add("Salvateur", config.salvateur);
   add("Sœurs", numSisters);
@@ -859,6 +891,61 @@ function handleSeerDone(socket) {
   if (state.phase !== "seer" || !hasRole(socket.id, "Voyante") || !state.seerPendingResult) return;
   resetActivity();
   advanceAfterSeer();
+}
+
+// ===== PETITE FILLE =====
+// Elle désigne 3 joueurs vivants (jamais elle-même) et apprend seulement s'il y a AU
+// MOINS UN loup parmi eux, ou aucun — pas lequel, ni combien. Comme pour la Voyante,
+// la nuit attend ensuite son « OK, j'ai vu » (petiteFilleDone), avec un filet de
+// PETITE_FILLE_ACK_TIMEOUT_MS. Utilisé par la Petite Fille humaine et par le bot (phases.js).
+// Renvoie un message d'erreur si la sélection est invalide, sinon null.
+function petiteFilleReveal(pfId, ids) {
+  if (state.phase !== "petiteFille" || state.petiteFillePendingResult) return null;
+  const vivants = alivePlayers().map(p => p.id);
+  if (!Array.isArray(ids) || ids.length !== 3 || new Set(ids).size !== 3
+      || ids.some(id => id === pfId || !vivants.includes(id))) {
+    return "Désignez 3 joueurs vivants, autres que vous.";
+  }
+  clearTimeout(state.petiteFilleTimeout); state.petiteFilleTimeout = null;
+  const auMoinsUnLoup = ids.some(id => state.roles[id] === "Loup");
+  const result = { names: ids.map(playerName), auMoinsUnLoup };
+  state.petiteFillePendingResult = result;
+  state.io.to(pfId).emit("petiteFilleResult", result);
+  state.gameStats.petiteFilleLog.push({ names: result.names, auMoinsUnLoup });
+  if (state.mjSocketId) {
+    state.io.to(state.mjSocketId).emit("petiteFilleMJInfo", {
+      names: result.names, auMoinsUnLoup,
+      loups: ids.filter(id => state.roles[id] === "Loup").map(playerName)
+    });
+    state.io.to(state.mjSocketId).emit("soundPlay", "petite_fille");
+  }
+  state.petiteFilleTimeout = setTimeout(() => {
+    if (state.phase !== "petiteFille") return;
+    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Petite Fille n'a pas confirmé sa réponse — la nuit continue.");
+    advanceAfterPetiteFille();
+  }, PETITE_FILLE_ACK_TIMEOUT_MS);
+  return null;
+}
+
+// Fin du tour de la Petite Fille : passe à l'étape suivante de la nuit.
+function advanceAfterPetiteFille() {
+  if (state.phase !== "petiteFille") return;
+  clearTimeout(state.petiteFilleTimeout); state.petiteFilleTimeout = null;
+  state.petiteFillePendingResult = null;
+  allerEtapeNuit(etapeApres("petiteFille"));
+}
+
+function handlePetiteFilleChoice(socket, ids) {
+  if (state.phase !== "petiteFille" || !hasRole(socket.id, "PetiteFille")) return;
+  resetActivity();
+  const erreur = petiteFilleReveal(socket.id, ids);
+  if (erreur) socket.emit("petiteFilleError", erreur);
+}
+
+function handlePetiteFilleDone(socket) {
+  if (state.phase !== "petiteFille" || !hasRole(socket.id, "PetiteFille") || !state.petiteFillePendingResult) return;
+  resetActivity();
+  advanceAfterPetiteFille();
 }
 
 function handleCorbeauAction(socket, targetId) {
@@ -1046,6 +1133,7 @@ Object.assign(module.exports, {
   handleCupidChoice, handleSalvateurAction, demarrerTimerSoeurs, handleSeerChoice, handleSeerDone, handleCorbeauAction,
   startFirstNight,
   seerReveal, advanceAfterSeer,
+  petiteFilleReveal, advanceAfterPetiteFille, handlePetiteFilleChoice, handlePetiteFilleDone,
   handleWitchSave, handleWitchKill, handleWitchDone, handleResolveNight,
   handleChasseurAction, handleMayorTransferChoice,
   handleMissionTeamChoice, handleMissionCard, handleMissionBonusChoice,

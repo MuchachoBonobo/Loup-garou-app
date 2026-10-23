@@ -59,11 +59,14 @@ function serializeState(state) {
     cupidDone: state.cupidDone,
     corbeauTarget: state.corbeauTarget,
     idiotRevealed: state.idiotRevealed,
+    nbVotesJour: state.nbVotesJour,
+    angeVainqueur: state.angeVainqueur,
     // Salvateur + Sœurs
     protectedTarget: state.protectedTarget,
     lastProtectedTarget: state.lastProtectedTarget,
     sistersTimerEnd: state.sistersTimerEnd,
     etapeNuitSuivante: state.etapeNuitSuivante,
+    aliasIds: state.aliasIds,
     // Mission
     mission: state.mission ? {
       active: state.mission.active,
@@ -129,15 +132,22 @@ function applySnapshot(state, snap) {
   state.cupidDone = !!snap.cupidDone;
   state.corbeauTarget = snap.corbeauTarget || null;
   state.idiotRevealed = !!snap.idiotRevealed;
+  state.nbVotesJour = +snap.nbVotesJour || 0;
+  state.angeVainqueur = snap.angeVainqueur || null;
   state.protectedTarget = snap.protectedTarget || null;
   state.lastProtectedTarget = snap.lastProtectedTarget || null;
   state.sistersTimerEnd = snap.sistersTimerEnd || null;
   state.etapeNuitSuivante = snap.etapeNuitSuivante || null;
+  state.aliasIds = snap.aliasIds || {};
   if (snap.mission) Object.assign(state.mission, snap.mission);
   state.activeCouncilEvent = snap.activeCouncilEvent || null;
   state.pendingCouncilEvent = snap.pendingCouncilEvent || null;
   state.silentDayChatHistory = snap.silentDayChatHistory || [];
-  if (snap.gameStats) state.gameStats = snap.gameStats;
+  if (snap.gameStats) {
+    state.gameStats = snap.gameStats;
+    // Sauvegarde antérieure à la Petite Fille enquêtrice : journal absent
+    if (!Array.isArray(state.gameStats.petiteFilleLog)) state.gameStats.petiteFilleLog = [];
+  }
   state.lastDayVoteDeath = snap.lastDayVoteDeath || null;
   state.pendingDayRecap = snap.pendingDayRecap || null;
   state.tiebreakPending = !!snap.tiebreakPending;

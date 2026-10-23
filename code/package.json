@@ -8,7 +8,8 @@
     "test": "node tests/scenarios.js",
     "test:ui": "node tests/ui-headless.js",
     "test:hue": "node outils/test-hue.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:banc": "node outils/banc-robots.js 3111 3 1"
   },
   "keywords": [],
   "author": "",

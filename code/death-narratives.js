@@ -12,8 +12,8 @@ const LOUPS = {
     "{name} n'a rien vu venir. Quand la lune s'est couchée, il ne restait que du sang sur les draps."
   ],
   PetiteFille: [
-    "La curiosité aura été fatale à {name}. Les Loups l'ont surprise les yeux à peine entrouverts.",
-    "{name} avait osé regarder. La meute n'a pas pardonné cette indiscrétion."
+    "La curiosité aura été fatale à {name}. La Petite Fille posait trop de questions : la meute l'a fait taire.",
+    "{name} fouinait de maison en maison. Cette nuit, la Petite Fille a frappé à la mauvaise porte."
   ],
   Voyante: [
     "{name} avait percé bien des secrets. Mais les loups ont percé le sien, cette nuit.",
@@ -79,6 +79,11 @@ const VOTE = {
   Idiot: [
     "{name} était l'Idiot du village ! La sentence ne s'applique pas — il survit, mais perd à jamais le droit de voter."
   ],
+  // Désigné APRÈS le premier vote : l'Ange a laissé passer sa chance
+  Ange: [
+    "{name} était l'Ange… mais son heure était passée. Simple mortel désormais, il est éliminé comme les autres.",
+    "Trop tard pour s'envoler : {name}, l'Ange, finit à la potence comme un simple villageois."
+  ],
 };
 
 const AMOUR = {
@@ -125,7 +130,7 @@ function buildDeathNarrative({ role, cause, name, roleLabel }) {
 const ROLE_LABEL = {
   Loup: "Loup-Garou", Voyante: "Voyante", Sorcière: "Sorcière",
   Chasseur: "Chasseur", Cupidon: "Cupidon", Villageois: "Villageois",
-  PetiteFille: "Petite Fille", Idiot: "l'Idiot du village",
+  PetiteFille: "Petite Fille", Idiot: "l'Idiot du village", Ange: "l'Ange",
   Corbeau: "Corbeau", Salvateur: "Salvateur", Sœurs: "une des Sœurs jumelles",
 };
 
