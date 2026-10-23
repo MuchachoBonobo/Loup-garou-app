@@ -692,6 +692,57 @@ async function s10() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// S11 — Pastilles de connexion de l'écran MJ : 🟢 ok, 🟠 écran éteint, 🔴 perdu ;
+// alerte au bout de 5 s de coupure, alerte au retour, rien pour un simple rechargement.
+// ═══════════════════════════════════════════════════════════
+async function s11() {
+  console.log("\n▶ S11 — Pastilles de connexion chez le MJ");
+  const all = [];
+  try {
+    const NAMES = ["s11_A","s11_B","s11_C","s11_D","s11_E"];
+    const cfg   = { loup:1, chasseur:0, sorciere:0, voyante:0, cupidon:0, corbeau:0,
+                    salvateur:0, sisters:0, petiteFille:0, idiot:0, ange:0, mission:false };
+    const { mj, players } = await setupGame(all, NAMES, cfg);
+    let etats = {}; const perdus = [], revenus = [];
+    mj.on("connexionsMJ", e => { etats = e; });
+    mj.on("joueurPerdu",  d => perdus.push(d.name));
+    mj.on("joueurRevenu", d => revenus.push(d.name));
+    const [a, b] = players;
+
+    // Écran éteint puis rallumé
+    a.s.emit("visibilite", false); await sleep(300);
+    check("S11-écran éteint → 🟠", etats[a.s.id] === "veille", JSON.stringify(etats));
+    a.s.emit("visibilite", true); await sleep(300);
+    check("S11-écran rallumé → 🟢", etats[a.s.id] === "ok", JSON.stringify(etats));
+
+    // Coupure qui dure : pastille rouge tout de suite, alerte au bout de 5 s
+    const ancienA = a.s.id;
+    a.s.disconnect(); await sleep(600);
+    check("S11-coupure → 🔴 immédiatement", etats[ancienA] === "perdu", JSON.stringify(etats));
+    check("S11-pas d'alerte avant 5 s", perdus.length === 0, JSON.stringify(perdus));
+    await sleep(5200);
+    check("S11-alerte « a perdu la connexion » au bout de 5 s", perdus.includes(a.name), JSON.stringify(perdus));
+
+    // Retour du joueur avec son prénom
+    const a2 = await makeClient(a.name); all.push(a2);
+    await sleep(800);
+    check("S11-retour → 🟢 sous son nouvel identifiant", etats[a2.id] === "ok" && !(ancienA in etats), JSON.stringify(etats));
+    check("S11-alerte « est de retour »", revenus.includes(a.name), JSON.stringify(revenus));
+
+    // Simple rechargement de page (retour en moins d'une seconde) : aucune alerte
+    b.s.disconnect(); await sleep(300);
+    const b2 = await makeClient(b.name); all.push(b2);
+    await sleep(6000);
+    check("S11-rechargement rapide : pas d'alerte de coupure", !perdus.includes(b.name), JSON.stringify(perdus));
+    check("S11-rechargement rapide : 🟢", etats[b2.id] === "ok", JSON.stringify(etats));
+  } catch (e) {
+    ko("S11 crash", e.message);
+  } finally {
+    await closeAll(all);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // Démarrage serveur + exécution des scénarios
 // ═══════════════════════════════════════════════════════════
 async function main() {
@@ -715,7 +766,7 @@ async function main() {
   });
   console.log("  Serveur test prêt : " + BASE_URL + "\n");
 
-  for (const scenario of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10]) {
+  for (const scenario of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11]) {
     try { await scenario(); }
     catch (e) { ko("crash non rattrapé", e.message); }
     await sleep(800);

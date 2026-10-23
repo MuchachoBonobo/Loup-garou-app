@@ -294,7 +294,7 @@
 
 <!-- ③ PERSONNAGES — TOUJOURS visible : rôle + état (vivant/mort). Pleine largeur. -->
 <div class="section" id="mjSectionRoles">
-  <div class="section-title">Personnages — rôle &amp; état</div>
+  <div class="section-title">Personnages — rôle &amp; état <span id="mjConnexionsResume" style="text-transform:none;letter-spacing:0;font-weight:normal;margin-left:6px;"></span></div>
   <div id="roles"><span style="color:#333;font-size:12px;">En attente…</span></div>
 </div>
 
@@ -1194,7 +1194,10 @@ socket.on("missionMJInfo", data=>{
 });
 
 // ===== TRIGGERS MUSICAUX =====
-socket.on("rolesMJ", data=>{ roles=data.roles; renderRoles(); playAmbiance("lobby"); });
+// Envoyé au lancement de la partie ET à chaque (re)connexion du MJ : la liste des joueurs
+// qui l'accompagne doit être reprise, sinon une tablette rechargée en pleine partie
+// affichait « En attente… » à la place des personnages et des votes sans noms.
+socket.on("rolesMJ", data=>{ roles=data.roles; if(data.players){ traduireIdsMJ(data.players); players=data.players; renderPlayers(); } renderRoles(); playAmbiance("lobby"); });
 // Un joueur s'est reconnecté (nouvel identifiant) : on remet à jour la liste des rôles.
 socket.on("rolesMJUpdate", data=>{ roles=data.roles||roles; if(data.players) players=data.players; renderRoles(); });
 socket.on("playNightMusic", ()=>{ if(!isGameOver) playAmbiance("night"); });
@@ -1689,14 +1692,44 @@ function refreshDayStateBanner() {
 }
 
 // ===== RENDER =====
+// État des téléphones (serveur, évènement connexionsMJ) : id → "ok" | "veille" | "perdu"
+let etatsConnexion = {};
+const PASTILLES = {
+  ok:     { icone: "🟢", aide: "Connecté" },
+  veille: { icone: "🟠", aide: "Écran éteint ou application quittée" },
+  perdu:  { icone: "🔴", aide: "Déconnecté — il revient en rouvrant la page avec son prénom" }
+};
+function pastilleConnexion(p) {
+  const etat = p.isBot ? null : PASTILLES[etatsConnexion[p.id]];
+  return etat ? `<span title="${etat.aide}" style="font-size:10px;margin-right:4px;">${etat.icone}</span>` : "";
+}
+// Résumé dans le titre de la section : « 📶 7/8 » et, s'il y en a, les téléphones à surveiller
+function renderResumeConnexions(){
+  const el = document.getElementById("mjConnexionsResume");
+  if (!el) return;
+  const humains = players.filter(p => !p.isBot && etatsConnexion[p.id]);
+  if (!humains.length || !Object.keys(roles).length) { el.innerHTML = ""; return; }
+  const ok = humains.filter(p => etatsConnexion[p.id] === "ok").length;
+  const perdus = humains.filter(p => etatsConnexion[p.id] === "perdu").length;
+  const veilles = humains.filter(p => etatsConnexion[p.id] === "veille").length;
+  let html = `<span style="color:#6a6;">📶 ${ok}/${humains.length}</span>`;
+  if (perdus)  html += ` <span style="color:#e66;">· 🔴 ${perdus} déconnecté${perdus > 1 ? "s" : ""}</span>`;
+  if (veilles) html += ` <span style="color:#d93;">· 🟠 ${veilles} écran${veilles > 1 ? "s" : ""} éteint${veilles > 1 ? "s" : ""}</span>`;
+  el.innerHTML = html;
+}
+socket.on("connexionsMJ", etats => { etatsConnexion = etats || {}; renderRoles(); });
+socket.on("joueurPerdu",  d => showAlert(`📵 ${d.name} a perdu la connexion — qu'il rouvre la page du jeu : il retrouvera sa place avec son prénom.`, "warn"));
+socket.on("joueurRevenu", d => showAlert(`✅ ${d.name} est de retour.`, "success"));
+
 function renderRoles(){
   const div=document.getElementById("roles");
+  renderResumeConnexions();
   if(!players.length||!Object.keys(roles).length){div.innerHTML="<span style='color:#333;font-size:12px;'>En attente…</span>";return;}
   div.innerHTML=players.map(p=>{
     const r=roles[p.id]||"?",emoji=roleEmoji[r]||"",isMayor=p.id===mayorId,isLover=loversIds.includes(p.id),isDead=deadIds.includes(p.id);
     let badges="";if(isDead)badges+="☠️";if(isMayor)badges+="🏛️";if(isLover)badges+="❤️";
     const isWolf=r==="Loup";
-    return `<div class="role-row${isDead?" dead":""}${isWolf?" wolf":""}"><span>${p.name} <span style="color:#555;font-size:11px;">${badges}</span></span><span>${emoji} <span style="color:#777;font-size:12px;">${r}</span></span></div>`;
+    return `<div class="role-row${isDead?" dead":""}${isWolf?" wolf":""}"><span>${pastilleConnexion(p)}${p.name} <span style="color:#555;font-size:11px;">${badges}</span></span><span>${emoji} <span style="color:#777;font-size:12px;">${r}</span></span></div>`;
   }).join("");
   updateNightBar(currentPhaseForBar);
 }

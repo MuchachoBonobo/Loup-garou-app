@@ -832,6 +832,8 @@ socket.on("gameRestored", () => {
 // suite au lieu d'attendre le prochain essai automatique (jusqu'à 5 s).
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && !socket.connected) socket.connect();
+  // Pastille de l'écran MJ : 🟠 tant que la page du jeu n'est plus au premier plan
+  if (socket.connected) socket.emit("visibilite", document.visibilityState === "visible");
 });
 window.addEventListener("pageshow", () => { if (!socket.connected) socket.connect(); });
 socket.on("disconnect", () => {
@@ -1404,6 +1406,8 @@ window.addEventListener("DOMContentLoaded", () => {
 socket.on("reconnected", state => {
   // Reconnexion : le plein écran sera redemandé au prochain toucher (une seule fois)
   _pleinEcranADemander = true;
+  // Le serveur suppose la page à l'écran : on le corrige si elle est au second plan
+  if (document.visibilityState !== "visible") socket.emit("visibilite", false);
   dismissIntro();
   document.getElementById("lobby").style.display = "none";
   setConnected(true);

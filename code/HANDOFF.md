@@ -117,7 +117,7 @@ Dépendances : `state` (feuille) ← `narration`, `council` (+`lights`) ← `rol
 ```bash
 node --check server.js          # syntaxe (à faire sur chaque .js modifié)
 npm start                       # démarrer le serveur
-npm test                        # 10 scénarios d'intégration (Ange ×2, Petite Fille, clics en trop du MJ ×2), ~7 min, port 3099, lumières coupées
+npm test                        # 11 scénarios d'intégration (Ange ×2, Petite Fille, clics en trop du MJ ×2, pastilles de connexion), ~8 min, port 3099, lumières coupées
 npm run test:banc               # banc d'essai : 3 parties complètes jouées par des bots, règles contrôlées à chaque évènement (~10 min ; voir outils/banc-robots.js pour lancer plusieurs bancs en parallèle)
 npm run test:hue                # diagnostic de la connexion Hue (lit .env)
 npm run test:ui                 # audit UI dans Chrome headless (serveur lancé ; nécessite puppeteer-core, non installé par défaut)
@@ -162,6 +162,12 @@ Après toute modification serveur : **arrêter et relancer** le serveur (Node ga
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-23 (suite 4) — Pastilles de connexion chez le MJ
+- `server.js` : `etatConnexions()` / `envoyerConnexionsMJ()` → évènement `connexionsMJ` (id → ok | veille | perdu) ; `players[].connecte` / `ecranVisible` ; évènement `visibilite` envoyé par la page joueur (`visibilitychange`) ; alerte `joueurPerdu` après 5 s de coupure (`DELAI_ALERTE_DECONNEXION_MS`), `joueurRevenu` au retour ; reprise après crash → tous rouges jusqu’à reconnexion.
+- `mj.html` : pastille 🟢/🟠/🔴 devant chaque personnage, résumé « 📶 4/6 · 🔴 1 déconnecté · 🟠 1 écran éteint » dans le titre de la section, alertes. Vérifié dans le navigateur.
+- **Défaut corrigé au passage** : une tablette MJ rechargée en pleine partie affichait « En attente… » à la place des personnages (le handler `rolesMJ` ignorait la liste des joueurs).
+- Nouveau scénario S11 dans `npm test` (états des pastilles, alerte après 5 s, alerte de retour, rien pour un rechargement rapide) : suite complète 32/32. Limite : un téléphone qui se met en veille sans prévenir le jeu peut rester 🟢 jusqu’à ~1 min 30 (délai de détection de Socket.io : 25 s + 60 s) avant de passer 🔴.
 
 ### 2026-10-23 (suite 3) — Vérification générale : banc de parties de robots, 6 défauts corrigés
 - **Méthode** : relecture des modifications récentes, puis un **banc d'essai** (`outils/banc-robots.js`, `npm run test:banc`) qui fait jouer des parties complètes à des bots — 6 à 15 joueurs, rôles, mission, mode autonome ou nuit rythmée par le MJ, jour piloté ou non, pauses du MJ, tout au hasard — en contrôlant à chaque évènement : ordre de la nuit, aucun rôle mort ou absent réveillé, Petite Fille seulement avec 3 autres vivants, Cupidon seulement la 1ʳᵉ nuit, un jour après chaque nuit et une nuit après chaque jour, règle de l'Ange, justesse du vainqueur, joueur mort deux fois, erreurs du serveur. Le MJ simulé reclique comme un humain si rien ne bouge. 1er banc : 15 parties → 2 anomalies ; reproduction ciblée : 9 parties ; 2e banc après corrections : **15 parties, 0 anomalie, 0 erreur**.

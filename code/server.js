@@ -127,7 +127,27 @@ const ALLOWED_DURING_PAUSE = new Set([
   "registerMJ", "register",
   "pauseGame", "resumeGame", "reset",
   "deadChatHistory", "deadChat",
+  "visibilite",
 ]);
+
+// ===== ÉTAT DES TÉLÉPHONES (pastilles de l'écran MJ) =====
+// Pour chaque joueur humain : "ok" (connecté, page du jeu à l'écran), "veille" (écran
+// éteint ou application quittée : la page n'est plus au premier plan) ou "perdu"
+// (connexion coupée). Une coupure n'est signalée par une alerte qu'au bout de
+// DELAI_ALERTE_DECONNEXION_MS : un rechargement de page ne dérange pas le MJ.
+const DELAI_ALERTE_DECONNEXION_MS = 5000;
+const alertesDeconnexion = {};   // prénom en minuscules → minuteur de l'alerte
+function etatConnexions() {
+  const etats = {};
+  state.players.forEach(p => {
+    if (p.isBot) return;
+    etats[p.id] = p.connecte === false ? "perdu" : p.ecranVisible === false ? "veille" : "ok";
+  });
+  return etats;
+}
+function envoyerConnexionsMJ() {
+  if (state.mjSocketId) io.to(state.mjSocketId).emit("connexionsMJ", etatConnexions());
+}
 
 io.on("connection", socket => {
   log.debug('socket connected', socket.id);
@@ -149,6 +169,7 @@ io.on("connection", socket => {
     log.info('MJ connected', socket.id);
     state.mjSocketId = socket.id;
     socket.emit("rolesMJ", { roles: state.roles, players: state.players });
+    socket.emit("connexionsMJ", etatConnexions());
     socket.emit("mjReconnected", {
       phase: state.phase,
       mayor: state.mayor,
@@ -193,6 +214,10 @@ io.on("connection", socket => {
     log.warn('crash recovery ACCEPTED by MJ', `phase=${snap.phase}`);
     snapshot.applySnapshot(state, snap);
     state.pendingRestore = null;
+    // Après un redémarrage, aucun téléphone n'est encore revenu : pastilles rouges
+    // jusqu'à ce que chacun se reconnecte avec son prénom.
+    state.players.forEach(p => { if (!p.isBot) p.connecte = false; });
+    envoyerConnexionsMJ();
     // Diffuse l'état à tout le monde et invite les joueurs à se reconnecter par leur prénom
     io.emit("gameRestored", {
       phase: state.phase,
@@ -221,7 +246,14 @@ io.on("connection", socket => {
       const old = state.playerRegistry[key];
       const oldId = old.oldId || "";
       const idx = state.players.findIndex(p => p.name.toLowerCase() === key);
-      if (idx >= 0) state.players[idx].id = socket.id;
+      // Le joueur était-il signalé comme déconnecté ? (pour prévenir le MJ de son retour)
+      const etaitPerdu = idx >= 0 && state.players[idx].connecte === false;
+      if (idx >= 0) {
+        state.players[idx].id = socket.id;
+        state.players[idx].connecte = true;
+        state.players[idx].ecranVisible = true;
+      }
+      if (alertesDeconnexion[key]) { clearTimeout(alertesDeconnexion[key]); delete alertesDeconnexion[key]; }
       if (old.role) { state.roles[socket.id] = old.role; delete state.roles[oldId]; }
       const lIdx = state.lovers.indexOf(oldId);
       if (lIdx >= 0) state.lovers[lIdx] = socket.id;
@@ -280,6 +312,8 @@ io.on("connection", socket => {
       if (state.mjSocketId) {
         io.to(state.mjSocketId).emit("rolesMJUpdate", { roles: state.roles, players: state.players });
         io.to(state.mjSocketId).emit("loversInfo", state.lovers);
+        envoyerConnexionsMJ();
+        if (etaitPerdu) io.to(state.mjSocketId).emit("joueurRevenu", { name: playerName(socket.id) });
       }
       // Les téléphones des loups et des amoureux mémorisent leurs partenaires par
       // identifiant : on leur renvoie la liste à jour, sinon un loup ne reconnaissait
@@ -340,6 +374,8 @@ io.on("connection", socket => {
       // Reconnexion en lobby
       if (existing) {
         existing.id = socket.id;
+        existing.connecte = true;
+        existing.ecranVisible = true;
         state.playerRegistry[key].id = socket.id;
         state.playerRegistry[key].oldId = socket.id;
         io.emit("players", state.players);
@@ -352,10 +388,21 @@ io.on("connection", socket => {
     }
     // Restaure la photo si on en a une mémorisée pour ce prénom
     const prevPhoto = state.playerRegistry[key]?.photo || null;
-    state.players.push({ id: socket.id, name: trimmed, photo: prevPhoto });
+    state.players.push({ id: socket.id, name: trimmed, photo: prevPhoto, connecte: true, ecranVisible: true });
     state.playerRegistry[key] = { id: socket.id, oldId: socket.id, name: trimmed, role: null, isDead: false, photo: prevPhoto };
     log.info('player registered', trimmed, 'total=' + state.players.length);
     io.emit("players", state.players);
+    envoyerConnexionsMJ();
+  });
+
+  // La page du jeu passe au second plan (écran éteint, autre application) ou revient
+  socket.on("visibilite", visible => {
+    const p = state.players.find(x => x.id === socket.id);
+    if (!p || p.isBot) return;
+    const v = !!visible;
+    if (p.ecranVisible === v) return;
+    p.ecranVisible = v;
+    envoyerConnexionsMJ();
   });
 
   // Sauvegarde la photo (base64) d'un joueur. Cappée à 30 KB pour limiter la bande passante.
@@ -509,6 +556,19 @@ io.on("connection", socket => {
         state.players = state.players.filter(x => x.id !== socket.id);
         delete state.playerRegistry[key];
         io.emit("players", state.players);
+      } else {
+        // En partie, le joueur garde sa place : pastille rouge chez le MJ, alerte si la
+        // coupure dure (un rechargement de page revient avant)
+        p.connecte = false;
+        envoyerConnexionsMJ();
+        if (alertesDeconnexion[key]) clearTimeout(alertesDeconnexion[key]);
+        alertesDeconnexion[key] = setTimeout(() => {
+          delete alertesDeconnexion[key];
+          const q = state.players.find(x => x.name.toLowerCase() === key);
+          if (q && q.connecte === false && state.phase !== "lobby" && state.mjSocketId) {
+            io.to(state.mjSocketId).emit("joueurPerdu", { name: q.name });
+          }
+        }, DELAI_ALERTE_DECONNEXION_MS);
       }
     }
     if (state.mjSocketId === socket.id) { log.warn('MJ disconnected'); state.mjSocketId = null; }
