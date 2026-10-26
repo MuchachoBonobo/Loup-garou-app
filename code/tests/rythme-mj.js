@@ -44,6 +44,7 @@ function lireSnapshot() { try { return JSON.parse(fs.readFileSync(path.join(SNAP
 // MJ automatique pendant la nuit : passe les pauses, valide l'attaque des loups
 function pilote(mj) {
   mj.on("etapeNuitEnAttente", () => setTimeout(() => mj.emit("mjEtapeSuivante"), 300));
+  mj.on("actionMJEnAttente", () => setTimeout(() => mj.emit("mjOuvrirAction"), 300));
   mj.on("phase", p => { if (p === "wolves") setTimeout(() => mj.emit("lockWolfVotes"), 6000); });
 }
 async function nouveauMJ(recupererCrash) {

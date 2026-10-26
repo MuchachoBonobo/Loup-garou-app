@@ -133,6 +133,7 @@ async function partie(num) {
   mj.on("councilStartMJ", () => { if (cfg.conseil === false) V("Conseil des Morts ouvert alors qu'il est désactivé"); });
   // Crépuscule : la nuit attend le MJ ; matin : il annonce (ou non) l'évènement, puis le débat
   mj.on("nuitEnAttente", () => plus_tard(entre(300, 3000), () => mj.emit("mjLancerNuit")));
+  mj.on("actionMJEnAttente", () => plus_tard(entre(300, 3000), () => mj.emit("mjOuvrirAction")));
   mj.on("matinEnAttente", d => {
     if (d && d.evenement && alea() < 0.7) plus_tard(1500, () => mj.emit("mjAnnoncerEvenement"));
     if (alea() < 0.6) plus_tard(2500, () => mj.emit("mjFinAnnonceMatin"));
@@ -146,6 +147,7 @@ async function partie(num) {
     if (phaseCourante === "mayorVote" && depuis > 13000) mj.emit("lockMayorVote");
     if (phaseCourante === "nightPause" && depuis > 4000) mj.emit("mjEtapeSuivante");
     if (phaseCourante === "crepuscule" && depuis > 5000) mj.emit("mjLancerNuit");
+    if ((phaseCourante === "chasseur" || phaseCourante === "mayorTransfer") && depuis > 5000) mj.emit("mjOuvrirAction");
     if (phaseCourante === "day" && cfg.mjPilotedDay && !debutVote && depuis > 9000) mj.emit("startVote", 1);
     if (phaseCourante === "day" && debutVote && Date.now() - debutVote > entre(9000, 15000)) mj.emit("lockDayVotes");
   }, 2500);

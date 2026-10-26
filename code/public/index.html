@@ -90,6 +90,7 @@
 <div id="endCard" style="display:none;position:fixed;inset:0;z-index:10000;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;">
   <div id="endEmoji" style="font-size:90px;margin-bottom:20px;animation:cardPop 0.6s ease 0.1s both;"></div>
   <div id="endTitle" style="font-size:30px;font-weight:bold;color:#fff;margin-bottom:14px;animation:cardSlide 0.5s ease 0.3s both;"></div>
+  <div id="endMaMedaille" style="display:none;font-size:20px;color:#ffe08a;margin-bottom:22px;animation:cardSlide 0.5s ease 0.5s both;"></div>
   <button onclick="document.getElementById('endCard').style.display='none'" style="padding:12px 28px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.6s both;">Fermer</button>
 </div>
 
@@ -419,8 +420,9 @@
 </div>
 
 <!-- Sorcière : une question à la fois (potion de vie, puis potion de mort, puis la cible) -->
-<div id="witchPanel" style="display:none;background:#120a1e;border:2px solid #7a3fb0;border-radius:12px;margin:10px auto;max-width:480px;padding:18px 16px;text-align:center;">
-  <div id="witchEtape"></div>
+<!-- Sorcière : plein écran, seulement l'encadré de la question (le moins d'information possible) -->
+<div id="witchPanel" style="display:none;position:fixed;inset:0;z-index:9600;background:radial-gradient(ellipse at center,#1e0f30 0%,#08040e 100%);flex-direction:column;padding:24px 16px;overflow-y:auto;">
+  <div id="witchEtape" style="margin:auto;width:100%;max-width:420px;background:#120a1e;border:2px solid #7a3fb0;border-radius:14px;padding:22px 16px;text-align:center;"></div>
 </div>
 
 <!-- ===== MISSION ===== -->
@@ -611,7 +613,8 @@ function toggleFullscreen() {
   }
 }
 
-// Plein écran automatique pour les joueurs, à deux moments seulement :
+// Plein écran automatique pour les joueurs, à trois moments seulement :
+//  - au tout premier toucher sur la page (écran d'accueil, prénom) ;
 //  - au clic « Rejoindre » (arrivée dans le lobby) ;
 //  - après une reconnexion, au premier toucher qui suit (les navigateurs n'autorisent
 //    le plein écran qu'en réponse à un geste de l'utilisateur).
@@ -626,6 +629,14 @@ function entrerPleinEcran() {
     else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
   } catch (_) {}
 }
+// Nouvel arrivant (QR code scanné) : plein écran dès son premier toucher — « Touchez pour
+// entrer » ou le champ du prénom. Avant tout toucher, aucun navigateur ne l'autorise.
+let _premierToucherFait = false;
+document.addEventListener("click", () => {
+  if (_premierToucherFait) return;
+  _premierToucherFait = true;
+  entrerPleinEcran();
+}, true);
 document.addEventListener("click", () => {
   if (!_pleinEcranADemander) return;
   _pleinEcranADemander = false;
@@ -679,6 +690,8 @@ let mjPilotedDay = true;
 // Rythme du MJ (2026-10-26) : la nuit attend son « 🌙 Lancer la nuit », le matin son
 // « Lancer le débat ». Reçu via `yourRole` / l'état complet.
 let nuitParMJ = false;
+// Chasseur ou maire mourant : l'annonce du mort reste affichée jusqu'au clic du MJ
+let _actionAttendMJ = false;
 
 // ===== MISSION =====
 let missionActive = false;
@@ -987,8 +1000,19 @@ function sortedPlayers() {
 
 let lastGameSummary = null;
 
+// Ma médaille (une au plus par joueur), sous le titre de la carte de victoire
+function afficherMaMedaille(resume) {
+  const el = document.getElementById("endMaMedaille");
+  if (!el) return;
+  const moi = (players.find(p => p.id === socket.id) || {}).name;
+  const m = resume && resume.badges && moi ? (resume.badges[moi] || [])[0] : null;
+  el.textContent = m ? `🏅 ${m.emoji} ${m.label}` : "";
+  el.style.display = m ? "block" : "none";
+}
+
 socket.on("gameSummary", data => {
   lastGameSummary = data;
+  if (gameIsOver) afficherMaMedaille(data);
   if (data.deathLog) updateDeathLog(data.deathLog);
   const es = document.getElementById("endScreen");
   if (es && es.className === "visible") {
@@ -1047,6 +1071,7 @@ socket.on("gameEnd", msg=>{
   document.getElementById("endEmoji").innerText    = key==="wolves"?"🐺":key==="lovers"?"💘":key==="ange"?"😇":"🏆";
   // L'emoji est déjà affiché en grand au-dessus du titre
   document.getElementById("endTitle").innerText    = titleMap[key].replace(/^\S+\s+/, "");
+  afficherMaMedaille(lastGameSummary);
   card.style.display = "flex"; card.style.animation = "fadeIn 0.6s ease forwards";
 });
 
@@ -1113,7 +1138,7 @@ let _confirmationNuitEnAttente = null;
 let _fermeturesRetenues = [];
 function fermerCarteAuRythme(fermer, delaiMs, retenue) {
   const tenter = () => {
-    if (nuitParMJ && !gameIsOver && retenue.includes(phase)) { _fermeturesRetenues.push(tenter); return; }
+    if (nuitParMJ && !gameIsOver && (retenue.includes(phase) || _actionAttendMJ)) { _fermeturesRetenues.push(tenter); return; }
     fermer();
   };
   setTimeout(tenter, delaiMs);
@@ -1134,6 +1159,27 @@ function relacherAube() {
   _aubeAttendLeMJ = false;
   fermerCarteMortSiOuverte();
 }
+// Le MJ lance le tir du Chasseur ou la transmission d'écharpe : l'annonce du mort se referme
+function libererAnnonceAction() {
+  if (!nuitParMJ) return;
+  _actionAttendMJ = false;
+  _dawnOnClose = null;
+  relacherAube();
+  fermerCarteMortSiOuverte();
+  libererCartesRetenues();
+}
+// « X est mort·e cette nuit. », « X et Y sont morts cette nuit. », puis « 💔 Z est mort·e d'amour. »
+function listeDeNoms(noms) { return noms.length <= 1 ? (noms[0] || "") : noms.slice(0, -1).join(", ") + " et " + noms[noms.length - 1]; }
+function phraseDesMorts(morts, quand) {
+  const ordinaires = morts.filter(d => d.cause !== "amour").map(d => d.name);
+  const lignes = [];
+  if (ordinaires.length) lignes.push(`${listeDeNoms(ordinaires)} ${ordinaires.length > 1 ? "sont morts" : "est mort·e"} ${quand}.`);
+  morts.filter(d => d.cause === "amour").forEach(d => lignes.push(`💔 ${d.name} est mort·e d'amour.`));
+  return lignes.join("\n");
+}
+// Victimes montrées sur la carte ouverte (un amoureux·se mort d'amour s'y ajoute)
+let _victimesCarte = [];
+
 socket.on("finAnnonceMatin", d => {
   if (d && d.fermerEvenement) {
     _pendingCouncilEventData = null;
@@ -1173,10 +1219,11 @@ function closeDawnCard() {
 // Avatar compact d'un joueur dans la liste (render). `size` en px.
 // Photo disponible → <img> ronde ; sinon → cercle initiale avec couleur déterministe.
 const AVATAR_PALETTE = ["#6a4fbf","#bf4f6a","#4f9fbf","#7abf4f","#bf9f4f","#bf6a4f","#4f6abf","#9f4fbf"];
-function playerAvatar(p, size) {
+// zoom : faux dans une liste où toute la ligne est un bouton (sinon toucher la photo l'agrandit)
+function playerAvatar(p, size, zoom = true) {
   const s = size || 32;
   if (p.photo) {
-    return `<img src="${p.photo}" ${attrZoom(p.name)} style="width:${s}px;height:${s}px;border-radius:50%;object-fit:cover;flex-shrink:0;margin-right:8px;border:1.5px solid rgba(255,255,255,0.18);cursor:zoom-in;" alt="${p.name}">`;
+    return `<img src="${p.photo}" ${zoom ? attrZoom(p.name) : ""} style="width:${s}px;height:${s}px;border-radius:50%;object-fit:cover;flex-shrink:0;margin-right:8px;border:1.5px solid rgba(255,255,255,0.18);${zoom ? "cursor:zoom-in;" : ""}" alt="${p.name}">`;
   }
   // Array.from : un prénom qui commence par un emoji (robots « 🤖 ») donnait « � »
   const initial = Array.from(p.name || "?")[0].toUpperCase();
@@ -1225,7 +1272,8 @@ function showDeathCard(name, role, narrative) {
   // Les joueurs voient QUI a été éliminé (photo) mais pas son rôle — le MJ garde
   // l'info complète pour narrer (paramètres role/narrative volontairement ignorés
   // ici, conservés dans la signature pour compat avec les appelants).
-  renderDeathPhotos([{ name }]);
+  _victimesCarte = [{ name }];
+  renderDeathPhotos(_victimesCarte);
   document.getElementById("deathEmoji").innerText = "⚖️";
   document.getElementById("deathTitle").innerText = "Le village a tranché";
   document.getElementById("deathText").innerText  = name + " a été désigné·e par le vote.";
@@ -1861,9 +1909,11 @@ socket.on("phase", p=>{
   if (gameIsOver && p !== "lobby") return;
   _prevPhase = phase;
   phase=p;
+  // Chasseur ou maire mourant : avec un MJ, l'annonce du mort reste jusqu'à son clic
+  _actionAttendMJ = nuitParMJ && (p === "chasseur" || p === "mayorTransfer");
   // Rythme du MJ : la nuit est lancée (ou le Chasseur tire…) → les cartes retenues se ferment
   libererCartesRetenues();
-  if (p !== "day") relacherAube();
+  if (p !== "day" && !_actionAttendMJ) relacherAube();
   // Teinte ambiante de l'écran selon la phase (CSS variable --phase-tint)
   document.body.setAttribute("data-phase", p || "lobby");
   // Anti-triche : voile de nuit + reveal jour mis à jour à chaque changement de phase
@@ -2415,28 +2465,26 @@ function afficherEtapeSorciere(etape) {
   const panel = document.getElementById("witchPanel");
   const zone = document.getElementById("witchEtape");
   if (etape === "fin") { finirTourSorciere(); return; }
-  panel.style.display = "block";
+  panel.style.display = "flex";
   if (etape === "vie") {
+    // Seulement la photo et la question (demande d'Alexandre : le moins d'information possible)
     const v = players.find(x => x.id === nightVictimId);
-    const nom = v ? (v.id === socket.id ? "toi" : v.name) : "?";
+    const question = !v ? "Sauver la victime ?" : v.id === socket.id ? "Te sauver ?" : `Sauver ${v.name} ?`;
     const photo = v && v.photo
-      ? `<img src="${v.photo}" ${attrZoom(v.name)} style="width:110px;height:110px;border-radius:50%;object-fit:cover;border:3px solid #b06ae0;margin:6px auto 10px;display:block;cursor:zoom-in;">`
-      : `<div style="font-size:56px;margin:6px 0 10px;">🐺</div>`;
-    zone.innerHTML = `<div style="font-size:13px;color:#a98bc4;margin-bottom:4px;">Les loups ont attaqué</div>${photo}
-      <div style="font-size:20px;font-weight:bold;color:#fff;margin-bottom:14px;">${v ? v.name : "?"}</div>
-      <div style="font-size:16px;color:#e6ccff;margin-bottom:10px;">🧪 Sauver ${nom} ?</div>
+      ? `<img src="${v.photo}" ${attrZoom(v.name)} style="width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid #b06ae0;margin:0 auto 16px;display:block;cursor:zoom-in;">`
+      : (v ? `<div style="display:flex;justify-content:center;margin-bottom:16px;">${playerAvatar(v, 120)}</div>` : "");
+    zone.innerHTML = `${photo}<div style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:18px;">${question}</div>
       <div style="display:flex;">${boutonSorciere("Oui", "sorciereSauver()", true)}${boutonSorciere("Non", "afficherEtapeSorciere('mort')")}</div>`;
   } else if (etape === "mort") {
     if (witchKillUsed) { finirTourSorciere(); return; }
-    zone.innerHTML = `<div style="font-size:48px;margin-bottom:8px;">💀</div>
-      <div style="font-size:16px;color:#e6ccff;margin-bottom:10px;">Utiliser la potion de mort ?</div>
+    zone.innerHTML = `<div style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:18px;">Utiliser la potion de mort ?</div>
       <div style="display:flex;">${boutonSorciere("Oui", "afficherEtapeSorciere('cible')", true)}${boutonSorciere("Non", "finirTourSorciere()")}</div>`;
   } else if (etape === "cible") {
     // Comme pour le vote : les joueurs vivants, sauf elle-même et la victime des loups
     const cibles = players.filter(x => !deadPlayers.includes(x.id) && x.id !== socket.id && x.id !== nightVictimId);
-    zone.innerHTML = `<div style="font-size:16px;color:#e6ccff;margin-bottom:10px;">💀 Qui empoisonner ?</div>
+    zone.innerHTML = `<div style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:14px;">Qui empoisonner ?</div>
       <div style="display:flex;flex-direction:column;gap:6px;">${cibles.map(x =>
-        `<button onclick="sorciereEmpoisonner('${x.id}')" style="display:flex;align-items:center;padding:8px 10px;border-radius:8px;background:#1a0f24;border:1px solid #5a3a7a;color:#ddd;font-size:15px;cursor:pointer;text-align:left;">${playerAvatar(x, 30)}${x.name}</button>`
+        `<button onclick="sorciereEmpoisonner('${x.id}')" style="display:flex;align-items:center;padding:8px 10px;border-radius:8px;background:#1a0f24;border:1px solid #5a3a7a;color:#ddd;font-size:15px;cursor:pointer;text-align:left;">${playerAvatar(x, 30, false)}${x.name}</button>`
       ).join("")}</div>
       <div style="display:flex;margin-top:10px;">${boutonSorciere("Passer", "finirTourSorciere()")}</div>`;
   }
@@ -2455,6 +2503,7 @@ function finirTourSorciere() {
 }
 
 socket.on("chasseurMustShoot", hunterId=>{
+  libererAnnonceAction();
   // Ferme la nightFallCard si elle est visible (peut s'être affichée via _dawnOnClose avant ce message)
   const nfc = document.getElementById("nightFallCard");
   if(nfc && nfc.className === "show") { nfc.className=""; nfc.style.display=""; }
@@ -2489,6 +2538,23 @@ socket.on("chasseurMustShoot", hunterId=>{
   updateActionPendingBanner();
 });
 
+// Le Chasseur a tiré : tout le monde voit qui il a emporté ; la carte reste pendant que le MJ
+// raconte (jusqu'au débat le matin, jusqu'à la nuit après un vote)
+socket.on("chasseurATire", d => {
+  if (!d || gameIsOver) return;
+  _victimesCarte = [{ name: d.name }];
+  renderDeathPhotos(_victimesCarte);
+  document.getElementById("deathEmoji").innerText = "🔫";
+  document.getElementById("deathTitle").innerText = "Le Chasseur a tiré";
+  document.getElementById("deathText").innerText  = `${d.name} est emporté·e par le Chasseur.`;
+  const card = document.getElementById("dayDeathCard");
+  card.style.background = "radial-gradient(ellipse at center,#1a0800 0%,#080300 100%)";
+  card.className = "show";
+  _dawnOnClose = null;
+  if (d.nuit) { _aubeAttendLeMJ = nuitParMJ; if (!nuitParMJ) setTimeout(fermerCarteMortSiOuverte, 7000); }
+  else fermerCarteAuRythme(fermerCarteMortSiOuverte, 5000, ["chasseur", "day", "crepuscule"]);
+});
+
 socket.on("loversDeathInfo", data=>{
   const partnerId = data.id || data;
   const partnerName = data.name || players.find(x=>x.id===partnerId)?.name || "?";
@@ -2497,6 +2563,14 @@ socket.on("loversDeathInfo", data=>{
   if(!deathLog.find(d=>d.id===partnerId)){
     deathLog.push({ id:partnerId, name:partnerName, role:partnerRole, cause:"amour" });
     updateDeathLog(deathLog);
+  }
+  // Carte d'un mort encore ouverte (vote, tir du Chasseur) : l'amoureux·se y apparaît aussi
+  const carte = document.getElementById("dayDeathCard");
+  if (carte && carte.classList.contains("show") && !_victimesCarte.some(v => v.name === partnerName)) {
+    _victimesCarte.push({ name: partnerName });
+    renderDeathPhotos(_victimesCarte);
+    const texte = document.getElementById("deathText");
+    texte.innerText = texte.innerText + `\n💔 ${partnerName} est mort·e d'amour.`;
   }
 });
 
@@ -2811,12 +2885,11 @@ socket.on("dawnResult", data=>{
   } else if (deaths.length === 0) {
     emoji = "🌄"; title = "Une nuit paisible";
     text  = "Personne n'a perdu la vie cette nuit. Mais les loups rôdent toujours — méfiance.";
-  } else if (deaths.length === 1) {
-    emoji = "🌑"; title = "Le village pleure";
-    text  = "Une âme nous a quittés cette nuit.";
   } else {
-    emoji = "💀"; title = "Une nuit de deuil";
-    text  = "Plusieurs des nôtres ont péri cette nuit.";
+    // Le nom de chaque mort (demande d'Alexandre, 2026-10-26) ; les morts d'amour à part
+    emoji = deaths.length === 1 ? "🌑" : "💀";
+    title = deaths.length === 1 ? "Le village pleure" : "Une nuit de deuil";
+    text  = phraseDesMorts(deaths, "cette nuit");
   }
   // Le résultat de mission n'est pas un rôle → on peut le montrer aux joueurs
   if (missionResult === "success")      text += "\n\n🎭 Mission réussie.";
@@ -2825,7 +2898,8 @@ socket.on("dawnResult", data=>{
   document.getElementById("deathTitle").innerText = title;
   document.getElementById("deathText").innerText  = text;
   // Photos de TOUTES les victimes (sans rôle) — auto-resize selon le nombre
-  renderDeathPhotos(deaths.map(d => ({ name: d.name })));
+  _victimesCarte = deaths.map(d => ({ name: d.name }));
+  renderDeathPhotos(_victimesCarte);
   const c = document.getElementById("dayDeathCard");
   c.style.background = "radial-gradient(ellipse at center,#1a1000 0%,#0a0800 100%)";
   c.className = "show";
@@ -2984,6 +3058,7 @@ socket.on("mayorMustTransfer", dyingId=>{
   nightCardShownThisNight = false;
 
   updateActionPendingBanner();
+  libererAnnonceAction();
   if(socket.id !== dyingId) return;
 
   // Vibration : le Maire mourant doit désigner un successeur — de jour uniquement

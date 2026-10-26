@@ -26,6 +26,11 @@
   </div>
 </div>
 
+<!-- Prochaine action du MJ : un seul gros bouton, toujours en haut (2026-10-26) -->
+<div id="mjActionSuivante" style="display:none;position:sticky;top:0;z-index:60;background:#0a0a0a;padding:6px 0 10px;">
+  <button id="mjBtnActionSuivante" style="width:100%;padding:16px 18px;border-radius:12px;border:2px solid #e0b870;background:rgba(224,184,112,0.18);color:#fff;font-size:18px;font-weight:bold;cursor:pointer;"></button>
+</div>
+
 <!-- Réglages narration (repliable) -->
 <div id="narrationPanel" style="display:none;background:#0a1a2a;border:1px solid #335588;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;">
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
@@ -338,11 +343,6 @@
   <div class="section-title">Le Jour — Débat &amp; Vote</div>
   <!-- Refonte épuration jour : indicateur d'état du jour (débat vs vote) -->
   <div id="dayStateBanner" style="display:none;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.5;text-align:center;"></div>
-  <!-- Annonce du matin menée par le MJ : morts → évènement → débat (2026-10-26) -->
-  <div id="mjAnnonceMatin" style="display:none;margin-bottom:8px;">
-    <button class="btn primary" id="mjBtnAnnoncerEvenement" onclick="mjAnnoncerEvenement()" style="width:100%;display:none;">📜 Annoncer l'évènement</button>
-    <button class="btn primary" id="mjBtnLancerDebat" onclick="mjLancerDebat()" style="width:100%;">▶ Lancer le débat</button>
-  </div>
   <div id="voteModeLabel" style="font-size:12px;color:#888;">Mode libre 60 s. En pilotage MJ, vous lancez le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).</div>
   <div class="btn-group" style="margin-top:8px;">
     <button class="btn primary" id="mjBtnLancerVote" onclick="launchVote()" style="flex:1;">🚀 Lancer le vote (60s)</button>
@@ -1139,6 +1139,8 @@ socket.on("phase", p=>{
   const mv = document.getElementById("missingVoters");
   if (mv && p!=="day" && p!=="mayorVote") mv.style.display="none";
   if(p==="wolves"){
+    // Nouvelle nuit : le vote des loups de la nuit d'avant ne reste pas affiché
+    renderVotes("wolfVotes", {});
     // Réinitialise les votes du jour à chaque nouvelle nuit
     corbeauTarget=null; lastDayCounts={};
     const dc=document.getElementById("dayCounts"); if(dc) dc.innerHTML="";
@@ -1168,6 +1170,8 @@ socket.on("phase", p=>{
   const lnc = document.getElementById("lancerNuitCard");
   if (lnc) lnc.style.display = (p === "crepuscule") ? "flex" : "none";
   if (p !== "day" && _mjMatinEnCours) afficherAnnonceMatin(null);
+  if (_mjActionEnAttente && p !== _mjActionEnAttente.type) _mjActionEnAttente = null;
+  majActionSuivante();
 });
 
 // ===== MISSION — EVENTS MJ =====
@@ -1274,6 +1278,7 @@ socket.on("mjReconnected", state=>{
   mjVoteRunning = mjEtatVote === "vote";
   majBoutonsJour(); refreshDayStateBanner();
   if (state.activeCouncilEvent) { _mjActiveCouncilEvent = state.activeCouncilEvent.id; afficherBandeauEvenement(state.activeCouncilEvent); }
+  _mjActionEnAttente = state.actionMJ || null;
   afficherAnnonceMatin(state.matin || null);
   { const lnc = document.getElementById("lancerNuitCard"); if (lnc) lnc.style.display = state.nuitEnAttente ? "flex" : "none"; }
   if (state.phase === "nightPause") {
@@ -1327,7 +1332,7 @@ function traduireIdsMJ(nouveauxJoueurs) {
 }
 socket.on("players", p=>{ traduireIdsMJ(p); players=p; renderPlayers(); renderRoles(); });
 socket.on("loversInfo", list=>{ loversIds=list; renderRoles(); });
-socket.on("newMayor", id=>{ const wasNull=!mayorId; mayorId=id; renderRoles(); if(id&&wasNull) playEffect("applause"); });
+socket.on("newMayor", id=>{ const wasNull=!mayorId; mayorId=id; renderRoles(); majActionSuivante(); if(id&&wasNull) playEffect("applause"); });
 // Le maire, toujours visible dans l'en-tête du MJ (demande d'Alexandre, 2026-10-26)
 function afficherMaireMJ() {
   const el = document.getElementById("mjMaireAffiche");
@@ -1610,17 +1615,56 @@ function mjLancerNuit() {
 }
 // Matin : { evenement: {id,title,narrative} | null } — l'évènement attend le clic du MJ
 let _mjMatinEnCours = false;
+// Évènement du Conseil à annoncer ce matin ({id,title,narrative}), ou null
+let _mjEvenementAAnnoncer = null;
 function afficherAnnonceMatin(matin) {
   _mjMatinEnCours = !!matin;
-  const bloc = document.getElementById("mjAnnonceMatin");
-  if (!bloc) return;
-  bloc.style.display = matin ? "block" : "none";
-  const ev = matin && matin.evenement;
-  const btnEv = document.getElementById("mjBtnAnnoncerEvenement");
-  btnEv.textContent = ev ? `📜 Annoncer l'évènement : ${ev.title}` : "";
-  btnEv.style.display = ev ? "block" : "none";
-  document.getElementById("mjBtnLancerDebat").style.display = ev ? "none" : "block";
+  _mjEvenementAAnnoncer = (matin && matin.evenement) || null;
   majBoutonsJour(); refreshDayStateBanner();
+}
+
+// ===== PROCHAINE ACTION DU MJ =====
+// Toujours en haut de l'écran (demande d'Alexandre, 2026-10-26) : un seul gros bouton quand
+// c'est au MJ de cliquer, rien sinon. Le crépuscule et les pauses de nuit ont déjà leur carte.
+function actionSuivanteMJ() {
+  const p = currentPhaseForBar;
+  // Chasseur, maire mourant : c'est le MJ qui lance l'action, quand il a raconté la mort
+  if (_mjActionEnAttente && _mjActionEnAttente.type === p) return p === "chasseur"
+    ? { libelle: `🔫 Le Chasseur tire — ${_mjActionEnAttente.nom}`, action: mjOuvrirAction }
+    : { libelle: `🏛️ Transmettre l'écharpe — ${_mjActionEnAttente.nom}`, action: mjOuvrirAction };
+  // Maire déjà élu : l'élection ne se valide pas deux fois (5 s d'annonce avant la nuit)
+  if (p === "mayorVote") return mayorId ? null : { libelle: "✅ Valider le Maire", action: lockMayor };
+  if (p === "wolves")    return { libelle: "✅ Valider l'attaque des loups", action: lockWolves };
+  if (p !== "day") return null;
+  if (_mjMatinEnCours) return _mjEvenementAAnnoncer
+    ? { libelle: `📜 Annoncer l'évènement : ${_mjEvenementAAnnoncer.title}`, action: mjAnnoncerEvenement }
+    : { libelle: "▶ Lancer le débat", action: mjLancerDebat };
+  if (mjEtatVote === "debat") {
+    const attente = Math.ceil((_mjLaunchVoteUnlocksAt - Date.now()) / 1000);
+    return attente > 0 ? { libelle: `🚀 Lancer le vote (dans ${attente} s)`, action: launchVote, inactif: true }
+                       : { libelle: "🚀 Lancer le vote", action: launchVote };
+  }
+  if (mjEtatVote === "vote") return { libelle: "⏹ Terminer le vote", action: lockDay };
+  return null;
+}
+// Tir du Chasseur ou transmission d'écharpe en attente du clic du MJ : { type, nom } ou null
+let _mjActionEnAttente = null;
+socket.on("actionMJEnAttente", d => { _mjActionEnAttente = d || null; majActionSuivante(); });
+function mjOuvrirAction() {
+  socket.emit("mjOuvrirAction");
+  _mjActionEnAttente = null;
+  majActionSuivante();
+}
+function majActionSuivante() {
+  const barre = document.getElementById("mjActionSuivante"), btn = document.getElementById("mjBtnActionSuivante");
+  if (!barre || !btn) return;
+  const a = actionSuivanteMJ();
+  barre.style.display = a ? "block" : "none";
+  if (!a) return;
+  btn.textContent = a.libelle;
+  btn.disabled = !!a.inactif;
+  btn.style.opacity = a.inactif ? "0.5" : "1";
+  btn.onclick = () => a.action();
 }
 socket.on("matinEnAttente", d => afficherAnnonceMatin(d || {}));
 function mjAnnoncerEvenement() {
@@ -1764,8 +1808,8 @@ const MJ_CHEATSHEET = {
   petiteFille:  { title:"👧 Petite Fille",         lines:["« Petite Fille, ouvre les yeux »", "Elle désigne 3 joueurs sur son téléphone (pas elle-même)", "Son écran lui dit s'il y a au moins un loup parmi eux — la réponse s'affiche aussi chez toi", "La nuit attend son « OK, j'ai vu »", "« Petite Fille, ferme les yeux »"] },
   corbeau:      { title:"🪶 Corbeau",              lines:["« Corbeau, ouvre les yeux »", "Il désigne un joueur (ou passe) — 2 votes contre demain", "« Corbeau, ferme les yeux »"] },
   witch:        { title:"🧪 Sorcière",             lines:["« Sorcière, ouvre les yeux. Voici la victime des loups »", "Elle peut : sauver (potion vie), tuer (potion mort), ou rien", "« Sorcière, ferme les yeux »"] },
-  day:          { title:"☀️ Le jour — à toi de jouer", lines:["1. Annonce les morts de la nuit à voix haute (carte récap = ton support)", "2. Ouvre le débat : « Le village se réveille… à vous de parler »", "3. Laisse les joueurs discuter — ils n'ont PAS leur écran, c'est voulu", "4. Quand le débat est mûr, clique « 🚀 Lancer le vote (60s) »", "5. Le maire tranche en cas d'égalité — le vote fini, la nuit revient seule"] },
-  chasseur:     { title:"🔫 Chasseur",             lines:["Le chasseur vient de mourir — il emporte qui il veut", "Attends son choix (45 s) puis suite normale"] },
+  day:          { title:"☀️ Le jour — à toi de jouer", lines:["1. Annonce les morts de la nuit à voix haute (carte récap = ton support)", "2. Clique « ▶ Lancer le débat » en haut : « Le village se réveille… à vous de parler »", "3. Laisse les joueurs discuter — ils n'ont PAS leur écran, c'est voulu", "4. Quand le débat est mûr, clique « 🚀 Lancer le vote » en haut", "5. Le maire tranche en cas d'égalité — puis « 🌙 Lancer la nuit » quand tu es prêt"] },
+  chasseur:     { title:"🔫 Chasseur",             lines:["Le chasseur vient de mourir : raconte sa mort", "Puis clique « 🔫 Le Chasseur tire » en haut — il emporte qui il veut (45 s)"] },
   mayorTransfer:{ title:"🏛️ Transfert d'écharpe", lines:["Le maire mourant désigne son successeur (60 s)"] },
   mission:      { title:"🎭 Mission — sélection",  lines:["Le maire choisit 3 envoyés (il ne peut pas s'inclure)"] },
   missionVote:  { title:"🎭 Mission — vote",       lines:["Les 3 envoyés choisissent secrètement Réussite ou Échec"] },
@@ -1814,6 +1858,7 @@ function majBoutonsJour() {
     terminer.disabled = true;
   }
   if (passer) passer.disabled = (mjEtatVote === "resultat");
+  majActionSuivante();
 }
 setInterval(() => { if (currentPhaseForBar === "day" && mjEtatVote === "debat") majBoutonsJour(); }, 500);
 socket.on("voteClosMJ", () => { mjVoteRunning = false; changerEtatVote("resultat"); });

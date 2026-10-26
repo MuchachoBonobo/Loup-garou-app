@@ -187,6 +187,7 @@ io.on("connection", socket => {
       voteEnCours:  state.phase === "day" && !!state.voteTimer,
       voteClos:     state.phase === "day" && (state.resolutionJourEnCours || state.dayResolutionPending),
       nuitEnAttente: state.phase === "crepuscule",
+      actionMJ: state.actionMJ ? { type: state.actionMJ, nom: playerName(state.actionMJ === "chasseur" ? state.currentChasseurShooter : state.dyingMayorId) } : null,
       matin: (state.phase === "day" && state.annonceMatinEnCours) ? {
         evenement: (state.activeCouncilEvent && !state.evenementAnnonce && council.COUNCIL_EVENTS[state.activeCouncilEvent])
           ? { id: state.activeCouncilEvent, title: council.COUNCIL_EVENTS[state.activeCouncilEvent].title, narrative: council.COUNCIL_EVENTS[state.activeCouncilEvent].narrative }
@@ -360,7 +361,7 @@ io.on("connection", socket => {
         socket.emit("etatPotions", { vie: !state.witchSaveUsed, mort: !state.witchKillUsed });
         socket.emit("nightVictim", state.nightTarget);
       }
-      if (state.phase === "chasseur" && state.currentChasseurShooter === socket.id) {
+      if (state.phase === "chasseur" && state.currentChasseurShooter === socket.id && !state.actionMJ) {
         socket.emit("chasseurMustShoot", socket.id);
       }
       // Voyante reconnectée avant d'avoir confirmé sa vision : on la lui remontre
@@ -519,6 +520,7 @@ io.on("connection", socket => {
   socket.on("mjEtapeSuivante",   ()  => roles.handleMJEtapeSuivante(socket));
   // Rythme du MJ : lancer la nuit, annoncer l'évènement, clore l'annonce du matin
   socket.on("mjLancerNuit",      ()  => roles.handleMJLancerNuit(socket));
+  socket.on("mjOuvrirAction",    ()  => { if (isMJ(socket.id)) phases.ouvrirActionMJ(); });
   socket.on("mjAnnoncerEvenement", () => { if (isMJ(socket.id)) council.annoncerEvenement(); });
   socket.on("mjFinAnnonceMatin", ()  => {
     if (!isMJ(socket.id) || state.phase !== "day") return;
@@ -672,7 +674,7 @@ function resynchroniserApresReconnexion(socket) {
     if (mj) io.to(mj).emit("tiebreakMJ", { candidates, mayorName: playerName(state.mayor), context: state.tiebreakContext });
   }
   // Transmission d'écharpe : le maire mourant s'est reconnecté → tout le monde le sait
-  if (state.phase === "mayorTransfer" && state.dyingMayorId === id) {
+  if (state.phase === "mayorTransfer" && state.dyingMayorId === id && !state.actionMJ) {
     io.emit("mayorMustTransfer", id);
   }
   // Sorcière : la victime des loups s'est reconnectée → la Sorcière reçoit le bon identifiant

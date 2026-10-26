@@ -78,6 +78,8 @@ function makeMJ() {
       s.on("etapeNuitEnAttente", () => setTimeout(() => s.emit("mjEtapeSuivante"), 500));
       // Crépuscule : le MJ de test lance la nuit une demi-seconde après
       s.on("nuitEnAttente", () => setTimeout(() => s.emit("mjLancerNuit"), 500));
+      // Chasseur, maire mourant : le MJ de test lance l'action une demi-seconde après
+      s.on("actionMJEnAttente", () => setTimeout(() => s.emit("mjOuvrirAction"), 500));
       resolve(s);
     });
     s.once("connect_error", reject);

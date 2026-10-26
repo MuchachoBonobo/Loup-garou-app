@@ -126,6 +126,13 @@ function setPhase(p) {
     wolfIds.forEach(wid => state.io.to(wid).emit("wolfConfirmStatus", { confirmed: [], total: wolfIds.length }));
   }
 
+  // Chasseur, transmission d'écharpe : avec un MJ, l'action attend son clic (ouvrirActionMJ) —
+  // l'annonce du mort reste sur les téléphones pendant qu'il raconte (demande d'Alexandre, 2026-10-26)
+  state.actionMJ = (["chasseur", "mayorTransfer"].includes(p) && !state.autoMode) ? p : null;
+  if (state.actionMJ && state.mjSocketId) {
+    state.io.to(state.mjSocketId).emit("actionMJEnAttente", { type: p, nom: playerName(p === "chasseur" ? state.currentChasseurShooter : state.dyingMayorId) });
+  }
+
   // Nettoie tous les timeouts de phase
   clearPhaseTimeouts();
   installPhaseTimeouts(p);
@@ -144,6 +151,21 @@ function setPhase(p) {
 
   // === Lumières connectées ===
   try { lights.applyScene(p); } catch (_) {}
+}
+
+// ===== ACTION LANCÉE PAR LE MJ (Chasseur, transmission d'écharpe) =====
+// Clic « 🔫 Le Chasseur tire » ou « 🏛️ Transmettre l'écharpe » (ou filet de 3 min) : l'appel part
+// vers les téléphones, la minuterie de l'action démarre, les robots concernés jouent.
+function ouvrirActionMJ() {
+  const p = state.actionMJ;
+  if (!p || state.phase !== p) return;
+  state.actionMJ = null;
+  clearTimeout(state.chasseurTimeout); state.chasseurTimeout = null;
+  clearTimeout(state.mayorTransferTimeout); state.mayorTransferTimeout = null;
+  if (p === "chasseur" && state.currentChasseurShooter) state.io.emit("chasseurMustShoot", state.currentChasseurShooter);
+  if (p === "mayorTransfer" && state.dyingMayorId) state.io.emit("mayorMustTransfer", state.dyingMayorId);
+  installPhaseTimeouts(p);
+  runBotsForPhase(p);
 }
 
 // ===== MINUTERIES DU MODE AUTONOME ET DU JOUR NON PILOTÉ =====
@@ -308,7 +330,13 @@ function installPhaseTimeouts(p) {
   }
 
   // Chasseur : tir aléatoire si inactif
-  if (p === "chasseur") {
+  if (p === "chasseur" && state.actionMJ === "chasseur") {
+    // L'appel au Chasseur attend le MJ : filet de 3 min si la tablette ne répond plus
+    state.chasseurTimeout = setTimeout(() => {
+      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — le Chasseur tire.");
+      ouvrirActionMJ();
+    }, NIGHT_PAUSE_TIMEOUT_MS);
+  } else if (p === "chasseur") {
     state.chasseurTimeout = setTimeout(() => {
       if (state.phase !== "chasseur" || !state.currentChasseurShooter) return;
       const shooterId = state.currentChasseurShooter;
@@ -331,7 +359,13 @@ function installPhaseTimeouts(p) {
   }
 
   // Transfert maire : successeur aléatoire si inactif
-  if (p === "mayorTransfer") {
+  if (p === "mayorTransfer" && state.actionMJ === "mayorTransfer") {
+    // La transmission d'écharpe attend le MJ : filet de 3 min
+    state.mayorTransferTimeout = setTimeout(() => {
+      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — le maire transmet son écharpe.");
+      ouvrirActionMJ();
+    }, NIGHT_PAUSE_TIMEOUT_MS);
+  } else if (p === "mayorTransfer") {
     state.mayorTransferTimeout = setTimeout(() => {
       if (state.phase !== "mayorTransfer" || !state.dyingMayorId) return;
       const validTargets = state.players.filter(pl =>
@@ -610,7 +644,7 @@ function runBotsForPhase(p) {
 
   // Chasseur
   if (p === "chasseur") {
-    if (state.currentChasseurShooter) {
+    if (state.currentChasseurShooter && !state.actionMJ) {
       const shooter = state.players.find(pl => pl.id === state.currentChasseurShooter);
       if (shooter && shooter.isBot) {
         scheduleBot(() => {
@@ -626,7 +660,7 @@ function runBotsForPhase(p) {
 
   // Transfert maire
   if (p === "mayorTransfer") {
-    if (state.dyingMayorId) {
+    if (state.dyingMayorId && !state.actionMJ) {
       const dyingPlayer = state.players.find(pl => pl.id === state.dyingMayorId);
       if (dyingPlayer && dyingPlayer.isBot) {
         scheduleBot(() => {
@@ -934,6 +968,7 @@ function resetGameState(keepPlayers) {
   state.nuitEnAttente = null;
   state.annonceMatinEnCours = false;
   state.evenementAnnonce = false;
+  state.actionMJ = null;
   state.aliasIds = {};
   clearTimeout(state.witchTimeout); state.witchTimeout = null;
   clearTimeout(state.cupidTimeout); state.cupidTimeout = null;
@@ -1045,6 +1080,7 @@ function handleReplayGame(socket, config) {
 // de chargement circulaire (chacun a fait `const phases = require('./phases')`
 // avant que ce fichier n'ait fini d'exécuter).
 Object.assign(module.exports, {
+  ouvrirActionMJ,
   setPhase, installPhaseTimeouts, clearPhaseTimeouts,
   runBotsForPhase, scheduleBot,
   checkVictory,

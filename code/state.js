@@ -107,6 +107,8 @@ const state = {
   nuitEnAttente:        null,
   annonceMatinEnCours:  false,
   evenementAnnonce:     false,
+  // Tir du Chasseur ou transmission d'écharpe en attente du clic du MJ ("chasseur" | "mayorTransfer")
+  actionMJ:             null,
   // Reconnexions : ancien identifiant de connexion → identifiant actuel du même joueur.
   // Permet d'accepter un choix envoyé depuis un écran construit avant la reconnexion.
   aliasIds:             {},

@@ -93,7 +93,8 @@ function resolveVoteWithTiebreak(counts, context, onResolved) {
 
 // ===== LOCK MAIRE / LOUPS =====
 function performLockMayorVote() {
-  if (state.phase !== "mayorVote") return;
+  // Maire déjà élu (5 s d'annonce avant la nuit) : un second clic relançait l'élection, urne vide
+  if (state.phase !== "mayorVote" || state.mayor) return;
   state.mayorAllVotedNotified = false;
   if (state.mayorAutoLockTimer) { clearTimeout(state.mayorAutoLockTimer); state.mayorAutoLockTimer = null; }
   const count = computeCounts(state.mayorVote);

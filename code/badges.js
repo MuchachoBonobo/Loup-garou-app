@@ -1,7 +1,8 @@
 // badges.js — Médailles automatiques distribuées en fin de partie.
 //
 // Entrée : gameStats, state.roles, state.lovers, state.deadPlayers, state.players, winner.
-// Sortie : { playerName: [ { emoji, label, desc } ] } — UNE médaille au plus par joueur.
+// Sortie : { playerName: [ { emoji, label, desc } ] } — UNE médaille par joueur, exactement
+// (depuis le 2026-10-26, une médaille simple pour qui n'a pas d'exploit).
 //
 // Règle d'Alexandre (2026-10-23) : trop de médailles casse le bonheur d'en avoir une.
 // Chaque médaille récompense un vrai exploit (plus de « Survivant » donné à tous les
@@ -244,6 +245,21 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
     const meilleure = liste.slice().sort((a, b) => a.rang - b.rang)[0];
     const { rang, ...badge } = meilleure;
     badges[name] = [badge];
+  });
+
+  // Chacun repart avec une médaille (demande d'Alexandre, 2026-10-26) : qui n'a pas d'exploit
+  // reçoit une médaille simple selon sa fin de partie. Les exploits restent rares.
+  const aGagne = id => winner === "wolves" ? roles[id] === "Loup"
+    : winner === "villagers" ? roles[id] !== "Loup"
+    : winner === "lovers" ? (lovers || []).includes(id)
+    : winner === "ange" ? roles[id] === "Ange" : false;
+  players.forEach(p => {
+    if (!p.name || badges[p.name]) return;
+    badges[p.name] = [isDead(p.id)
+      ? { emoji: "🕯️", label: "Tombé·e au combat", desc: "N'a pas vu la fin, mais a joué jusqu'au bout." }
+      : aGagne(p.id)
+        ? { emoji: "🏆", label: "Victorieux·se", desc: "Debout à la fin, dans le camp gagnant." }
+        : { emoji: "🛡️", label: "Rescapé·e", desc: "A survécu jusqu'au bout de la partie." }];
   });
   return badges;
 }

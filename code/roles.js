@@ -71,6 +71,12 @@ function resolveMissionCards() {
   ouvrirNuit(true);
 }
 
+// ===== CHASSEUR ET MAIRE MOURANT : APPEL AUX TÉLÉPHONES =====
+// Avec un MJ, l'appel attend son clic (phases.ouvrirActionMJ, qui l'envoie) ; en mode autonome,
+// il part tout de suite.
+function annoncerTir(id) { if (state.autoMode) state.io.emit("chasseurMustShoot", id); }
+function annoncerTransfert(id) { if (state.autoMode) state.io.emit("mayorMustTransfer", id); }
+
 // ===== ENTRÉE DE LA NUIT (rythme du MJ) =====
 // Après le jour (vote, vote passé, Idiot, tir du Chasseur, transmission d'écharpe) et après
 // l'élection du maire (ou la mission) : avec un MJ, phase « crepuscule » jusqu'à son
@@ -287,6 +293,10 @@ function resoudreNuit() {
   state.deadPlayers.filter(id => !deadBeforeNight.has(id) && !deaths.find(d => d.id === id)).forEach(id => {
     deaths.push(buildDeath(id, "amour"));
   });
+  // Les cas Chasseur / maire ci-dessous ajoutent encore des morts (cascade d'amour) : on les reprend
+  // juste avant d'annoncer l'aube, pour que la carte dise qui est mort d'amour
+  const ajouterMortsDAmour = () => state.deadPlayers.filter(id => !deadBeforeNight.has(id) && !deaths.find(d => d.id === id))
+    .forEach(id => deaths.push(buildDeath(id, "amour")));
 
   // BUG FIX (mai 2026) : si la boucle a été interrompue par `mayorTransfer`, les
   // morts restantes dans `deaths` (ex : cible de la Sorcière) n'ont pas été ajoutées
@@ -336,7 +346,7 @@ function resoudreNuit() {
         state.dyingMayorId = d.id; state.mayorTransferPending = true;
         state.dyingMayorWasChasseur = false; state.mayorTransferContext = "chasseur";
         state.mayor = null;
-        state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", d.id);
+        state.io.emit("newMayor", null); annoncerTransfert(d.id);
       }
       if (state.lovers.includes(d.id)) {
         const _p = state.lovers.find(l => l !== d.id);
@@ -352,7 +362,7 @@ function resoudreNuit() {
             state.dyingMayorId = _p; state.mayorTransferPending = true;
             state.dyingMayorWasChasseur = false; state.mayorTransferContext = "chasseur";
             state.mayor = null;
-            state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", _p);
+            state.io.emit("newMayor", null); annoncerTransfert(_p);
           }
         }
       }
@@ -366,10 +376,13 @@ function resoudreNuit() {
   if (state.phase === "chasseur") {
     const missionResultToReveal = (state.mission.active && !state.mission.resultRevealed) ? state.mission.result : null;
     if (missionResultToReveal !== null) state.mission.resultRevealed = true;
+    ajouterMortsDAmour();
     state.io.emit("dawnResult", {
       deaths, saved: savedThisNight, witchKilled: witchKillThisNight,
       nightNum: state.gameStats.nightCount,
-      missionResult: missionResultToReveal
+      missionResult: missionResultToReveal,
+      // Avec un MJ, la carte des morts reste jusqu'à son « 🔫 Le Chasseur tire »
+      annonceParMJ: !!state.actionMJ
     });
     // Flash au moment de l'annonce des morts (pas dans killPlayer — mauvais timing)
     try {
@@ -418,8 +431,10 @@ function resoudreNuit() {
 
   const bonusMission = state.mission.active && state.mission.result === "success" && !state.mission.bonusDone
     && state.mayor && !state.deadPlayers.includes(state.mayor);
-  const annonceParMJ = require('./council').annonceMatinParMJ() && !state.pendingEndGame
-    && state.phase !== "mayorTransfer" && !bonusMission;
+  // Carte des morts gardée jusqu'au MJ : réveil mené par lui, ou transmission d'écharpe qu'il lance
+  const annonceParMJ = (state.actionMJ === "mayorTransfer" || require('./council').annonceMatinParMJ())
+    && !state.pendingEndGame && !bonusMission;
+  ajouterMortsDAmour();
   state.io.emit("dawnResult", {
     deaths, saved: savedThisNight, witchKilled: witchKillThisNight,
     nightNum: state.gameStats.nightCount,
@@ -531,7 +546,7 @@ function killPlayer(id) {
           state.dyingMayorId = partner; state.mayorTransferPending = true; state.mayor = null;
           state.dyingMayorWasChasseur = true;
           state.mayorTransferContext = state.phase === "chasseur" ? "chasseur" : PHASES_DE_NUIT.includes(state.phase) ? "night" : "day";
-          state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", partner);
+          state.io.emit("newMayor", null); annoncerTransfert(partner);
           phases.setPhase("mayorTransfer"); return;
         } else if (isMayorDying) {
           // BUG FIX : le joueur mort (id) est le maire, son amoureux (partner) est le chasseur.
@@ -544,7 +559,7 @@ function killPlayer(id) {
           state.pendingChasseurAfterTransfer = partner;
           state.chasseurPostContext = (state.phase === "day") ? "day" : "night";
           state.mayorTransferContext = state.phase === "chasseur" ? "chasseur" : PHASES_DE_NUIT.includes(state.phase) ? "night" : "day";
-          state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", id);
+          state.io.emit("newMayor", null); annoncerTransfert(id);
           phases.setPhase("mayorTransfer");
           return; // ← CRUCIAL : ne pas tomber dans le bloc chasseur ci-dessous
         }
@@ -552,7 +567,7 @@ function killPlayer(id) {
         // Le chasseur tire immédiatement.
         state.currentChasseurShooter = partner;
         state.chasseurPostContext = (state.phase === "day") ? "day" : "night";
-        state.io.emit("chasseurMustShoot", partner);
+        annoncerTir(partner);
         phases.setPhase("chasseur");
         return;
       }
@@ -564,7 +579,7 @@ function killPlayer(id) {
         state.mayorTransferContext = state.phase === "chasseur"
           ? (state.chasseurPostContext === "day" ? "chasseurFromDay" : "chasseur")
           : PHASES_DE_NUIT.includes(state.phase) ? "night" : "day";
-        state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", partner);
+        state.io.emit("newMayor", null); annoncerTransfert(partner);
         phases.setPhase("mayorTransfer"); return;
       }
     }
@@ -580,7 +595,7 @@ function killPlayer(id) {
     state.mayorTransferContext = state.phase === "chasseur"
       ? (state.chasseurPostContext === "day" ? "chasseurFromDay" : "chasseur")
       : PHASES_DE_NUIT.includes(state.phase) ? "night" : "day";
-    state.io.emit("newMayor", null); state.io.emit("mayorMustTransfer", id);
+    state.io.emit("newMayor", null); annoncerTransfert(id);
     phases.setPhase("mayorTransfer"); return;
   } else if (isMayorDying && state.mayorTransferPending) {
     return;
@@ -589,7 +604,7 @@ function killPlayer(id) {
   if (isChasseurDying) {
     state.currentChasseurShooter = id;
     state.chasseurPostContext = (state.phase === "day") ? "day" : "night";
-    state.io.emit("chasseurMustShoot", id);
+    annoncerTir(id);
     phases.setPhase("chasseur");
     return;
   }
@@ -616,7 +631,7 @@ function sendDeadVision(socketId) {
 
 // ===== CHASSEUR — TIR =====
 function performChasseurShot(shooterId, targetId) {
-  if (state.phase !== "chasseur") return;
+  if (state.phase !== "chasseur" || state.actionMJ) return;
   if (!(state.roles[shooterId] === "Chasseur" && state.deadPlayers.includes(shooterId))) return;
   if (state.deadPlayers.includes(targetId)) return;
 
@@ -637,6 +652,8 @@ function performChasseurShot(shooterId, targetId) {
       targetRole:  state.roles[targetId] || "?"
     });
   }
+  // Tout le monde voit qui le Chasseur a emporté (le MJ raconte la suite)
+  state.io.emit("chasseurATire", { id: targetId, name: playerName(targetId), nuit: postCtx !== "day" });
   killPlayer(targetId);
   try { lights.flash("flash.death"); } catch (_) {}
   if (state.phase === "chasseur") {
@@ -652,7 +669,7 @@ function performChasseurShot(shooterId, targetId) {
 
 // ===== TRANSFERT MAIRE =====
 function performMayorTransfer(targetId) {
-  if (state.phase !== "mayorTransfer") return;
+  if (state.phase !== "mayorTransfer" || state.actionMJ) return;
   if (state.deadPlayers.includes(targetId)) return;
   if (targetId === state.dyingMayorId) return;
 
@@ -674,7 +691,7 @@ function performMayorTransfer(targetId) {
   if (wasChasseur) {
     state.chasseurPostContext = ctx;
     state.currentChasseurShooter = oldDyingId;
-    state.io.emit("chasseurMustShoot", oldDyingId);
+    annoncerTir(oldDyingId);
     phases.setPhase("chasseur");
     return;
   }
@@ -687,7 +704,7 @@ function performMayorTransfer(targetId) {
     state.pendingChasseurAfterTransfer = null;
     state.currentChasseurShooter = chasseurId;
     // chasseurPostContext a été posé dans killPlayer au moment de la mort
-    state.io.emit("chasseurMustShoot", chasseurId);
+    annoncerTir(chasseurId);
     if (!phases.checkVictory()) phases.setPhase("chasseur");
     return;
   }
