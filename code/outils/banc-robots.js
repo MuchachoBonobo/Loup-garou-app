@@ -71,12 +71,13 @@ async function partie(num) {
   }
   cfg.sisters = (places >= 2 && alea() < 0.4) ? 2 : 0;
   cfg.mission = alea() < 0.3;
+  cfg.conseil = alea() < 0.75;
   if (FIXE) Object.assign(cfg, FIXE.cfg);
   const modeMJ = FIXE ? !FIXE.cfg.autoMode : alea() < 0.6;          // nuit rythmée par le MJ (sinon mode autonome)
   cfg.autoMode = !modeMJ;
   cfg.autoVoteMode = [1, 2, 4, 5][entre(0, 3)];
   cfg.mjPilotedDay = modeMJ ? alea() < 0.6 : false;
-  const desc = `N=${N} ${modeMJ ? "MJ" : "auto"}${cfg.mjPilotedDay ? "+jourPiloté" : ""}${cfg.mission ? "+mission" : ""} rôles=` +
+  const desc = `N=${N} ${modeMJ ? "MJ" : "auto"}${cfg.mjPilotedDay ? "+jourPiloté" : ""}${cfg.mission ? "+mission" : ""}${cfg.conseil ? "" : "+sansConseil"} rôles=` +
     Object.entries(cfg).filter(([k, v]) => typeof v === "number" && v > 0 && k !== "autoVoteMode").map(([k, v]) => k + (v > 1 ? v : "")).join(",");
 
   // --- Suivi ---
@@ -129,6 +130,7 @@ async function partie(num) {
   const minuteurs = [];
   const plus_tard = (ms, f) => minuteurs.push(setTimeout(f, ms));
   mj.on("etapeNuitEnAttente", () => plus_tard(300, () => mj.emit("mjEtapeSuivante")));
+  mj.on("councilStartMJ", () => { if (cfg.conseil === false) V("Conseil des Morts ouvert alors qu'il est désactivé"); });
   // Crépuscule : la nuit attend le MJ ; matin : il annonce (ou non) l'évènement, puis le débat
   mj.on("nuitEnAttente", () => plus_tard(entre(300, 3000), () => mj.emit("mjLancerNuit")));
   mj.on("matinEnAttente", d => {
@@ -185,10 +187,14 @@ async function partie(num) {
 
   const debut = Date.now();
   mj.emit("assignRoles", cfg);
-  while (!fin && Date.now() - debut < 12 * 60 * 1000) await sleep(1000);
+  // Bloquée = aucune phase depuis 4 min (les plus longues attentes normales sont les filets de
+  // 3 min). Une partie de 15 joueurs qui avance peut dépasser 12 min depuis le crépuscule et le
+  // réveil menés par le MJ : seule une durée totale de 25 min la déclare trop longue.
+  while (!fin && Date.now() - debut < 25 * 60 * 1000 && Date.now() - debutPhase < 4 * 60 * 1000) await sleep(1000);
   minuteurs.forEach(m => { clearTimeout(m); clearInterval(m); });
   const duree = Math.round((Date.now() - debut) / 1000);
-  if (!fin) V(`partie bloquée (pas de fin en 12 min) — dernières phases : ${phases.slice(-8).join(" → ")}`);
+  if (!fin) V((Date.now() - debutPhase >= 4 * 60 * 1000 ? "partie bloquée (aucune phase depuis 4 min)" : "partie trop longue (pas de fin en 25 min)")
+    + ` — dernières phases : ${phases.slice(-8).join(" → ")}`);
   mj.close();
   await sleep(9000);  // laisse s'éteindre les minuteries du serveur (7 s de fin d'aube, 8,2 s de vote)
   return { num, desc, duree, fin, viol, jours: phases.filter(p => p === "day").length, pf: phases.filter(p => p === "petiteFille").length };

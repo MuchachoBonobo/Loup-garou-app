@@ -99,7 +99,7 @@ function setPhase(p) {
     // Conseil des morts : se déclenche chaque début de journée dès qu'il y a au moins
     // COUNCIL_TRIGGER_THRESHOLD mort(s) (1 aujourd'hui). Un nouveau vote est proposé à chaque
     // jour suivant. Les événements déjà proposés (choisis ou non) ne réapparaissent pas.
-    if (state.deadPlayers.length >= council.COUNCIL_TRIGGER_THRESHOLD) {
+    if (state.conseilActif && state.deadPlayers.length >= council.COUNCIL_TRIGGER_THRESHOLD) {
       setTimeout(() => {
         if (state.phase === "day") council.startCouncil();
       }, 4000);

@@ -90,8 +90,6 @@
 <div id="endCard" style="display:none;position:fixed;inset:0;z-index:10000;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;">
   <div id="endEmoji" style="font-size:90px;margin-bottom:20px;animation:cardPop 0.6s ease 0.1s both;"></div>
   <div id="endTitle" style="font-size:30px;font-weight:bold;color:#fff;margin-bottom:14px;animation:cardSlide 0.5s ease 0.3s both;"></div>
-  <div id="endSubtitle" style="font-size:16px;color:rgba(255,255,255,0.8);margin-bottom:20px;animation:cardSlide 0.5s ease 0.4s both;"></div>
-  <div id="endSurvivors" style="font-size:13px;color:rgba(255,255,255,0.5);max-width:360px;line-height:1.8;animation:cardSlide 0.5s ease 0.5s both;margin-bottom:24px;"></div>
   <button onclick="document.getElementById('endCard').style.display='none'" style="padding:12px 28px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.6s both;">Fermer</button>
 </div>
 
@@ -130,6 +128,7 @@
         <div style="font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:2px;text-transform:uppercase;">Ton rôle</div>
         <div id="rfRoleEmoji" style="font-size:76px;">🎭</div>
         <div id="rfRoleName" style="font-size:23px;font-weight:bold;text-align:center;"></div>
+        <div id="rfSecrets" style="display:none;font-size:14px;color:#f0d49a;text-align:center;line-height:1.5;"></div>
       </div>
     </div>
   </div>
@@ -143,6 +142,7 @@
   <div class="rc-emoji" id="rcEmoji"></div>
   <div class="rc-title" id="rcTitle">Votre rôle</div>
   <div class="rc-role"  id="rcRole"></div>
+  <div id="rcSecrets" style="display:none;font-size:15px;color:#f0d49a;font-weight:bold;text-align:center;line-height:1.6;margin:4px 0 10px;"></div>
   <div class="rc-text"  id="rcText"></div>
   <div class="rc-mission" id="rcMission"></div>
   <div class="rc-win"     id="rcWin"></div>
@@ -494,30 +494,13 @@
 
 <div id="endScreen">
   <div id="endScreenTitle"></div>
-  <div id="endScreenSubtitle"></div>
-  <div id="endStats">
-    <h3>📊 Statistiques de la partie</h3>
-    <div id="endStatsList"></div>
-  </div>
   <div id="endRolesPanel">
-    <h3>👁️ Révélation des rôles</h3>
+    <h3>👁️ Les rôles</h3>
     <div id="endRolesList"></div>
   </div>
   <div id="endClassementPanel" style="display:none;background:#111;border:1px solid #222;border-radius:12px;padding:14px 16px;margin-bottom:12px;">
     <div style="font-size:11px;color:#777;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">🏆 Classement de la soirée</div>
     <div id="endClassementList"></div>
-  </div>
-  <div id="endBadgesPanel" style="display:none;background:#111;border:1px solid #222;border-radius:12px;padding:14px 16px;margin-bottom:12px;">
-    <h3 style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px;">🏅 Médailles de la partie</h3>
-    <div id="endBadgesList"></div>
-  </div>
-  <div id="endChatPanel">
-    <h3>💬 Discussion post-partie</h3>
-    <div id="endChatMessages"></div>
-    <div id="endChatInput">
-      <input id="endChatText" placeholder="Réagissez…" onkeydown="if(event.key==='Enter')sendEndChat()">
-      <button onclick="sendEndChat()" style="padding:6px 12px;background:#1a1a1a;border:1px solid #333;border-radius:6px;color:#aaa;font-size:12px;cursor:pointer;">Envoyer</button>
-    </div>
   </div>
 </div>
 
@@ -826,6 +809,9 @@ function showMayorCard(name) {
       if (NIGHT_PHASES_FOR_COVER.includes(phase)) {
         showNightFallCard();
       }
+      // De jour (nouveau maire après une mort de nuit) : l'écran « Parlez entre vous »
+      // revient, sinon le téléphone restait sur la liste des joueurs
+      if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
     }, 600);
   }, 5000, ["mayorVote", "crepuscule"]);
 }
@@ -889,9 +875,7 @@ socket.on("idiotRevealed", data => {
 });
 
 // L'Ange désigné au premier vote : il gagne seul (l'écran de fin suit ~5 s après)
-let angeVainqueurNom = null;
 socket.on("angeRevele", data => {
-  angeVainqueurNom = data.name;
   renderDeathPhotos([{ name: data.name }]);
   document.getElementById("deathEmoji").innerText = "😇";
   document.getElementById("deathTitle").innerText = data.name + " était l'Ange !";
@@ -1031,8 +1015,10 @@ socket.on("gameEnd", msg=>{
    "witchPanel","corbeauPanel","chasseurPanel","petiteFillePanel",
    "deadChatPanel","deadVisionPanel","deathLogPanel","playersSection",
    "missionPanel","missionVotePanel","missionBonusPanel","missionStatusPanel","missionBonusResult",
-   "dayDebateScreen","deadFullScreen","actionPendingBanner"
+   "dayDebateScreen","deadFullScreen","actionPendingBanner","roleRevealCover"
   ].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
+  // Carte de rôle encore ouverte (pas retournée, page rechargée) : elle masquait la victoire
+  const carteRole = document.getElementById("roleCard"); if (carteRole) carteRole.className = "";
   document.querySelector("h1")?.style.setProperty("display","none");
   const lobby = document.getElementById("lobby"); if(lobby) lobby.style.display="none";
 
@@ -1051,15 +1037,7 @@ socket.on("gameEnd", msg=>{
     ange:      "😇 L'Ange a gagné !",
     villagers: "🏆 Les Villageois ont gagné !"
   };
-  const subtitleMap = {
-    wolves:    "Le village est tombé. Ils étaient parmi vous depuis le début…",
-    lovers:    "Contre toute attente, leur amour a triomphé. Ensemble jusqu'au bout.",
-    ange:      "Le village l'a chassé dès le premier vote… et c'est exactement ce qu'il voulait.",
-    villagers: "La vérité a triomphé. Les loups ont été démasqués un par un."
-  };
-
   document.getElementById("endScreenTitle").innerText   = titleMap[key];
-  document.getElementById("endScreenSubtitle").innerText = subtitleMap[key];
 
   if (lastGameSummary) populateEndScreen(lastGameSummary, key);
 
@@ -1067,68 +1045,16 @@ socket.on("gameEnd", msg=>{
   const cfgBg = { wolves:"radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)", lovers:"radial-gradient(ellipse at center,#1a0515 0%,#050005 100%)", ange:"radial-gradient(ellipse at center,#2a2410 0%,#080600 100%)", villagers:"radial-gradient(ellipse at center,#051a05 0%,#000500 100%)" };
   card.style.background = cfgBg[key];
   document.getElementById("endEmoji").innerText    = key==="wolves"?"🐺":key==="lovers"?"💘":key==="ange"?"😇":"🏆";
-  document.getElementById("endTitle").innerText    = titleMap[key];
-  document.getElementById("endSubtitle").innerText = subtitleMap[key];
-  let survivorsText = "";
-  if (key === "ange" && angeVainqueurNom) {
-    survivorsText = `😇 ${angeVainqueurNom}, seul vainqueur`;
-  } else if (lastGameSummary?.survivors?.length > 0) {
-    survivorsText = "Survivants : " + lastGameSummary.survivors.map(s=>`${ROLE_EMOJI[s.role]||""} ${s.name}`).join("  ·  ");
-  }
-  document.getElementById("endSurvivors").innerText = survivorsText;
+  // L'emoji est déjà affiché en grand au-dessus du titre
+  document.getElementById("endTitle").innerText    = titleMap[key].replace(/^\S+\s+/, "");
   card.style.display = "flex"; card.style.animation = "fadeIn 0.6s ease forwards";
-  if (lastGameSummary) {
-    const summarySnapshot = lastGameSummary;
-    // Seulement si la partie n'a pas été relancée entre-temps (sinon la carte surgissait
-    // par-dessus la révélation du rôle de la nouvelle partie)
-    setTimeout(()=>{ if(summarySnapshot && gameIsOver) showPersonalBadgeCard(summarySnapshot); }, 6000);
-  }
-
-  const endChat = document.getElementById("endChatMessages");
-  const deadChat = document.getElementById("deadChatMessages");
-  if (endChat && deadChat) endChat.innerHTML = deadChat.innerHTML;
 });
 
+// Page de fin épurée (2026-10-26, choix d'Alexandre) : une seule liste « photo · prénom · rôle ·
+// médaille », puis le classement de la soirée. Plus de statistiques ni de messagerie : la partie
+// se raconte autour de la table. Toucher une médaille affiche son nom et ce qui l'a valu.
 function populateEndScreen(data, winner) {
   const rd = ROLE_DISPLAY;  // table commune (l'ancienne copie locale oubliait Corbeau, Salvateur, Sœurs)
-  const stats = [];
-  let durationStr = `${data.nightCount} nuit${data.nightCount>1?"s":""} · ${data.dayCount} jour${data.dayCount>1?"s":""}`;
-  if (data.durationMs) {
-    const mins = Math.round(data.durationMs / 60000);
-    durationStr += ` · ⏱ ${mins} minute${mins>1?"s":""}`;
-  }
-  stats.push({ emoji:"⏱️", label:"Durée de la partie", value: durationStr });
-  stats.push({ emoji:"👥", label:"Joueurs", value:`${data.totalPlayers} joueurs` });
-  if (data.firstDead) stats.push({ emoji:"🪦", label:"Première victime", value:data.firstDead.name, sub:`${rd[data.firstDead.role]||data.firstDead.role}` });
-  if (data.mayorName) stats.push({ emoji:"🏛️", label:"Maire élu", value:data.mayorName });
-  if (data.seerLog && data.seerLog.length > 0) {
-    const visions = data.seerLog.map(v => `${ROLE_EMOJI[v.role]||""} ${v.name} (${rd[v.role]||v.role})`).join(", ");
-    stats.push({ emoji:"🔮", label:"La Voyante a vu", value: visions });
-  }
-  if (data.petiteFilleLog && data.petiteFilleLog.length > 0) {
-    const enquetes = data.petiteFilleLog.map(e => `${(e.names || []).join(", ")} ${e.auMoinsUnLoup ? "🐺" : "✅"}`).join(" · ");
-    stats.push({ emoji:"👧", label:"La Petite Fille a enquêté", value: enquetes });
-  }
-  if (data.witchSaved || data.witchKilled) {
-    const potions = [];
-    if(data.witchSaved)  potions.push("potion de vie ✅");
-    if(data.witchKilled) potions.push("potion de mort ☠️");
-    stats.push({ emoji:"🧪", label:"Sorcière a utilisé", value:potions.join(" · ") });
-  }
-  if (data.survivors?.length) {
-    stats.push({ emoji:"🏅", label:`Survivants (${data.survivors.length})`, value:data.survivors.map(s=>s.name).join(", ") });
-    const wolvesAlive = data.survivors.filter(s=>s.role==="Loup");
-    if(wolvesAlive.length) stats.push({ emoji:"🐺", label:"Loups survivants", value:wolvesAlive.map(s=>s.name).join(", "), hl:true });
-  }
-  if (data.deathLog.length > 0) {
-    const lastDead = data.deathLog[data.deathLog.length-1];
-    stats.push({ emoji:"🎭", label:"Dernière victime", value:lastDead.name, sub:`${rd[lastDead.role]||lastDead.role}` });
-  }
-  const statsList = document.getElementById("endStatsList");
-  statsList.innerHTML = stats.map(s =>
-    `<div class="stat-row"><span class="stat-emoji">${s.emoji}</span><span class="stat-label">${s.label}</span><span class="stat-value${s.hl?" stat-hl":""}">${s.value}${s.sub?` <span style="color:#555;font-size:11px;">(${s.sub})</span>`:""}</span></div>`
-  ).join("");
-
   const allPlayers = [...players];
   allPlayers.sort((a,b) => { const aDead=deadPlayers.includes(a.id),bDead=deadPlayers.includes(b.id); if(aDead&&!bDead)return 1; if(!aDead&&bDead)return -1; return 0; });
   const endRoles = document.getElementById("endRolesList");
@@ -1143,7 +1069,13 @@ function populateEndScreen(data, winner) {
     const avatar = p.photo
       ? `<img src="${p.photo}" ${attrZoom(p.name)} style="width:32px;height:32px;border-radius:50%;object-fit:cover;cursor:zoom-in;${isDead?'filter:grayscale(0.7);':''}">`
       : `<span style="font-size:22px;width:32px;text-align:center;display:inline-block;">${ROLE_EMOJI[r]||"❓"}</span>`;
-    return `<div class="${rowClass}">${avatar}<span class="ern">${p.name}</span><span class="err">${rd[r]||r}</span><span class="erbadge">${badges}</span></div>`;
+    // Une médaille au plus par joueur (badges.js) ; son nom s'affiche au toucher
+    const medaille = ((data.badges || {})[p.name] || [])[0];
+    const medailleHtml = medaille
+      ? `<span class="ermedaille" onclick="var d=this.parentNode.querySelector('.er-detail');d.style.display=d.style.display==='block'?'none':'block';">${medaille.emoji}</span>` +
+        `<div class="er-detail">${medaille.emoji} ${medaille.label}${medaille.desc ? " — " + medaille.desc : ""}</div>`
+      : "";
+    return `<div class="${rowClass}">${avatar}<span class="ern">${p.name}</span><span class="err">${rd[r]||r}</span><span class="erbadge">${badges}</span>${medailleHtml}</div>`;
   }).join("");
 
   // ===== CLASSEMENT DE LA SOIRÉE (1 point par victoire, cumulé sur les parties) =====
@@ -1162,68 +1094,6 @@ function populateEndScreen(data, winner) {
   } else if (clPanel) {
     clPanel.style.display = "none";
   }
-
-  // ===== MÉDAILLES =====
-  const badgesPanel = document.getElementById("endBadgesPanel");
-  const badgesList  = document.getElementById("endBadgesList");
-  if (badgesPanel && badgesList && data.badges && Object.keys(data.badges).length > 0) {
-    badgesPanel.style.display = "block";
-    badgesList.innerHTML = Object.entries(data.badges).map(([name, list]) => {
-      const items = list.map(b => {
-        const descHtml = b.desc
-          ? `<span style="display:none;font-size:10px;color:#aaa;margin-top:3px;line-height:1.3;">${b.desc}</span>`
-          : "";
-        const toggle = b.desc
-          ? `onclick="var d=this.children[1];d.style.display=d.style.display==='block'?'none':'block';" style="cursor:pointer;"`
-          : `style="cursor:default;"`;
-        return `<span ${toggle}
-          style="display:inline-flex;flex-direction:column;align-items:center;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:3px 10px;margin:2px;font-size:12px;color:#eee;cursor:${b.desc?'pointer':'default'};">
-          <span style="display:flex;align-items:center;gap:4px;"><span style="font-size:14px;">${b.emoji}</span>${b.label}</span>
-          ${descHtml}
-        </span>`;
-      }).join("");
-      return `<div style="padding:6px 0;border-bottom:1px solid #1a1a1a;">
-        <div style="font-size:12px;color:#888;margin-bottom:4px;font-weight:bold;">${name}</div>
-        <div>${items}</div>
-      </div>`;
-    }).join("");
-  } else if (badgesPanel) {
-    badgesPanel.style.display = "none";
-  }
-}
-
-function showPersonalBadgeCard(summary) {
-  const me = players.find(p => p.id === socket.id);
-  const myName = me?.name;
-  const myBadges = summary?.badges && myName ? summary.badges[myName] : null;
-  if (!myBadges || myBadges.length === 0) return;
-
-  const badgeHtml = myBadges.map(b => {
-    const descHtml = b.desc
-      ? `<span style="display:none;font-size:10px;color:#aaa;margin-top:3px;line-height:1.3;">${b.desc}</span>`
-      : "";
-    const toggle = b.desc
-      ? `onclick="var d=this.children[1];d.style.display=d.style.display==='block'?'none':'block';" style="cursor:pointer;"`
-      : `style="cursor:default;"`;
-    return `<span ${toggle} style="display:inline-flex;flex-direction:column;align-items:center;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:14px;padding:3px 10px;margin:2px;font-size:12px;color:#eee;">
-      <span style="display:flex;align-items:center;gap:4px;"><span style="font-size:14px;">${b.emoji}</span>${b.label}</span>
-      ${descHtml}
-    </span>`;
-  }).join("");
-
-  const c = document.getElementById("dayDeathCard");
-  document.getElementById("deathEmoji").innerText  = "🏅";
-  document.getElementById("deathTitle").innerText  = myBadges.length > 1 ? `Tes médailles, ${myName}` : `Ta médaille, ${myName}`;
-  document.getElementById("deathText").innerHTML   = badgeHtml;
-  c.style.background = "radial-gradient(ellipse at center,#0a0a1a 0%,#030308 100%)";
-  c.className = "show";
-  setTimeout(() => {
-    c.classList.add("hiding");
-    setTimeout(() => {
-      c.className = ""; c.style.display = "none"; c.style.background = "";
-      document.getElementById("deathText").innerHTML = "";
-    }, 600);
-  }, 8000);
 }
 
 let _dawnOnClose = null;
@@ -1271,6 +1141,7 @@ socket.on("finAnnonceMatin", d => {
     if (ce && ce.style.display === "flex") closeCouncilEventCard();
   }
   relacherAube();
+  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
 });
 
 function closeDawnCard() {
@@ -1773,18 +1644,6 @@ function updateDayDebateScreen() {
     if (elSoleil) elSoleil.textContent = tx.soleil;
     if (elTitre)  elTitre.innerHTML    = tx.titre;
     if (elTexte)  { elTexte.textContent = tx.texte; elTexte.style.display = tx.texte ? "" : "none"; }
-    // Remplit la carte d'identité du joueur
-    const me = players.find(p => p.id === socket.id);
-    const photoEl = document.getElementById("ddPhoto");
-    const nameEl  = document.getElementById("ddName");
-    const statEl  = document.getElementById("ddStatus");
-    const myPhoto = me?.photo || (lireIdentite("lgPhoto") || null);
-    if (photoEl) {
-      if (myPhoto) { photoEl.src = myPhoto; photoEl.style.display = "block"; }
-      else         { photoEl.style.display = "none"; }
-    }
-    if (nameEl) nameEl.innerText = (me?.name) || "—";
-    if (statEl) statEl.innerText = "Vivant·e";
     bindDayDebateRoleReveal();
     screen.style.display = "flex";
   } else {
@@ -1912,13 +1771,15 @@ function bindDayDebateRoleReveal() {
   if (!btn || !reveal) return;
   if (!btn.dataset.bound) {
     const show = () => {
-      reveal.innerText = "🎭 " + (ROLE_DISPLAY[role] || role || "—");
+      reveal.innerText = ["🎭 " + (ROLE_DISPLAY[role] || role || "—"), ...secretsDuRole()].join("\n");
       reveal.style.display = "block";
+      btn.dataset.tenu = "1";
       btn.style.background = "rgba(240,212,154,0.16)";
       btn.innerHTML = "👁 Mon rôle";
     };
     const hide = () => {
       reveal.style.display = "none";
+      delete btn.dataset.tenu;
       btn.style.background = "transparent";
       btn.innerHTML = "🎴 Mon rôle";
     };
@@ -1931,8 +1792,9 @@ function bindDayDebateRoleReveal() {
     btn.addEventListener("contextmenu", e => e.preventDefault());
     btn.dataset.bound = "1";
   }
-  // État par défaut : caché
-  reveal.style.display = "none";
+  // État par défaut : caché — sauf si le doigt est encore posé (l'écran se rafraîchit
+  // pendant l'appui : le rôle disparaissait sous le doigt)
+  if (!btn.dataset.tenu) reveal.style.display = "none";
 }
 
 // Bouton "Maintenir pour voir mon rôle" pendant le jour
@@ -1941,7 +1803,7 @@ function updateRoleRevealBtn() {
   const content = document.getElementById("infoPanelContent");
   if (!btn || !content) return;
   // Masquage actif seulement quand les yeux sont ouverts collectivement
-  const dayLike = ['day','mayorVote','mission','missionVote','missionBonus','mayorTransfer','chasseur','lobby'].includes(phase);
+  const dayLike = ['day','crepuscule','mayorVote','mission','missionVote','missionBonus','mayorTransfer','chasseur','lobby'].includes(phase);
   if (dayLike && role && !iAmDead) {
     btn.style.display = "block";
     if (!btn.dataset.bound) {
@@ -2105,6 +1967,28 @@ socket.on("phase", p=>{
 
 const ROLE_EMOJI = Object.fromEntries(Object.entries(ROLE_EXPLAIN).map(([k,v])=>[k,v.emoji||"🎭"]));
 
+// Ce que le joueur sait grâce à son rôle : ses compagnons loups, son amoureux·se, ou les
+// amoureux choisis par Cupidon. Montré seulement quand il regarde son rôle (annonce, « Mon
+// rôle »), jamais en permanence dans la liste des joueurs (2026-10-26). Le MJ voit tout.
+function secretsDuRole() {
+  const nom = id => { const p = players.find(x => x.id === id); return p ? (deadPlayers.includes(id) ? "☠️ " : "") + p.name : null; };
+  const lignes = [];
+  if (role === "Loup") {
+    const autres = wolves.filter(w => w !== socket.id).map(nom).filter(Boolean);
+    if (autres.length) lignes.push("🐺 Avec toi : " + autres.join(", "));
+  }
+  const monAmour = lovers.includes(socket.id) ? lovers.find(l => l !== socket.id) : null;
+  if (monAmour && nom(monAmour)) lignes.push("💘 Ton amoureux·se : " + nom(monAmour));
+  else if (role === "Cupidon" && lovers.length === 2) lignes.push("💘 Tes amoureux : " + lovers.map(nom).filter(Boolean).join(" et "));
+  return lignes;
+}
+function afficherSecrets(el) {
+  if (!el) return;
+  const lignes = secretsDuRole();
+  el.innerText = lignes.join("\n");
+  el.style.display = lignes.length ? "block" : "none";
+}
+
 function showRoleCard(r) {
   const card = document.getElementById("roleCard");
   const info  = ROLE_EXPLAIN[r] || {};
@@ -2119,6 +2003,7 @@ function showRoleCard(r) {
   document.getElementById("rcEmoji").innerText   = info.emoji   || "🎭";
   document.getElementById("rcTitle").innerText   = "Votre rôle :";
   document.getElementById("rcRole").innerText    = ROLE_DISPLAY[r] || r;
+  afficherSecrets(document.getElementById("rcSecrets"));
   document.getElementById("rcText").innerText    = info.desc    || "";
   document.getElementById("rcMission").innerText = info.mission ? "🎯 " + info.mission : "";
   document.getElementById("rcWin").innerText     = info.win     ? "🏆 " + info.win    : "";
@@ -2150,6 +2035,7 @@ function showRoleReveal(r) {
   const nameEl = document.getElementById("rfRoleName");
   nameEl.innerText  = ROLE_DISPLAY[r] || r;
   nameEl.style.color = info.color || "#cdb8ff";
+  afficherSecrets(document.getElementById("rfSecrets"));
   document.getElementById("roleFlipFront").style.background = info.bg || "radial-gradient(ellipse at center,#1a1030 0%,#0a0818 100%)";
   // Reset : carte face cachée
   inner.style.transform = "";
@@ -3275,14 +3161,8 @@ function appendChatMsg(msg){
     while(div.children.length>200) div.removeChild(div.firstChild);
   }
   makeMsg("deadChatMessages","chat-msg","chat-name");
-  makeMsg("endChatMessages","end-chat-msg","end-chat-name");
 }
 
-function sendEndChat() {
-  const inp = document.getElementById("endChatText");
-  const text = inp.value.trim(); if(!text) return;
-  socket.emit("deadChat", {text}); inp.value = "";
-}
 function sendDeadChat(){
   const inp=document.getElementById("deadChatText");
   const text=inp.value.trim(); if(!text)return;
@@ -3342,7 +3222,7 @@ socket.on("gameReset", data => {
   witchSaveUsed=false; witchKillUsed=false; hasVotedLocked=false; voteActive=false; myDayVote=null; myMayorVote=null;
   deathLog=[]; lastGameSummary=null; mayorVotedSet.clear();
   votesDayDetail={}; corbeauVotesTarget=null;
-  idiotRevealed=false; idiotId=null; angeVainqueurNom=null;
+  idiotRevealed=false; idiotId=null;
   nightCardShownThisNight = false;
   gameIsOver = false;
   mayorTransferPending = false;
@@ -3396,7 +3276,6 @@ socket.on("gameReset", data => {
   const ps=document.getElementById("playersSection"); if(ps) ps.style.display="";
   const es=document.getElementById("endScreen"); if(es) es.className="";
   document.getElementById("deadChatMessages").innerHTML="";
-  document.getElementById("endChatMessages").innerHTML="";
   document.getElementById("status").innerText="";
   stopCountdown();
   updateDeathLog([]);
@@ -3639,8 +3518,10 @@ function render(){
       tags += roleMort ? `<span class="role-mort">${ROLE_DISPLAY[roleMort] || roleMort}</span>` : "☠️";
     }
     if(p.id===mayor)tags+="🏛️";
-    if(isLover&&canSeeLove)tags+="❤️";
-    if((role==="Loup"&&wolves.includes(p.id))||(iAmDead&&deadVisionData?.wolves?.includes(p.id)))tags+="🐺";
+    // Loups et amoureux : jamais dans la liste en journée (on les voit dans « Mon rôle ») ;
+    // les loups se reconnaissent pendant leur tour, les morts gardent leur vision
+    if(isLover&&canSeeLove&&iAmDead)tags+="❤️";
+    if((role==="Loup"&&wolves.includes(p.id)&&phase==="wolves")||(iAmDead&&deadVisionData?.wolves?.includes(p.id)))tags+="🐺";
     if(idiotRevealed&&p.id===idiotId) tags+="🤡";
     let voteInfo="";
     if(phase==="mayorVote"){

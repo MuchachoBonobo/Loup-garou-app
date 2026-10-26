@@ -154,27 +154,18 @@ body.vote-urgent { animation:bgPulse 0.65s ease infinite; }
 #endScreen { display:none; max-width:520px; margin:0 auto; padding:0 10px 40px; }
 #endScreen.visible { display:block; animation:fadeIn 0.6s ease forwards; }
 #endScreenTitle { text-align:center; padding:20px 0 6px; font-size:26px; font-weight:bold; color:#fff; }
-#endScreenSubtitle { text-align:center; font-size:13px; color:rgba(255,255,255,0.5); margin-bottom:18px; font-style:italic; }
-#endStats, #endRolesPanel, #endChatPanel { background:#111; border:1px solid #222; border-radius:12px; padding:14px 16px; margin-bottom:12px; }
-#endStats h3, #endRolesPanel h3, #endChatPanel h3 { font-size:11px;color:#555;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px; }
-.stat-row { display:flex;align-items:center;padding:5px 0;border-bottom:1px solid #1a1a1a;font-size:13px;gap:8px; }
-.stat-row:last-child { border-bottom:none; }
-.stat-emoji { font-size:15px;flex-shrink:0;width:20px;text-align:center; }
-.stat-label { color:#555;flex:0 0 160px;font-size:12px; }
-.stat-value { color:#eee;flex:1; }
-.stat-hl    { color:#ffcc44;font-weight:bold; }
-.end-role-row { display:flex;align-items:center;padding:6px 8px;margin:2px 0;border-radius:6px;font-size:13px;gap:8px; }
+#endRolesPanel { background:#111; border:1px solid #222; border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+#endRolesPanel h3 { font-size:11px;color:#555;text-transform:uppercase;letter-spacing:1px;margin:0 0 10px; }
+.end-role-row { display:flex;flex-wrap:wrap;align-items:center;padding:6px 8px;margin:2px 0;border-radius:6px;font-size:13px;gap:8px; }
 .end-role-row.wolf-row   { background:#1a0808; }
 .end-role-row.dead-row   { opacity:0.45; }
 .end-role-row.winner-row { background:#081a08; }
 .end-role-row .ern { flex:1;font-weight:500; }
 .end-role-row .err { color:#888;font-size:12px; }
 .end-role-row .erbadge { font-size:11px;color:#666;margin-left:2px; }
-#endChatMessages { max-height:200px;overflow-y:auto;margin-bottom:10px;font-size:13px; }
-.end-chat-msg { padding:3px 0;border-bottom:1px solid #1a1010; }
-.end-chat-name { color:#888;font-weight:bold;margin-right:6px;font-size:11px; }
-#endChatInput { display:flex;gap:6px; }
-#endChatText { flex:1;background:#0e0e0e;border:1px solid #333;border-radius:6px;color:#eee;padding:6px 10px;font-size:13px; }
+.end-role-row .ermedaille { font-size:18px;padding:2px 4px;cursor:pointer; }
+.end-role-row .er-detail { display:none;flex-basis:100%;font-size:11px;color:#aaa;padding:2px 0 0 40px; }
+
 
 /* ============================================================
    IMMERSION : voile qui respire, révélation rôle, tint ambiant

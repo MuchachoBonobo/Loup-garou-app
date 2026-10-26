@@ -768,6 +768,8 @@ function assignAndStart(config, playerList) {
   if (typeof config.mjPilotedDay === "boolean") {
     state.mjPilotedDay = config.mjPilotedDay;
   }
+  // Conseil des Morts : activé sauf si le MJ a décoché la case (anciens clients : activé)
+  state.conseilActif = config.conseil !== false;
 
   let shuffled = fisherYates(playerList); let i = 0;
   function add(r, count) {

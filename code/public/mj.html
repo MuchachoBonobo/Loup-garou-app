@@ -204,6 +204,7 @@
     <div class="config-item">🛡 <input id="rp_salvateur" type="number" value="0" min="0"></div>
     <div class="config-item">👯‍♀️ <input id="rp_sisters" type="number" value="0" min="0" max="2" step="2" title="0 ou 2 sœurs"></div>
     <div class="config-item">🎭 <input id="rp_mission" type="checkbox"> Mission</div>
+    <div class="config-item">🪦 <input id="rp_conseil" type="checkbox" checked> Conseil</div>
   </div>
   <button class="btn primary" onclick="replayGame()" style="width:100%;">🚀 Relancer la partie</button>
 </div>
@@ -224,6 +225,7 @@
     <div class="config-item">🛡<input id="salvateur"  type="number" value="0" min="0"></div>
     <div class="config-item">👯‍♀️<input id="sisters" type="number" value="0" min="0" max="2" step="2" title="0 ou 2 sœurs jumelles"></div>
     <div class="config-item">🎭<input id="mission" type="checkbox" title="Activer la phase de mission"> Mission</div>
+    <div class="config-item">🪦<input id="conseil" type="checkbox" checked title="Conseil des Morts : chaque jour, les morts votent un évènement pour le lendemain"> Conseil</div>
   </div>
 
   <!-- Classement de la soirée : cumulé sur les parties ; remis à zéro au début d'une prestation -->
@@ -1257,6 +1259,10 @@ socket.on("gameEnd", msg=>{
     const src=document.getElementById(k), dst=document.getElementById("rp_"+k);
     if(src&&dst) dst.value=src.value;
   });
+  ["mission","conseil"].forEach(k=>{
+    const src=document.getElementById(k), dst=document.getElementById("rp_"+k);
+    if(src&&dst) dst.checked=src.checked;
+  });
   document.getElementById("replayPanel").style.display="block";
 });
 
@@ -1564,6 +1570,7 @@ function startGame(){
     cupidon:+v("cupidon"),voyante:+v("voyante"),sorciere:+v("sorciere"),chasseur:+v("chasseur"),
     loup:+v("loup"),petiteFille:+(v("petiteFille")||0),idiot:+(v("idiot")||0),ange:+(v("ange")||0),corbeau:+(v("corbeau")||0),salvateur:+(v("salvateur")||0),sisters:+(v("sisters")||0),
     mission: document.getElementById("mission")?.checked||false,
+    conseil: !!document.getElementById("conseil")?.checked,
     autoMode: document.getElementById("autoMode")?.checked||false,
     autoVoteMode: +(document.getElementById("autoVoteMode")?.value||1),
     // Refonte épuration jour (mai 2026) : transmet le toggle MJ pilote au serveur
@@ -1722,6 +1729,7 @@ function replayGame(){
     salvateur:  +v("rp_salvateur")||0,
     sisters:    +v("rp_sisters")||0,
     mission:    document.getElementById("rp_mission")?.checked||false,
+    conseil:    !!document.getElementById("rp_conseil")?.checked,
     // Réutilise les paramètres du mode autonome de la partie précédente
     autoMode:   document.getElementById("autoMode")?.checked||false,
     autoVoteMode: +(document.getElementById("autoVoteMode")?.value||1),

@@ -95,6 +95,7 @@ function serializeState(state) {
     autoVoteMode: state.autoVoteMode,
     // BUG FIX 6 : champs manquants pour la reprise après crash
     mjPilotedDay: state.mjPilotedDay,
+    conseilActif: state.conseilActif,
     gamePaused: state.gamePaused,
     // Phase chasseur
     currentChasseurShooter: state.currentChasseurShooter,
@@ -161,6 +162,7 @@ function applySnapshot(state, snap) {
   state.autoVoteMode = snap.autoVoteMode || 1;
   // BUG FIX 6 : restauration des champs manquants
   if (typeof snap.mjPilotedDay === 'boolean') state.mjPilotedDay = snap.mjPilotedDay;
+  if (typeof snap.conseilActif === 'boolean') state.conseilActif = snap.conseilActif;
   state.gamePaused = !!snap.gamePaused;
   state.currentChasseurShooter = snap.currentChasseurShooter || null;
   state.chasseurPostContext = snap.chasseurPostContext || null;

@@ -154,6 +154,9 @@ const state = {
   // (cf. handler `phase=day` côté client). Default ON. Toggle dans la config MJ.
   mjPilotedDay:        true,
 
+  // Conseil des Morts activé pour cette partie (case du MJ avant la partie, 2026-10-26)
+  conseilActif:        true,
+
   // Bots
   botCounter: 0,
 

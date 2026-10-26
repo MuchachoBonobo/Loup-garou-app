@@ -233,6 +233,16 @@ io.on("connection", socket => {
       phase: state.phase,
       message: "Partie restaurée après redémarrage du serveur. Reconnectez-vous avec votre prénom."
     });
+    // Reprise en plein jour : setPhase("day") compte un jour de plus et repart de l'évènement
+    // « pour demain » — sans ceci, le jour 2 devenait le jour 3 et l'évènement du jour était
+    // perdu. On lui rend l'évènement, que le MJ réannonce.
+    if (state.phase === "day") {
+      if (state.gameStats && state.gameStats.dayCount > 0) state.gameStats.dayCount--;
+      if (state.activeCouncilEvent && !state.pendingCouncilEvent) {
+        state.pendingCouncilEvent = state.activeCouncilEvent;
+        state.activeCouncilEvent = null;
+      }
+    }
     // Re-appelle setPhase pour réinstaller proprement les timers (idempotent)
     phases.setPhase(state.phase);
   });

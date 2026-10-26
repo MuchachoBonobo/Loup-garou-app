@@ -41,67 +41,67 @@
   },
   "cupid": {
     "xy": [
-      0.36,
-      0.18
+      0.35,
+      0.24
     ],
-    "bri": 140,
+    "bri": 230,
     "transition": 1200
   },
   "salvateur": {
     "xy": [
-      0.17,
-      0.4
+      0.23,
+      0.37
     ],
-    "bri": 130,
+    "bri": 230,
     "transition": 1200
   },
   "sisters": {
     "xy": [
-      0.4,
-      0.25
+      0.37,
+      0.28
     ],
-    "bri": 180,
+    "bri": 230,
     "transition": 1500,
     "effect": "slow_pulse"
   },
   "wolves": {
     "xy": [
-      0.68,
-      0.31
+      0.57,
+      0.32
     ],
-    "bri": 60,
+    "bri": 254,
     "transition": 1500
   },
   "seer": {
     "xy": [
-      0.3,
-      0.13
+      0.31,
+      0.21
     ],
-    "bri": 110,
+    "bri": 230,
     "transition": 1200
   },
   "petiteFille": {
     "xy": [
-      0.5,
-      0.35
+      0.43,
+      0.34
     ],
-    "bri": 110,
+    "bri": 230,
     "transition": 1200
   },
   "corbeau": {
     "xy": [
-      0.18,
-      0.1
+      0.24,
+      0.19
     ],
-    "bri": 80,
+    "bri": 220,
     "transition": 1200
   },
   "witch": {
     "xy": [
-      0.21,
-      0.55
+      0.26,
+      0.46
     ],
-    "bri": 120,
+    "bri": 230,
     "transition": 1200
   },
   "chasseur": {
@@ -377,10 +377,10 @@
   },
   "amoureux": {
     "xy": [
-      0.42,
-      0.24
+      0.38,
+      0.28
     ],
-    "bri": 120,
+    "bri": 230,
     "transition": 1200,
     "effect": "slow_pulse"
   }

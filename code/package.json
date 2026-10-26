@@ -9,7 +9,8 @@
     "test:ui": "node tests/ui-headless.js",
     "test:hue": "node outils/test-hue.js",
     "lint": "eslint .",
-    "test:banc": "node outils/banc-robots.js 3111 3 1"
+    "test:banc": "node outils/banc-robots.js 3111 3 1",
+    "test:rythme": "node tests/rythme-mj.js"
   },
   "keywords": [],
   "author": "",
