@@ -106,10 +106,10 @@
   },
   "chasseur": {
     "xy": [
-      0.62,
-      0.34
+      0.47,
+      0.41
     ],
-    "bri": 180,
+    "bri": 200,
     "transition": 400,
     "effect": "slow_pulse"
   },
@@ -123,10 +123,10 @@
   },
   "mayorTransfer": {
     "xy": [
-      0.5,
-      0.42
+      0.45,
+      0.41
     ],
-    "bri": 180,
+    "bri": 220,
     "transition": 800
   },
   "council.riot": {
@@ -366,5 +366,22 @@
     ],
     "bri": 25,
     "transition": 2000
+  },
+  "crepuscule": {
+    "xy": [
+      0.53,
+      0.41
+    ],
+    "bri": 90,
+    "transition": 3000
+  },
+  "amoureux": {
+    "xy": [
+      0.42,
+      0.24
+    ],
+    "bri": 120,
+    "transition": 1200,
+    "effect": "slow_pulse"
   }
 }

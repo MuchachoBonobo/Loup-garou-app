@@ -6,7 +6,7 @@
 
 const {
   state, alivePlayers, playerName, hasRole, isMJ, fisherYates, resetActivity,
-  CUPID_SOUND_MS, SISTERS_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS, PETITE_FILLE_ACK_TIMEOUT_MS,
+  CUPID_SOUND_MS, SISTERS_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS, PETITE_FILLE_ACK_TIMEOUT_MS,
 } = require('./state');
 
 const lights = require('./lights');
@@ -22,7 +22,7 @@ const { ROLE_LABEL } = deathNarratives;
 // étapes de nuit, y compris la pause du MJ (« nightPause ») : c'est pendant cette pause
 // que la nuit se résout quand le MJ la rythme. Les phases de la mission sont rangées ici
 // depuis toujours (elles précèdent la première nuit).
-const PHASES_DE_NUIT = ["cupid", "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch",
+const PHASES_DE_NUIT = ["cupid", "amoureux", "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch",
   "nightPause", "mission", "missionVote", "missionBonus"];
 
 function buildDeath(id, cause) {
@@ -68,7 +68,30 @@ function resolveMissionCards() {
 
   // Enregistre le résultat mais ne le révèle PAS encore au broadcast.
   // → la révélation se fera dans doResolveNight() via missionReveal.
-  startFirstNight();
+  ouvrirNuit(true);
+}
+
+// ===== ENTRÉE DE LA NUIT (rythme du MJ) =====
+// Après le jour (vote, vote passé, Idiot, tir du Chasseur, transmission d'écharpe) et après
+// l'élection du maire (ou la mission) : avec un MJ, phase « crepuscule » jusqu'à son
+// « 🌙 Lancer la nuit » — les téléphones gardent la carte du mort ou du maire jusque-là
+// (demande d'Alexandre, 2026-10-26). En mode autonome, la nuit démarre aussitôt.
+function ouvrirNuit(premiere) {
+  if (state.pendingEndGameTimer) return;
+  if (!nuitRythmeeParMJ()) { if (premiere) startFirstNight(); else startNightSequence(); return; }
+  state.nuitEnAttente = premiere ? "premiere" : "suivante";
+  phases.setPhase("crepuscule");
+  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("nuitEnAttente");
+}
+function lancerNuitAttendue() {
+  if (state.phase !== "crepuscule") return;
+  const premiere = state.nuitEnAttente === "premiere";
+  state.nuitEnAttente = null;
+  if (premiere) startFirstNight(); else startNightSequence();
+}
+function handleMJLancerNuit(socket) {
+  if (!isMJ(socket.id)) return;
+  lancerNuitAttendue();
 }
 
 // ===== NUIT =====
@@ -88,7 +111,7 @@ function startFirstNight() {
 // suivante ». Le rôle suivant ne se réveille (et son écran ne s'allume) qu'à ce clic :
 // un joueur qui tarde à fermer les yeux ne voit pas qui se réveille après lui.
 const LIBELLES_ETAPES_NUIT = {
-  cupid: "💘 Cupidon", sisters: "👯‍♀️ Les Sœurs jumelles", salvateur: "🛡 Le Salvateur",
+  cupid: "💘 Cupidon", amoureux: "💘 Les Amoureux", sisters: "👯‍♀️ Les Sœurs jumelles", salvateur: "🛡 Le Salvateur",
   wolves: "🐺 Les Loups-Garous", seer: "🔮 La Voyante", petiteFille: "👧 La Petite Fille",
   corbeau: "🪶 Le Corbeau", witch: "🧪 La Sorcière", aube: "☀️ Le lever du jour"
 };
@@ -116,6 +139,12 @@ function lancerEtapeNuit(etape) {
   if (state.pendingEndGameTimer) return;  // partie déjà gagnée (voir allerEtapeNuit)
   state.etapeNuitSuivante = null;
   if (etape === "aube") { resoudreNuit(); return; }
+  if (etape === "amoureux") {
+    // Chaque amoureux voit le prénom (et la photo, côté téléphone) de l'autre ; 15 s pour se regarder
+    state.amoureuxFin = Date.now() + AMOUREUX_TIMEOUT_MS;
+    const [a, b] = state.lovers;
+    [[a, b], [b, a]].forEach(([moi, autre]) => state.io.to(moi).emit("amoureuxTurn", { partenaireId: autre, partenaire: playerName(autre), dureeMs: AMOUREUX_TIMEOUT_MS }));
+  }
   if (etape === "sisters") {
     const aliveSisters = Object.keys(state.roles).filter(id => state.roles[id] === "Sœurs" && !state.deadPlayers.includes(id));
     // Option B : on n'envoie PAS les noms aux sœurs — elles se reconnaissent IRL.
@@ -136,7 +165,10 @@ function lancerEtapeNuit(etape) {
   }
   if (etape === "witch") {
     const witchId = Object.keys(state.roles).find(wid => state.roles[wid] === "Sorcière" && !state.deadPlayers.includes(wid));
-    if (witchId) state.io.to(witchId).emit("nightVictim", state.nightTarget);
+    if (witchId) {
+      state.io.to(witchId).emit("etatPotions", { vie: !state.witchSaveUsed, mort: !state.witchKillUsed });
+      state.io.to(witchId).emit("nightVictim", state.nightTarget);
+    }
   }
   phases.setPhase(etape);
 }
@@ -384,10 +416,15 @@ function resoudreNuit() {
   const missionResultToReveal = (state.mission.active && !state.mission.resultRevealed) ? state.mission.result : null;
   if (missionResultToReveal !== null) state.mission.resultRevealed = true;
 
+  const bonusMission = state.mission.active && state.mission.result === "success" && !state.mission.bonusDone
+    && state.mayor && !state.deadPlayers.includes(state.mayor);
+  const annonceParMJ = require('./council').annonceMatinParMJ() && !state.pendingEndGame
+    && state.phase !== "mayorTransfer" && !bonusMission;
   state.io.emit("dawnResult", {
     deaths, saved: savedThisNight, witchKilled: witchKillThisNight,
     nightNum: state.gameStats.nightCount,
-    missionResult: missionResultToReveal
+    missionResult: missionResultToReveal,
+    annonceParMJ
   });
   // Flash au moment de l'annonce des morts (pas dans killPlayer — mauvais timing)
   try {
@@ -609,7 +646,7 @@ function performChasseurShot(shooterId, targetId) {
       return;
     }
     // BUG FIX : startNightSequence pour passer par Sœurs/Salvateur si jour→nuit
-    if (postCtx === "day") { startNightSequence(); } else { phases.setPhase("day"); }
+    if (postCtx === "day") { ouvrirNuit(false); } else { phases.setPhase("day"); }
   }
 }
 
@@ -660,7 +697,7 @@ function performMayorTransfer(targetId) {
     if (!phases.checkVictory()) phases.setPhase("day");
   } else if (ctx === "chasseurFromDay") {
     // Chasseur venait d'un VOTE DU JOUR → après le transfert, on enchaîne la nuit
-    if (!phases.checkVictory()) startNightSequence();
+    if (!phases.checkVictory()) ouvrirNuit(false);
   } else if (ctx === "night") {
     if (!phases.checkVictory()) {
       if (state.mission.active && state.mission.result === "success" && !state.mission.bonusDone
@@ -672,7 +709,7 @@ function performMayorTransfer(targetId) {
     }
   } else if (ctx === "day") {
     // Maire mort pendant le vote du jour → enchaîner la nuit
-    if (!phases.checkVictory()) startNightSequence();
+    if (!phases.checkVictory()) ouvrirNuit(false);
   } else {
     // Contexte inattendu/vide : retour au jour par sécurité
     log.warn('performMayorTransfer', 'ctx inconnu=' + ctx + ' → fallback setPhase(day)');
@@ -768,7 +805,8 @@ function assignAndStart(config, playerList) {
       // Refonte épuration jour : le client a besoin de connaître le mode pour
       // décider d'afficher l'écran de mort épuré (deadFullScreen) plutôt que la
       // vision spectateur complète (deadVisionPanel).
-      mjPilotedDay: !!state.mjPilotedDay
+      mjPilotedDay: !!state.mjPilotedDay,
+      nuitParMJ: !state.autoMode
     });
   });
 
@@ -812,6 +850,21 @@ function handleCupidChoice(socket, data) {
       state.skipWolvesSoundOnce = false;
     }, CUPID_SOUND_MS);
   }
+  reveillerAmoureux();
+}
+
+// Après le choix de Cupidon : « Cupidon, ferme les yeux » (pause du MJ), puis les deux amoureux
+// se réveillent et se regardent (demande d'Alexandre, 2026-10-26). Sans amoureux, la nuit continue.
+function reveillerAmoureux() {
+  if (state.lovers.length === 2) allerEtapeNuit("amoureux");
+  else startNightSequence();
+}
+
+// Fin des 15 s des amoureux : la nuit continue (Sœurs, Salvateur ou Loups, après la pause du MJ)
+function finAmoureux() {
+  if (state.phase !== "amoureux") return;
+  clearTimeout(state.amoureuxTimeout); state.amoureuxTimeout = null;
+  state.amoureuxFin = null;
   startNightSequence();
 }
 
@@ -1131,7 +1184,8 @@ Object.assign(module.exports, {
   assignAndStart,
   // Handlers
   handleCupidChoice, handleSalvateurAction, demarrerTimerSoeurs, handleSeerChoice, handleSeerDone, handleCorbeauAction,
-  startFirstNight,
+  startFirstNight, reveillerAmoureux, finAmoureux,
+  ouvrirNuit, lancerNuitAttendue, handleMJLancerNuit,
   seerReveal, advanceAfterSeer,
   petiteFilleReveal, advanceAfterPetiteFille, handlePetiteFilleChoice, handlePetiteFilleDone,
   handleWitchSave, handleWitchKill, handleWitchDone, handleResolveNight,

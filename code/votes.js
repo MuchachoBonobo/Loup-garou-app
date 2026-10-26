@@ -11,6 +11,7 @@ const roles   = require('./roles');
 const log     = require('./logger');
 const lights  = require('./lights');
 const deathNarratives = require('./death-narratives');
+const council = require('./council');
 
 // Garde-fou : si le Maire ne tranche jamais une égalité (mort, déconnecté,
 // absent), on départage automatiquement au hasard après ce délai.
@@ -121,7 +122,7 @@ function performLockMayorVote() {
         });
         phases.setPhase("mission");
       } else {
-        roles.startFirstNight();
+        roles.ouvrirNuit(true);
       }
     }, 5000);
   });
@@ -237,7 +238,7 @@ function maybeRunBotForTiebreak() {
           if (phases.checkVictory()) return;
           // BUG FIX : routage via startNightSequence pour que Sœurs et Salvateur
           // jouent à toutes les nuits (avant, setPhase("wolves") les skippait).
-          roles.startNightSequence();
+          roles.ouvrirNuit(false);
         }
       }, 8200);
     }
@@ -284,7 +285,7 @@ function finishDayTiebreak(winnerId) {
     state.io.emit("voteTimerEnd");
     if (state.phase !== "lobby" && state.phase !== "chasseur" && state.phase !== "mayorTransfer") {
       if (phases.checkVictory()) return;
-      roles.startNightSequence();
+      roles.ouvrirNuit(false);
     }
   }, 8200);
 }
@@ -306,7 +307,7 @@ function handleIdiotDayVoteSurvival(victimId) {
   state.io.emit("votesDayMJ", state.votesDay);
   state.io.emit("dayCountsPublic", {});
   state.io.emit("voteTimerEnd");
-  if (state.phase !== "chasseur" && state.phase !== "mayorTransfer") roles.startNightSequence();
+  if (state.phase !== "chasseur" && state.phase !== "mayorTransfer") roles.ouvrirNuit(false);
   return true;
 }
 
@@ -354,9 +355,18 @@ function resolveDayVote() {
   // pendant le suspense, est ignoré (avant : vote résolu deux fois, plusieurs nuits lancées).
   if (state.phase !== "day" || state.resolutionJourEnCours) return;
   state.resolutionJourEnCours = true;
+  // Écran MJ : boutons du vote grisés jusqu'à la fin du jour
+  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("voteClosMJ");
   log.info('resolveDayVote', 'votes=', state.votesDay);
   clearVoteTimer(); state.lockedVoters.clear();
   state.nbVotesJour++;  // le 1er vote est celui où l'Ange peut gagner
+
+  // Mémoire des bulletins (par prénom : stable malgré les reconnexions) pour les médailles
+  // « Flair » et « Insoupçonnable » de fin de partie
+  if (!Array.isArray(state.gameStats.voteLog)) state.gameStats.voteLog = [];
+  state.gameStats.voteLog.push(Object.entries(state.votesDay)
+    .filter(([votant]) => !votant.startsWith("__corbeau"))
+    .map(([votant, cible]) => ({ votant: playerName(votant), cible: playerName(cible), cibleRole: state.roles[cible] })));
 
   if (state.corbeauTarget && state.corbeauTarget !== "skip" && !state.deadPlayers.includes(state.corbeauTarget)) {
     state.votesDay["__corbeau_1__"] = state.corbeauTarget;
@@ -415,7 +425,7 @@ function resolveDayVote() {
         if (phases.checkVictory()) return;
         // BUG FIX : routage via startNightSequence pour que Sœurs et Salvateur
         // jouent à toutes les nuits (avant, setPhase("wolves") les skippait).
-        roles.startNightSequence();
+        roles.ouvrirNuit(false);
       }
     }, 8200);
   });
@@ -423,6 +433,10 @@ function resolveDayVote() {
 
 function startDayVote(mode) {
   if (state.phase !== "day" || state.resolutionJourEnCours) return;
+  // Vote lancé avant la fin de l'annonce du matin : l'évènement est annoncé d'abord, la carte
+  // des morts se ferme sur les téléphones ; l'évènement tout juste annoncé reste à lire
+  const vientDEtreAnnonce = council.annoncerEvenement();
+  council.finAnnonceMatin(!vientDEtreAnnonce);
   log.info('startDayVote', 'mode=' + mode, 'event=' + (state.activeCouncilEvent || 'none'));
   // CONSEIL DES MORTS — overrides (BUG FIX 2 : pas de fallback mode=1 qui écrasait autoVoteMode)
   if      (state.activeCouncilEvent === "riot")     mode = 5;
@@ -578,7 +592,7 @@ function handleSkipDayVote(socket) {
   state.io.emit("voteTimerEnd");
   state.io.emit("daySkipped");
   // BUG FIX : passage par startNightSequence pour les Sœurs/Salvateur
-  roles.startNightSequence();
+  roles.ouvrirNuit(false);
 }
 
 function handleVoteWolf(socket, id) {
@@ -692,7 +706,7 @@ function handleTiebreakChoice(socket, targetId) {
       if (state.phase !== "lobby" && state.phase !== "chasseur" && state.phase !== "mayorTransfer") {
         if (phases.checkVictory()) return;
         // BUG FIX : startNightSequence pour Sœurs/Salvateur à toutes les nuits
-        roles.startNightSequence();
+        roles.ouvrirNuit(false);
       }
     }, 8200);
   }

@@ -42,6 +42,8 @@ Passe-la au filtre de `code/CONTEXT.md` :
 3. Est-ce que ça tient pour un public d'inconnus ?
 4. Est-ce maintenable en temps libre ?
 
+**Principe d'Alexandre (2026-10-23)** : le plaisir n'est pas sur le téléphone. L'application s'efface derrière le jeu : elle le rend plus dynamique et plus fluide, ajoute le Conseil des Morts et de petites fonctionnalités, mais chaque fois qu'elle fait regarder un écran, ce doit être pour une **grosse plus-value** — sinon c'est juste trop d'écran. Idées déjà écartées pour cette raison (voir `code/HANDOFF.md`) : chronique de fin de partie détaillée, « dernières paroles » chronométrées.
+
 Si tu hésites sur une priorité ou une direction, **demande** plutôt que de partir tête baissée.
 
 ## Mise à jour de la documentation

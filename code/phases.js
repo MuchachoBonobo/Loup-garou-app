@@ -5,7 +5,7 @@ const {
   state, alivePlayers, playerName, fisherYates, computeCounts, isMJ, resetActivity,
   WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS,
   PETITE_FILLE_TIMEOUT_MS,
-  SISTERS_TIMEOUT_MS,
+  SISTERS_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS,
   MISSION_TEAM_TIMEOUT_MS, MISSION_CARD_TIMEOUT_MS, MISSION_BONUS_TIMEOUT_MS,
   MAYOR_AUTO_TIMEOUT_MS, WOLVES_AUTO_TIMEOUT_MS,
@@ -20,6 +20,7 @@ const roles     = require('./roles');
 const votes     = require('./votes');
 const log       = require('./logger');
 const badges    = require('./badges');
+const soiree    = require('./soiree');
 
 // ===== STUCK TIMER =====
 function startStuckTimer() {
@@ -78,14 +79,22 @@ function setPhase(p) {
 
     // ===== CONSEIL DES MORTS =====
     council.clearCouncilEffects();
+    state.evenementAnnonce = false;
     if (state.pendingCouncilEvent) {
       state.activeCouncilEvent = state.pendingCouncilEvent;
       state.pendingCouncilEvent = null;
-      setTimeout(() => {
-        if (state.phase === "day" && state.activeCouncilEvent) council.applyCouncilEvent(state.activeCouncilEvent);
-      }, 3000);
+      // Avec un MJ, l'évènement attend son « 📜 Annoncer l'évènement » ; sinon, 3 s après l'aube
+      if (!council.annonceMatinParMJ()) {
+        setTimeout(() => { if (state.phase === "day" && state.activeCouncilEvent) council.annoncerEvenement(); }, 3000);
+      }
     } else {
       state.activeCouncilEvent = null;
+    }
+    // Annonce du matin menée par le MJ : il voit l'évènement à lire et les boutons pour enchaîner
+    state.annonceMatinEnCours = council.annonceMatinParMJ();
+    if (state.annonceMatinEnCours && state.mjSocketId) {
+      const ev = state.activeCouncilEvent && council.COUNCIL_EVENTS[state.activeCouncilEvent];
+      state.io.to(state.mjSocketId).emit("matinEnAttente", { evenement: ev ? { id: ev.id, title: ev.title, narrative: ev.narrative } : null });
     }
     // Conseil des morts : se déclenche chaque début de journée dès qu'il y a au moins
     // COUNCIL_TRIGGER_THRESHOLD mort(s) (1 aujourd'hui). Un nouveau vote est proposé à chaque
@@ -98,6 +107,7 @@ function setPhase(p) {
   }
   // Quand on QUITTE le jour : on résout le conseil en cours
   if (previousPhase === "day" && p !== "day") {
+    state.annonceMatinEnCours = false;
     if (state.councilOptions) council.resolveCouncil();
     state.activeCouncilEvent = null;
     council.clearCouncilEffects();
@@ -240,6 +250,20 @@ function installPhaseTimeouts(p) {
   // avant, que tout le monde avait les yeux fermés (pause « Passer à l'étape suivante »).
   if (p === "sisters") roles.demarrerTimerSoeurs();
 
+  // Amoureux : 15 s pour se regarder, puis la nuit continue
+  if (p === "amoureux") {
+    state.amoureuxTimeout = setTimeout(() => roles.finAmoureux(), AMOUREUX_TIMEOUT_MS);
+  }
+
+  // Crépuscule : si le MJ ne lance pas la nuit (tablette déconnectée…), elle démarre seule
+  if (p === "crepuscule") {
+    state.nightPauseTimeout = setTimeout(() => {
+      if (state.phase !== "crepuscule") return;
+      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — la nuit commence.");
+      roles.lancerNuitAttendue();
+    }, NIGHT_PAUSE_TIMEOUT_MS);
+  }
+
   // Pause entre deux étapes de nuit : si le MJ ne clique pas (tablette déconnectée…),
   // la nuit continue d'elle-même au bout de NIGHT_PAUSE_TIMEOUT_MS.
   if (p === "nightPause") {
@@ -256,7 +280,7 @@ function installPhaseTimeouts(p) {
       if (state.phase === "mission") {
         state.io.emit("autoResolve", "⏱ Le Maire n'a pas sélectionné son équipe — mission annulée.");
         state.mission.active = false;
-        roles.startFirstNight();
+        roles.ouvrirNuit(true);
       }
     }, MISSION_TEAM_TIMEOUT_MS);
   }
@@ -300,7 +324,7 @@ function installPhaseTimeouts(p) {
         if (checkVictory()) return;
         if (state.mayorTransferPending && state.dyingMayorId) setPhase("mayorTransfer");
         // BUG FIX : startNightSequence pour Sœurs/Salvateur
-        else if (postCtx === "day") roles.startNightSequence();
+        else if (postCtx === "day") roles.ouvrirNuit(false);
         else setPhase("day");
       }
     }, CHASSEUR_TIMEOUT_MS);
@@ -338,6 +362,7 @@ function clearPhaseTimeouts() {
   clearTimeout(state.cupidTimeout);         state.cupidTimeout         = null;
   clearTimeout(state.salvateurTimeout);     state.salvateurTimeout     = null;
   clearTimeout(state.sistersTimeout);       state.sistersTimeout       = null;
+  clearTimeout(state.amoureuxTimeout);      state.amoureuxTimeout      = null;
   state.sistersTimerEnd = null;
   clearTimeout(state.corbeauTimeout);       state.corbeauTimeout       = null;
   clearTimeout(state.chasseurTimeout);      state.chasseurTimeout      = null;
@@ -406,7 +431,7 @@ function runBotsForPhase(p) {
             state.skipWolvesSoundOnce = false;
           }, 4000);
         }
-        roles.startNightSequence();
+        roles.reveillerAmoureux();
       });
     }
   }
@@ -749,6 +774,9 @@ function checkVictory() {
       winner,
       idiotRevealed: state.idiotRevealed,  // BUG FIX 8
     }),
+    // Classement de la soirée (1 point par victoire), mis à jour avec cette partie.
+    // buildSummary n'est appelé qu'une fois par partie (doEnd) : la partie n'est comptée qu'une fois.
+    classement: soiree.enregistrerPartie({ players: state.players, roles: state.roles, lovers: state.lovers, winner }),
   });
 
   const endGame = (winner, msg) => {
@@ -764,6 +792,7 @@ function checkVictory() {
     const doEnd = () => {
       state.players.forEach(p => state.io.to(p.id).emit("deadVision", fullVision));
       state.io.emit("gameSummary", buildSummary(winner));
+      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soireeMJ", soiree.resume());
       state.io.emit("gameEnd", msg);
       try { lights.flash("flash.victory"); } catch (_) {}
       setPhase("lobby");
@@ -902,6 +931,9 @@ function resetGameState(keepPlayers) {
   state.petiteFillePendingResult = null;
   clearTimeout(state.nightPauseTimeout); state.nightPauseTimeout = null;
   state.etapeNuitSuivante = null;
+  state.nuitEnAttente = null;
+  state.annonceMatinEnCours = false;
+  state.evenementAnnonce = false;
   state.aliasIds = {};
   clearTimeout(state.witchTimeout); state.witchTimeout = null;
   clearTimeout(state.cupidTimeout); state.cupidTimeout = null;
@@ -947,7 +979,7 @@ function resetGameState(keepPlayers) {
     dayCount: 0, nightCount: 0,
     firstDead: null, mayorName: null,
     witchSaved: false, witchKilled: false,
-    deathLog: [], survivors: [], seerLog: [], petiteFilleLog: [],
+    deathLog: [], survivors: [], seerLog: [], petiteFilleLog: [], voteLog: [],
     startTime: null
   };
 
@@ -955,7 +987,7 @@ function resetGameState(keepPlayers) {
     const survivingRegistry = {};
     state.players.forEach(p => {
       const key = p.name.toLowerCase();
-      survivingRegistry[key] = { id: p.id, oldId: p.id, name: p.name, role: null, isDead: false };
+      survivingRegistry[key] = { id: p.id, oldId: p.id, name: p.name, role: null, isDead: false, photo: p.photo || null, isBot: !!p.isBot };
     });
     state.playerRegistry = survivingRegistry;
   } else {

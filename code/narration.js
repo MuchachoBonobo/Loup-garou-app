@@ -51,6 +51,13 @@ const NARRATIONS = {
     "Cupidon retourne au silence. Loups-garous, ouvrez les yeux et désignez votre proie."
   ],
 
+  // === Amoureux (après Cupidon) ===
+  "*_to_amoureux": [
+    "Amoureux, ouvrez les yeux. Regardez-vous : vous êtes liés pour la vie… et pour la mort.",
+    "Que les amoureux s'éveillent et se reconnaissent. Si l'un meurt, l'autre le suivra."
+  ],
+  "amoureux_to_nightPause": ["Amoureux, fermez les yeux."],
+
   // === Sœurs jumelles ===
   "*_to_sisters": [
     "Sœurs jumelles, réveillez-vous. Cherchez-vous du regard, sans un mot.",
@@ -172,6 +179,7 @@ const NARRATIONS = {
   "nightPause_to_petiteFille": ["Petite Fille, ouvre les yeux. Désigne trois joueurs : tu sauras si un loup se cache parmi eux."],
   "nightPause_to_corbeau":   ["Corbeau, ouvre les yeux. Qui accuseras-tu demain ?"],
   "nightPause_to_witch":     ["Sorcière, ouvre les yeux. Voici la victime des loups."],
+  "crepuscule_to_nightPause": ["Le village s'endort. Que chacun ferme les yeux.", "La nuit tombe sur le village. Fermez les yeux."],
   "nightPause_to_day":       ["Le jour se lève sur le village. Ouvrez les yeux.", "L'aube pointe. Villageois, réveillez-vous."],
   "nightPause_to_missionBonus": ["Le jour se lève sur une mission réussie. Maire, l'information est à toi."],
 

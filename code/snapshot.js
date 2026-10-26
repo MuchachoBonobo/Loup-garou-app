@@ -66,6 +66,8 @@ function serializeState(state) {
     lastProtectedTarget: state.lastProtectedTarget,
     sistersTimerEnd: state.sistersTimerEnd,
     etapeNuitSuivante: state.etapeNuitSuivante,
+    nuitEnAttente: state.nuitEnAttente,
+    evenementAnnonce: state.evenementAnnonce,
     aliasIds: state.aliasIds,
     // Mission
     mission: state.mission ? {
@@ -138,6 +140,8 @@ function applySnapshot(state, snap) {
   state.lastProtectedTarget = snap.lastProtectedTarget || null;
   state.sistersTimerEnd = snap.sistersTimerEnd || null;
   state.etapeNuitSuivante = snap.etapeNuitSuivante || null;
+  state.nuitEnAttente = snap.nuitEnAttente || null;
+  state.evenementAnnonce = !!snap.evenementAnnonce;
   state.aliasIds = snap.aliasIds || {};
   if (snap.mission) Object.assign(state.mission, snap.mission);
   state.activeCouncilEvent = snap.activeCouncilEvent || null;
@@ -245,6 +249,7 @@ function stopPeriodicSave() {
 }
 
 module.exports = {
+  SNAP_DIR,   // dossier des sauvegardes (aussi utilisé par soiree.js)
   serializeState, applySnapshot,
   saveSnapshot, loadSnapshot, clearSnapshot, dumpCrash,
   startPeriodicSave, stopPeriodicSave, cleanOldCrashes,

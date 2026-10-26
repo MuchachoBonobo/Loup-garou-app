@@ -47,6 +47,7 @@ const phases    = require("./phases");
 const votes     = require("./votes");
 const log       = require("./logger");
 const snapshot  = require("./snapshot");
+const soiree    = require("./soiree");
 
 // Injecte io dans l'état partagé (les modules utilisent state.io)
 state.io = io;
@@ -170,6 +171,7 @@ io.on("connection", socket => {
     state.mjSocketId = socket.id;
     socket.emit("rolesMJ", { roles: state.roles, players: state.players });
     socket.emit("connexionsMJ", etatConnexions());
+    socket.emit("soireeMJ", soiree.resume());
     socket.emit("mjReconnected", {
       phase: state.phase,
       mayor: state.mayor,
@@ -181,7 +183,15 @@ io.on("connection", socket => {
       missionResult: state.mission.result,
       nightTarget: state.nightTarget ? { id: state.nightTarget, name: playerName(state.nightTarget) } : null,
       etapeNuitSuivante: state.phase === "nightPause" ? state.etapeNuitSuivante : null,
-      activeCouncilEvent: (state.phase === "day" && state.activeCouncilEvent && council.COUNCIL_EVENTS[state.activeCouncilEvent])
+      // État du vote du jour, pour griser les bons boutons d'une tablette rechargée
+      voteEnCours:  state.phase === "day" && !!state.voteTimer,
+      voteClos:     state.phase === "day" && (state.resolutionJourEnCours || state.dayResolutionPending),
+      nuitEnAttente: state.phase === "crepuscule",
+      matin: (state.phase === "day" && state.annonceMatinEnCours) ? {
+        evenement: (state.activeCouncilEvent && !state.evenementAnnonce && council.COUNCIL_EVENTS[state.activeCouncilEvent])
+          ? { id: state.activeCouncilEvent, title: council.COUNCIL_EVENTS[state.activeCouncilEvent].title, narrative: council.COUNCIL_EVENTS[state.activeCouncilEvent].narrative }
+          : null } : null,
+      activeCouncilEvent: (state.phase === "day" && state.evenementAnnonce && state.activeCouncilEvent && council.COUNCIL_EVENTS[state.activeCouncilEvent])
         ? { id: state.activeCouncilEvent,
             title: council.COUNCIL_EVENTS[state.activeCouncilEvent].title,
             narrative: council.COUNCIL_EVENTS[state.activeCouncilEvent].narrative }
@@ -337,6 +347,7 @@ io.on("connection", socket => {
         socket.emit("corbeauTurn");
       }
       if (state.phase === "witch" && state.roles[socket.id] === "Sorcière" && !state.deadPlayers.includes(socket.id)) {
+        socket.emit("etatPotions", { vie: !state.witchSaveUsed, mort: !state.witchKillUsed });
         socket.emit("nightVictim", state.nightTarget);
       }
       if (state.phase === "chasseur" && state.currentChasseurShooter === socket.id) {
@@ -345,6 +356,11 @@ io.on("connection", socket => {
       // Voyante reconnectée avant d'avoir confirmé sa vision : on la lui remontre
       if (state.phase === "seer" && state.roles[socket.id] === "Voyante" && state.seerPendingResult) {
         socket.emit("seerResult", state.seerPendingResult);
+      }
+      // Amoureux reconnecté pendant leur réveil : on lui remontre l'autre, avec le temps restant
+      if (state.phase === "amoureux" && state.lovers.includes(socket.id) && state.amoureuxFin) {
+        const autre = state.lovers.find(l => l !== socket.id);
+        socket.emit("amoureuxTurn", { partenaireId: autre, partenaire: playerName(autre), dureeMs: Math.max(0, state.amoureuxFin - Date.now()) });
       }
       // Petite Fille reconnectée avant d'avoir confirmé : on lui remontre la réponse
       // (sans réponse en attente, sa page rouvre seule le choix des 3 joueurs : phase connue)
@@ -424,7 +440,11 @@ io.on("connection", socket => {
   // ===== ATTRIBUTION DES RÔLES =====
   socket.on("assignRoles", config => {
     if (!isMJ(socket.id)) return;
-    state.roles = {};
+    // « 🚀 Lancer la partie » remet tout à zéro, comme « Relancer » : sinon, lancé après
+    // une partie terminée, il gardait les morts, les amoureux et le maire de la précédente,
+    // et les téléphones réaffichaient l'ancien écran de victoire (corrigé le 2026-10-25).
+    phases.resetGameState(true);
+    io.emit("gameReset", { players: state.players });
     roles.assignAndStart(config, state.players);
   });
 
@@ -439,6 +459,20 @@ io.on("connection", socket => {
     state.players.push({ id, name, isBot: true });
     state.playerRegistry[key] = { id, oldId: id, name, role: null, isDead: false, isBot: true };
     io.emit("players", state.players);
+  });
+
+  // Le MJ retire un joueur entre deux parties (croix à côté de son nom, dans le salon).
+  // Son téléphone est prévenu et oublie son prénom, pour ne pas revenir tout seul.
+  socket.on("retirerJoueur", id => {
+    if (!isMJ(socket.id) || state.phase !== "lobby") return;
+    const p = state.players.find(x => x.id === id);
+    if (!p) return;
+    state.players = state.players.filter(x => x.id !== id);
+    delete state.playerRegistry[p.name.toLowerCase()];
+    log.info('player removed by MJ', p.name);
+    if (!p.isBot) io.to(id).emit("retireParMJ");
+    io.emit("players", state.players);
+    envoyerConnexionsMJ();
   });
 
   socket.on("removeBot", () => {
@@ -473,6 +507,15 @@ io.on("connection", socket => {
   socket.on("cupidChoice",     data     => roles.handleCupidChoice(socket, actuel(data)));
   socket.on("salvateurAction", targetId => roles.handleSalvateurAction(socket, actuel(targetId)));
   socket.on("mjEtapeSuivante",   ()  => roles.handleMJEtapeSuivante(socket));
+  // Rythme du MJ : lancer la nuit, annoncer l'évènement, clore l'annonce du matin
+  socket.on("mjLancerNuit",      ()  => roles.handleMJLancerNuit(socket));
+  socket.on("mjAnnoncerEvenement", () => { if (isMJ(socket.id)) council.annoncerEvenement(); });
+  socket.on("mjFinAnnonceMatin", ()  => {
+    if (!isMJ(socket.id) || state.phase !== "day") return;
+    // Évènement pas encore annoncé : il l'est maintenant et reste à lire ; sinon sa carte se ferme avec celle des morts
+    const vientDEtreAnnonce = council.annoncerEvenement();
+    council.finAnnonceMatin(!vientDEtreAnnonce);
+  });
   socket.on("voteWolf",        id       => votes.handleVoteWolf(socket, actuel(id)));
   socket.on("lockWolfVotes",   ()       => votes.handleLockWolfVotes(socket));
   socket.on("wolfConfirm",     ()       => votes.handleWolfConfirm(socket));
@@ -531,6 +574,14 @@ io.on("connection", socket => {
       state.nightMusicPlayed = true;
       io.to(state.mjSocketId).emit("playNightMusic");
     }
+  });
+
+  // ===== CLASSEMENT DE LA SOIRÉE =====
+  // « Nouvelle soirée » (écran MJ) : le classement repart à zéro
+  socket.on("nouvelleSoiree", () => {
+    if (!isMJ(socket.id)) return;
+    soiree.nouvelleSoiree();
+    socket.emit("soireeMJ", soiree.resume());
   });
 
   // ===== REJOUER / RESET =====
@@ -617,7 +668,10 @@ function resynchroniserApresReconnexion(socket) {
   // Sorcière : la victime des loups s'est reconnectée → la Sorcière reçoit le bon identifiant
   if (state.phase === "witch" && state.nightTarget === id) {
     const witchId = Object.keys(state.roles).find(w => state.roles[w] === "Sorcière" && !state.deadPlayers.includes(w));
-    if (witchId) io.to(witchId).emit("nightVictim", state.nightTarget);
+    if (witchId) {
+      io.to(witchId).emit("etatPotions", { vie: !state.witchSaveUsed, mort: !state.witchKillUsed });
+      io.to(witchId).emit("nightVictim", state.nightTarget);
+    }
   }
   // Conseil des Morts en cours : le mort reconnecté retrouve son vote
   if (state.councilOptions && state.deadPlayers.includes(id)) {

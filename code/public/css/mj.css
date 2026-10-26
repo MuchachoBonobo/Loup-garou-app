@@ -47,6 +47,7 @@ body { background:#0a0a0a; color:#eee; font-family:'Segoe UI',Arial,sans-serif; 
 
 .btn       { padding:9px 14px; cursor:pointer; border-radius:7px; border:1px solid #333; background:#1a1a1a; color:#ccc; font-size:13px; transition:all 0.15s; }
 .btn:hover { background:#252525; border-color:#444; }
+.btn:disabled, .btn:disabled:hover { opacity:0.35; cursor:not-allowed; background:#1a1a1a; border-color:#333; color:#888; }
 .btn.primary { background:#0a2a0a; border-color:#00aa33; color:#00ee55; }
 .btn.danger  { background:#2a0a0a; border-color:#aa0000; color:#ff5555; }
 .btn.blue    { background:#0a0a2a; border-color:#4444cc; color:#8888ff; }

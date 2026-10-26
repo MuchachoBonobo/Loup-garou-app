@@ -207,7 +207,9 @@ function applyCouncilEvent(eventId) {
   const ev = COUNCIL_EVENTS[eventId];
   log.info('applyCouncilEvent', eventId, '-', ev.title);
   state.io.emit("councilEventActive", {
-    id: ev.id, title: ev.title, narrative: ev.narrative
+    id: ev.id, title: ev.title, narrative: ev.narrative,
+    // Annoncé par le MJ : les téléphones referment la carte des morts et l'affichent tout de suite
+    parMJ: annonceMatinParMJ()
   });
   // Scène lumineuse spécifique à l'évènement (recouvre la scène "day")
   try { lights.applyScene("council." + ev.id); } catch (_) {}
@@ -258,6 +260,27 @@ function applyCouncilEvent(eventId) {
       state.io.emit("silentDayChatStart");
     }
   }
+}
+
+// ===== ANNONCE DU MATIN (rythme du MJ) =====
+// Avec un MJ (hors mode autonome, jour piloté), c'est lui qui annonce l'évènement du jour et
+// qui ferme la carte des morts : tous les joueurs avancent au même rythme.
+function annonceMatinParMJ() { return !state.autoMode && !!state.mjPilotedDay; }
+
+// Annonce l'évènement du jour s'il ne l'a pas encore été (bouton du MJ, ou filet au lancement du vote)
+function annoncerEvenement() {
+  if (state.phase !== "day" || !state.activeCouncilEvent || state.evenementAnnonce) return false;
+  state.evenementAnnonce = true;
+  applyCouncilEvent(state.activeCouncilEvent);
+  return true;
+}
+
+// Fin de l'annonce du matin : les téléphones referment la carte des morts (et celle de
+// l'évènement si fermerEvenement : bouton « Lancer le débat » du MJ)
+function finAnnonceMatin(fermerEvenement) {
+  if (!state.annonceMatinEnCours) return;
+  state.annonceMatinEnCours = false;
+  state.io.emit("finAnnonceMatin", { fermerEvenement: !!fermerEvenement });
 }
 
 // ===== ABDICATION =====
@@ -364,6 +387,7 @@ module.exports = {
   resolveCouncil,
   clearCouncilEffects,
   applyCouncilEvent,
+  annonceMatinParMJ, annoncerEvenement, finAnnonceMatin,
   handleCouncilVote,
   handleAbdicationChoice,
   handleSilentDayChat,

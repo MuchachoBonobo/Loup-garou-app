@@ -21,7 +21,7 @@ const entre = (a, b) => a + Math.floor(alea() * (b - a + 1));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const SNAP = path.join(os.tmpdir(), "loupgarou-banc-" + PORT);
 
-const ORDRE_NUIT = ["cupid", "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch"];
+const ORDRE_NUIT = ["cupid", "amoureux", "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch"];
 const PHASES_ROLE_NUIT = new Set(ORDRE_NUIT);
 
 let erreursServeur = []; const lignesServeur = [];
@@ -129,6 +129,12 @@ async function partie(num) {
   const minuteurs = [];
   const plus_tard = (ms, f) => minuteurs.push(setTimeout(f, ms));
   mj.on("etapeNuitEnAttente", () => plus_tard(300, () => mj.emit("mjEtapeSuivante")));
+  // Crépuscule : la nuit attend le MJ ; matin : il annonce (ou non) l'évènement, puis le débat
+  mj.on("nuitEnAttente", () => plus_tard(entre(300, 3000), () => mj.emit("mjLancerNuit")));
+  mj.on("matinEnAttente", d => {
+    if (d && d.evenement && alea() < 0.7) plus_tard(1500, () => mj.emit("mjAnnoncerEvenement"));
+    if (alea() < 0.6) plus_tard(2500, () => mj.emit("mjFinAnnonceMatin"));
+  });
   let phaseCourante = null, debutPhase = Date.now(), debutVote = null;
   mj.on("voteStartedMJ", () => { debutVote = Date.now(); });
   // Un vrai MJ reclique si rien ne bouge (un clic tombé pendant une pause est ignoré)
@@ -137,6 +143,7 @@ async function partie(num) {
     if (phaseCourante === "wolves" && depuis > 13000) mj.emit("lockWolfVotes");
     if (phaseCourante === "mayorVote" && depuis > 13000) mj.emit("lockMayorVote");
     if (phaseCourante === "nightPause" && depuis > 4000) mj.emit("mjEtapeSuivante");
+    if (phaseCourante === "crepuscule" && depuis > 5000) mj.emit("mjLancerNuit");
     if (phaseCourante === "day" && cfg.mjPilotedDay && !debutVote && depuis > 9000) mj.emit("startVote", 1);
     if (phaseCourante === "day" && debutVote && Date.now() - debutVote > entre(9000, 15000)) mj.emit("lockDayVotes");
   }, 2500);
@@ -155,12 +162,14 @@ async function partie(num) {
         if (pf && vivants().filter(id => id !== pf).length < 3) V("Petite Fille réveillée avec moins de 3 autres vivants");
       }
       if (p === "cupid" && premiereNuitFaite) V("Cupidon réveillé après la 1re nuit");
+      if (p === "amoureux" && !nuitEnCours.includes("cupid")) V("amoureux réveillés sans Cupidon cette nuit");
       const dernier = nuitEnCours[nuitEnCours.length - 1];
       if (dernier && ORDRE_NUIT.indexOf(p) <= ORDRE_NUIT.indexOf(dernier)) V(`ordre de nuit incorrect : ${dernier} puis ${p}`);
       nuitEnCours.push(p);
       apresFinDeJour = false;
       premiereNuitFaite = premiereNuitFaite || p !== "cupid";
     }
+    if (p === "crepuscule" && nuitEnCours.length) V("crépuscule en pleine nuit");
     if (p === "day") {
       if (apresFinDeJour) V("deux jours de suite sans nuit");
       apresAube = false; nuitEnCours = [];

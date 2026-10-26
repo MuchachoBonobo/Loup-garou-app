@@ -17,6 +17,7 @@
   <div id="connRow">
     <span id="mjConnDot">🔴</span>
     <span id="mjPhaseDisplay">lobby</span>
+    <span id="mjMaireAffiche" title="Maire du village" style="display:none;font-size:12px;color:#ffe066;background:#1f1a05;border:1px solid #665500;border-radius:4px;padding:2px 8px;"></span>
     <div class="audio-dot" id="dotAmbiance"></div>
     <span id="audioLabel" style="font-size:11px;">Silence</span>
     <button id="pauseBtn" onclick="togglePause()" title="Mettre en pause" style="background:#1a1500;border:1px solid #aaaa00;color:#ffff44;font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;font-weight:bold;">⏸️ Pause</button>
@@ -71,6 +72,16 @@
     ▶ Passer à l'étape suivante
   </button>
   <div style="font-size:11px;color:#6a74a0;margin-top:18px;">Filet de sécurité : la nuit continue d'elle-même après 3 min sans clic.</div>
+</div>
+
+<!-- Crépuscule : la nuit ne démarre qu'au clic du MJ (2026-10-26) -->
+<div id="lancerNuitCard" style="display:none;position:fixed;inset:0;z-index:9994;background:radial-gradient(ellipse at center,#2a1a22 0%,#0c0709 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+  <div style="font-size:11px;color:#d0a08a;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;">Crépuscule</div>
+  <div style="font-size:64px;margin-bottom:22px;line-height:1;">🌆</div>
+  <button onclick="mjLancerNuit()" style="padding:22px 44px;border-radius:14px;border:2px solid #d0a08a;background:rgba(208,160,138,0.22);color:#ffffff;font-size:22px;font-weight:bold;cursor:pointer;">
+    🌙 Lancer la nuit
+  </button>
+  <div style="font-size:11px;color:#8a6a60;margin-top:18px;">Filet de sécurité : la nuit démarre d'elle-même après 3 min sans clic.</div>
 </div>
 
 <!-- Carte récap MJ : ce qui s'est passé pendant le jour et la nuit -->
@@ -177,6 +188,8 @@
 
 <!-- REJOUER -->
 <div id="replayPanel">
+  <div class="section-title">🏆 Classement de la soirée</div>
+  <div id="mjClassement" style="font-size:13px;margin-bottom:12px;"></div>
   <div class="section-title">🔄 Relancer (mêmes joueurs)</div>
   <div class="config-row">
     <div class="config-item">💘 <input id="rp_cupidon" type="number" value="1" min="0"></div>
@@ -211,6 +224,12 @@
     <div class="config-item">🛡<input id="salvateur"  type="number" value="0" min="0"></div>
     <div class="config-item">👯‍♀️<input id="sisters" type="number" value="0" min="0" max="2" step="2" title="0 ou 2 sœurs jumelles"></div>
     <div class="config-item">🎭<input id="mission" type="checkbox" title="Activer la phase de mission"> Mission</div>
+  </div>
+
+  <!-- Classement de la soirée : cumulé sur les parties ; remis à zéro au début d'une prestation -->
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:12px;color:#888;">
+    <span id="mjSoireeInfo">🏆 Classement de la soirée : aucune partie</span>
+    <button class="btn" onclick="nouvelleSoiree()" style="padding:5px 10px;font-size:12px;">🔄 Nouvelle soirée</button>
   </div>
 
   <!-- Mode autonome : la partie tourne sans MJ après le start -->
@@ -287,7 +306,7 @@
       <button class="btn"         onclick="setPhase('witch')">🧪 Sorcière</button>
       <button class="btn blue"    onclick="resolveNight()">🌙 Résoudre nuit</button>
       <button class="btn primary" onclick="setPhase('day')">☀️ Jour</button>
-      <button class="btn"         onclick="skipDayVote()">⏭️ Passer vote</button>
+      <button class="btn"         id="mjBtnPasserVote" onclick="skipDayVote()">⏭️ Passer vote</button>
     </div>
   </div>
 </div>
@@ -317,10 +336,15 @@
   <div class="section-title">Le Jour — Débat &amp; Vote</div>
   <!-- Refonte épuration jour : indicateur d'état du jour (débat vs vote) -->
   <div id="dayStateBanner" style="display:none;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.5;text-align:center;"></div>
+  <!-- Annonce du matin menée par le MJ : morts → évènement → débat (2026-10-26) -->
+  <div id="mjAnnonceMatin" style="display:none;margin-bottom:8px;">
+    <button class="btn primary" id="mjBtnAnnoncerEvenement" onclick="mjAnnoncerEvenement()" style="width:100%;display:none;">📜 Annoncer l'évènement</button>
+    <button class="btn primary" id="mjBtnLancerDebat" onclick="mjLancerDebat()" style="width:100%;">▶ Lancer le débat</button>
+  </div>
   <div id="voteModeLabel" style="font-size:12px;color:#888;">Mode libre 60 s. En pilotage MJ, vous lancez le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).</div>
   <div class="btn-group" style="margin-top:8px;">
-    <button class="btn primary" onclick="launchVote()" style="flex:1;">🚀 Lancer le vote (60s)</button>
-    <button class="btn"         onclick="lockDay()">⏹ Terminer</button>
+    <button class="btn primary" id="mjBtnLancerVote" onclick="launchVote()" style="flex:1;">🚀 Lancer le vote (60s)</button>
+    <button class="btn"         id="mjBtnTerminerVote" onclick="lockDay()">⏹ Terminer</button>
   </div>
   <div id="timerDisplay">--</div>
   <div id="mjTimerBar"><div id="mjTimerBarFill" style="width:100%"></div></div>
@@ -1030,7 +1054,7 @@ socket.on("sistersInfoMJ", data => {
 });
 
 // Phases de nuit (barre de progression et musique de nuit) : une seule liste.
-const MJ_PHASES_NUIT = ['cupid','sisters','salvateur','wolves','seer','petiteFille','corbeau','witch','nightPause'];
+const MJ_PHASES_NUIT = ['cupid','amoureux','sisters','salvateur','wolves','seer','petiteFille','corbeau','witch','nightPause'];
 
 // ===== INDICATEUR PHASE NUIT =====
 function updateNightBar(currentPhase) {
@@ -1052,6 +1076,7 @@ function updateNightBar(currentPhase) {
 
   const steps = [
     { key:'cupid',     label:'💘 Cupidon',    needed: Object.values(roles).includes('Cupidon') },
+    { key:'amoureux',  label:'💞 Amoureux',   needed: Object.values(roles).includes('Cupidon') },
     { key:'sisters',   label:'👯‍♀️ Sœurs',     needed: Object.entries(roles).filter(([id,r])=>r==='Sœurs' && !deadIds.includes(id)).length >= 2 },
     { key:'salvateur', label:'🛡 Salvateur',  needed: Object.values(roles).some(r=>r==='Salvateur') },
     { key:'wolves',    label:'🐺 Loups',      needed: true },
@@ -1102,11 +1127,12 @@ socket.on("phase", p=>{
   document.getElementById("mjPhaseDisplay").innerText = phaseLabel(p);
   updateCheatSheet(p);
   // Refonte épuration jour : entrée en phase day = on repart en débat (pas de vote)
-  if (p === "day") mjVoteRunning = false;
+  if (p === "day") { mjVoteRunning = false; mjEtatVote = "debat"; majBoutonsJour(); }
   refreshDayStateBanner();
   if(p!=="chasseur") document.getElementById("chasseurPanel").style.display="none";
   updateNightBar(p);
   updateMJLayout(p);
+  renderPlayers();   // les croix « retirer » n'existent qu'au salon
   // Cacher l'indicateur "non votés" hors phase de vote
   const mv = document.getElementById("missingVoters");
   if (mv && p!=="day" && p!=="mayorVote") mv.style.display="none";
@@ -1137,6 +1163,9 @@ socket.on("phase", p=>{
   // Grande carte « Passer à l'étape suivante » : visible uniquement entre deux rôles de nuit
   const esc = document.getElementById("etapeSuivanteCard");
   if (esc) esc.style.display = (p === "nightPause") ? "flex" : "none";
+  const lnc = document.getElementById("lancerNuitCard");
+  if (lnc) lnc.style.display = (p === "crepuscule") ? "flex" : "none";
+  if (p !== "day" && _mjMatinEnCours) afficherAnnonceMatin(null);
 });
 
 // ===== MISSION — EVENTS MJ =====
@@ -1210,8 +1239,9 @@ socket.on("dawnResult", data=>{
   else if(mr==="fail") alertMsg += " | 🎭 Mission ÉCHOUÉE";
   showAlert(alertMsg, deaths.length?"info":"success");
   if(!isGameOver) { playAmbiance("day"); _mjDawnContext = true; }
-  // Verrou : les joueurs voient la carte d'aube 7 s + 0,6 s de fermeture → 9 s de sécurité
-  _mjLaunchVoteUnlocksAt = Date.now() + 9000;
+  // Verrou : les joueurs voient la carte d'aube 7 s + 0,6 s de fermeture → 9 s de sécurité.
+  // Avec l'annonce du matin, c'est le MJ qui ferme la carte : pas de verrou.
+  _mjLaunchVoteUnlocksAt = data.annonceParMJ ? 0 : Date.now() + 9000;
 });
 
 socket.on("gameEnd", msg=>{
@@ -1232,7 +1262,14 @@ socket.on("gameEnd", msg=>{
 
 socket.on("mjReconnected", state=>{
   currentPhaseForBar = state.phase || "lobby";
+  if (state.mayor !== undefined) mayorId = state.mayor;
+  renderPlayers();   // croix « retirer » seulement au salon
+  mjEtatVote = state.voteClos ? "resultat" : state.voteEnCours ? "vote" : "debat";
+  mjVoteRunning = mjEtatVote === "vote";
+  majBoutonsJour(); refreshDayStateBanner();
   if (state.activeCouncilEvent) { _mjActiveCouncilEvent = state.activeCouncilEvent.id; afficherBandeauEvenement(state.activeCouncilEvent); }
+  afficherAnnonceMatin(state.matin || null);
+  { const lnc = document.getElementById("lancerNuitCard"); if (lnc) lnc.style.display = state.nuitEnAttente ? "flex" : "none"; }
   if (state.phase === "nightPause") {
     const lib = document.getElementById("etapeSuivanteLibelle");
     if (lib) lib.textContent = LIBELLES_ETAPES_NUIT_MJ[state.etapeNuitSuivante] || "…";
@@ -1285,6 +1322,14 @@ function traduireIdsMJ(nouveauxJoueurs) {
 socket.on("players", p=>{ traduireIdsMJ(p); players=p; renderPlayers(); renderRoles(); });
 socket.on("loversInfo", list=>{ loversIds=list; renderRoles(); });
 socket.on("newMayor", id=>{ const wasNull=!mayorId; mayorId=id; renderRoles(); if(id&&wasNull) playEffect("applause"); });
+// Le maire, toujours visible dans l'en-tête du MJ (demande d'Alexandre, 2026-10-26)
+function afficherMaireMJ() {
+  const el = document.getElementById("mjMaireAffiche");
+  if (!el) return;
+  const m = players.find(p => p.id === mayorId);
+  el.textContent = m ? `🏛️ ${m.name}` : "";
+  el.style.display = m ? "inline" : "none";
+}
 socket.on("mayorVotesMJ",  votes=>{ renderVotes("mayorVotes", votes); renderMissingVoters(votes); });
 socket.on("wolfVotesMJ",   votes=>renderVotes("wolfVotes",  votes));
 socket.on("votesDayMJ",    votes=>{ renderVotes("dayVotes", votes); renderDayCounts(computeCounts(votes)); renderMissingVoters(votes); });
@@ -1416,7 +1461,7 @@ function closeMjVoteDeathCard(){
   const card = document.getElementById("mjVoteDeathCard");
   if (card) card.style.display = "none";
 }
-socket.on("daySkipped",    ()=>showAlert("⏭️ Vote du jour passé.", "info"));
+socket.on("daySkipped",    ()=>{ showAlert("⏭️ Vote du jour passé.", "info"); changerEtatVote("resultat"); });
 socket.on("randomElim",    ()=>showAlert("⚠️ Aucun vote — élimination aléatoire !", "warn"));
 socket.on("loversDeathInfo", data=>{ if(data.name) showAlert(`💔 ${data.name} meurt de chagrin.`,"warn"); });
 socket.on("idiotRevealed", data=>showAlert(`🤡 ${data.name} est l'Idiot du Village !`, "info"));
@@ -1476,10 +1521,12 @@ socket.on("voteStarted", data=>{
   document.getElementById("mjTimerBar").style.display="block";
   startCountdown();
   // Refonte épuration jour : le vote démarre → bascule l'indicateur d'état
-  mjVoteRunning = true; refreshDayStateBanner();
+  mjVoteRunning = true; changerEtatVote("vote");
 });
-socket.on("voteStartedMJ", data=>{ mjEndsAt=data.endsAt; mjTotalMs=data.duration; startCountdown(); mjVoteRunning = true; refreshDayStateBanner(); });
+socket.on("voteStartedMJ", data=>{ mjEndsAt=data.endsAt; mjTotalMs=data.duration; startCountdown(); mjVoteRunning = true; changerEtatVote("vote"); });
 socket.on("voteTimerEnd",()=>{
+  if (currentPhaseForBar === "day") mjEtatVote = "resultat";
+  majBoutonsJour();
   stopCountdown();
   document.getElementById("voteModeLabel").innerText="✅ Vote résolu";
   document.getElementById("timerDisplay").innerText="0s";
@@ -1547,12 +1594,43 @@ socket.on("etapeNuitEnAttente", data => {
   const esc = document.getElementById("etapeSuivanteCard");
   if (esc) esc.style.display = "flex";
 });
+// ===== RYTHME DU MJ : crépuscule et annonce du matin =====
+socket.on("nuitEnAttente", () => { const c = document.getElementById("lancerNuitCard"); if (c) c.style.display = "flex"; });
+function mjLancerNuit() {
+  socket.emit("mjLancerNuit");
+  const c = document.getElementById("lancerNuitCard");
+  if (c) c.style.display = "none";
+}
+// Matin : { evenement: {id,title,narrative} | null } — l'évènement attend le clic du MJ
+let _mjMatinEnCours = false;
+function afficherAnnonceMatin(matin) {
+  _mjMatinEnCours = !!matin;
+  const bloc = document.getElementById("mjAnnonceMatin");
+  if (!bloc) return;
+  bloc.style.display = matin ? "block" : "none";
+  const ev = matin && matin.evenement;
+  const btnEv = document.getElementById("mjBtnAnnoncerEvenement");
+  btnEv.textContent = ev ? `📜 Annoncer l'évènement : ${ev.title}` : "";
+  btnEv.style.display = ev ? "block" : "none";
+  document.getElementById("mjBtnLancerDebat").style.display = ev ? "none" : "block";
+  majBoutonsJour(); refreshDayStateBanner();
+}
+socket.on("matinEnAttente", d => afficherAnnonceMatin(d || {}));
+function mjAnnoncerEvenement() {
+  socket.emit("mjAnnoncerEvenement");
+  afficherAnnonceMatin({ evenement: null });
+}
+function mjLancerDebat() {
+  socket.emit("mjFinAnnonceMatin");
+  afficherAnnonceMatin(null);
+}
+
 function mjEtapeSuivante(){
   socket.emit("mjEtapeSuivante");
   const esc = document.getElementById("etapeSuivanteCard");
   if (esc) esc.style.display = "none";
 }
-const LIBELLES_ETAPES_NUIT_MJ = { cupid:"💘 Cupidon", sisters:"👯‍♀️ Les Sœurs jumelles", salvateur:"🛡 Le Salvateur",
+const LIBELLES_ETAPES_NUIT_MJ = { cupid:"💘 Cupidon", amoureux:"💘 Les Amoureux", sisters:"👯‍♀️ Les Sœurs jumelles", salvateur:"🛡 Le Salvateur",
   wolves:"🐺 Les Loups-Garous", seer:"🔮 La Voyante", petiteFille:"👧 La Petite Fille", corbeau:"🪶 Le Corbeau", witch:"🧪 La Sorcière", aube:"☀️ Le lever du jour" };
 
 
@@ -1583,6 +1661,33 @@ function discardCrashRecovery() {
 socket.on("gameRestored", data => {
   showAlert(`♻️ Partie restaurée (phase ${data.phase}) — invite les joueurs à se reconnecter.`, "warn");
 });
+// ===== CLASSEMENT DE LA SOIRÉE =====
+function nouvelleSoiree() {
+  if (!confirm("Commencer une nouvelle soirée ? Le classement actuel sera remis à zéro.")) return;
+  socket.emit("nouvelleSoiree");
+  showAlert("🔄 Nouvelle soirée : classement remis à zéro.", "success");
+}
+function renderClassementMJ(classement) {
+  const div = document.getElementById("mjClassement");
+  if (!div) return;
+  if (!classement || !classement.length) { div.innerHTML = "<span style='color:#555;font-size:12px;'>Aucune partie terminée ce soir.</span>"; return; }
+  const m = r => r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : `${r}.`;
+  div.innerHTML = classement.map(c =>
+    `<div style="display:flex;gap:8px;padding:2px 0;color:#ccc;"><span style="width:24px;text-align:center;">${m(c.rang)}</span><span style="flex:1;">${c.nom}</span><span style="color:#888;">${c.points} pt${c.points > 1 ? "s" : ""}</span></div>`
+  ).join("");
+}
+socket.on("soireeMJ", d => {
+  const info = document.getElementById("mjSoireeInfo");
+  const n = (d && d.parties) || 0;
+  if (info) info.innerText = n ? `🏆 Classement de la soirée : ${n} partie${n > 1 ? "s" : ""} jouée${n > 1 ? "s" : ""}` : "🏆 Classement de la soirée : aucune partie";
+  renderClassementMJ(d && d.classement);
+});
+
+function retirerJoueur(id) {
+  const p = players.find(x => x.id === id);
+  if (!p || !confirm(`Retirer ${p.name} de la partie ?`)) return;
+  socket.emit("retirerJoueur", id);
+}
 function addBot()     { socket.emit("addBot"); }
 function removeBot()  { socket.emit("removeBot"); }
 function resetGame()  { socket.emit("reset"); }
@@ -1599,6 +1704,7 @@ function launchVote() {
     return;
   }
   socket.emit("startVote", 1);
+  if (_mjMatinEnCours) afficherAnnonceMatin(null);
   playEffect("church_bell");
 }
 function mjSendDeadChat(){ const inp=document.getElementById("mjDeadChatText"); const t=inp.value.trim(); if(!t)return; socket.emit("deadChat",{text:t}); inp.value=""; }
@@ -1629,21 +1735,23 @@ function replayGame(){
 // les modes 2/4/5 sont déclenchés uniquement par un évènement du Conseil des Morts).
 
 function phaseLabel(p){
-  return{lobby:"lobby",mayorVote:"🏛️ Vote Maire",cupid:"💘 Cupidon",sisters:"👯‍♀️ Sœurs jumelles",
+  return{lobby:"lobby",mayorVote:"🏛️ Vote Maire",cupid:"💘 Cupidon",amoureux:"💞 Amoureux",sisters:"👯‍♀️ Sœurs jumelles",
          salvateur:"🛡 Salvateur",wolves:"🐺 Loups",
-         seer:"🔮 Voyante",petiteFille:"👧 Petite Fille",corbeau:"🪶 Corbeau",witch:"🧪 Sorcière",nightPause:"🌙 Entre deux rôles",
+         seer:"🔮 Voyante",petiteFille:"👧 Petite Fille",corbeau:"🪶 Corbeau",witch:"🧪 Sorcière",nightPause:"🌙 Entre deux rôles",crepuscule:"🌆 Crépuscule",
          chasseur:"🔫 Chasseur",day:"☀️ Jour",mayorTransfer:"🏛️ Transfert Maire",
          mission:"🎭 Mission — Équipe",missionVote:"🎭 Mission — Vote",missionBonus:"🔍 Mission — Bonus"}[p]||p;
 }
 
 // ===== CHEAT SHEET MJ — aide-mémoire contextuel par phase =====
 const MJ_CHEATSHEET = {
+  crepuscule:   { title:"🌆 Crépuscule",           lines:["Les téléphones montrent encore le résultat", "Laisse le village réagir", "Puis « 🌙 Lancer la nuit » : « Le village s'endort »"] },
   nightPause:   { title:"🌙 Entre deux rôles",     lines:["« … ferme les yeux »", "Vérifie que tout le monde a bien les yeux fermés", "Puis clique sur « Passer à l'étape suivante »"] },
   mayorVote:    { title:"🏛️ Vote du Maire",     lines:["Demande au village d'élire son maire", "Le maire tranche en cas d'égalité", "Quand tout le monde a voté, clique sur « Valider le Maire »"] },
   cupid:        { title:"💘 Cupidon",             lines:["« Cupidon, ouvre les yeux »", "Il désigne 2 amoureux (en silence)", "« Cupidon, ferme les yeux »"] },
+  amoureux:     { title:"💞 Les Amoureux",         lines:["« Amoureux, ouvrez les yeux et regardez-vous »", "Chacun voit l'autre sur son téléphone — 15 s qui démarrent seules", "« Amoureux, fermez les yeux »"] },
   sisters:      { title:"👯‍♀️ Sœurs jumelles",  lines:["Vérifie que tout le monde dort", "« Sœurs jumelles, ouvrez les yeux »", "Les 20 s démarrent toutes seules à leur réveil", "À la fin, la nuit marque une pause comme pour les autres rôles"] },
   salvateur:    { title:"🛡 Salvateur",            lines:["« Salvateur, ouvre les yeux »", "Il pointe qui il protège (≠ d'hier)", "« Salvateur, ferme les yeux »"] },
-  wolves:       { title:"🐺 Loups-Garous",         lines:["« Loups-garous, ouvrez les yeux »", "Ils désignent une proie en silence", "Validation auto si consensus, sinon clique « Valider l'attaque »", "« Loups-garous, fermez les yeux »"] },
+  wolves:       { title:"🐺 Loups-Garous",         lines:["« Loups-garous, ouvrez les yeux »", "Ils désignent une proie en silence", "Quand ils sont d'accord, clique « Valider l'attaque »", "« Loups-garous, fermez les yeux »"] },
   seer:         { title:"🔮 Voyante",              lines:["« Voyante, ouvre les yeux »", "Elle pointe un joueur — tu lui montres son rôle silencieusement", "« Voyante, ferme les yeux »"] },
   petiteFille:  { title:"👧 Petite Fille",         lines:["« Petite Fille, ouvre les yeux »", "Elle désigne 3 joueurs sur son téléphone (pas elle-même)", "Son écran lui dit s'il y a au moins un loup parmi eux — la réponse s'affiche aussi chez toi", "La nuit attend son « OK, j'ai vu »", "« Petite Fille, ferme les yeux »"] },
   corbeau:      { title:"🪶 Corbeau",              lines:["« Corbeau, ouvre les yeux »", "Il désigne un joueur (ou passe) — 2 votes contre demain", "« Corbeau, ferme les yeux »"] },
@@ -1673,16 +1781,54 @@ function updateCheatSheet(p) {
 // raconte) ou de VOTE (joueurs sur leur téléphone). Aide le MJ à savoir où il
 // en est et quoi faire ensuite.
 let mjVoteRunning = false;
+// Étape du jour vue par le MJ : "debat" (vote pas encore lancé), "vote" (en cours) ou
+// "resultat" (vote clos : suspense, égalité, élimination — jusqu'à la nuit). Elle décide
+// quels boutons sont utilisables : un bouton qui ne sert à rien est grisé.
+let mjEtatVote = "debat";
+function changerEtatVote(etat) { mjEtatVote = etat; majBoutonsJour(); refreshDayStateBanner(); }
+function majBoutonsJour() {
+  const lancer = document.getElementById("mjBtnLancerVote");
+  const terminer = document.getElementById("mjBtnTerminerVote");
+  const passer = document.getElementById("mjBtnPasserVote");
+  if (!lancer || !terminer) return;
+  const attente = Math.ceil((_mjLaunchVoteUnlocksAt - Date.now()) / 1000);
+  if (mjEtatVote === "vote") {
+    lancer.disabled = true;  lancer.textContent = "🗳️ Vote en cours…";
+    terminer.disabled = false;
+  } else if (mjEtatVote === "resultat") {
+    lancer.disabled = true;  lancer.textContent = "⏳ Résultat en cours…";
+    terminer.disabled = true;
+  } else {
+    // Débat : « Terminer » ne sert à rien (il n'y a pas de vote à clore) ; « Lancer » attend
+    // que les joueurs aient fermé la carte de l'aube, ou la fin du réveil (« Lancer le débat »)
+    lancer.disabled = attente > 0 || _mjMatinEnCours;
+    lancer.textContent = attente > 0 ? `🚀 Lancer le vote (dans ${attente} s)` : "🚀 Lancer le vote (60s)";
+    terminer.disabled = true;
+  }
+  if (passer) passer.disabled = (mjEtatVote === "resultat");
+}
+setInterval(() => { if (currentPhaseForBar === "day" && mjEtatVote === "debat") majBoutonsJour(); }, 500);
+socket.on("voteClosMJ", () => { mjVoteRunning = false; changerEtatVote("resultat"); });
 function refreshDayStateBanner() {
   const b = document.getElementById("dayStateBanner");
   if (!b) return;
   if (currentPhaseForBar !== "day") { b.style.display = "none"; return; }
   b.style.display = "block";
-  if (mjVoteRunning) {
+  if (_mjMatinEnCours && mjEtatVote === "debat") {
+    b.style.background = "rgba(122,163,216,0.10)";
+    b.style.border     = "1px solid rgba(122,163,216,0.40)";
+    b.style.color      = "#9fbde6";
+    b.innerHTML = "🌅 <strong>RÉVEIL</strong><br>Annonce les morts de la nuit.";
+  } else if (mjEtatVote === "resultat") {
+    b.style.background = "rgba(150,150,170,0.10)";
+    b.style.border     = "1px solid rgba(150,150,170,0.40)";
+    b.style.color      = "#b8b8cc";
+    b.innerHTML = "⚖️ <strong>VOTE CLOS</strong><br>Le résultat s'affiche chez les joueurs. Ensuite : « 🌙 Lancer la nuit ».";
+  } else if (mjVoteRunning) {
     b.style.background = "rgba(220,70,70,0.12)";
     b.style.border     = "1px solid rgba(220,70,70,0.45)";
     b.style.color      = "#e89090";
-    b.innerHTML = "🗳️ <strong>VOTE EN COURS</strong><br>Les joueurs votent sur leur téléphone. Laisse le temps filer — la nuit reviendra seule.";
+    b.innerHTML = "🗳️ <strong>VOTE EN COURS</strong><br>Les joueurs votent sur leur téléphone. Laisse le temps filer.";
   } else {
     b.style.background = "rgba(220,170,80,0.12)";
     b.style.border     = "1px solid rgba(220,170,80,0.45)";
@@ -1724,10 +1870,11 @@ socket.on("joueurRevenu", d => showAlert(`✅ ${d.name} est de retour.`, "succes
 function renderRoles(){
   const div=document.getElementById("roles");
   renderResumeConnexions();
+  afficherMaireMJ();
   if(!players.length||!Object.keys(roles).length){div.innerHTML="<span style='color:#333;font-size:12px;'>En attente…</span>";return;}
   div.innerHTML=players.map(p=>{
     const r=roles[p.id]||"?",emoji=roleEmoji[r]||"",isMayor=p.id===mayorId,isLover=loversIds.includes(p.id),isDead=deadIds.includes(p.id);
-    let badges="";if(isDead)badges+="☠️";if(isMayor)badges+="🏛️";if(isLover)badges+="❤️";
+    let badges="";if(isDead)badges+="☠️";if(isMayor)badges+="🏛️ <span style=\"color:#ffe066;\">Maire</span> ";if(isLover)badges+="❤️";
     const isWolf=r==="Loup";
     return `<div class="role-row${isDead?" dead":""}${isWolf?" wolf":""}"><span>${pastilleConnexion(p)}${p.name} <span style="color:#555;font-size:11px;">${badges}</span></span><span>${emoji} <span style="color:#777;font-size:12px;">${r}</span></span></div>`;
   }).join("");
@@ -1736,9 +1883,12 @@ function renderRoles(){
 
 function renderPlayers(){
   const div=document.getElementById("players");
+  // Entre deux parties (salon), une croix permet de retirer un joueur qui ne joue plus
+  const auSalon = currentPhaseForBar === "lobby";
   div.innerHTML=players.length ? players.map(p=>{
     const botBadge = p.isBot ? ' <span style="color:#5588cc;font-size:10px;">[bot]</span>' : '';
-    return `<div style="font-size:12px;padding:2px 0;color:${p.isBot?'#7799bb':'#888'};">${p.name}${botBadge}</div>`;
+    const croix = auSalon ? `<button class="btn" onclick="retirerJoueur('${p.id}')" title="Retirer ce joueur" style="padding:1px 7px;font-size:11px;margin-left:8px;">✕</button>` : "";
+    return `<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:2px 0;color:${p.isBot?'#7799bb':'#888'};"><span>${p.name}${botBadge}</span>${croix}</div>`;
   }).join("") : "<span style='color:#333;font-size:12px;'>En attente…</span>";
   // Met à jour le compteur de bots
   const botCount = players.filter(p=>p.isBot).length;

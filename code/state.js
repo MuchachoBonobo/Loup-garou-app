@@ -20,6 +20,8 @@ const WITCH_TIMEOUT_MS          = 90000;
 const CUPID_TIMEOUT_MS          = 60000;
 const SALVATEUR_TIMEOUT_MS      = 45000;
 const SISTERS_TIMEOUT_MS        = 20000;  // 20 s pendant lesquelles les Sœurs se reconnaissent IRL
+// Réveil des amoureux après Cupidon : le temps de se regarder (puis pause du MJ)
+const AMOUREUX_TIMEOUT_MS       = 15000;
 const CHASSEUR_TIMEOUT_MS       = 60000;
 const MAYOR_TRANSFER_TIMEOUT_MS = 60000;
 const VOTE_RATE_MS              = 1000;
@@ -88,6 +90,8 @@ const state = {
 
   // Sœurs jumelles
   sistersTimeout:      null,
+  amoureuxTimeout:     null,
+  amoureuxFin:         null,  // fin des 15 s des amoureux (reconnexion)
   sistersTimerEnd:     null,  // Date d'expiration du 20s (null si pas démarré) — utilisé pour reconnexion + persistance
 
   // Timeouts divers
@@ -98,6 +102,11 @@ const state = {
   // Nuit rythmée par le MJ : étape qui démarrera au clic « Passer à l'étape suivante »
   // ("cupid", "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch" ou "aube").
   etapeNuitSuivante:    null,
+  // Rythme du MJ : nuit en attente de son « 🌙 Lancer la nuit » ("premiere" ou "suivante"),
+  // annonce du matin en cours (carte des morts sur les téléphones), évènement du jour annoncé
+  nuitEnAttente:        null,
+  annonceMatinEnCours:  false,
+  evenementAnnonce:     false,
   // Reconnexions : ancien identifiant de connexion → identifiant actuel du même joueur.
   // Permet d'accepter un choix envoyé depuis un écran construit avant la reconnexion.
   aliasIds:             {},
@@ -200,6 +209,7 @@ const state = {
     survivors:   [],
     seerLog:     [],
     petiteFilleLog: [],  // { names: [3 prénoms], auMoinsUnLoup } par nuit
+    voteLog:     [],     // par vote du jour : [{ votant, cible, cibleRole }] (prénoms) — médailles
     startTime:   null,
   },
 };
@@ -264,7 +274,7 @@ function buildFullState(socketId) {
     missionTeam:   state.mission.team,
     missionResult: state.mission.result,
     missionPhase:  (state.phase === "mission" || state.phase === "missionVote" || state.phase === "missionBonus") ? state.phase : null,
-    activeCouncilEvent: (state.phase === "day" && ev) ? {
+    activeCouncilEvent: (state.phase === "day" && ev && state.evenementAnnonce) ? {
       id:        state.activeCouncilEvent,
       title:     ev.title,
       narrative: ev.narrative,
@@ -280,6 +290,7 @@ function buildFullState(socketId) {
   // (deadFullScreen côté client, déclenché par `isDead` + flag `mjPilotedDay`).
   // En mode legacy, on conserve la vision complète à la reconnexion.
   snapshot.mjPilotedDay = !!state.mjPilotedDay;
+  snapshot.nuitParMJ = !state.autoMode;
   if (isDead && !state.mjPilotedDay) {
     snapshot.deadVision = {
       roles:     state.roles,
@@ -332,7 +343,7 @@ module.exports = {
   // Constantes
   CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS,
   PETITE_FILLE_TIMEOUT_MS, PETITE_FILLE_ACK_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS, WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS,
-  SISTERS_TIMEOUT_MS,
+  SISTERS_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS, VOTE_RATE_MS, CUPID_SOUND_MS,
   STUCK_TIMEOUT_MS, FAST_RESOLVE_MS,
   MISSION_TEAM_TIMEOUT_MS, MISSION_CARD_TIMEOUT_MS, MISSION_BONUS_TIMEOUT_MS,

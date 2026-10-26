@@ -76,6 +76,8 @@ function makeMJ() {
       // Nuit rythmée par le MJ : le MJ de test clique « Passer à l'étape suivante »
       // une demi-seconde après chaque pause entre deux rôles de nuit.
       s.on("etapeNuitEnAttente", () => setTimeout(() => s.emit("mjEtapeSuivante"), 500));
+      // Crépuscule : le MJ de test lance la nuit une demi-seconde après
+      s.on("nuitEnAttente", () => setTimeout(() => s.emit("mjLancerNuit"), 500));
       resolve(s);
     });
     s.once("connect_error", reject);
@@ -472,11 +474,25 @@ async function s6() {
 
     const reveleP = waitFor(mj, "angeRevele", 12000);
     const finP    = waitFor(mj, "gameEnd", 16000);
+    const resumeP = waitFor(mj, "gameSummary", 16000);
     mj.emit("lockDayVotes");
     const revele = await reveleP.catch(() => null);
     check("S6-l'Ange est révélé", revele && revele.id === angeP.s.id, JSON.stringify(revele));
     const fin = await finP.catch(() => null);
     check("S6-la partie se termine sur la victoire de l'Ange", typeof fin === "string" && fin.includes("Ange"), String(fin));
+
+    // Médailles (une au plus par joueur, « Ange gardien » pour lui) et classement de la soirée
+    const resume = await resumeP.catch(() => null);
+    const medailles = (resume && resume.badges) || {};
+    check("S6-une médaille au plus par joueur", Object.values(medailles).every(l => l.length <= 1), JSON.stringify(medailles));
+    check("S6-l'Ange reçoit « Ange gardien »", (medailles[angeP.name] || [])[0]?.label === "Ange gardien", JSON.stringify(medailles[angeP.name]));
+    const cl = (resume && resume.classement) || [];
+    const pts = n => (cl.find(c => c.nom === n) || {}).points;
+    check("S6-classement : 1 point pour l'Ange seul", pts(angeP.name) === 1 && NAMES.filter(n => n !== angeP.name).every(n => pts(n) === 0), JSON.stringify(cl));
+    const soireeP = waitFor(mj, "soireeMJ", 4000);
+    mj.emit("nouvelleSoiree");
+    const soiree = await soireeP.catch(() => null);
+    check("S6-« Nouvelle soirée » remet le classement à zéro", soiree && soiree.parties === 0 && soiree.classement.length === 0, JSON.stringify(soiree));
   } catch (e) {
     ko("S6 crash", e.message);
   } finally {
@@ -743,6 +759,56 @@ async function s11() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// S12 — Une partie se termine, puis le MJ appuie sur « 🚀 Lancer la partie » (et non
+// « Relancer ») : téléphones remis à zéro, personne ne reste mort, pas de maire hérité.
+// Puis, au salon, le MJ retire un joueur : son téléphone est prévenu.
+// ═══════════════════════════════════════════════════════════
+async function s12() {
+  console.log("\n▶ S12 — Nouvelle partie après une partie terminée ; retrait d'un joueur");
+  const all = [];
+  try {
+    const NAMES = ["s12_A","s12_B","s12_C","s12_D"];
+    const cfg   = { loup:1, chasseur:0, sorciere:0, voyante:0, cupidon:0, corbeau:0,
+                    salvateur:0, sisters:0, petiteFille:0, idiot:0, ange:0, mission:false };
+    const { mj, players, roleOf } = await setupGame(all, NAMES, cfg);
+    const loupP = players.find(p => roleOf[p.name] === "Loup");
+    const vill  = players.filter(p => roleOf[p.name] === "Villageois" && p !== players[0]);
+    // Nuit : le loup tue un villageois ; jour : loup + maire éliminent le dernier → loups gagnants
+    await nuitLoupUnique(players, loupP, vill[0]);
+    mj.emit("startVote", 1); await sleep(400);
+    players.filter(p => p !== vill[0] && p !== vill[1]).forEach(p => p.s.emit("voteDay", vill[1].s.id));
+    await sleep(400);
+    const finP = waitFor(mj, "gameEnd", 16000);
+    mj.emit("lockDayVotes");
+    const fin = await finP.catch(() => null);
+    check("S12-la 1re partie se termine", typeof fin === "string", String(fin));
+
+    let resets = 0;
+    players.forEach(p => p.s.on("gameReset", () => resets++));
+    mj.emit("assignRoles", { ...cfg, autoMode: false, mjPilotedDay: true });   // « Lancer la partie »
+    await sleep(1500);
+    check("S12-« Lancer la partie » remet tous les téléphones à zéro", resets === players.length, resets + " remises à zéro");
+    const etat = await new Promise(res => { players[1].s.once("reconnected", res); players[1].s.emit("register", players[1].name); });
+    check("S12-personne ne reste mort de la partie précédente", (etat.deadPlayers || []).length === 0, JSON.stringify(etat.deadPlayers));
+    check("S12-pas de maire hérité", !etat.mayor, String(etat.mayor));
+
+    // Retour au salon, puis le MJ retire un joueur
+    mj.emit("reset"); await sleep(800);
+    const retireP = waitFor(players[3].s, "retireParMJ", 4000);
+    const listeP  = waitFor(mj, "players", 4000);
+    mj.emit("retirerJoueur", players[3].s.id);
+    const retire = await retireP.then(() => true).catch(() => false);
+    const liste  = await listeP.catch(() => []);
+    check("S12-le joueur retiré est prévenu", retire);
+    check("S12-il n'est plus dans la liste", !liste.some(p => p.name === players[3].name), JSON.stringify(liste.map(p => p.name)));
+  } catch (e) {
+    ko("S12 crash", e.message);
+  } finally {
+    await closeAll(all);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // Démarrage serveur + exécution des scénarios
 // ═══════════════════════════════════════════════════════════
 async function main() {
@@ -766,7 +832,7 @@ async function main() {
   });
   console.log("  Serveur test prêt : " + BASE_URL + "\n");
 
-  for (const scenario of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11]) {
+  for (const scenario of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12]) {
     try { await scenario(); }
     catch (e) { ko("crash non rattrapé", e.message); }
     await sleep(800);
