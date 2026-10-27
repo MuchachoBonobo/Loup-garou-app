@@ -110,6 +110,7 @@ Dépendances : `state` (feuille) ← `narration`, `council` (+`lights`) ← `rol
 | `index.html` (joueur) | ~3270 | `render()` (liste des joueurs, avatars, boutons), `updateNightCover()`/`isAnyNarrativeCardOpen()`, `updateDayDebateScreen()`, `updateDeadFullScreen()`, cartes (`showRoleReveal`, `showDeathCard`, `dawnResult`…), `#introScreen`. JS inline — à lire par `Grep` + `offset`/`limit`. |
 | `mj.html` (MJ) | ~1700 | Sections `mjSectionStart` (lobby), `mjSectionUrgency`, `mjSectionRoles`, `mjSectionWolves`, `mjSectionMayor`, `mjSectionDay`, `mjSectionDeadChat`, `mjSectionQR` ; `updateMJLayout(phase)` les affiche selon la phase. TTS (`speakNarration`), sons (`playAmbiance`, `playEffect`), `MJ_CHEATSHEET`, `MJ_EVENT_RULES`, cartes MJ (`showMjDeathCard`, `#dayRecapCard`, `#councilEventCard`, `#sistersLauncherCard`, `#crashRecoveryCard`, `#qrFullscreen`). |
 | `js/communs.js` | ~30 | Chargé par les DEUX pages : noms et pictogrammes des rôles (`ROLES`, `emojiDuRole`, `nomDuRole`) et causes de mort (`CAUSES`, `causeEnTexte`). Un changement ici vaut pour l'écran des joueurs et celui du MJ. |
+| `css/communs.css` | ~10 | Chargé par les DEUX pages : mise en page des cartes plein écran (`.plein-ecran`, plus `#roleCard`, `#dayDeathCard`, `#nightFallCard` désignées par leur identifiant car le code remplace leur classe). |
 | `css/player.css`, `css/mj.css` | 262 / 100 | Styles extraits (une partie des styles reste inline dans les HTML). |
 | `sounds/` | 22 mp3 | `day.mp3` et `night.mp3` pèsent ~85 Mo chacun (sous la limite GitHub de 100 Mo). `endgame_ange.mp3` (victoire de l'Ange, 3 min 21) : « Alléluia » du Messie de Haendel, London Symphony Orchestra et London Philharmonic Choir dir. Hermann Scherchen (1953), domaine public, version MP3 de Wikimedia Commons (`File:Handel - Messiah, Part 2 (Scherchen) - 45. Hallelujah.ogg`). S'il venait à manquer, `playAmbiance` joue `endgame_village` à la place. |
 
@@ -167,6 +168,15 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-27 (suite 9) — Revue du CSS : un besoin, une règle
+Même revue que pour le code (demande d'Alexandre).
+- **Nouveau `public/css/communs.css`**, chargé par les deux pages : la mise en page des cartes plein écran (fixée, centrée, en colonne), qui était écrite 17 fois — 8 cartes de la page joueur et 7 de la page MJ dans leur HTML, 3 dans `player.css`. Les cartes gardent leur fond, leur z-index et leur `display:none`. `#roleCard`, `#dayDeathCard` et `#nightFallCard` sont désignées par leur identifiant, pas par la classe : le code remplace leur classe (`className = "show"` / `""`) et la compare (`className === "show"`), une classe en plus aurait été effacée ou aurait faussé ces comparaisons. Leurs règles d'apparition (`.show`, `.hiding`) sont écrites une fois pour les trois.
+- **Classe `.panneau`** pour les 17 encadrés de la page joueur (identité, votes, minuteur, chat et vision des morts, Conseil, Corbeau, Petite Fille, Salvateur, mission…) : même arrondi, même largeur, mêmes marges. **Seul changement visible** : la marge intérieure, qui variait de 12 à 16 px, vaut 14 px partout (et 10 px au-dessus du minuteur du vote au lieu de 8). Les titres en capitales des quatre encadrés qui les partageaient : une seule règle.
+- **Les trois blocs `<style>` de `index.html`** (écran d'accueil, bouton ⟳, soleil du débat) rejoignent la fin de `player.css` : un seul endroit pour les styles des joueurs. Celui de `mj.html` ne contenait qu'un commentaire.
+- Doublons exacts retirés : `#timerVal.urgent` écrite deux fois ; côté MJ, `blink` et `pulse`, la même animation sous deux noms.
+- Aucun style mort (vérifié sélecteur par sélecteur et animation par animation).
+- **Vérifié** : style calculé de chaque élément des deux pages relevé avant et après (page au repos, cartes ouvertes) — seules les marges des 13 encadrés harmonisés changent ; les 16 écrans de choix et d'annonce capturés avant et après : 13 identiques au pixel près, les 3 autres (Petite Fille, mission, bonus) ne diffèrent que par cette marge ; `npm run test:navigateur`.
 
 ### 2026-10-27 (suite 8) — Revue du serveur : un besoin, une fonction
 Même revue que pour les deux écrans (demande d'Alexandre).

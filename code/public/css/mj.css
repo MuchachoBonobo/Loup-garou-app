@@ -70,9 +70,8 @@ body { background:#0a0a0a; color:#eee; font-family:'Segoe UI',Arial,sans-serif; 
 @keyframes pulse { from{opacity:1}to{opacity:0.4} }
 
 .audio-dot { width:8px; height:8px; border-radius:50%; background:#333; display:inline-block; margin-right:6px; }
-.audio-dot.on  { background:#00cc44; box-shadow:0 0 5px #00cc44; animation:blink 1s infinite alternate; }
+.audio-dot.on  { background:#00cc44; box-shadow:0 0 5px #00cc44; animation:pulse 1s infinite alternate; }
 .audio-dot.err { background:#cc3333; }
-@keyframes blink { from{opacity:1}to{opacity:0.4} }
 
 .sfx-btn { padding:10px 6px; border-radius:8px; border:1px solid #222; background:#0e0e0e; color:#888; cursor:pointer; font-size:11px; text-align:center; transition:all 0.15s; display:flex; flex-direction:column; align-items:center; gap:3px; }
 .sfx-btn:hover { border-color:#555; color:#eee; background:#1a1a1a; }

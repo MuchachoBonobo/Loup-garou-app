@@ -8,63 +8,8 @@
 <meta name="apple-mobile-web-app-title" content="Loup-Garou">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Loup-Garou</title>
+<link rel="stylesheet" href="/css/communs.css">
 <link rel="stylesheet" href="/css/player.css">
-<style>
-/* ⚠️ CSS principal extrait dans /css/player.css (modularisation légère)
-   Si tu modifies l'apparence, édite /css/player.css. */
-
-/* ===== ÉCRAN D'INTRO ===== */
-#introScreen {
-  position:fixed;inset:0;z-index:99999;
-  background:radial-gradient(ellipse at 30% 15%,#1c1040 0%,#09060f 55%,#020108 100%);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  text-align:center;cursor:pointer;transition:opacity 0.9s ease;overflow:hidden;
-}
-.intro-moon {
-  width:74px;height:74px;border-radius:50%;
-  background:radial-gradient(circle at 35% 32%,#fff8e0,#d4c870 45%,#8a7a40 85%);
-  box-shadow:0 0 40px 12px rgba(255,220,90,0.18),0 0 80px 30px rgba(180,150,40,0.10);
-  animation:introMoonGlow 4s ease-in-out infinite;margin-bottom:14px;
-}
-.intro-wolf {
-  font-size:76px;margin-bottom:4px;
-  animation:introWolfAppear 1.2s cubic-bezier(.22,.68,0,1.2) 0.3s both;
-  filter:drop-shadow(0 0 18px rgba(180,80,30,0.45));
-}
-.intro-village { font-size:26px;animation:introFadeUp 1s ease 0.9s both;margin-bottom:22px;opacity:0.45; }
-.intro-title {
-  font-size:30px;font-weight:bold;letter-spacing:9px;color:#ddd;text-transform:uppercase;
-  animation:introTitleReveal 1.5s ease 0.15s both;
-  text-shadow:0 0 28px rgba(200,90,40,0.45);margin-bottom:8px;
-}
-.intro-sub {
-  font-size:14px;color:rgba(175,155,110,0.75);font-style:italic;
-  animation:introFadeUp 1s ease 1.1s both;margin-bottom:44px;
-}
-.intro-hint {
-  font-size:11px;color:rgba(140,130,110,0.45);letter-spacing:2.5px;text-transform:uppercase;
-  animation:introBlinkHint 2.2s ease 2s infinite;
-}
-@keyframes introMoonGlow {
-  0%,100%{box-shadow:0 0 40px 12px rgba(255,220,90,.18),0 0 80px 30px rgba(180,150,40,.10);}
-  50%{box-shadow:0 0 55px 18px rgba(255,220,90,.26),0 0 100px 40px rgba(180,150,40,.16);}
-}
-@keyframes introWolfAppear {
-  from{opacity:0;transform:translateY(22px) scale(0.65);}
-  to{opacity:1;transform:translateY(0) scale(1);}
-}
-@keyframes introTitleReveal {
-  from{opacity:0;letter-spacing:22px;}
-  to{opacity:1;letter-spacing:9px;}
-}
-@keyframes introFadeUp {
-  from{opacity:0;transform:translateY(10px);}
-  to{opacity:1;transform:translateY(0);}
-}
-@keyframes introBlinkHint {
-  0%,100%{opacity:0.45;}50%{opacity:0.12;}
-}
-</style>
 </head>
 <body>
 
@@ -74,10 +19,6 @@
   <img id="photoZoomImg" src="" alt="" style="max-width:92vw;max-height:78vh;border-radius:18px;object-fit:contain;box-shadow:0 0 40px rgba(0,0,0,0.6);">
   <div id="photoZoomNom" style="color:#fff;font-size:24px;font-weight:bold;margin-top:16px;"></div>
 </div>
-<style>
-#btnRecharger { position:fixed; top:8px; right:8px; z-index:100001; min-width:34px; height:34px; padding:0 9px; border-radius:17px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:rgba(255,255,255,0.4); font-size:16px; line-height:1; cursor:pointer; }
-#btnRecharger.arme { color:#fff; font-size:13px; background:rgba(60,60,60,0.85); border-color:rgba(255,255,255,0.4); }
-</style>
 <div id="introScreen" onclick="dismissIntro()">
   <div class="intro-moon"></div>
   <div class="intro-wolf">🐺</div>
@@ -87,14 +28,14 @@
   <div class="intro-hint">Touchez pour entrer</div>
 </div>
 
-<div id="endCard" style="display:none;position:fixed;inset:0;z-index:10000;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;">
+<div id="endCard" class="plein-ecran" style="display:none;z-index:10000;">
   <div id="endEmoji" style="font-size:90px;margin-bottom:20px;animation:cardPop 0.6s ease 0.1s both;"></div>
   <div id="endTitle" style="font-size:30px;font-weight:bold;color:#fff;margin-bottom:14px;animation:cardSlide 0.5s ease 0.3s both;"></div>
   <div id="endMaMedaille" style="display:none;font-size:20px;color:#ffe08a;margin-bottom:22px;animation:cardSlide 0.5s ease 0.5s both;"></div>
   <button onclick="document.getElementById('endCard').style.display='none'" style="padding:12px 28px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.6s both;">Fermer</button>
 </div>
 
-<div id="mayorCard" style="display:none;position:fixed;inset:0;z-index:9997;background:radial-gradient(ellipse at center,#1a1400 0%,#080700 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="mayorCard" class="plein-ecran" style="display:none;z-index:9997;background:radial-gradient(ellipse at center,#1a1400 0%,#080700 100%);">
   <div id="mayorCardPhoto"></div>
   <div class="card-title" id="mayorCardNom"></div>
   <div class="card-text">Nouveau Maire</div>
@@ -107,7 +48,7 @@
 </div>
 
 <!-- Overlay pause -->
-<div id="pauseOverlay" style="display:none;position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.85);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;backdrop-filter:blur(4px);">
+<div id="pauseOverlay" class="plein-ecran" style="display:none;z-index:99998;background:rgba(0,0,0,0.85);backdrop-filter:blur(4px);">
   <div style="font-size:80px;margin-bottom:20px;animation:pulse 1.5s infinite alternate;">⏸️</div>
   <div style="font-size:24px;color:#ffcc00;margin-bottom:12px;font-weight:bold;">Partie en pause</div>
   <div style="font-size:14px;color:rgba(255,255,255,0.6);max-width:320px;line-height:1.6;">Le MJ a mis le jeu en pause.<br>Reprise dans quelques instants…</div>
@@ -171,7 +112,7 @@
 
 <!-- Écran de débat (jour), entre la carte de l'aube et le vote : recentrer les joueurs sur
      la table — message court, soleil discret, pas d'interface. -->
-<div id="dayDebateScreen" style="display:none;position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 30%,#3a2810 0%,#1a1408 60%,#0a0805 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="dayDebateScreen" class="plein-ecran" style="display:none;z-index:9000;background:radial-gradient(ellipse at 50% 30%,#3a2810 0%,#1a1408 60%,#0a0805 100%);">
   <div id="ddSun" style="font-size:88px;margin-bottom:18px;filter:drop-shadow(0 0 28px rgba(255,200,90,0.5));animation:ddSunBreathe 6s ease-in-out infinite;">☀️</div>
   <div id="ddTitre" style="font-size:24px;font-weight:bold;color:#f0d49a;margin-bottom:18px;line-height:1.3;max-width:360px;">🗣️ Discutez,<br>cherchez les loups.</div>
   <div id="ddTexte" style="font-size:14px;color:rgba(240,212,154,0.78);line-height:1.6;max-width:340px;margin-bottom:14px;">Échangez autour de la table, observez les réactions, démasquez les loups-garous.</div>
@@ -179,12 +120,6 @@
   <button id="ddRoleRevealBtn" style="margin-top:40px;padding:8px 16px;border-radius:10px;border:1px solid rgba(240,212,154,0.15);background:transparent;color:rgba(240,212,154,0.45);font-size:12px;cursor:pointer;-webkit-user-select:none;user-select:none;">🎴 Mon rôle</button>
   <div id="ddRoleReveal" style="display:none;margin-top:10px;font-size:15px;color:#f0d49a;font-weight:bold;"></div>
 </div>
-<style>
-@keyframes ddSunBreathe {
-  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 28px rgba(255,200,90,0.5)); }
-  50%      { transform: scale(1.06); filter: drop-shadow(0 0 40px rgba(255,200,90,0.75)); }
-}
-</style>
 
 <!-- Écran du joueur mort : plein écran, défilant, rôle en grand ; le salon des morts et le
      Conseil des Morts y sont déplacés (appendChild). -->
@@ -208,7 +143,7 @@
 
 <!-- Carte plein écran : évènement actif du Conseil des Morts. Les joueurs n'en voient que
      l'icône et le titre ; le MJ explique la règle à voix haute (récit masqué). -->
-<div id="councilEventCard" style="display:none;position:fixed;inset:0;z-index:9998;background:radial-gradient(ellipse at center,#1a0a1a 0%,#0a000a 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="councilEventCard" class="plein-ecran" style="display:none;z-index:9998;background:radial-gradient(ellipse at center,#1a0a1a 0%,#0a000a 100%);">
   <div style="font-size:72px;margin-bottom:14px;">🪦</div>
   <div style="font-size:14px;color:#996699;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
   <div id="councilEventTitle" style="font-size:30px;font-weight:bold;color:#cc99cc;margin-bottom:18px;animation:cardSlide 0.5s ease 0.3s both;"></div>
@@ -220,7 +155,7 @@
 </div>
 
 <!-- Carte explicative au lancement de la mission (tous joueurs) -->
-<div id="missionExplainCard" style="display:none;position:fixed;inset:0;z-index:9998;background:radial-gradient(ellipse at center,#0a0a25 0%,#000010 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="missionExplainCard" class="plein-ecran" style="display:none;z-index:9998;background:radial-gradient(ellipse at center,#0a0a25 0%,#000010 100%);">
   <div class="card-emoji">🕵️</div>
   <div class="card-title" style="color:#aaaaff;">Mission Secrète</div>
   <div style="max-width:380px;color:rgba(255,255,255,0.85);line-height:1.7;font-size:14px;animation:cardSlide 0.5s ease 0.3s both;">
@@ -276,7 +211,7 @@
 <div id="autoResolveBanner" style="display:none;background:#0a1a0a;border:1px solid #2a4a2a;border-radius:8px;margin:0 auto 8px;max-width:480px;padding:7px 14px;font-size:12px;color:#66aa66;text-align:center;"></div>
 <div id="status"></div>
 
-<div id="tiebreakPanel">
+<div id="tiebreakPanel" class="panneau">
   <div id="tiebreakMsg" style="font-size:18px;font-weight:bold;color:#ffcc66;margin-bottom:16px;"></div>
   <div id="tiebreakBtns"></div>
 </div>
@@ -294,13 +229,13 @@
 <!-- BANNIÈRE ACTION EN COURS (chasseur / transfert maire) -->
 <div id="actionPendingBanner"></div>
 
-<div id="deadVisionPanel">
+<div id="deadVisionPanel" class="panneau">
   <h3>👁️ Vision Spectateur — Tous les rôles</h3>
   <div id="deadRolesList"></div>
 </div>
 
 <!-- ===== CONSEIL DES MORTS — panneau de vote (visible uniquement par les morts) ===== -->
-<div id="councilPanel" style="display:none;background:#1a0a1a;border:2px solid #884488;border-radius:10px;margin:10px auto;max-width:480px;padding:14px 16px;">
+<div id="councilPanel" class="panneau" style="display:none;background:#1a0a1a;border:2px solid #884488;">
   <h3 style="color:#cc88cc;margin:0 0 8px;font-size:14px;text-align:center;">🪦 Conseil des Morts</h3>
   <p style="font-size:12px;color:#998099;margin-bottom:12px;text-align:center;line-height:1.5;">
     Le village ne compte plus que quelques vivants…<br>
@@ -310,7 +245,7 @@
   <div id="councilVoteStatus" style="margin-top:10px;font-size:12px;color:#664466;text-align:center;"></div>
 </div>
 
-<div id="deadChatPanel">
+<div id="deadChatPanel" class="panneau">
   <h3>💬 Chat des Morts</h3>
   <div id="deadChatMessages"></div>
   <div id="deadChatInput">
@@ -331,17 +266,17 @@
   <div id="silentDayChatDeadHint" style="display:none;font-size:11px;color:#776688;text-align:center;margin-top:6px;font-style:italic;">⚰ Vous êtes mort — vous pouvez lire mais pas écrire.</div>
 </div>
 
-<div id="votesPanel"><h3 id="votesPanelTitle">Votes</h3><div id="votesContent"></div></div>
+<div id="votesPanel" class="panneau"><h3 id="votesPanelTitle">Votes</h3><div id="votesContent"></div></div>
 
-<div id="voteTimerBox">
+<div id="voteTimerBox" class="panneau">
   <div class="timer-label">Temps restant</div>
   <div id="timerVal">--</div>
   <div id="timerBar"><div id="timerBarFill" style="width:100%"></div></div>
   <div class="timer-mode" id="timerMode"></div>
 </div>
-<div id="voteWaitBox">🗳️ Vous pouvez déjà voter — le MJ choisira le mode et lancera le timer.</div>
+<div id="voteWaitBox" class="panneau">🗳️ Vous pouvez déjà voter — le MJ choisira le mode et lancera le timer.</div>
 
-<div id="corbeauPanel" style="display:none;background:#0a0a0a;border:2px solid #666;border-radius:10px;margin:10px auto;max-width:480px;padding:14px 16px;">
+<div id="corbeauPanel" class="panneau" style="display:none;background:#0a0a0a;border:2px solid #666;">
   <h3 style="color:#aaa;margin:0 0 8px;font-size:14px;">🪶 Le Corbeau désigne sa cible</h3>
   <p style="font-size:12px;color:#666;margin-bottom:10px;">Choisissez un joueur qui recevra 2 votes supplémentaires demain, ou passez votre tour.</p>
   <div id="corbeauTargets"></div>
@@ -349,7 +284,7 @@
 </div>
 
 <!-- Petite Fille : désigne 3 joueurs, apprend s'il y a au moins un loup parmi eux -->
-<div id="petiteFillePanel" style="display:none;background:#140a1e;border:2px solid #7a4fa8;border-radius:10px;margin:10px auto;max-width:480px;padding:16px;">
+<div id="petiteFillePanel" class="panneau" style="display:none;background:#140a1e;border:2px solid #7a4fa8;">
   <div style="font-size:24px;text-align:center;margin-bottom:8px;">👧</div>
   <div style="font-weight:bold;color:#cc88ff;font-size:15px;text-align:center;margin-bottom:6px;">La Petite Fille enquête</div>
   <div style="font-size:12px;color:#8a6aa8;margin-bottom:12px;text-align:center;line-height:1.6;">
@@ -363,7 +298,7 @@
   </button>
 </div>
 
-<div id="salvateurPanel" style="display:none;background:#08121a;border:2px solid #335a7a;border-radius:10px;margin:10px auto;max-width:480px;padding:14px 16px;">
+<div id="salvateurPanel" class="panneau" style="display:none;background:#08121a;border:2px solid #335a7a;">
   <h3 style="color:#88ccff;margin:0 0 8px;font-size:14px;">🛡 Le Salvateur protège un villageois</h3>
   <p style="font-size:12px;color:#5a8aa8;margin-bottom:6px;">Choisissez la personne que vous protégez cette nuit. Si les Loups l'attaquent, elle survit.</p>
   <p id="salvateurLastInfo" style="font-size:11px;color:#88aacc;margin-bottom:10px;display:none;"></p>
@@ -371,7 +306,7 @@
 </div>
 
 <!-- ===== AMOUREUX : réveil après Cupidon, ils se regardent ===== -->
-<div id="amoureuxPanel" style="display:none;position:fixed;inset:0;z-index:9700;background:radial-gradient(ellipse at center,#3a0f22 0%,#160610 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="amoureuxPanel" class="plein-ecran" style="display:none;z-index:9700;background:radial-gradient(ellipse at center,#3a0f22 0%,#160610 100%);">
   <div style="font-size:64px;margin-bottom:14px;line-height:1;">💘</div>
   <img id="amoureuxPhoto" src="" alt="" style="display:none;width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid #ff88bb;margin-bottom:12px;">
   <div id="amoureuxNom" style="font-size:24px;font-weight:bold;color:#ffe0ee;margin-bottom:22px;"></div>
@@ -379,7 +314,7 @@
 </div>
 
 <!-- ===== SŒURS JUMELLES (Option B : signal seul + timer 20s) ===== -->
-<div id="sistersPanel" style="display:none;position:fixed;inset:0;z-index:9700;background:radial-gradient(ellipse at center,#3a1428 0%,#1a0814 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="sistersPanel" class="plein-ecran" style="display:none;z-index:9700;background:radial-gradient(ellipse at center,#3a1428 0%,#1a0814 100%);">
   <div style="font-size:11px;color:#c97aa0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:18px;">La nuit</div>
   <div style="font-size:72px;margin-bottom:18px;line-height:1;">👯‍♀️</div>
   <div style="font-size:22px;font-weight:bold;color:#fbeaf0;margin-bottom:10px;">Réveille-toi</div>
@@ -399,14 +334,14 @@
 <!-- ===== MISSION ===== -->
 
 <!-- Statut mission visible par tous (team sélectionnée, nb cartes jouées) -->
-<div id="missionStatusPanel" style="display:none;background:#0a0a18;border:1px solid #333366;border-radius:10px;margin:10px auto;max-width:480px;padding:12px 16px;text-align:center;">
+<div id="missionStatusPanel" class="panneau" style="display:none;background:#0a0a18;border:1px solid #333366;text-align:center;">
   <div style="font-size:11px;color:#5555aa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">🎭 Mission secrète</div>
   <div id="missionStatusText" style="font-size:13px;color:#aaaacc;"></div>
   <div id="missionCardCounter" style="display:none;margin-top:8px;font-size:12px;color:#666;"></div>
 </div>
 
 <!-- Maire : sélection des 3 joueurs pour la mission -->
-<div id="missionPanel" style="display:none;background:#0d0d20;border:2px solid #4444aa;border-radius:10px;margin:10px auto;max-width:480px;padding:16px;">
+<div id="missionPanel" class="panneau" style="display:none;background:#0d0d20;border:2px solid #4444aa;">
   <div style="font-size:24px;text-align:center;margin-bottom:8px;">🎭</div>
   <div style="font-weight:bold;color:#8888ff;font-size:15px;text-align:center;margin-bottom:6px;">Vous êtes le Maire — choisissez votre équipe</div>
   <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;">Sélectionnez 3 joueurs (pas vous-même). Ils choisiront secrètement une carte.</div>
@@ -419,7 +354,7 @@
 </div>
 
 <!-- Joueur sélectionné : choix de carte -->
-<div id="missionVotePanel" style="display:none;background:#0d0d20;border:2px solid #4444aa;border-radius:10px;margin:10px auto;max-width:480px;padding:16px;text-align:center;">
+<div id="missionVotePanel" class="panneau" style="display:none;background:#0d0d20;border:2px solid #4444aa;text-align:center;">
   <div style="font-size:24px;margin-bottom:8px;">🎭</div>
   <div style="font-weight:bold;color:#8888ff;font-size:15px;margin-bottom:6px;">Mission — Choisissez votre carte</div>
   <div style="font-size:12px;color:#666;margin-bottom:14px;line-height:1.6;">
@@ -440,7 +375,7 @@
 </div>
 
 <!-- Maire : bonus (si mission réussie) -->
-<div id="missionBonusPanel" style="display:none;background:#0d1a0d;border:2px solid #22aa44;border-radius:10px;margin:10px auto;max-width:480px;padding:16px;">
+<div id="missionBonusPanel" class="panneau" style="display:none;background:#0d1a0d;border:2px solid #22aa44;">
   <div style="font-size:24px;text-align:center;margin-bottom:8px;">🔍</div>
   <div style="font-weight:bold;color:#44ff88;font-size:15px;text-align:center;margin-bottom:6px;">Mission réussie — Bonus d'information</div>
   <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;line-height:1.6;">
@@ -455,12 +390,12 @@
 </div>
 
 <!-- Résultat bonus (privé, visible uniquement par le maire) -->
-<div id="missionBonusResult" style="display:none;background:#0d1a0d;border:2px solid #22aa44;border-radius:10px;margin:10px auto;max-width:480px;padding:14px 16px;text-align:center;">
+<div id="missionBonusResult" class="panneau" style="display:none;background:#0d1a0d;border:2px solid #22aa44;text-align:center;">
   <div id="missionBonusResultText" style="font-size:16px;font-weight:bold;margin-bottom:6px;"></div>
   <div id="missionBonusResultSub" style="font-size:12px;color:#666;"></div>
 </div>
 
-<div id="deathLogPanel" style="display:none;background:#111;border:1px solid #2a2a2a;border-radius:10px;margin:10px auto;max-width:480px;padding:12px 16px;text-align:left;">
+<div id="deathLogPanel" class="panneau" style="display:none;background:#111;border:1px solid #2a2a2a;text-align:left;">
   <h3 style="margin:0 0 8px;font-size:11px;color:#555;text-transform:uppercase;letter-spacing:1px;">📜 Chronique des morts</h3>
   <div id="deathLogList" style="font-size:12px;line-height:1.9;color:#888;"></div>
 </div>
@@ -482,7 +417,7 @@
   <div id="players"></div>
 </div>
 
-<div id="infoPanel">
+<div id="infoPanel" class="panneau">
   <h3>Votre identité</h3>
   <!-- Bouton anti-triche jour : maintenir pour révéler -->
   <button id="infoRevealBtn" style="display:none;width:100%;margin-bottom:10px;padding:14px;background:#0a0a1a;border:1px solid #334466;border-radius:8px;color:#88aacc;font-size:14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;">

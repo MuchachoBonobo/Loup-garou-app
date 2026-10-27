@@ -1,0 +1,10 @@
+/* ============================================================
+   Loup-Garou — styles communs à l'écran des joueurs et à celui du MJ
+   (un changement ici vaut pour les deux)
+   ============================================================ */
+
+/* Carte plein écran, contenu centré en colonne. Le fond, le z-index et « display:none »
+   restent sur chaque carte. Les trois cartes de l'écran des joueurs que le code ouvre par
+   leur classe (className = "show") sont désignées par leur identifiant : une classe en plus
+   serait effacée à chaque ouverture. */
+.plein-ecran, #roleCard, #dayDeathCard, #nightFallCard { position:fixed; inset:0; align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:30px; }

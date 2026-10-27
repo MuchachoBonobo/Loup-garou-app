@@ -4,11 +4,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0a0a0a">
 <title>MJ — Loup-Garou</title>
+<link rel="stylesheet" href="/css/communs.css">
 <link rel="stylesheet" href="/css/mj.css">
-<style>
-/* ⚠️ CSS principal extrait dans /css/mj.css (modularisation légère)
-   Si tu modifies l'apparence, édite /css/mj.css. */
-</style>
 </head>
 <body>
 
@@ -69,7 +66,7 @@
 </div>
 
 <!-- Carte narrative MJ : déclenche le timer 20s des Sœurs jumelles -->
-<div id="etapeSuivanteCard" style="display:none;position:fixed;inset:0;z-index:9995;background:radial-gradient(ellipse at center,#141a33 0%,#070912 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="etapeSuivanteCard" class="plein-ecran" style="display:none;z-index:9995;background:radial-gradient(ellipse at center,#141a33 0%,#070912 100%);">
   <div style="font-size:11px;color:#8a9ad0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;">Nuit — entre deux rôles</div>
   <div style="font-size:64px;margin-bottom:12px;line-height:1;">🌙</div>
   <div style="font-size:15px;color:#aab4e0;margin-bottom:6px;">Étape suivante</div>
@@ -82,7 +79,7 @@
 </div>
 
 <!-- Crépuscule : la nuit ne démarre qu'au clic du MJ (2026-10-26) -->
-<div id="lancerNuitCard" style="display:none;position:fixed;inset:0;z-index:9994;background:radial-gradient(ellipse at center,#2a1a22 0%,#0c0709 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="lancerNuitCard" class="plein-ecran" style="display:none;z-index:9994;background:radial-gradient(ellipse at center,#2a1a22 0%,#0c0709 100%);">
   <div style="font-size:11px;color:#d0a08a;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;">Crépuscule</div>
   <div style="font-size:64px;margin-bottom:22px;line-height:1;">🌆</div>
   <button onclick="mjLancerNuit()" style="padding:22px 44px;border-radius:14px;border:2px solid #d0a08a;background:rgba(208,160,138,0.22);color:#ffffff;font-size:22px;font-weight:bold;cursor:pointer;">
@@ -92,7 +89,7 @@
 </div>
 
 <!-- Carte récap MJ : ce qui s'est passé pendant le jour et la nuit -->
-<div id="dayRecapCard" style="display:none;position:fixed;inset:0;z-index:9997;background:radial-gradient(ellipse at center,#0e1422 0%,#04060a 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="dayRecapCard" class="plein-ecran" style="display:none;z-index:9997;background:radial-gradient(ellipse at center,#0e1422 0%,#04060a 100%);">
   <div style="font-size:56px;margin-bottom:10px;">🌅</div>
   <div style="font-size:13px;color:#7aa3d8;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">L'aube se lève</div>
   <div id="dayRecapTitle" style="font-size:26px;font-weight:bold;color:#ffd27a;margin-bottom:18px;">Jour 1</div>
@@ -108,7 +105,7 @@
 
 <!-- Carte du MJ pour une mort au vote ou par le tir du Chasseur : les joueurs ne voient pas
      le rôle des morts, le MJ si (pour raconter). -->
-<div id="mjVoteDeathCard" style="display:none;position:fixed;inset:0;z-index:9997;background:radial-gradient(ellipse at center,#221206 0%,#0a0502 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="mjVoteDeathCard" class="plein-ecran" style="display:none;z-index:9997;background:radial-gradient(ellipse at center,#221206 0%,#0a0502 100%);">
   <div id="mjVoteDeathEmoji" style="font-size:56px;margin-bottom:10px;">⚖️</div>
   <div id="mjVoteDeathSubtitle" style="font-size:13px;color:#d8a37a;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le verdict du village</div>
   <div id="mjVoteDeathName" style="font-size:26px;font-weight:bold;color:#ffd27a;margin-bottom:6px;"></div>
@@ -120,7 +117,7 @@
 </div>
 
 <!-- Bandeau de reprise après crash : visible uniquement si un snapshot est en attente -->
-<div id="crashRecoveryCard" style="display:none;position:fixed;inset:0;z-index:9999;background:radial-gradient(ellipse at center,#3a1a05 0%,#1a0800 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
+<div id="crashRecoveryCard" class="plein-ecran" style="display:none;z-index:9999;background:radial-gradient(ellipse at center,#3a1a05 0%,#1a0800 100%);">
   <div style="font-size:56px;margin-bottom:10px;">🚨</div>
   <div style="font-size:13px;color:#ffb066;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Reprise après redémarrage</div>
   <div style="font-size:22px;font-weight:bold;color:#ffd27a;margin-bottom:14px;">Une partie sauvegardée a été détectée</div>
@@ -140,7 +137,7 @@
 </div>
 
 <!-- Carte plein écran : événement actif du Conseil des Morts (vue MJ, identique aux joueurs) -->
-<div id="councilEventCard" style="display:none;position:fixed;inset:0;z-index:9998;background:radial-gradient(ellipse at center,#1a0a1a 0%,#0a000a 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;overflow-y:auto;">
+<div id="councilEventCard" class="plein-ecran" style="display:none;z-index:9998;background:radial-gradient(ellipse at center,#1a0a1a 0%,#0a000a 100%);overflow-y:auto;">
   <div style="font-size:64px;margin-bottom:14px;">🪦</div>
   <div style="font-size:14px;color:#996699;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
   <div id="councilEventTitle" style="font-size:28px;font-weight:bold;color:#cc99cc;margin-bottom:14px;"></div>
@@ -406,7 +403,7 @@
 </div>
 
 <!-- QR code seul, en plein écran, le temps que tout le monde scanne -->
-<div id="qrFullscreen" style="display:none;position:fixed;inset:0;z-index:10000;background:radial-gradient(ellipse at center,#10131c 0%,#04050a 100%);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;">
+<div id="qrFullscreen" class="plein-ecran" style="display:none;z-index:10000;background:radial-gradient(ellipse at center,#10131c 0%,#04050a 100%);">
   <div style="font-size:15px;color:#8a93b0;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Rejoignez la partie</div>
   <div style="font-size:26px;font-weight:bold;color:#e8ecff;margin-bottom:24px;">Scannez pour entrer dans le village</div>
   <div id="qrFullscreenCode" style="background:#ffffff;padding:20px;border-radius:16px;box-shadow:0 16px 50px rgba(0,0,0,0.6);"></div>
