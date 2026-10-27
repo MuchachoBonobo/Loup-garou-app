@@ -5,7 +5,7 @@
 // Dépendances circulaires (phases, votes) résolues via require('./module').fn() à l'usage.
 
 const {
-  state, alivePlayers, playerName, hasRole, isMJ, fisherYates, resetActivity, versMJ,
+  state, alivePlayers, playerName, hasRole, isMJ, fisherYates, resetActivity, versMJ, joueursAvecRole, vivantsAvecRole, oublierTransfert, infosSalvateur,
   CUPID_SOUND_MS, SISTERS_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS, PETITE_FILLE_ACK_TIMEOUT_MS,
 } = require('./state');
 
@@ -102,7 +102,7 @@ function handleMJLancerNuit(socket) {
 // Première nuit : Cupidon ne se réveille que s'il y en a un. Sans Cupidon, la nuit
 // enchaîne directement.
 function startFirstNight() {
-  const cupidonVivant = Object.keys(state.roles).some(id => state.roles[id] === "Cupidon" && !state.deadPlayers.includes(id));
+  const cupidonVivant = vivantsAvecRole("Cupidon").length > 0;
   if (cupidonVivant) allerEtapeNuit("cupid");
   else startNightSequence();
 }
@@ -120,12 +120,6 @@ const LIBELLES_ETAPES_NUIT = {
   corbeau: "🪶 Le Corbeau", witch: "🧪 La Sorcière", aube: "☀️ Le lever du jour"
 };
 function nuitRythmeeParMJ() { return !state.autoMode; }
-
-// Étape qui suit un rôle de nuit ("aube" quand la nuit est finie).
-function etapeApres(phaseCourante) {
-  const n = nextNightPhase(phaseCourante);
-  return n === "resolveAuto" ? "aube" : n;
-}
 
 function allerEtapeNuit(etape, options) {
   // Partie gagnée à l'aube, écran de fin dans quelques secondes : la nuit est finie.
@@ -150,25 +144,22 @@ function lancerEtapeNuit(etape) {
     [[a, b], [b, a]].forEach(([moi, autre]) => state.io.to(moi).emit("amoureuxTurn", { partenaireId: autre, partenaire: playerName(autre), dureeMs: AMOUREUX_TIMEOUT_MS }));
   }
   if (etape === "sisters") {
-    const aliveSisters = Object.keys(state.roles).filter(id => state.roles[id] === "Sœurs" && !state.deadPlayers.includes(id));
+    const aliveSisters = vivantsAvecRole("Sœurs");
     // Option B : on n'envoie PAS les noms aux sœurs — elles se reconnaissent IRL.
     aliveSisters.forEach(sid => state.io.to(sid).emit("sistersTurn", { count: aliveSisters.length }));
     // Le MJ reçoit l'info détaillée pour pouvoir rappeler qui doit se réveiller.
     versMJ("sistersInfoMJ", { sisters: aliveSisters.map(id => ({ id, name: playerName(id) })) });
   }
   if (etape === "salvateur") {
-    const salvateurId = Object.keys(state.roles).find(id => state.roles[id] === "Salvateur" && !state.deadPlayers.includes(id));
-    if (salvateurId) state.io.to(salvateurId).emit("salvateurTurn", {
-      lastProtectedId:   state.lastProtectedTarget || null,
-      lastProtectedName: state.lastProtectedTarget ? playerName(state.lastProtectedTarget) : null
-    });
+    const salvateurId = vivantsAvecRole("Salvateur")[0];
+    if (salvateurId) state.io.to(salvateurId).emit("salvateurTurn", infosSalvateur());
   }
   if (etape === "corbeau") {
-    const corbeauId = Object.keys(state.roles).find(cid => state.roles[cid] === "Corbeau" && !state.deadPlayers.includes(cid));
+    const corbeauId = vivantsAvecRole("Corbeau")[0];
     if (corbeauId) state.io.to(corbeauId).emit("corbeauTurn");
   }
   if (etape === "witch") {
-    const witchId = Object.keys(state.roles).find(wid => state.roles[wid] === "Sorcière" && !state.deadPlayers.includes(wid));
+    const witchId = vivantsAvecRole("Sorcière")[0];
     if (witchId) {
       state.io.to(witchId).emit("etatPotions", { vie: !state.witchSaveUsed, mort: !state.witchKillUsed });
       state.io.to(witchId).emit("nightVictim", state.nightTarget);
@@ -184,59 +175,36 @@ function handleMJEtapeSuivante(socket) {
   lancerEtapeNuit(state.etapeNuitSuivante);
 }
 
-// Entrée standard d'une nuit : appelée après Cupidon (nuit 1) ET après chaque
-// vote du jour (nuits suivantes). Route séquentiellement :
-//   Sœurs (si ≥2 vivantes) → Salvateur (s'il existe) → Loups
-function startNightSequence() {
-  const aliveSisters = Object.keys(state.roles).filter(id => state.roles[id] === "Sœurs" && !state.deadPlayers.includes(id));
-  if (aliveSisters.length >= 2) allerEtapeNuit("sisters");
-  else startNightAfterSisters();
+// ===== ORDRE DE LA NUIT =====
+// Le seul endroit qui le définit : chaque étape, et ce qu'il faut pour qu'elle ait lieu.
+// Cupidon et les amoureux, propres à la 1re nuit, passent avant (startFirstNight).
+const ETAPES_NUIT = [
+  ["sisters",     () => vivantsAvecRole("Sœurs").length >= 2],
+  ["salvateur",   () => vivantsAvecRole("Salvateur").length > 0],
+  ["wolves",      () => true],
+  ["seer",        () => vivantsAvecRole("Voyante").length > 0],
+  ["petiteFille", () => petiteFillePeutJouer()],
+  ["corbeau",     () => vivantsAvecRole("Corbeau").length > 0],
+  // La Sorcière ne se réveille que vivante et avec au moins une potion
+  ["witch",       () => vivantsAvecRole("Sorcière").length > 0 && !(state.witchSaveUsed && state.witchKillUsed)],
+];
+// Étape qui suit `courante` ("aube" quand la nuit est finie) ; sans `courante`, la première
+function etapeApres(courante) {
+  const suivante = ETAPES_NUIT.slice(ETAPES_NUIT.findIndex(([e]) => e === courante) + 1).find(([, aLieu]) => aLieu());
+  return suivante ? suivante[0] : "aube";
 }
 
-// Continuation de la nuit une fois la phase Sœurs terminée (ou sautée).
-function startNightAfterSisters(options) {
-  const salvateurId = Object.keys(state.roles).find(id => state.roles[id] === "Salvateur" && !state.deadPlayers.includes(id));
-  allerEtapeNuit(salvateurId ? "salvateur" : "wolves", options);
-}
+// Entrée d'une nuit : après Cupidon (nuit 1) et après chaque vote du jour
+function startNightSequence() { allerEtapeNuit(etapeApres()); }
+
+// Suite de la nuit une fois le tour des Sœurs terminé (ou sauté)
+function startNightAfterSisters(options) { allerEtapeNuit(etapeApres("sisters"), options); }
 
 // La Petite Fille joue si elle est vivante ET qu'il reste au moins 3 autres joueurs
 // vivants à désigner (en dessous, sa règle « 3 personnes » n'est plus applicable).
 function petiteFillePeutJouer() {
-  const pfId = Object.keys(state.roles).find(id => state.roles[id] === "PetiteFille" && !state.deadPlayers.includes(id));
+  const pfId = vivantsAvecRole("PetiteFille")[0];
   return !!pfId && alivePlayers().filter(p => p.id !== pfId).length >= 3;
-}
-
-// Ordre de la nuit après les Loups : Voyante → Petite Fille → Corbeau → Sorcière.
-function nextNightPhase(after) {
-  const seerAlive    = Object.keys(state.roles).some(id => state.roles[id] === "Voyante"  && !state.deadPlayers.includes(id));
-  const pfCanPlay    = petiteFillePeutJouer();
-  const corbeauAlive = Object.keys(state.roles).some(id => state.roles[id] === "Corbeau"  && !state.deadPlayers.includes(id));
-  // La Sorcière ne se réveille que vivante et avec au moins une potion ; sinon, résolution directe
-  const witchAlive   = Object.keys(state.roles).some(id => state.roles[id] === "Sorcière" && !state.deadPlayers.includes(id));
-  const witchHasPotions = witchAlive && !(state.witchSaveUsed && state.witchKillUsed);
-  if (after === "wolves") {
-    if (seerAlive)        return "seer";
-    if (pfCanPlay)        return "petiteFille";
-    if (corbeauAlive)     return "corbeau";
-    if (witchHasPotions)  return "witch";
-    return "resolveAuto";
-  }
-  if (after === "seer") {
-    if (pfCanPlay)        return "petiteFille";
-    if (corbeauAlive)     return "corbeau";
-    if (witchHasPotions)  return "witch";
-    return "resolveAuto";
-  }
-  if (after === "petiteFille") {
-    if (corbeauAlive)     return "corbeau";
-    if (witchHasPotions)  return "witch";
-    return "resolveAuto";
-  }
-  if (after === "corbeau") {
-    if (witchHasPotions)  return "witch";
-    return "resolveAuto";
-  }
-  return "resolveAuto";
 }
 
 // Fin de nuit : passe par la pause « nightPause » (clic du MJ) avant le lever du jour.
@@ -302,12 +270,8 @@ function resoudreNuit() {
         state.pendingChasseurAfterTransfer = d.id;
         state.chasseurPostContext = "night";
         state.currentChasseurShooter = d.id;
-        // Ajout manuel à deadPlayers pour l'exclure des candidats au titre de maire.
-        state.deadPlayers.push(d.id);
-        const nmChasseur = playerName(d.id).toLowerCase();
-        if (state.playerRegistry[nmChasseur]) state.playerRegistry[nmChasseur].isDead = true;
-        state.io.emit("deadPlayers", state.deadPlayers);
-        state.io.emit("playerDied", { id: d.id, role: state.roles[d.id], name: playerName(d.id) });
+        // Mort tout de suite, pour l'exclure des candidats au titre de maire
+        marquerMort(d.id);
       } else {
         // Mort ordinaire : killPlayer l'ajoute à deadPlayers et gère les cascades.
         killPlayer(d.id);
@@ -318,38 +282,25 @@ function resoudreNuit() {
   // Même chose si la boucle a été interrompue par `chasseur` : sans cela, les morts
   // restantes resteraient « vivantes » sur les téléphones
   if (state.phase === "chasseur") {
+    // Le maire meurt pendant que le Chasseur attend de tirer : l'écharpe sera transmise après le tir
+    const maireMeurt = id => {
+      if (id !== state.mayor || state.mayorTransferPending) return;
+      state.dyingMayorId = id; state.mayorTransferPending = true;
+      state.dyingMayorWasChasseur = false; state.mayorTransferContext = "chasseur";
+      state.mayor = null;
+      state.io.emit("newMayor", null); annoncerTransfert(id);
+    };
     for (const d of deaths) {
       if (state.deadPlayers.includes(d.id)) continue;
       if (!state.gameStats.firstDead) state.gameStats.firstDead = { name: d.name, role: d.role };
       state.gameStats.deathLog.push(d);
-      state.deadPlayers.push(d.id);
-      const _k = playerName(d.id).toLowerCase();
-      if (state.playerRegistry[_k]) state.playerRegistry[_k].isDead = true;
-      state.io.emit("deadPlayers", state.deadPlayers);
-      state.io.emit("playerDied", { id: d.id, role: state.roles[d.id], name: playerName(d.id) });
-      if (d.id === state.mayor && !state.mayorTransferPending) {
-        state.dyingMayorId = d.id; state.mayorTransferPending = true;
-        state.dyingMayorWasChasseur = false; state.mayorTransferContext = "chasseur";
-        state.mayor = null;
-        state.io.emit("newMayor", null); annoncerTransfert(d.id);
-      }
-      if (state.lovers.includes(d.id)) {
-        const _p = state.lovers.find(l => l !== d.id);
-        if (_p && !state.deadPlayers.includes(_p)) {
-          state.deadPlayers.push(_p);
-          const _pk = playerName(_p).toLowerCase();
-          if (state.playerRegistry[_pk]) state.playerRegistry[_pk].isDead = true;
-          state.io.emit("deadPlayers", state.deadPlayers);
-          state.io.emit("loversDeathInfo", { id: _p, name: playerName(_p), role: state.roles[_p] });
-          state.io.emit("playerDied", { id: _p, role: state.roles[_p], name: playerName(_p) });
-          state.gameStats.deathLog.push(buildDeath(_p, "amour"));
-          if (_p === state.mayor && !state.mayorTransferPending) {
-            state.dyingMayorId = _p; state.mayorTransferPending = true;
-            state.dyingMayorWasChasseur = false; state.mayorTransferContext = "chasseur";
-            state.mayor = null;
-            state.io.emit("newMayor", null); annoncerTransfert(_p);
-          }
-        }
+      marquerMort(d.id);
+      maireMeurt(d.id);
+      const partenaire = state.lovers.includes(d.id) && state.lovers.find(l => l !== d.id);
+      if (partenaire && !state.deadPlayers.includes(partenaire)) {
+        marquerMort(partenaire, true);
+        state.gameStats.deathLog.push(buildDeath(partenaire, "amour"));
+        maireMeurt(partenaire);
       }
     }
   }
@@ -434,16 +385,21 @@ function lumieresAube(nbMorts, mission) {
 }
 
 // ===== MORT =====
+// Un joueur meurt : il est inscrit parmi les morts et tous les écrans l'apprennent (une mort
+// d'amour est annoncée comme telle). Ce que la mort déclenche ensuite reste à l'appelant.
+function marquerMort(id, amour = false) {
+  state.deadPlayers.push(id);
+  const cle = playerName(id).toLowerCase();
+  if (state.playerRegistry[cle]) state.playerRegistry[cle].isDead = true;
+  state.io.emit("deadPlayers", state.deadPlayers);
+  if (amour) state.io.emit("loversDeathInfo", { id, name: playerName(id), role: state.roles[id] });
+  state.io.emit("playerDied", { id, role: state.roles[id], name: playerName(id) });
+}
+
 function killPlayer(id) {
   if (!id || state.deadPlayers.includes(id)) return;
   log.info('killPlayer', playerName(id), `(role=${state.roles[id]})`, 'phase=' + state.phase);
-  state.deadPlayers.push(id);
-
-  const nm = playerName(id).toLowerCase();
-  if (state.playerRegistry[nm]) state.playerRegistry[nm].isDead = true;
-
-  state.io.emit("deadPlayers", state.deadPlayers);
-  state.io.emit("playerDied", { id, role: state.roles[id], name: playerName(id) });
+  marquerMort(id);
 
   const isMayorDying    = (id === state.mayor);
   const isChasseurDying = (state.roles[id] === "Chasseur");
@@ -452,12 +408,7 @@ function killPlayer(id) {
   if (state.lovers.includes(id)) {
     const partner = state.lovers.find(l => l !== id);
     if (partner && !state.deadPlayers.includes(partner)) {
-      state.deadPlayers.push(partner);
-      const pnm = playerName(partner).toLowerCase();
-      if (state.playerRegistry[pnm]) state.playerRegistry[pnm].isDead = true;
-      state.io.emit("deadPlayers", state.deadPlayers);
-      state.io.emit("loversDeathInfo", { id: partner, name: playerName(partner), role: state.roles[partner] });
-      state.io.emit("playerDied", { id: partner, role: state.roles[partner], name: playerName(partner) });
+      marquerMort(partner, true);
       state.gameStats.deathLog.push(buildDeath(partner, "amour"));
       if (!state.gameStats.firstDead) state.gameStats.firstDead = { name: playerName(partner), role: state.roles[partner] };
       sendDeadVision(partner);
@@ -535,7 +486,7 @@ function sendDeadVision(socketId) {
   if (state.mjPilotedDay) return;
   state.io.to(socketId).emit("deadVision", {
     roles:     state.roles,
-    wolves:    Object.keys(state.roles).filter(id => state.roles[id] === "Loup"),
+    wolves:    joueursAvecRole("Loup"),
     lovers:    state.lovers,
     mayor:     state.mayor,
     votesDay:  state.votesDay,
@@ -590,10 +541,7 @@ function performMayorTransfer(targetId) {
   const ctx = state.mayorTransferContext;
   const wasChasseur = state.dyingMayorWasChasseur;
   state.mayor = targetId;
-  state.mayorTransferPending = false;
-  state.dyingMayorId = null;
-  state.mayorTransferContext = "";
-  state.dyingMayorWasChasseur = false;
+  oublierTransfert();
   state.io.emit("newMayor", state.mayor);
   state.io.emit("mayorTransferred", targetId);
   try { lights.flash("flash.bell"); } catch (_) {}
@@ -1064,7 +1012,7 @@ Object.assign(module.exports, {
   // Mission
   clearMissionTimeouts, resetMissionState, resolveMissionCards, envoyerEnMission, jouerCarteMission, inspecterBonus,
   // Nuit
-  startNightSequence, startNightAfterSisters, nextNightPhase, doResolveNight,
+  startNightSequence, startNightAfterSisters, doResolveNight, LIBELLES_ETAPES_NUIT,
   allerEtapeNuit, etapeApres, handleMJEtapeSuivante,
   // Morts / transferts
   killPlayer, sendDeadVision,

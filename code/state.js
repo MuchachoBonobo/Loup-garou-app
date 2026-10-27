@@ -220,6 +220,20 @@ function computeCounts(votes) {
   Object.values(votes).forEach(id => { c[id] = (c[id] || 0) + 1; });
   return c;
 }
+// Identifiants des joueurs qui ont ce rôle (morts compris), et des seuls vivants
+function joueursAvecRole(r) { return Object.keys(state.roles).filter(id => state.roles[id] === r); }
+function vivantsAvecRole(r) { return joueursAvecRole(r).filter(id => !state.deadPlayers.includes(id)); }
+// Plus de transmission d'écharpe en cours
+function oublierTransfert() {
+  state.mayorTransferPending = false;
+  state.dyingMayorId = null;
+  state.mayorTransferContext = "";
+  state.dyingMayorWasChasseur = false;
+}
+// Ce que le Salvateur doit savoir à son réveil : qui il a protégé la veille (interdit ce soir)
+function infosSalvateur() {
+  return { lastProtectedId: state.lastProtectedTarget || null, lastProtectedName: state.lastProtectedTarget ? playerName(state.lastProtectedTarget) : null };
+}
 function hasRole(socketId, r) {
   return state.roles[socketId] === r && !state.deadPlayers.includes(socketId);
 }
@@ -254,7 +268,6 @@ function buildFullState(socketId) {
   const council = require('./council');
   const isDead = state.deadPlayers.includes(socketId);
   const isWolf = state.roles[socketId] === "Loup";
-  const ev = state.activeCouncilEvent && council.COUNCIL_EVENTS[state.activeCouncilEvent];
 
   const snapshot = {
     players:      state.players,
@@ -268,19 +281,15 @@ function buildFullState(socketId) {
     voteTimerEnd: state.voteTimerEnd,
     voteMode:     state.voteMode,
     role:         state.roles[socketId],
-    wolves:       isWolf ? Object.keys(state.roles).filter(id => state.roles[id] === "Loup") : [],
+    wolves:       isWolf ? joueursAvecRole("Loup") : [],
     deathLog:     state.gameStats.deathLog,
     idiotRevealed: state.idiotRevealed,
-    idiotId:      state.idiotRevealed ? Object.keys(state.roles).find(id => state.roles[id] === "Idiot") : null,
+    idiotId:      state.idiotRevealed ? joueursAvecRole("Idiot")[0] : null,
     missionActive: state.mission.active,
     missionTeam:   state.mission.team,
     missionResult: state.mission.result,
     missionPhase:  (state.phase === "mission" || state.phase === "missionVote" || state.phase === "missionBonus") ? state.phase : null,
-    activeCouncilEvent: (state.phase === "day" && ev && state.evenementAnnonce) ? {
-      id:        state.activeCouncilEvent,
-      title:     ev.title,
-      narrative: ev.narrative,
-    } : null,
+    activeCouncilEvent: (state.phase === "day" && state.evenementAnnonce) ? council.evenementPublic(state.activeCouncilEvent) : null,
     myDayVoteId:  state.votesDay[socketId]  || null,
     myMayorVoteId: state.mayorVote[socketId] || null,
     isVoteLocked: (state.voteMode === 2 && state.lockedVoters.has(socketId)) ||
@@ -294,7 +303,7 @@ function buildFullState(socketId) {
   if (isDead && !state.mjPilotedDay) {
     snapshot.deadVision = {
       roles:     state.roles,
-      wolves:    Object.keys(state.roles).filter(id => state.roles[id] === "Loup"),
+      wolves:    joueursAvecRole("Loup"),
       lovers:    state.lovers,
       mayor:     state.mayor,
       votesDay:  state.votesDay,
@@ -309,7 +318,7 @@ function buildFullState(socketId) {
   if (!isDead) {
     const myRole = state.roles[socketId];
     if (state.phase === "sisters" && myRole === "Sœurs") {
-      const aliveSisters = Object.keys(state.roles).filter(id => state.roles[id] === "Sœurs" && !state.deadPlayers.includes(id));
+      const aliveSisters = vivantsAvecRole("Sœurs");
       snapshot.pendingSistersTurn = {
         count: aliveSisters.length,
         // sistersTimerEnd est non-null uniquement si le MJ a déjà lancé le 20s
@@ -318,12 +327,7 @@ function buildFullState(socketId) {
         timerRemainingMs: state.sistersTimerEnd ? Math.max(0, state.sistersTimerEnd - Date.now()) : null,
       };
     }
-    if (state.phase === "salvateur" && myRole === "Salvateur") {
-      snapshot.pendingSalvateurTurn = {
-        lastProtectedId:   state.lastProtectedTarget || null,
-        lastProtectedName: state.lastProtectedTarget ? playerName(state.lastProtectedTarget) : null,
-      };
-    }
+    if (state.phase === "salvateur" && myRole === "Salvateur") snapshot.pendingSalvateurTurn = infosSalvateur();
   }
 
   snapshot.serverNow = Date.now();
@@ -350,6 +354,6 @@ module.exports = {
   MAYOR_AUTO_TIMEOUT_MS, WOLVES_AUTO_TIMEOUT_MS, WOLF_CONSENSUS_GRACE_MS,
   DAY_AUTO_START_DELAY_MS, BOT_MIN_DELAY_MS, BOT_MAX_DELAY_MS,
   // Helpers
-  alivePlayers, computeCounts, hasRole, isMJ, playerName, fisherYates, versMJ,
+  alivePlayers, computeCounts, hasRole, isMJ, playerName, fisherYates, versMJ, joueursAvecRole, vivantsAvecRole, oublierTransfert, infosSalvateur,
   resetActivity, buildFullState,
 };

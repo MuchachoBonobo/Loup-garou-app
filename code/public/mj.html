@@ -1234,12 +1234,7 @@ socket.on("mjReconnected", state=>{
   _mjActionEnAttente = state.actionMJ || null;
   afficherAnnonceMatin(state.matin || null);
   { const lnc = document.getElementById("lancerNuitCard"); if (lnc) lnc.style.display = state.nuitEnAttente ? "flex" : "none"; }
-  if (state.phase === "nightPause") {
-    const lib = document.getElementById("etapeSuivanteLibelle");
-    if (lib) lib.textContent = LIBELLES_ETAPES_NUIT_MJ[state.etapeNuitSuivante] || "…";
-    const esc = document.getElementById("etapeSuivanteCard");
-    if (esc) esc.style.display = "flex";
-  }
+  if (state.phase === "nightPause") afficherEtapeSuivante(state.etapeNuitLibelle);
   document.getElementById("mjPhaseDisplay").innerText=phaseLabel(state.phase||"lobby");
   updateNightBar(state.phase||"lobby");
   updateMJLayout(state.phase||"lobby");
@@ -1550,12 +1545,12 @@ socket.on("sistersTimerStart", data => {
   showAlert(`👯‍♀️ Les Sœurs jumelles ont ${s} secondes pour se reconnaître.`, "info");
 });
 // Nuit rythmée par le MJ : libellé de l'étape qui démarrera au clic
-socket.on("etapeNuitEnAttente", data => {
-  const lib = document.getElementById("etapeSuivanteLibelle");
-  if (lib) lib.textContent = (data && data.libelle) || "…";
-  const esc = document.getElementById("etapeSuivanteCard");
-  if (esc) esc.style.display = "flex";
-});
+// Carte « Passer à l'étape suivante » : à l'annonce de l'étape comme après un rechargement
+function afficherEtapeSuivante(libelle) {
+  document.getElementById("etapeSuivanteLibelle").textContent = libelle || "…";
+  document.getElementById("etapeSuivanteCard").style.display = "flex";
+}
+socket.on("etapeNuitEnAttente", data => afficherEtapeSuivante(data && data.libelle));
 // ===== RYTHME DU MJ : crépuscule et annonce du matin =====
 socket.on("nuitEnAttente", () => { const c = document.getElementById("lancerNuitCard"); if (c) c.style.display = "flex"; });
 function mjLancerNuit() {
@@ -1633,8 +1628,6 @@ function mjEtapeSuivante(){
   const esc = document.getElementById("etapeSuivanteCard");
   if (esc) esc.style.display = "none";
 }
-const LIBELLES_ETAPES_NUIT_MJ = { cupid:"💘 Cupidon", amoureux:"💘 Les Amoureux", sisters:"👯‍♀️ Les Sœurs jumelles", salvateur:"🛡 Le Salvateur",
-  wolves:"🐺 Les Loups-Garous", seer:"🔮 La Voyante", petiteFille:"👧 La Petite Fille", corbeau:"🪶 Le Corbeau", witch:"🧪 La Sorcière", aube:"☀️ Le lever du jour" };
 
 
 // ===== REPRISE APRÈS CRASH =====

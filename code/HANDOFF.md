@@ -87,9 +87,9 @@ Reconnexion par prénom (registre `playerRegistry`, toutes les phases couvertes)
 | Fichier | Lignes | Rôle |
 |---------|--------|------|
 | `server.js` | ~450 | Bootstrap : lecture `.env`, Express (static, `/mj`, `/api/ip`), Socket.io, middleware pause, câblage des ~47 évènements socket vers les modules, handlers crash / reprise, `http.listen`. Aucune logique de jeu. |
-| `state.js` | ~360 | État partagé + toutes les constantes de timeout + helpers (`alivePlayers`, `computeCounts`, `playerName`, `fisherYates`, `versMJ` — tout envoi à la tablette du MJ passe par lui —, `buildFullState`, `idActuel`). **Ne jamais déstructurer** (`state.players`, jamais `const { players } = state`). |
+| `state.js` | ~360 | État partagé + toutes les constantes de timeout + helpers (`alivePlayers`, `computeCounts`, `playerName`, `fisherYates`, `versMJ` — tout envoi à la tablette du MJ passe par lui —, `joueursAvecRole` / `vivantsAvecRole` — toute recherche d'un rôle —, `oublierTransfert`, `infosSalvateur`, `buildFullState`, `idActuel`). **Ne jamais déstructurer** (`state.players`, jamais `const { players } = state`). |
 | `phases.js` | ~920 | Orchestration : `setPhase` (le cœur : lumières, narration, Conseil, auto-vote), `installPhaseTimeouts`/`clearPhaseTimeouts`, `runBotsForPhase` (les robots appellent les mêmes fonctions que les joueurs, via un faux socket `commeJoueur(bot)`), `checkVictory`, pause/reprise, `resetGameState`, replay. |
-| `roles.js` | ~1100 | Rôles, mission, mort : `startNightSequence`, `nextNightPhase`, `doResolveNight` (aube : `lumieresAube`, `envoyerRecapMJ`), mission (`envoyerEnMission`, `jouerCarteMission`, `inspecterBonus`, partagées avec les robots), `killPlayer`, `sendDeadVision`, `performChasseurShot`, `performMayorTransfer`, `assignAndStart`, handlers de chaque rôle. `PHASES_DE_NUIT` : liste unique des phases où une mort compte « de nuit » (contexte de transmission d'écharpe). |
+| `roles.js` | ~1030 | Rôles, mission, mort : **`ETAPES_NUIT` + `etapeApres` — le seul endroit qui définit l'ordre de la nuit** (Sœurs → Salvateur → Loups → Voyante → Petite Fille → Corbeau → Sorcière, et la condition de chaque réveil), `startNightSequence`, `doResolveNight` (aube : `lumieresAube`, `envoyerRecapMJ`), mission (`envoyerEnMission`, `jouerCarteMission`, `inspecterBonus`, partagées avec les robots), `killPlayer`, `sendDeadVision`, `performChasseurShot`, `performMayorTransfer`, `assignAndStart`, handlers de chaque rôle. `PHASES_DE_NUIT` : liste unique des phases où une mort compte « de nuit » (contexte de transmission d'écharpe). |
 | `votes.js` | ~550 | Tous les votes : maire, loups, jour (`startDayVote`, `resolveDayVote`), égalités (`resolveVoteWithTiebreak`, `trancherEgalite` pour le maire, le maire-bot et le hasard), **`executerVerdict` : la seule suite d'un vote du jour** (Ange, Idiot, suspense, mort, nuit), skip. |
 | `council.js` | ~370 | Conseil des Morts : 18 évènements, tirage, vote, application des effets, Abdication, Voix Étouffées. |
 | `narration.js` | ~210 | Dictionnaire des narrations TTS par transition (`"wolves_to_seer"`…). |
@@ -98,7 +98,7 @@ Reconnexion par prénom (registre `playerRegistry`, toutes les phases couvertes)
 | `badges.js` | ~250 | 17 médailles de fin de partie, **une seule par joueur** (la plus prestigieuse, `RANGS`). |
 | `soiree.js` | ~90 | Classement de la soirée (1 point par victoire), fichier `soiree.json` dans le dossier des sauvegardes (non versionné), remis à zéro par le bouton MJ « Nouvelle soirée ». |
 | `death-narratives.js` | ~120 | Récits de mort par cause × rôle. |
-| `snapshot.js` | ~240 | Sauvegarde périodique, dump de crash, reprise. |
+| `snapshot.js` | ~180 | Sauvegarde périodique, dump de crash, reprise. **`CHAMPS`** : la seule liste des champs sauvegardés, avec leur valeur par défaut à la relecture — un champ ajouté ici est à la fois écrit et relu. |
 | `logger.js` | ~55 | Journal console + `logs/AAAA-MM-JJ.log`. |
 
 Dépendances : `state` (feuille) ← `narration`, `council` (+`lights`) ← `roles` ← `votes` ← `phases` ← `server`. **`phases`, `roles` et `votes` se requièrent en cycle** : ils doivent finir par `Object.assign(module.exports, {...})`, jamais `module.exports = {...}` (sinon crash au lancement de partie — voir Journal).
@@ -151,6 +151,7 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ## Bugs potentiels à surveiller
 
 - `fastResolveTriggered` : réinitialisé dans `startDayVote` et `resetGameState` — vérifier qu'aucun autre chemin ne le laisse à `true` entre deux jours.
+- Transmission d'écharpe ouverte par `killPlayer` quand l'amoureux mort est un Chasseur : deux cas calculent `mayorTransferContext` sans la variante `chasseurFromDay` utilisée ailleurs (`contexte = phase chasseur ? "chasseur" : …`). Ne joue que si deux Chasseurs se suivent (l'un tire sur l'amoureux de l'autre, maire). Laissé tel quel le 2026-10-27, faute de savoir ce qui est juste : à trancher si le cas se présente.
 - `killPlayer` a plusieurs sorties anticipées (chasseur, mayorTransfer, amoureux) ; les chemins `doResolveNight` → `killPlayer` ne sont pas tous protégés de la même façon par `checkVictory()`.
 - Mode autonome + bots : chevauchement possible des sons si les phases s'enchaînent vite.
 - Reconnexion pendant la Mission : le re-emit `missionCardChoice` existe, l'UI complète reste à tester en vrai.
@@ -166,6 +167,18 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-27 (suite 8) — Revue du serveur : un besoin, une fonction
+Même revue que pour les deux écrans (demande d'Alexandre).
+- **Ordre de la nuit** : il était écrit en quatre morceaux (`startNightSequence` pour les Sœurs, `startNightAfterSisters` pour le Salvateur, `nextNightPhase` qui répétait Voyante → Petite Fille → Corbeau → Sorcière pour chaque point de départ). Il tient maintenant dans une seule liste, `ETAPES_NUIT`, avec la condition de chaque réveil ; `etapeApres(courante)` la parcourt.
+- **Mort d'un joueur** : inscrire le mort et prévenir tous les écrans était écrit 5 fois (`killPlayer`, son amoureux, et 3 fois dans la résolution de la nuit quand le Chasseur ou la transmission interrompent la boucle) → `marquerMort(id, amour)`, mêmes messages dans le même ordre.
+- **Recherches de rôle** : « les joueurs (vivants) qui ont tel rôle » était réécrit 20 fois → `joueursAvecRole` / `vivantsAvecRole` (`state.js`).
+- **Sauvegarde de secours** : une liste pour écrire, une autre pour relire, les mêmes 46 champs → une seule (`CHAMPS`, avec la valeur par défaut de chacun). Vérifié par un aller-retour : les 52 champs ressortent identiques ; une sauvegarde vide reprend les valeurs par défaut. `snapshot.js` : 140 → 67 lignes pour ces deux fonctions.
+- **Reconnexion** : les bulletins et les champs qui désignent un joueur, recopiés ligne à ligne, deviennent deux listes. **Ajouté** `angeVainqueur` (oublié : un Ange qui se reconnectait pendant sa révélation gardait son ancien identifiant).
+- **Évènement du Conseil envoyé aux écrans** (`{ id, title, narrative }`) : assemblé à 5 endroits → `council.evenementPublic(id)`. **Intitulés des étapes de nuit** : la tablette en gardait sa propre copie pour un rechargement ; le serveur les lui envoie (`etapeNuitLibelle`), une seule table (`LIBELLES_ETAPES_NUIT`).
+- Plus petit : `oublierTransfert()` (3 copies), `infosSalvateur()` (2), arrêt des minuteries par deux listes (`MINUTERIES_DE_PHASE`, `FILETS_AUTONOMES`, 2 copies).
+- **Laissé tel quel** : deux calculs du contexte de transmission d'écharpe qui diffèrent des trois autres (voir « Bugs potentiels à surveiller »).
+- **Vérifié** : syntaxe et analyse ; scénarios, rythme du MJ (dont la reprise après plantage), Chasseur et maire, parties dans les navigateurs, parties de robots (voir le commit).
 
 ### 2026-10-27 (suite 7) — Visuel du MJ revu ; rôles et causes de mort communs aux deux écrans
 Même revue que pour l'écran des joueurs (demande d'Alexandre).

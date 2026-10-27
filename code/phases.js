@@ -2,7 +2,7 @@
 // Dépendances circulaires (roles, votes) résolues via require('./module').fn() à l'usage.
 
 const {
-  state, alivePlayers, playerName, fisherYates, isMJ, resetActivity, versMJ,
+  state, alivePlayers, playerName, fisherYates, isMJ, resetActivity, versMJ, joueursAvecRole, vivantsAvecRole, oublierTransfert,
   WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS,
   PETITE_FILLE_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS,
@@ -92,8 +92,7 @@ function setPhase(p) {
     // Annonce du matin menée par le MJ : il voit l'évènement à lire et les boutons pour enchaîner
     state.annonceMatinEnCours = council.annonceMatinParMJ();
     if (state.annonceMatinEnCours && state.mjSocketId) {
-      const ev = state.activeCouncilEvent && council.COUNCIL_EVENTS[state.activeCouncilEvent];
-      versMJ("matinEnAttente", { evenement: ev ? { id: ev.id, title: ev.title, narrative: ev.narrative } : null });
+      versMJ("matinEnAttente", { evenement: council.evenementPublic(state.activeCouncilEvent) });
     }
     // Conseil des morts : se déclenche chaque début de journée dès qu'il y a au moins
     // COUNCIL_TRIGGER_THRESHOLD mort(s) (1 aujourd'hui). Un nouveau vote est proposé à chaque
@@ -365,38 +364,27 @@ function installPhaseTimeouts(p) {
         roles.performMayorTransfer(target.id);
       } else {
         state.io.emit("autoResolve", `⏱ Aucun successeur disponible — transfert annulé.`);
-        state.mayorTransferPending = false;
-        state.dyingMayorId = null;
-        state.mayorTransferContext = "";
-        state.dyingMayorWasChasseur = false;
+        oublierTransfert();
         if (!checkVictory()) setPhase("day");
       }
     }, MAYOR_TRANSFER_TIMEOUT_MS);
   }
 }
 
+// Minuteries des phases, et filets du mode autonome
+const MINUTERIES_DE_PHASE = ["seerTimeout", "petiteFilleTimeout", "nightPauseTimeout", "witchTimeout", "cupidTimeout",
+  "salvateurTimeout", "sistersTimeout", "amoureuxTimeout", "corbeauTimeout", "chasseurTimeout", "mayorTransferTimeout"];
+const FILETS_AUTONOMES = ["mayorAutoLockTimer", "wolfConsensusTimer", "wolvesAutoLockTimer", "dayAutoStartTimer"];
+function arreterMinuteries(noms) { noms.forEach(k => { clearTimeout(state[k]); state[k] = null; }); }
+function arreterFiletsAutonomes() { arreterMinuteries(FILETS_AUTONOMES); state.mayorAllVotedNotified = false; }
+
 function clearPhaseTimeouts() {
-  clearTimeout(state.seerTimeout);          state.seerTimeout          = null;
+  arreterMinuteries(MINUTERIES_DE_PHASE);
   state.seerPendingResult = null;
-  clearTimeout(state.petiteFilleTimeout);   state.petiteFilleTimeout   = null;
   state.petiteFillePendingResult = null;
-  clearTimeout(state.nightPauseTimeout);    state.nightPauseTimeout    = null;
-  clearTimeout(state.witchTimeout);         state.witchTimeout         = null;
-  clearTimeout(state.cupidTimeout);         state.cupidTimeout         = null;
-  clearTimeout(state.salvateurTimeout);     state.salvateurTimeout     = null;
-  clearTimeout(state.sistersTimeout);       state.sistersTimeout       = null;
-  clearTimeout(state.amoureuxTimeout);      state.amoureuxTimeout      = null;
   state.sistersTimerEnd = null;
-  clearTimeout(state.corbeauTimeout);       state.corbeauTimeout       = null;
-  clearTimeout(state.chasseurTimeout);      state.chasseurTimeout      = null;
-  clearTimeout(state.mayorTransferTimeout); state.mayorTransferTimeout = null;
   roles.clearMissionTimeouts();
-  // Mode autonome
-  if (state.mayorAutoLockTimer)  { clearTimeout(state.mayorAutoLockTimer);  state.mayorAutoLockTimer  = null; }
-  state.mayorAllVotedNotified = false;
-  if (state.wolfConsensusTimer)  { clearTimeout(state.wolfConsensusTimer);  state.wolfConsensusTimer  = null; }
-  if (state.wolvesAutoLockTimer) { clearTimeout(state.wolvesAutoLockTimer); state.wolvesAutoLockTimer = null; }
-  if (state.dayAutoStartTimer)   { clearTimeout(state.dayAutoStartTimer);   state.dayAutoStartTimer   = null; }
+  arreterFiletsAutonomes();
 }
 
 // ===== ACTIONS DES BOTS PAR PHASE =====
@@ -636,7 +624,7 @@ function checkVictory() {
   const endGame = (winner, msg) => {
     const fullVision = {
       roles: state.roles,
-      wolves: Object.keys(state.roles).filter(id => state.roles[id] === "Loup"),
+      wolves: joueursAvecRole("Loup"),
       lovers: state.lovers,
       mayor: state.mayor,
       votesDay: state.votesDay,
@@ -721,7 +709,7 @@ function resumeGame() {
 
   // Réponse de nuit en attente de « OK » : renvoyée au joueur (un « OK » tapé pendant la
   // pause a été ignoré, sa carte s'était fermée)
-  const vivantAvecRole = r => Object.keys(state.roles).find(id => state.roles[id] === r && !state.deadPlayers.includes(id));
+  const vivantAvecRole = r => vivantsAvecRole(r)[0];
   if (state.phase === "seer" && state.seerPendingResult && vivantAvecRole("Voyante")) {
     state.io.to(vivantAvecRole("Voyante")).emit("seerResult", state.seerPendingResult);
   }
@@ -809,16 +797,9 @@ function resetGameState(keepPlayers) {
   state.councilUsedEvents = [];
   state.silentDayChatHistory = [];
   council.clearCouncilEffects();
-  if (state.mayorAutoLockTimer)  { clearTimeout(state.mayorAutoLockTimer);  state.mayorAutoLockTimer  = null; }
-  state.mayorAllVotedNotified = false;
-  if (state.wolfConsensusTimer)  { clearTimeout(state.wolfConsensusTimer);  state.wolfConsensusTimer  = null; }
-  if (state.wolvesAutoLockTimer) { clearTimeout(state.wolvesAutoLockTimer); state.wolvesAutoLockTimer = null; }
-  if (state.dayAutoStartTimer)   { clearTimeout(state.dayAutoStartTimer);   state.dayAutoStartTimer   = null; }
+  arreterFiletsAutonomes();
   votes.clearTiebreakTimeout();
-  state.mayorTransferPending = false;
-  state.dyingMayorId = null;
-  state.mayorTransferContext = "";
-  state.dyingMayorWasChasseur = false;
+  oublierTransfert();
   state.chasseurPostContext = null;
   state.pendingChasseurAfterTransfer = null;
   state.skipWolvesSoundOnce = false;
@@ -851,15 +832,15 @@ function resetGameState(keepPlayers) {
 // ===== HANDLERS SOCKETS =====
 function handleSetPhase(socket, p) {
   if (!isMJ(socket.id)) return;
-  if (p === "salvateur" && !Object.keys(state.roles).some(id => state.roles[id] === "Salvateur" && !state.deadPlayers.includes(id))) {
+  if (p === "salvateur" && !vivantsAvecRole("Salvateur").length > 0) {
     setPhase("wolves"); return;
   }
-  if (p === "seer" && !Object.keys(state.roles).some(id => state.roles[id] === "Voyante" && !state.deadPlayers.includes(id))) {
+  if (p === "seer" && !vivantsAvecRole("Voyante").length > 0) {
     setPhase("witch"); return;
   }
   if (p === "witch") {
     // On saute la Sorcière si elle est morte ou n'a plus de potion
-    const witchAlive = Object.keys(state.roles).some(id => state.roles[id] === "Sorcière" && !state.deadPlayers.includes(id));
+    const witchAlive = vivantsAvecRole("Sorcière").length > 0;
     if (!witchAlive || (state.witchSaveUsed && state.witchKillUsed)) {
       roles.doResolveNight({ sansPause: true }); return;
     }

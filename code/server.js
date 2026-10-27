@@ -35,7 +35,7 @@ const io   = require("socket.io")(http, { pingInterval: 25000, pingTimeout: 6000
 
 // Modules métier
 const S         = require("./state");
-const { state, isMJ, playerName, buildFullState, idActuel, computeCounts } = S;
+const { state, isMJ, playerName, buildFullState, idActuel, computeCounts, joueursAvecRole, vivantsAvecRole } = S;
 // Choix reçus des téléphones : un identifiant de joueur périmé (écran construit avant une
 // reconnexion) est traduit vers le joueur actuel. Fonctionne aussi pour une liste.
 const actuel = x => Array.isArray(x) ? x.map(idActuel) : idActuel(x);
@@ -181,21 +181,15 @@ io.on("connection", socket => {
       missionTeam:   state.mission.team,
       missionResult: state.mission.result,
       nightTarget: state.nightTarget ? { id: state.nightTarget, name: playerName(state.nightTarget) } : null,
-      etapeNuitSuivante: state.phase === "nightPause" ? state.etapeNuitSuivante : null,
+      etapeNuitLibelle: state.phase === "nightPause" ? roles.LIBELLES_ETAPES_NUIT[state.etapeNuitSuivante] : null,
       // État du vote du jour, pour griser les bons boutons d'une tablette rechargée
       voteEnCours:  state.phase === "day" && !!state.voteTimer,
       voteClos:     state.phase === "day" && (state.resolutionJourEnCours || state.dayResolutionPending),
       nuitEnAttente: state.phase === "crepuscule",
       actionMJ: state.actionMJ ? { type: state.actionMJ, nom: playerName(state.actionMJ === "chasseur" ? state.currentChasseurShooter : state.dyingMayorId) } : null,
-      matin: (state.phase === "day" && state.annonceMatinEnCours) ? {
-        evenement: (state.activeCouncilEvent && !state.evenementAnnonce && council.COUNCIL_EVENTS[state.activeCouncilEvent])
-          ? { id: state.activeCouncilEvent, title: council.COUNCIL_EVENTS[state.activeCouncilEvent].title, narrative: council.COUNCIL_EVENTS[state.activeCouncilEvent].narrative }
-          : null } : null,
-      activeCouncilEvent: (state.phase === "day" && state.evenementAnnonce && state.activeCouncilEvent && council.COUNCIL_EVENTS[state.activeCouncilEvent])
-        ? { id: state.activeCouncilEvent,
-            title: council.COUNCIL_EVENTS[state.activeCouncilEvent].title,
-            narrative: council.COUNCIL_EVENTS[state.activeCouncilEvent].narrative }
-        : null,
+      matin: (state.phase === "day" && state.annonceMatinEnCours)
+        ? { evenement: state.evenementAnnonce ? null : council.evenementPublic(state.activeCouncilEvent) } : null,
+      activeCouncilEvent: (state.phase === "day" && state.evenementAnnonce) ? council.evenementPublic(state.activeCouncilEvent) : null,
     });
     if (state.tiebreakPending) {
       socket.emit("tiebreakMJ", {
@@ -294,22 +288,17 @@ io.on("connection", socket => {
         [state.votesDay, state.votesWolf, state.mayorVote].forEach(urne => {
           Object.keys(urne).forEach(votant => { if (urne[votant] === oldId) urne[votant] = socket.id; });
         });
-        if (state.votesDay[oldId]      !== undefined) { state.votesDay[socket.id]      = state.votesDay[oldId];      delete state.votesDay[oldId]; }
-        if (state.votesWolf[oldId]     !== undefined) { state.votesWolf[socket.id]     = state.votesWolf[oldId];     delete state.votesWolf[oldId]; }
-        if (state.mayorVote[oldId]     !== undefined) { state.mayorVote[socket.id]     = state.mayorVote[oldId];     delete state.mayorVote[oldId]; }
-        if (state.councilVotes[oldId]  !== undefined) { state.councilVotes[socket.id]  = state.councilVotes[oldId];  delete state.councilVotes[oldId]; }
+        // Ses propres bulletins
+        [state.votesDay, state.votesWolf, state.mayorVote, state.councilVotes].forEach(urne => {
+          if (urne[oldId] !== undefined) { urne[socket.id] = urne[oldId]; delete urne[oldId]; }
+        });
         if (state.lockedVoters.has(oldId))            { state.lockedVoters.delete(oldId); state.lockedVoters.add(socket.id); }
         if (state.voteRateLimit.has(oldId))           { state.voteRateLimit.set(socket.id, state.voteRateLimit.get(oldId)); state.voteRateLimit.delete(oldId); }
         const tIdx = state.tiebreakCandidates.indexOf(oldId);
         if (tIdx >= 0) state.tiebreakCandidates[tIdx] = socket.id;
-        if (state.currentChasseurShooter === oldId) state.currentChasseurShooter = socket.id;
-        if (state.dyingMayorId           === oldId) state.dyingMayorId           = socket.id;
-        if (state.corbeauTarget          === oldId) state.corbeauTarget          = socket.id;
-        if (state.nightTarget            === oldId) state.nightTarget            = socket.id;
-        if (state.witchKillTarget        === oldId) state.witchKillTarget        = socket.id;
-        if (state.protectedTarget        === oldId) state.protectedTarget        = socket.id;
-        if (state.lastProtectedTarget    === oldId) state.lastProtectedTarget    = socket.id;
-        if (state.pendingChasseurAfterTransfer === oldId) state.pendingChasseurAfterTransfer = socket.id;
+        // Tous les champs qui désignent un joueur
+        ["currentChasseurShooter", "dyingMayorId", "corbeauTarget", "nightTarget", "witchKillTarget", "protectedTarget",
+         "lastProtectedTarget", "pendingChasseurAfterTransfer", "angeVainqueur"].forEach(k => { if (state[k] === oldId) state[k] = socket.id; });
       }
       // Journal des morts : il garde l'identifiant de connexion du défunt ; on le met à
       // jour pour que son rôle reste affiché à côté de son nom après une reconnexion.
@@ -336,11 +325,11 @@ io.on("connection", socket => {
       // identifiant : on leur renvoie la liste à jour, sinon un loup ne reconnaissait
       // plus son coéquipier reconnecté (et pouvait cliquer pour le dévorer).
       if (state.roles[socket.id] === "Loup") {
-        const loups = Object.keys(state.roles).filter(id => state.roles[id] === "Loup");
+        const loups = joueursAvecRole("Loup");
         loups.filter(id => id !== socket.id).forEach(id => io.to(id).emit("loupsMisAJour", loups));
       }
       if (state.lovers.includes(socket.id)) {
-        const cupidons = Object.keys(state.roles).filter(id => state.roles[id] === "Cupidon");
+        const cupidons = joueursAvecRole("Cupidon");
         [...state.lovers, ...cupidons].filter(id => id !== socket.id).forEach(id => io.to(id).emit("loversInfo", state.lovers));
       }
       socket.emit("reconnected", buildFullState(socket.id));
@@ -648,7 +637,7 @@ function resynchroniserApresReconnexion(socket) {
   }
   if (state.phase === "wolves") {
     if (mj) io.to(mj).emit("wolfVotesMJ", state.votesWolf);
-    Object.keys(state.roles).filter(w => state.roles[w] === "Loup").forEach(w => io.to(w).emit("wolfVotesUpdate", state.votesWolf));
+    joueursAvecRole("Loup").forEach(w => io.to(w).emit("wolfVotesUpdate", state.votesWolf));
   }
   if (state.phase === "day" && Object.keys(state.votesDay).length) {
     io.emit("votesDayMJ", state.votesDay);
@@ -674,7 +663,7 @@ function resynchroniserApresReconnexion(socket) {
   }
   // Sorcière : la victime des loups s'est reconnectée → la Sorcière reçoit le bon identifiant
   if (state.phase === "witch" && state.nightTarget === id) {
-    const witchId = Object.keys(state.roles).find(w => state.roles[w] === "Sorcière" && !state.deadPlayers.includes(w));
+    const witchId = vivantsAvecRole("Sorcière")[0];
     if (witchId) {
       io.to(witchId).emit("etatPotions", { vie: !state.witchSaveUsed, mort: !state.witchKillUsed });
       io.to(witchId).emit("nightVictim", state.nightTarget);

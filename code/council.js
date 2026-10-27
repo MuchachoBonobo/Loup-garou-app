@@ -194,6 +194,12 @@ function resolveCouncil() {
   state.io.emit("councilResolved", { winner });
 }
 
+// L'évènement tel que les écrans le reçoivent ({ id, title, narrative }), ou null
+function evenementPublic(id) {
+  const ev = id && COUNCIL_EVENTS[id];
+  return ev ? { id: ev.id, title: ev.title, narrative: ev.narrative } : null;
+}
+
 function clearCouncilEffects() {
   if (councilBellTimer)    { clearInterval(councilBellTimer);    councilBellTimer    = null; }
   if (councilMurmursTimer) { clearTimeout(councilMurmursTimer);  councilMurmursTimer = null; }
@@ -206,7 +212,7 @@ function applyCouncilEvent(eventId) {
   const ev = COUNCIL_EVENTS[eventId];
   log.info('applyCouncilEvent', eventId, '-', ev.title);
   state.io.emit("councilEventActive", {
-    id: ev.id, title: ev.title, narrative: ev.narrative,
+    ...evenementPublic(eventId),
     // Annoncé par le MJ : les téléphones referment la carte des morts et l'affichent tout de suite
     parMJ: annonceMatinParMJ()
   });
@@ -378,7 +384,7 @@ function handleSilentDayChatHistory(socket) {
 }
 
 module.exports = {
-  COUNCIL_EVENTS,
+  COUNCIL_EVENTS, evenementPublic,
   COUNCIL_TRIGGER_THRESHOLD,
   startCouncil,
   resolveCouncil,

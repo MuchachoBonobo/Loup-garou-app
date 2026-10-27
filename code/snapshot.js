@@ -27,48 +27,42 @@ const SAVE_INTERVAL_MS = 5000;
 
 let saveTimer = null;
 
+// Champs sauvegardés, avec la valeur qu'ils prennent quand ils manquent à la relecture :
+// chaque champ n'est écrit qu'ici (deux listes parallèles, une pour écrire et une pour relire,
+// avaient laissé des champs oubliés à la reprise). Relu selon sa valeur par défaut : un booléen
+// en vrai/faux, un nombre en nombre, le reste tel quel ou la valeur par défaut.
+const CHAMPS = {
+  // Phase et infos partie
+  phase: undefined, players: [], roles: {}, deadPlayers: [], lovers: [], mayor: null, playerRegistry: {}, deadChatHistory: [],
+  // Votes
+  votesDay: {}, votesWolf: {}, mayorVote: {}, voteMode: 1, voteTimerEnd: null, fastResolveTriggered: false,
+  // Nuit
+  nightTarget: null, witchSaveUsed: false, witchKillUsed: false, witchSaveActive: false, witchKillTarget: null,
+  cupidDone: false, corbeauTarget: null, idiotRevealed: false, nbVotesJour: 0, angeVainqueur: null,
+  // Salvateur, Sœurs, rythme du MJ
+  protectedTarget: null, lastProtectedTarget: null, sistersTimerEnd: null, etapeNuitSuivante: null,
+  nuitEnAttente: null, evenementAnnonce: false, aliasIds: {},
+  // Conseil des morts, récap, égalité
+  activeCouncilEvent: null, pendingCouncilEvent: null, silentDayChatHistory: [], pendingDayRecap: null,
+  tiebreakPending: false, tiebreakCandidates: [], tiebreakContext: "",
+  // Mode autonome, pause
+  autoMode: false, autoVoteMode: 1, gamePaused: false,
+  // Chasseur, transmission d'écharpe
+  currentChasseurShooter: null, chasseurPostContext: null,
+  dyingMayorId: null, mayorTransferPending: false, dyingMayorWasChasseur: false, mayorTransferContext: "",
+};
+const relire = (v, defaut) => typeof defaut === "boolean" ? !!v
+  : typeof defaut === "number" ? (+v || defaut)
+  : defaut === undefined ? v
+  : v || (Array.isArray(defaut) ? [] : defaut && typeof defaut === "object" ? {} : defaut);
+
 // Extrait les champs sérialisables de state. Les timers, Sets, Maps et state.io
 // ne sont jamais sérialisés.
 function serializeState(state) {
   return {
     savedAt: new Date().toISOString(),
-    // Phase et infos partie
-    phase: state.phase,
-    players: state.players,
-    roles: state.roles,
-    deadPlayers: state.deadPlayers,
-    lovers: state.lovers,
-    mayor: state.mayor,
-    playerRegistry: state.playerRegistry,
-    deadChatHistory: state.deadChatHistory,
-    // Votes
-    votesDay: state.votesDay,
-    votesWolf: state.votesWolf,
-    mayorVote: state.mayorVote,
-    voteMode: state.voteMode,
-    voteTimerEnd: state.voteTimerEnd,
+    ...Object.fromEntries(Object.keys(CHAMPS).map(k => [k, state[k]])),
     lockedVoters: Array.from(state.lockedVoters || []),
-    fastResolveTriggered: state.fastResolveTriggered,
-    // Nuit
-    nightTarget: state.nightTarget,
-    witchSaveUsed: state.witchSaveUsed,
-    witchKillUsed: state.witchKillUsed,
-    witchSaveActive: state.witchSaveActive,
-    witchKillTarget: state.witchKillTarget,
-    cupidDone: state.cupidDone,
-    corbeauTarget: state.corbeauTarget,
-    idiotRevealed: state.idiotRevealed,
-    nbVotesJour: state.nbVotesJour,
-    angeVainqueur: state.angeVainqueur,
-    // Salvateur + Sœurs
-    protectedTarget: state.protectedTarget,
-    lastProtectedTarget: state.lastProtectedTarget,
-    sistersTimerEnd: state.sistersTimerEnd,
-    etapeNuitSuivante: state.etapeNuitSuivante,
-    nuitEnAttente: state.nuitEnAttente,
-    evenementAnnonce: state.evenementAnnonce,
-    aliasIds: state.aliasIds,
-    // Mission
     mission: state.mission ? {
       active: state.mission.active,
       team: state.mission.team,
@@ -77,93 +71,26 @@ function serializeState(state) {
       resultRevealed: state.mission.resultRevealed,
       bonusDone: state.mission.bonusDone,
     } : null,
-    // Conseil des morts
-    activeCouncilEvent: state.activeCouncilEvent,
-    pendingCouncilEvent: state.pendingCouncilEvent,
-    silentDayChatHistory: state.silentDayChatHistory,
-    // Stats + récap
     gameStats: state.gameStats,
-    pendingDayRecap: state.pendingDayRecap,
-    // Tiebreak
-    tiebreakPending: state.tiebreakPending,
-    tiebreakCandidates: state.tiebreakCandidates,
-    tiebreakContext: state.tiebreakContext,
-    // Mode autonome
-    autoMode: state.autoMode,
-    autoVoteMode: state.autoVoteMode,
     mjPilotedDay: state.mjPilotedDay,
     conseilActif: state.conseilActif,
-    gamePaused: state.gamePaused,
-    // Phase chasseur
-    currentChasseurShooter: state.currentChasseurShooter,
-    chasseurPostContext: state.chasseurPostContext,
-    // Phase mayorTransfer
-    dyingMayorId: state.dyingMayorId,
-    mayorTransferPending: state.mayorTransferPending,
-    dyingMayorWasChasseur: state.dyingMayorWasChasseur,
-    mayorTransferContext: state.mayorTransferContext,
   };
 }
 
 // Repose les champs du snapshot dans state. Les Sets/Maps sont reconstitués.
 // Ne touche PAS aux timers ni à state.io.
 function applySnapshot(state, snap) {
-  state.phase = snap.phase;
-  state.players = snap.players || [];
-  state.roles = snap.roles || {};
-  state.deadPlayers = snap.deadPlayers || [];
-  state.lovers = snap.lovers || [];
-  state.mayor = snap.mayor || null;
-  state.playerRegistry = snap.playerRegistry || {};
-  state.deadChatHistory = snap.deadChatHistory || [];
-  state.votesDay = snap.votesDay || {};
-  state.votesWolf = snap.votesWolf || {};
-  state.mayorVote = snap.mayorVote || {};
-  state.voteMode = snap.voteMode || 1;
-  state.voteTimerEnd = snap.voteTimerEnd || null;
+  for (const [k, defaut] of Object.entries(CHAMPS)) state[k] = relire(snap[k], defaut);
   state.lockedVoters = new Set(snap.lockedVoters || []);
-  state.fastResolveTriggered = !!snap.fastResolveTriggered;
-  state.nightTarget = snap.nightTarget || null;
-  state.witchSaveUsed = !!snap.witchSaveUsed;
-  state.witchKillUsed = !!snap.witchKillUsed;
-  state.witchSaveActive = !!snap.witchSaveActive;
-  state.witchKillTarget = snap.witchKillTarget || null;
-  state.cupidDone = !!snap.cupidDone;
-  state.corbeauTarget = snap.corbeauTarget || null;
-  state.idiotRevealed = !!snap.idiotRevealed;
-  state.nbVotesJour = +snap.nbVotesJour || 0;
-  state.angeVainqueur = snap.angeVainqueur || null;
-  state.protectedTarget = snap.protectedTarget || null;
-  state.lastProtectedTarget = snap.lastProtectedTarget || null;
-  state.sistersTimerEnd = snap.sistersTimerEnd || null;
-  state.etapeNuitSuivante = snap.etapeNuitSuivante || null;
-  state.nuitEnAttente = snap.nuitEnAttente || null;
-  state.evenementAnnonce = !!snap.evenementAnnonce;
-  state.aliasIds = snap.aliasIds || {};
   if (snap.mission) Object.assign(state.mission, snap.mission);
-  state.activeCouncilEvent = snap.activeCouncilEvent || null;
-  state.pendingCouncilEvent = snap.pendingCouncilEvent || null;
-  state.silentDayChatHistory = snap.silentDayChatHistory || [];
   if (snap.gameStats) {
     state.gameStats = snap.gameStats;
     // Sauvegarde antérieure à la Petite Fille enquêtrice : journal absent
     if (!Array.isArray(state.gameStats.petiteFilleLog)) state.gameStats.petiteFilleLog = [];
   }
-  state.pendingDayRecap = snap.pendingDayRecap || null;
-  state.tiebreakPending = !!snap.tiebreakPending;
-  state.tiebreakCandidates = snap.tiebreakCandidates || [];
-  state.tiebreakContext = snap.tiebreakContext || '';
-  state.autoMode = !!snap.autoMode;
-  state.autoVoteMode = snap.autoVoteMode || 1;
+  // Absents des anciennes sauvegardes : on garde alors la valeur en place
   if (typeof snap.mjPilotedDay === 'boolean') state.mjPilotedDay = snap.mjPilotedDay;
   if (typeof snap.conseilActif === 'boolean') state.conseilActif = snap.conseilActif;
-  state.gamePaused = !!snap.gamePaused;
-  state.currentChasseurShooter = snap.currentChasseurShooter || null;
-  state.chasseurPostContext = snap.chasseurPostContext || null;
-  state.dyingMayorId = snap.dyingMayorId || null;
-  state.mayorTransferPending = !!snap.mayorTransferPending;
-  state.dyingMayorWasChasseur = !!snap.dyingMayorWasChasseur;
-  state.mayorTransferContext = snap.mayorTransferContext || '';
 }
 
 function saveSnapshot(state) {

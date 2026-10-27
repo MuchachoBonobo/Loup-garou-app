@@ -2,7 +2,7 @@
 // Dépendances circulaires (phases, roles) résolues via require('./module').fn() à l'usage.
 
 const {
-  state, alivePlayers, computeCounts, playerName, isMJ, hasRole, versMJ,
+  state, alivePlayers, computeCounts, playerName, isMJ, hasRole, versMJ, vivantsAvecRole,
   VOTE_RATE_MS, FAST_RESOLVE_MS, WOLF_CONSENSUS_GRACE_MS, resetActivity,
 } = require('./state');
 
@@ -157,11 +157,9 @@ function checkMayorAutoLock() {
   }
 }
 
-const loupsVivants = () => Object.keys(state.roles).filter(id => state.roles[id] === "Loup" && !state.deadPlayers.includes(id));
-
 function checkWolfConsensus() {
   if (!state.autoMode || state.phase !== "wolves") return;
-  const aliveWolves = loupsVivants();
+  const aliveWolves = vivantsAvecRole("Loup");
   if (aliveWolves.length === 0) return;
 
   const allVoted = aliveWolves.every(wid => state.votesWolf[wid]);
@@ -176,7 +174,7 @@ function checkWolfConsensus() {
     if (state.wolfConsensusTimer) return;
     state.wolfConsensusTimer = setTimeout(() => {
       state.wolfConsensusTimer = null;
-      const aw = loupsVivants();
+      const aw = vivantsAvecRole("Loup");
       if (aw.length === 0 || !aw.every(wid => state.votesWolf[wid])) return;
       const t = aw.map(wid => state.votesWolf[wid]);
       if (t.every(x => x === t[0]) && state.phase === "wolves") {
@@ -506,7 +504,7 @@ function handleVoteWolf(socket, id) {
   resetActivity();
   state.votesWolf[socket.id] = id;
   state.io.emit("wolfVotesMJ", state.votesWolf);
-  loupsVivants().forEach(wid => state.io.to(wid).emit("wolfVotesUpdate", state.votesWolf));
+  vivantsAvecRole("Loup").forEach(wid => state.io.to(wid).emit("wolfVotesUpdate", state.votesWolf));
   // Vision spectateur des morts
   state.deadPlayers.forEach(did => state.io.to(did).emit("wolfVotesUpdate", state.votesWolf));
   checkWolfConsensus();
