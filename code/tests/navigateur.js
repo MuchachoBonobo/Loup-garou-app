@@ -15,19 +15,12 @@
 "use strict";
 // Les fonctions passées à page.evaluate / waitForFunction s'exécutent dans la page
 /* global document, getComputedStyle, players, role, socket, window */
-const { spawn } = require("child_process");
 const puppeteer = require("puppeteer-core");
-const path = require("path"), os = require("os"), fs = require("fs");
+const { sleep, demarrerServeur, arreterServeur, compteur } = require("./outils");
 
 const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-let pass = 0, fail = 0;
-const erreurs = [], erreursJS = [];
-function check(label, cond, detail) {
-  if (cond) { pass++; console.log("  ✅", label); }
-  else { fail++; erreurs.push(label + (detail ? " | " + detail : "")); console.log("  ❌", label, detail || ""); }
-}
+const { check, bilan } = compteur();
+const erreursJS = [];
 
 // Un élément est-il affiché (ni display:none, ni caché, ni transparent) ?
 const AFFICHE = sel => {
@@ -53,15 +46,7 @@ const CARTE = ([texte, n]) => document.getElementById("dayDeathCard").className 
 
 // Serveur, navigateurs (un par téléphone), salon, lancement par le MJ et pilote du MJ
 async function preparer(navigateur, port, noms, composition) {
-  const serveur = spawn("node", ["server.js"], {
-    cwd: path.join(__dirname, ".."),
-    env: { ...process.env, PORT: String(port), LIGHTS_ENABLED: "false", SNAPSHOT_DIR: path.join(os.tmpdir(), "loupgarou-tests-navigateur-" + port) },
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  await new Promise((res, rej) => {
-    serveur.stdout.on("data", d => { if (d.toString().includes("démarré")) res(); });
-    setTimeout(() => rej(new Error("serveur non démarré en 10 s")), 10000);
-  });
+  const serveur = await demarrerServeur(port);
   const ouvrir = async (nom, chemin) => {
     const ctx = await navigateur.createBrowserContext();   // stockage séparé : un téléphone chacun
     const page = await ctx.newPage();
@@ -111,7 +96,7 @@ async function preparer(navigateur, port, noms, composition) {
     pilote = false;
     await sleep(600);
     for (const p of [mj, ...pages]) await p.browserContext().close().catch(() => {});
-    serveur.kill();
+    await arreterServeur(serveur);
   };
   return { mj, tel, pages, roleDe, id, barre, fermer };
 }
@@ -207,7 +192,7 @@ async function partieVillage(navigateur) {
     const titre = await tel[V3].evaluate(() => document.getElementById("endTitle").innerText);
     check("il annonce la victoire du village", /village/i.test(titre), titre);
   } catch (e) {
-    fail++; erreurs.push("partie 1, crash : " + e.message); console.log("  ❌ crash :", e.message);
+    check("partie 1 sans plantage du test", false, e.message);
   }
   await P.fermer();
 }
@@ -286,7 +271,7 @@ async function partieRoles(navigateur) {
     const titre = await tel[vill].evaluate(() => document.getElementById("endTitle").innerText);
     check("il annonce la victoire du village", /village/i.test(titre), titre);
   } catch (e) {
-    fail++; erreurs.push("partie 2, crash : " + e.message); console.log("  ❌ crash :", e.message);
+    check("partie 2 sans plantage du test", false, e.message);
   }
   await P.fermer();
 }
@@ -301,9 +286,6 @@ async function main() {
   await partieRoles(navigateur);
   check("aucune erreur JavaScript dans les pages", erreursJS.length === 0, erreursJS.slice(0, 5).join(" ‖ "));
   await navigateur.close();
-  for (const port of [3107, 3112]) try { fs.rmSync(path.join(os.tmpdir(), "loupgarou-tests-navigateur-" + port), { recursive: true, force: true }); } catch (_) {}
-  console.log("\n" + "═".repeat(62) + `\nBILAN : ${pass}/${pass + fail} vérifications passées`);
-  if (erreurs.length) erreurs.forEach(e => console.log("  •", e));
-  process.exit(fail ? 1 : 0);
+  process.exit(bilan());
 }
 main().catch(e => { console.error("Erreur fatale :", e.message); process.exit(2); });

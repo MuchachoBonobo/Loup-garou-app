@@ -7,43 +7,24 @@
 //   Plusieurs bancs en parallèle : un port et une graine différents par banc.
 //   CFG_FIXE='{"N":9,"cfg":{...}}' impose une composition (pour reproduire une anomalie).
 // Chaque anomalie est imprimée avec le déroulé des derniers évènements et lignes du serveur.
-const { spawn } = require("child_process");
-const path = require("path");
-const fs = require("fs");
-const os = require("os");
 const { io: ioc } = require("socket.io-client");
+const { sleep, demarrerServeur, arreterServeur } = require("../tests/outils");
 
 const PORT = +process.argv[2] || 3111;
 const NB = +process.argv[3] || 3;
 let graine = +process.argv[4] || 1;
 const alea = () => { graine = (graine * 1103515245 + 12345) % 2147483648; return graine / 2147483648; };
 const entre = (a, b) => a + Math.floor(alea() * (b - a + 1));
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-const SNAP = path.join(os.tmpdir(), "loupgarou-banc-" + PORT);
 
 const ORDRE_NUIT = ["cupid", "amoureux", "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch"];
 const PHASES_ROLE_NUIT = new Set(ORDRE_NUIT);
 
 let erreursServeur = []; const lignesServeur = [];
-function demarrerServeur() {
-  return new Promise((res, rej) => {
-    const srv = spawn("node", ["server.js"], {
-      cwd: path.join(__dirname, ".."),
-      env: { ...process.env, PORT: String(PORT), LIGHTS_ENABLED: "false", SNAPSHOT_DIR: SNAP },
-      stdio: ["ignore", "pipe", "pipe"]
-    });
-    let pret = false;
-    const surveille = d => {
-      const t = d.toString();
-      t.split(/\r?\n/).filter(l => /setPhase|killPlayer|resolveDayVote|startDayVote|Chasseur|mayorTransfer|autoResolve|pause|resume/i.test(l))
-        .forEach(l => { lignesServeur.push(l.replace(/^\[[^\]]*\] /, "").slice(0, 120)); if (lignesServeur.length > 200) lignesServeur.shift(); });
-      if (t.includes("démarré")) { pret = true; res(srv); }
-      if (/TypeError|ReferenceError|RangeError|UNCAUGHT|UNHANDLED|Cannot read|is not a function|is not defined/.test(t)) erreursServeur.push(t.trim().slice(0, 400));
-    };
-    srv.stdout.on("data", surveille);
-    srv.stderr.on("data", surveille);
-    setTimeout(() => { if (!pret) rej(new Error("serveur non démarré")); }, 15000);
-  });
+// Ce que le serveur écrit : les lignes utiles au déroulé d'une anomalie, et ses erreurs
+function surveiller(t) {
+  t.split(/\r?\n/).filter(l => /setPhase|killPlayer|resolveDayVote|startDayVote|Chasseur|mayorTransfer|autoResolve|pause|resume/i.test(l))
+    .forEach(l => { lignesServeur.push(l.replace(/^\[[^\]]*\] /, "").slice(0, 120)); if (lignesServeur.length > 200) lignesServeur.shift(); });
+  if (/TypeError|ReferenceError|RangeError|UNCAUGHT|UNHANDLED|Cannot read|is not a function|is not defined/.test(t)) erreursServeur.push(t.trim().slice(0, 400));
 }
 
 async function partie(num) {
@@ -82,7 +63,7 @@ async function partie(num) {
 
   // --- Suivi ---
   let roles = {}, morts = new Set(), amoureux = [], phases = [], fin = null, angeRevele = null;
-  let premierVoteFait = false, finsDeJour = 0;
+  let premierVoteFait = false;
   let nuitEnCours = [], apresAube = false, apresFinDeJour = false, premiereNuitFaite = false;
   const vivants = () => Object.keys(roles).filter(id => !morts.has(id));
   const vivantRole = r => vivants().some(id => roles[id] === r);
@@ -99,7 +80,6 @@ async function partie(num) {
     apresAube = true; nuitEnCours = [];
   });
   const finDeJour = (type, d) => {
-    finsDeJour++;
     if (type === "vote" && d && d.role === "Ange" && !premierVoteFait && !tireAuSort) V(`l'Ange désigné au 1er vote est mort au lieu de gagner (${d.name})`);
     if (type === "vote" && d && morts.has(d.id)) V(`éliminé au vote alors que déjà mort : ${d.name}`);
     premierVoteFait = true; tireAuSort = false;
@@ -203,18 +183,17 @@ async function partie(num) {
 }
 
 (async () => {
-  try { fs.rmSync(SNAP, { recursive: true, force: true }); } catch (_) {}
-  const srv = await demarrerServeur();
+  const srv = await demarrerServeur(PORT, { surLigne: surveiller });
   const resultats = [];
   for (let i = 1; i <= NB; i++) {
     const r = await partie(i);
     resultats.push(r);
     console.log(`[${PORT}] partie ${i} (${r.desc}) : ${r.duree}s, ${r.jours} jour(s), PF ${r.pf}× → ${r.fin || "AUCUNE FIN"}` + (r.viol.length ? `\n    ❌ ${r.viol.join("\n    ❌ ")}` : "  ✅"));
   }
-  srv.kill();
-  try { fs.rmSync(SNAP, { recursive: true, force: true }); } catch (_) {}
+  await arreterServeur(srv);
   const nbViol = resultats.reduce((a, r) => a + r.viol.length, 0);
   console.log(`[${PORT}] BILAN : ${resultats.length} parties, ${nbViol} anomalie(s) de règle, ${erreursServeur.length} erreur(s) serveur`);
   erreursServeur.forEach(e => console.log(`[${PORT}] ERREUR SERVEUR : ${e}`));
-  process.exit(0);
+  // Une anomalie ou une erreur du serveur fait échouer le banc (avant : il finissait toujours en succès)
+  process.exit(nbViol || erreursServeur.length ? 1 : 0);
 })();

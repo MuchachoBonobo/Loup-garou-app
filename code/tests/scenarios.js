@@ -9,76 +9,20 @@
  */
 
 "use strict";
-const { spawn }    = require("child_process");
-const { io: ioc }  = require("socket.io-client");
-const path         = require("path");
-const os           = require("os");
-const fs           = require("fs");
-
-// Dossier de sauvegarde jetable : le serveur de test ne doit pas laisser une
-// partie « à reprendre » dans le vrai dossier snapshots/.
-const TEST_SNAP_DIR = path.join(os.tmpdir(), "loupgarou-tests-snapshots");
+const { sleep, demarrerServeur, arreterServeur, connecter, attendre, attendrePhase, piloterMJ, compteur } = require("./outils");
 
 const TEST_PORT = 3099;
-const BASE_URL  = `http://localhost:${TEST_PORT}`;
+const { check, bilan } = compteur();
+const ko = (nom, detail) => check(nom, false, detail);
 
-// ═══════════════════════════════════════════════════════════
-// Helpers
-// ═══════════════════════════════════════════════════════════
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-/** Attend un événement sur un socket, timeout en erreur. */
-function waitFor(socket, event, ms = 8000) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`Timeout(${ms}ms) sur "${event}"`)), ms);
-    socket.once(event, d => { clearTimeout(t); resolve(d); });
-  });
-}
-
-/**
- * Attend que le socket reçoive phase===target.
- * Les phases intermédiaires sont ignorées.
- */
-function waitForPhase(socket, target, ms = 15000) {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`Timeout phase "${target}"`)), ms);
-    function h(p) {
-      if (p === target) { clearTimeout(t); resolve(); }
-      else socket.once("phase", h);
-    }
-    socket.once("phase", h);
-  });
-}
-
-/** Connecte un socket joueur et envoie register. */
-function makeClient(name) {
-  return new Promise((resolve, reject) => {
-    const s = ioc(BASE_URL, { transports: ["websocket"], forceNew: true, timeout: 5000 });
-    s.once("connect",       () => { if (name) s.emit("register", name); resolve(s); });
-    s.once("connect_error", reject);
-    setTimeout(() => reject(new Error(`connect timeout (${name})`)), 7000);
-  });
-}
-
-/** Connecte un socket MJ, purge tout état résiduel. */
-function makeMJ() {
-  return new Promise((resolve, reject) => {
-    const s = ioc(BASE_URL, { transports: ["websocket"], forceNew: true, timeout: 5000 });
-    s.once("connect", () => {
-      s.emit("registerMJ");
-      s.emit("discardCrashRecovery");
-      // Nuit rythmée par le MJ : le MJ de test clique « Passer à l'étape suivante »
-      // une demi-seconde après chaque pause entre deux rôles de nuit.
-      s.on("etapeNuitEnAttente", () => setTimeout(() => s.emit("mjEtapeSuivante"), 500));
-      // Crépuscule : le MJ de test lance la nuit une demi-seconde après
-      s.on("nuitEnAttente", () => setTimeout(() => s.emit("mjLancerNuit"), 500));
-      // Chasseur, maire mourant : le MJ de test lance l'action une demi-seconde après
-      s.on("actionMJEnAttente", () => setTimeout(() => s.emit("mjOuvrirAction"), 500));
-      resolve(s);
-    });
-    s.once("connect_error", reject);
-    setTimeout(() => reject(new Error("connect timeout (MJ)")), 7000);
-  });
+// La tablette du MJ, sans reprise après plantage ; le MJ automatique lance la nuit, passe les
+// étapes et ouvre les actions (Chasseur, maire mourant) une demi-seconde après qu'on les lui propose
+async function nouveauMJ() {
+  const mj = await connecter(TEST_PORT);
+  mj.emit("registerMJ");
+  mj.emit("discardCrashRecovery");
+  piloterMJ(mj, { nuit: true });
+  return mj;
 }
 
 function closeAll(sockets) {
@@ -87,19 +31,10 @@ function closeAll(sockets) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// Compteurs de résultats
-// ═══════════════════════════════════════════════════════════
-let pass = 0, fail = 0;
-const errors = [];
-function ok()                       { pass++; }
-function ko(label, detail)          { fail++; errors.push(detail ? `${label} | ${detail}` : label); console.error("  ❌", label, detail || ""); }
-function check(label, cond, detail) { cond ? ok() : ko(label, detail); }
-
-// ═══════════════════════════════════════════════════════════
 // Helper de setup : reset complet, inscription joueurs, assignation rôles, wolves.
 // ═══════════════════════════════════════════════════════════
 async function setupGame(all, names, config) {
-  const mj = await makeMJ(); all.push(mj);
+  const mj = await nouveauMJ(); all.push(mj);
 
   // Reset complet : vide state.players pour éviter les contaminations entre scénarios
   mj.emit("fullReset");
@@ -108,7 +43,7 @@ async function setupGame(all, names, config) {
   // Inscrire les joueurs
   const players = [];
   for (const n of names) {
-    const s = await makeClient(n);
+    const s = await connecter(TEST_PORT, n);
     all.push(s);
     players.push({ name: n, s });
   }
@@ -119,7 +54,7 @@ async function setupGame(all, names, config) {
   const rolePs      = players.map(p => new Promise(res =>
     p.s.once("yourRole", d => { roleOf[p.name] = d.role; res(); })
   ));
-  const mayorVoteP  = waitForPhase(players[0].s, "mayorVote");
+  const mayorVoteP  = attendrePhase(players[0].s, "mayorVote");
 
   mj.emit("assignRoles", { ...config, autoMode: false, mjPilotedDay: true });
   await Promise.all([...rolePs, mayorVoteP]);
@@ -129,12 +64,12 @@ async function setupGame(all, names, config) {
   players.forEach(p => { if (p !== players[0]) p.s.emit("voteMayor", players[0].s.id); });
   await sleep(100);
 
-  const newMayorP = waitFor(players[0].s, "newMayor", 6000);
+  const newMayorP = attendre(players[0].s, "newMayor", 6000);
   mj.emit("lockMayorVote");
   await newMayorP;
 
   // Force passage à wolves pour court-circuiter la phase Cupidon (délai 60 s)
-  const wolvesP = waitForPhase(players[0].s, "wolves");
+  const wolvesP = attendrePhase(players[0].s, "wolves");
   mj.emit("setPhase", "wolves");
   await wolvesP;
 
@@ -167,7 +102,7 @@ async function s1() {
     players[0].s.on("deadPlayers", dp => { latestDeadPlayers = dp; });
 
     // Sorcière reçoit nightVictim après que les loups aient verrouillé
-    const nightVictimP = waitFor(witchP.s, "nightVictim", 10000);
+    const nightVictimP = attendre(witchP.s, "nightVictim", 10000);
     loupP.s.emit("voteWolf", huntP.s.id);
     await sleep(100);
     mj.emit("lockWolfVotes");   // le MJ valide l'attaque
@@ -180,7 +115,7 @@ async function s1() {
     witchP.s.emit("witchDone");
 
     // Attendre dawnResult (les deadPlayers sont déjà arrivés avant)
-    const dawn = await waitFor(players[0].s, "dawnResult", 10000);
+    const dawn = await attendre(players[0].s, "dawnResult", 10000);
     const dawnNames = (dawn.deaths || []).map(d => `${d.name}/${d.role}`);
     console.log("  dawnResult:", dawnNames.join(", ") || "(aucun)");
 
@@ -221,7 +156,7 @@ async function s2() {
     if (!loupP || !crowP) { ko("S2-setup", JSON.stringify(roleOf)); return; }
 
     // Wolves → corbeau phase
-    const corbeauPhaseP = waitForPhase(crowP.s, "corbeau", 10000);
+    const corbeauPhaseP = attendrePhase(crowP.s, "corbeau", 10000);
     crowP.s.once("corbeauTurn", () => {}); // vider l'éventuel premier event
     loupP.s.emit("voteWolf", vills[0].s.id);
     await sleep(100);
@@ -236,12 +171,12 @@ async function s2() {
     await sleep(400);
 
     console.log("  → Reconnexion Corbeau...");
-    const newSock = await makeClient(crowP.name);
+    const newSock = await connecter(TEST_PORT, crowP.name);
     all.push(newSock);
     crowP.s = newSock;
 
     const got = await Promise.race([
-      waitFor(newSock, "corbeauTurn", 4000).then(() => true),
+      attendre(newSock, "corbeauTurn", 4000).then(() => true),
       sleep(4200).then(() => false)
     ]);
     check("S2-corbeau reçoit corbeauTurn après reconnexion", got);
@@ -274,7 +209,7 @@ async function s3() {
     if (!loupP || !witchP) { ko("S3-setup", JSON.stringify(roleOf)); return; }
 
     // Attendre nightVictim initial AVANT la déconnexion
-    const firstVictimP = waitFor(witchP.s, "nightVictim", 10000);
+    const firstVictimP = attendre(witchP.s, "nightVictim", 10000);
     loupP.s.emit("voteWolf", vills[0].s.id);
     await sleep(100);
     mj.emit("lockWolfVotes");
@@ -288,12 +223,12 @@ async function s3() {
     await sleep(400);
 
     console.log("  → Reconnexion Sorcière...");
-    const newSock = await makeClient(witchP.name);
+    const newSock = await connecter(TEST_PORT, witchP.name);
     all.push(newSock);
     witchP.s = newSock;
 
     const victim = await Promise.race([
-      waitFor(newSock, "nightVictim", 4000),
+      attendre(newSock, "nightVictim", 4000),
       sleep(4200).then(() => null)
     ]);
     check("S3-sorcière reçoit nightVictim après reconnexion", victim !== null,
@@ -336,8 +271,8 @@ async function s4() {
     console.log(`  wolfTarget: ${wolfTarget.name} (${roleOf[wolfTarget.name]}) — hunt: ${huntP.name} — mayor: ${players[0].name}`);
 
     // Poser les listeners AVANT wolfKill pour éviter la race condition
-    const dawnP = waitFor(players[0].s, "dawnResult", 12000);
-    const dayP  = waitForPhase(players[0].s, "day", 20000);
+    const dawnP = attendre(players[0].s, "dawnResult", 12000);
+    const dayP  = attendrePhase(players[0].s, "day", 20000);
 
     loupP.s.emit("voteWolf", wolfTarget.s.id);
     await sleep(100);
@@ -378,7 +313,7 @@ async function s4() {
 
     // lockDayVotes → 800ms → resolveDayVote → 8200ms → killPlayer(chasseur) → chasseurMustShoot
     // (ou mayorTransfer → 300ms → mayorTransferChoice → chasseurMustShoot si chasseur==maire)
-    const mustShootP = waitFor(huntP.s, "chasseurMustShoot", 20000);
+    const mustShootP = attendre(huntP.s, "chasseurMustShoot", 20000);
     mj.emit("lockDayVotes");
     const fired = await mustShootP.then(() => true).catch(() => false);
     check("S4-chasseur reçoit chasseurMustShoot après lynchage", fired);
@@ -402,7 +337,7 @@ async function s5() {
   console.log("\n▶ S5 — Smoke test autoMode bots (max 240s)");
   const all = [];
   try {
-    const mj = await makeMJ(); all.push(mj);
+    const mj = await nouveauMJ(); all.push(mj);
     mj.emit("fullReset");
     await sleep(600);
 
@@ -411,7 +346,7 @@ async function s5() {
     for (let i = 0; i < 5; i++) mj.emit("addBot");
     await sleep(400);
 
-    const gameEndP = waitFor(mj, "gameEnd", 245000);
+    const gameEndP = attendre(mj, "gameEnd", 245000);
     mj.emit("assignRoles", {
       loup: 1, chasseur: 0, sorciere: 0, voyante: 1,
       cupidon: 0, corbeau: 0, salvateur: 0, sisters: 0,
@@ -435,7 +370,7 @@ async function s5() {
 // Helper : nuit où le loup unique tue `victime`, puis attend le jour.
 // ═══════════════════════════════════════════════════════════
 async function nuitLoupUnique(mj, players, loupP, victime) {
-  const dayP = waitForPhase(players[0].s, "day", 20000);
+  const dayP = attendrePhase(players[0].s, "day", 20000);
   loupP.s.emit("voteWolf", victime.s.id);
   await sleep(100);
   mj.emit("lockWolfVotes");
@@ -468,9 +403,9 @@ async function s6() {
     players.filter(p => p !== victime).forEach(p => p.s.emit("voteDay", p === angeP ? loupP.s.id : angeP.s.id));
     await sleep(300);
 
-    const reveleP = waitFor(mj, "angeRevele", 12000);
-    const finP    = waitFor(mj, "gameEnd", 16000);
-    const resumeP = waitFor(mj, "gameSummary", 16000);
+    const reveleP = attendre(mj, "angeRevele", 12000);
+    const finP    = attendre(mj, "gameEnd", 16000);
+    const resumeP = attendre(mj, "gameSummary", 16000);
     mj.emit("lockDayVotes");
     const revele = await reveleP.catch(() => null);
     check("S6-l'Ange est révélé", revele && revele.id === angeP.s.id, JSON.stringify(revele));
@@ -485,7 +420,7 @@ async function s6() {
     const cl = (resume && resume.classement) || [];
     const pts = n => (cl.find(c => c.nom === n) || {}).points;
     check("S6-classement : 1 point pour l'Ange seul", pts(angeP.name) === 1 && NAMES.filter(n => n !== angeP.name).every(n => pts(n) === 0), JSON.stringify(cl));
-    const soireeP = waitFor(mj, "soireeMJ", 4000);
+    const soireeP = attendre(mj, "soireeMJ", 4000);
     mj.emit("nouvelleSoiree");
     const soiree = await soireeP.catch(() => null);
     check("S6-« Nouvelle soirée » remet le classement à zéro", soiree && soiree.parties === 0 && soiree.classement.length === 0, JSON.stringify(soiree));
@@ -515,7 +450,7 @@ async function s7() {
 
     // Nuit 1, puis le MJ passe le vote du jour 1
     await nuitLoupUnique(mj, players, loupP, villageois[0]);
-    const nuit2P = waitForPhase(players[0].s, "wolves", 20000);
+    const nuit2P = attendrePhase(players[0].s, "wolves", 20000);
     mj.emit("skipDayVote");
     await nuit2P;
     await nuitLoupUnique(mj, players, loupP, villageois[1]);
@@ -529,7 +464,7 @@ async function s7() {
       .forEach(p => p.s.emit("voteDay", p === angeP ? loupP.s.id : angeP.s.id));
     await sleep(300);
 
-    const resultP = waitFor(mj, "dayVoteResult", 12000);
+    const resultP = attendre(mj, "dayVoteResult", 12000);
     mj.emit("lockDayVotes");
     const res = await resultP.catch(() => null);
     check("S7-l'Ange est éliminé comme un villageois", res && res.id === angeP.s.id && res.role === "Ange", JSON.stringify(res));
@@ -562,7 +497,7 @@ async function s8() {
     mj.on("petiteFilleMJInfo", d => { mjInfo = d; });
 
     // Nuit 1 : le loup tue un villageois, puis c'est au tour de la Petite Fille
-    const pfTourP = waitForPhase(pfP.s, "petiteFille", 20000);
+    const pfTourP = attendrePhase(pfP.s, "petiteFille", 20000);
     loupP.s.emit("voteWolf", villageois[0].s.id);
     await sleep(100);
     mj.emit("lockWolfVotes");
@@ -570,13 +505,13 @@ async function s8() {
     check("S8-la Petite Fille se réveille après les Loups (pas de Voyante)", true);
 
     // Choix invalide : elle-même dans la liste
-    const erreurP = waitFor(pfP.s, "petiteFilleError", 4000);
+    const erreurP = attendre(pfP.s, "petiteFilleError", 4000);
     pfP.s.emit("petiteFilleChoice", [pfP.s.id, loupP.s.id, villageois[1].s.id]);
     const erreur = await erreurP.catch(() => null);
     check("S8-se désigner elle-même est refusé", typeof erreur === "string", String(erreur));
 
     // Choix valide avec le loup
-    const resP = waitFor(pfP.s, "petiteFilleResult", 4000);
+    const resP = attendre(pfP.s, "petiteFilleResult", 4000);
     pfP.s.emit("petiteFilleChoice", [loupP.s.id, villageois[1].s.id, villageois[2].s.id]);
     const res = await resP.catch(() => null);
     check("S8-nuit 1 : « au moins un loup »", res && res.auMoinsUnLoup === true && res.names.length === 3, JSON.stringify(res));
@@ -589,27 +524,27 @@ async function s8() {
     players[0].s.on("phase", onPhase);
     await sleep(1500);
     check("S8-la nuit attend le « OK » de la Petite Fille", !jour);
-    const day1P = waitForPhase(players[0].s, "day", 20000);
+    const day1P = attendrePhase(players[0].s, "day", 20000);
     pfP.s.emit("petiteFilleDone");
     await day1P;
     players[0].s.off("phase", onPhase);
     await sleep(300);
 
     // Jour 1 passé, nuit 2 : 3 villageois → aucun loup
-    const nuit2P = waitForPhase(players[0].s, "wolves", 20000);
+    const nuit2P = attendrePhase(players[0].s, "wolves", 20000);
     mj.emit("skipDayVote");
     await nuit2P;
-    const pfTour2P = waitForPhase(pfP.s, "petiteFille", 20000);
+    const pfTour2P = attendrePhase(pfP.s, "petiteFille", 20000);
     loupP.s.emit("voteWolf", villageois[1].s.id);
     await sleep(100);
     mj.emit("lockWolfVotes");
     await pfTour2P;
     const trois = players.filter(p => roleOf[p.name] === "Villageois" && p !== villageois[0] && p !== villageois[1]).slice(0, 3);
-    const res2P = waitFor(pfP.s, "petiteFilleResult", 4000);
+    const res2P = attendre(pfP.s, "petiteFilleResult", 4000);
     pfP.s.emit("petiteFilleChoice", trois.map(p => p.s.id));
     const res2 = await res2P.catch(() => null);
     check("S8-nuit 2 : « aucun loup »", res2 && res2.auMoinsUnLoup === false, JSON.stringify(res2) + " choisis=" + trois.map(p => p.name));
-    const day2P = waitForPhase(players[0].s, "day", 20000);
+    const day2P = attendrePhase(players[0].s, "day", 20000);
     pfP.s.emit("petiteFilleDone");
     const day2 = await day2P.then(() => true).catch(() => false);
     check("S8-après son « OK », le jour 2 se lève", day2);
@@ -681,7 +616,7 @@ async function s10() {
     mj.on("dawnResult", () => aubes++);
     mj.on("gameEnd", m => fins.push(m));
 
-    const sorcTourP = waitForPhase(sorcP.s, "witch", 20000);
+    const sorcTourP = attendrePhase(sorcP.s, "witch", 20000);
     loupP.s.emit("voteWolf", v1.s.id);
     await sleep(100);
     mj.emit("lockWolfVotes");
@@ -736,14 +671,14 @@ async function s11() {
     check("S11-alerte « a perdu la connexion » au bout de 5 s", perdus.includes(a.name), JSON.stringify(perdus));
 
     // Retour du joueur avec son prénom
-    const a2 = await makeClient(a.name); all.push(a2);
+    const a2 = await connecter(TEST_PORT, a.name); all.push(a2);
     await sleep(800);
     check("S11-retour → 🟢 sous son nouvel identifiant", etats[a2.id] === "ok" && !(ancienA in etats), JSON.stringify(etats));
     check("S11-alerte « est de retour »", revenus.includes(a.name), JSON.stringify(revenus));
 
     // Simple rechargement de page (retour en moins d'une seconde) : aucune alerte
     b.s.disconnect(); await sleep(300);
-    const b2 = await makeClient(b.name); all.push(b2);
+    const b2 = await connecter(TEST_PORT, b.name); all.push(b2);
     await sleep(6000);
     check("S11-rechargement rapide : pas d'alerte de coupure", !perdus.includes(b.name), JSON.stringify(perdus));
     check("S11-rechargement rapide : 🟢", etats[b2.id] === "ok", JSON.stringify(etats));
@@ -774,7 +709,7 @@ async function s12() {
     mj.emit("startVote", 1); await sleep(400);
     players.filter(p => p !== vill[0] && p !== vill[1]).forEach(p => p.s.emit("voteDay", vill[1].s.id));
     await sleep(400);
-    const finP = waitFor(mj, "gameEnd", 16000);
+    const finP = attendre(mj, "gameEnd", 16000);
     mj.emit("lockDayVotes");
     const fin = await finP.catch(() => null);
     check("S12-la 1re partie se termine", typeof fin === "string", String(fin));
@@ -790,8 +725,8 @@ async function s12() {
 
     // Retour au salon, puis le MJ retire un joueur
     mj.emit("reset"); await sleep(800);
-    const retireP = waitFor(players[3].s, "retireParMJ", 4000);
-    const listeP  = waitFor(mj, "players", 4000);
+    const retireP = attendre(players[3].s, "retireParMJ", 4000);
+    const listeP  = attendre(mj, "players", 4000);
     mj.emit("retirerJoueur", players[3].s.id);
     const retire = await retireP.then(() => true).catch(() => false);
     const liste  = await listeP.catch(() => []);
@@ -828,17 +763,17 @@ async function s13() {
     mj.emit("startVote"); await sleep(300);
     voter([[maire, vill[1]], [vill[3], vill[1]], [vill[1], vill[2]], [vill[4], vill[2]]]);
     await sleep(300);
-    const egaliteP = waitFor(maire.s, "tiebreakMayor", 6000);
+    const egaliteP = attendre(maire.s, "tiebreakMayor", 6000);
     mj.emit("lockDayVotes");
     const egalite = await egaliteP.catch(() => null);
     const candidats = (egalite?.candidates || []).map(c => c.id).sort();
     check("S13-le maire tranche entre les deux ex æquo", JSON.stringify(candidats) === JSON.stringify([vill[1].s.id, vill[2].s.id].sort()), JSON.stringify(egalite));
-    const resultat1P = waitFor(mj, "dayVoteResult", 8000);
-    const nuit2P = waitForPhase(maire.s, "wolves", 25000);
+    const resultat1P = attendre(mj, "dayVoteResult", 8000);
+    const nuit2P = attendrePhase(maire.s, "wolves", 25000);
     maire.s.emit("tiebreakChoice", vill[2].s.id);
     const r1 = await resultat1P.catch(() => null);
     check("S13-le désigné par le maire est éliminé", r1 && r1.id === vill[2].s.id, JSON.stringify(r1));
-    await nuit2P.then(() => ok(), () => ko("S13-la nuit suit la décision du maire"));
+    check("S13-la nuit suit la décision du maire", await nuit2P.then(() => true, () => false));
 
     // Jour 2 : 2 voix contre vill[1], 2 contre vill[4] ; le maire ne répond pas
     await nuitLoupUnique(mj, players, loupP, vill[3]);
@@ -847,13 +782,13 @@ async function s13() {
     mj.emit("startVote"); await sleep(300);
     voter([[maire, vill[1]], [vill[4], vill[1]], [vill[1], vill[4]], [autre, vill[4]]]);
     await sleep(300);
-    const resultat2P = waitFor(mj, "dayVoteResult", 40000);
-    const nuit3P = waitForPhase(maire.s, "wolves", 50000);
+    const resultat2P = attendre(mj, "dayVoteResult", 40000);
+    const nuit3P = attendrePhase(maire.s, "wolves", 50000);
     mj.emit("lockDayVotes");
     const r2 = await resultat2P.catch(() => null);
     check("S13-sans réponse du maire, le hasard tranche", hasard);
     check("S13-l'élu du hasard est l'un des deux ex æquo", r2 && [vill[1].s.id, vill[4].s.id].includes(r2.id), JSON.stringify(r2));
-    await nuit3P.then(() => ok(), () => ko("S13-la nuit suit le tirage au sort"));
+    check("S13-la nuit suit le tirage au sort", await nuit3P.then(() => true, () => false));
   } catch (e) {
     ko("S13 crash", e.message);
   } finally {
@@ -869,21 +804,8 @@ async function main() {
   console.log("🐺 LOUP-GAROU — Tests intégration — port " + TEST_PORT);
   console.log("═".repeat(62));
 
-  const server = spawn("node", ["server.js"], {
-    cwd:   path.join(__dirname, ".."),
-    env:   { ...process.env, PORT: String(TEST_PORT), LIGHTS_ENABLED: "false", SNAPSHOT_DIR: TEST_SNAP_DIR },
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-
-  let serverReady = false;
-  server.stdout.on("data", d => { if (d.toString().includes("démarré")) serverReady = true; });
-  server.stderr.on("data", d => process.stderr.write("[srv] " + d.toString()));
-
-  await new Promise((resolve, reject) => {
-    const iv = setInterval(() => { if (serverReady) { clearInterval(iv); resolve(); } }, 100);
-    setTimeout(() => { clearInterval(iv); reject(new Error("Serveur non démarré dans 10s")); }, 10000);
-  });
-  console.log("  Serveur test prêt : " + BASE_URL + "\n");
+  const serveur = await demarrerServeur(TEST_PORT);
+  console.log("  Serveur test prêt : http://localhost:" + TEST_PORT + "\n");
 
   for (const scenario of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13]) {
     try { await scenario(); }
@@ -891,20 +813,8 @@ async function main() {
     await sleep(800);
   }
 
-  server.kill();
-  await sleep(300);
-  try { fs.rmSync(TEST_SNAP_DIR, { recursive: true, force: true }); } catch (_) {}
-
-  console.log("\n" + "═".repeat(62));
-  console.log("RAPPORT FINAL");
-  console.log(`  ✅ Passé  : ${pass}`);
-  console.log(`  ❌ Échoué : ${fail}`);
-  if (errors.length) {
-    console.log("\nDétail des échecs :");
-    errors.forEach(e => console.log("  •", e));
-  }
-  console.log("═".repeat(62));
-  process.exit(fail > 0 ? 1 : 0);
+  await arreterServeur(serveur);
+  process.exit(bilan());
 }
 
 main().catch(err => { console.error("Erreur fatale :", err.message); process.exit(2); });

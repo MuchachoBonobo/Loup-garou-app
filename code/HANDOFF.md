@@ -13,7 +13,7 @@ C:\LoupGarouVoteApp\
 ├─ code\              LE CODE — zone de Claude (Alexandre n'y va pas)
 │  ├─ server.js + modules *.js, lights-scenes.json
 │  ├─ public\         interfaces joueur (index.html) et MJ (mj.html), css\, sounds\
-│  ├─ tests\          scenarios.js (intégration), rythme-mj.js, annonces-mj.js, navigateur.js (partie dans Chrome)
+│  ├─ tests\          outils.js (outils communs), scenarios.js (intégration), rythme-mj.js, annonces-mj.js, navigateur.js (partie dans Chrome)
 │  ├─ outils\         test-hue.js (diagnostic lumières)
 │  ├─ docs\           archives techniques (ANALYSE-2026-05-07.md)
 │  ├─ HANDOFF.md, CONTEXT.md
@@ -127,6 +127,8 @@ npm run test:navigateur         # 2 parties dans de vrais navigateurs (Chrome in
 npm run lint                    # ESLint (informationnel)
 ```
 
+Tous les tests (et le banc) passent par **`tests/outils.js`** : serveur jetable (`demarrerServeur`, `arreterServeur`), faux téléphone (`connecter`), attentes (`attendre`, `attendrePhase`), MJ automatique (`piloterMJ`), compte des vérifications (`compteur` → `check`, `bilan`). Chaque test finit par « BILAN : x/y vérifications passées » et la liste des échecs.
+
 Après toute modification serveur : **arrêter et relancer** le serveur (Node garde les anciens modules en mémoire) et rafraîchir les navigateurs.
 
 ## Tâches en attente
@@ -168,6 +170,14 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-27 (suite 10) — Revue des tests : des outils communs
+Même revue que pour le code (demande d'Alexandre). Les quatre tests et le banc de robots réécrivaient chacun leurs outils : démarrage du serveur jetable (5 fois), pause (5), faux téléphone (3), attente d'un message (3), compte des vérifications et bilan (4 fois, 4 présentations différentes), MJ automatique (3 fois, avec des délais différents).
+- **Nouveau `tests/outils.js`** : `demarrerServeur` / `arreterServeur` (dossier de sauvegardes temporaire par port, gardé pour une reprise après plantage), `connecter`, `attendre` / `attendrePhase`, `piloterMJ` (options : délai, étapes, actions, lancer la nuit, valider les loups — chaque test garde le réglage qu'il avait), `compteur` (`check`, `bilan`). Les erreurs JavaScript du serveur s'affichent dans tous les tests (avant : dans certains seulement).
+- **Même bilan partout** : « BILAN : x/y vérifications passées », puis la liste des échecs (les scénarios affichaient « RAPPORT FINAL ✅ Passé / ❌ Échoué » et taisaient les vérifications réussies).
+- **Corrigé** : le banc de robots se terminait toujours en succès, même avec des anomalies ou des erreurs du serveur ; il échoue maintenant dans ce cas. Retiré : un compteur du banc jamais lu (`finsDeJour`).
+- Tailles : `scenarios.js` 910 → 820, `rythme-mj.js` 231 → 195, `annonces-mj.js` 138 → 103, `navigateur.js` 309 → 291, banc 220 → 200 ; `outils.js` 92.
+- **Vérifié** : chaque test garde son nombre de vérifications et passe (scénarios 48/48, rythme 25/25 dont la reprise après plantage, Chasseur et maire 13/13, navigateurs 71/71, banc sans anomalie) ; et un défaut introduit exprès dans le serveur est bien détecté (voir le commit).
 
 ### 2026-10-27 (suite 9) — Revue du CSS : un besoin, une règle
 Même revue que pour le code (demande d'Alexandre).
