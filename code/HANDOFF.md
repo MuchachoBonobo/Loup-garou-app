@@ -129,7 +129,6 @@ Après toute modification serveur : **arrêter et relancer** le serveur (Node ga
 
 ## Tâches en attente
 
-- `npm audit` signale des failles « déni de service » dans `body-parser` (utilisé par Express) et `brace-expansion` (utilisé par ESLint), antérieures au 2026-10-27. `npm audit fix` les corrigerait (mise à jour mineure) ; à faire puis tester (`npm test`, `npm run test:navigateur`) avant une prestation.
 - **Étape 8 de la refonte du jour** : playtest réel, mesurer le temps d'écran des joueurs en journée, puis supprimer le toggle `mjPilotedDay` et le mode legacy si validé.
 - `server.js.bak` (ancien serveur monolithique, non versionné) traîne dans `code/` : peut être supprimé.
 
@@ -166,6 +165,9 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-27 (suite 5) — Failles des dépendances corrigées (`npm audit fix`)
+`npm audit` signalait 10 failles (1 critique, 7 élevées, 2 moyennes), toutes dans des bibliothèques utilisées indirectement : `proxy-addr` (usurpation d'adresse IP, critique), `body-parser` et `qs` (Express), `ws`, `engine.io`, `engine.io-client`, `socket.io-parser`, `socket.io-adapter` (Socket.io : épuisement de mémoire, fuite de mémoire non initialisée), `brace-expansion` et `js-yaml` (ESLint). Surtout des « déni de service » : un appareil du réseau pouvait faire planter le serveur. `npm audit fix` (sans `--force`) : uniquement des versions de correctif, `package.json` inchangé, seul `package-lock.json` change ; 0 faille ensuite. Les mises à jour touchant la liaison serveur ↔ téléphones, tous les filets ont été relancés (voir le commit).
 
 ### 2026-10-27 (suite 4) — Test dans de vrais navigateurs ; lot C (pages) mesuré puis réduit
 - **Nouveau filet : `npm run test:navigateur`** (`tests/navigateur.js`, `puppeteer-core` ajouté en devDependency, Chrome installé requis). Six téléphones et la tablette du MJ, chacun dans son propre navigateur invisible, jouent une partie complète en cliquant sur les vrais boutons (2 loups, 4 villageois, jour piloté par le MJ) : salon, carte à retourner puis description du rôle, élection et carte du maire (nom + photo), voile de nuit, boutons « Attaquer », votes des loups en haut chez le MJ, carte du matin sans « Continuer », écran de débat, écran de mort, vote du jour, fin de partie — 42 vérifications, et aucune erreur JavaScript dans les 7 pages. **Contrôlé** : deux défauts introduits exprès (nom du maire effacé, bouton « Continuer » réaffiché) → 3 vérifications en échec. Ne couvre pas encore les rôles spéciaux (Voyante, Sorcière, Chasseur, Sœurs…).
