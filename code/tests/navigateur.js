@@ -14,7 +14,7 @@
  */
 "use strict";
 // Les fonctions passées à page.evaluate / waitForFunction s'exécutent dans la page
-/* global document, getComputedStyle, players, role, AFFICHE_MJ, socket, window */
+/* global document, getComputedStyle, players, role, socket, window */
 const { spawn } = require("child_process");
 const puppeteer = require("puppeteer-core");
 const path = require("path"), os = require("os"), fs = require("fs");
@@ -87,14 +87,13 @@ async function preparer(navigateur, port, noms, composition) {
     for (const [id, n] of Object.entries(c)) document.getElementById(id).value = n;
     for (const id of ["mission", "conseil", "autoMode"]) { const x = document.getElementById(id); if (x) x.checked = false; }
     document.getElementById("mjPilotedDay").checked = true;
-    window.AFFICHE_MJ = b => !!b && getComputedStyle(document.getElementById("mjActionSuivante")).display !== "none";
   }, composition);
   await clic(mj, 'button[onclick="startGame()"]');
   check("la carte « Découvre ton rôle » s'affiche partout", await tous(pages, p => affiche(p, "#roleRevealCover")));
   const roleDe = {};
   for (const n of noms) roleDe[n] = await tel[n].evaluate(() => role);
   const id = n => tel[n].evaluate(nom => players.find(p => p.name === nom)?.id, n);
-  const barre = (txt, ms = 20000) => attendre(mj, t => { const b = document.getElementById("mjBtnActionSuivante"); return AFFICHE_MJ(b) && b.textContent.includes(t) && !b.disabled; }, txt, ms);
+  const barre = (txt, ms = 20000) => attendre(mj, t => { const b = document.getElementById("mjBtnActionSuivante"); return getComputedStyle(document.getElementById("mjActionSuivante")).display !== "none" && b.textContent.includes(t) && !b.disabled; }, txt, ms);
   // Le MJ de test lance la nuit et passe les étapes dès qu'on le lui propose
   let pilote = true;
   (async () => {
@@ -193,6 +192,12 @@ async function partieVillage(navigateur) {
     };
 
     await nuit(1, [L1, L2], V1);
+    console.log("\n▶ Tablette du MJ rechargée en plein jour");
+    const mortsAvant = await mj.evaluate(() => document.getElementById("dead").innerText);
+    mj.once("dialog", d => d.accept());   // « Une partie est en cours — vraiment quitter ? »
+    await mj.reload({ waitUntil: "domcontentloaded" });
+    check("MJ rechargé : la liste des morts est la même qu'avant", await attendre(mj, t => document.getElementById("dead").innerText === t && t.includes("☠️"), mortsAvant), mortsAvant);
+    check("MJ rechargé : les personnages sont là", await attendre(mj, noms => noms.every(n => document.getElementById("roles").innerText.includes(n)), NOMS));
     await vote(1, L1, V3);
     await nuit(2, [L2], V2);
     await vote(2, L2, V3);
@@ -275,6 +280,9 @@ async function partieRoles(navigateur) {
     await clic(tel[chass], `#chasseurTargets button[data-id="${idLoup}"]`);
     check("tous voient « Le Chasseur a tiré » sur le loup, avec sa photo", await tous(vivants, p => attendre(p, l => (window.__tir || "").includes("Le Chasseur a tiré") && window.__tir.includes(l) && window.__tir.endsWith("|1"), loup)));
     check("l'écran de fin s'affiche sur les 8 téléphones", await tous(pages, p => affiche(p, "#endCard", 30000)));
+    const vueMJ = await mj.evaluate(() => ({ roles: document.getElementById("roles").innerText, morts: document.getElementById("dead").innerText }));
+    check("MJ : les rôles portent leur nom (« Petite Fille », « Loup-Garou »)", vueMJ.roles.includes("Petite Fille") && vueMJ.roles.includes("Loup-Garou") && !vueMJ.roles.includes("PetiteFille"), vueMJ.roles.slice(0, 160));
+    check("MJ : la liste des morts cite le Chasseur et le loup", vueMJ.morts.includes(chass) && vueMJ.morts.includes(loup), vueMJ.morts);
     const titre = await tel[vill].evaluate(() => document.getElementById("endTitle").innerText);
     check("il annonce la victoire du village", /village/i.test(titre), titre);
   } catch (e) {

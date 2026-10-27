@@ -417,6 +417,7 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/js/communs.js"></script>
 <script>
 const socket = io();
 socket.emit("registerMJ");
@@ -652,15 +653,6 @@ function closeDayRecapCard(){
   }
 }
 
-function _causeLabel(cause){
-  switch (cause) {
-    case "loups":    return "tué par les Loups";
-    case "sorcière": return "empoisonné par la Sorcière";
-    case "amour":    return "mort d'amour";
-    default:         return cause || "mort";
-  }
-}
-
 socket.on("mjDayRecap", data => {
   const titleEl = document.getElementById("dayRecapTitle");
   const blocks  = document.getElementById("dayRecapBlocks");
@@ -690,7 +682,7 @@ socket.on("mjDayRecap", data => {
   } else {
     nightHtml += `<ul style="margin:0;padding-left:18px;color:#eee;font-size:14px;line-height:1.5;">`;
     nd.forEach(d => {
-      nightHtml += `<li><strong>${d.name}</strong> <span style="color:#aaa;">(${d.role || "?"})</span> — ${_causeLabel(d.cause)}</li>`;
+      nightHtml += `<li><strong>${d.name}</strong> <span style="color:#aaa;">(${nomDuRole(d.role)})</span> — ${causeEnTexte(d.cause)}</li>`;
     });
     nightHtml += `</ul>`;
     if (data.saved) {
@@ -722,7 +714,7 @@ socket.on("mjDayRecap", data => {
     } else if (nd.length === 0) {
       speech += `La nuit a été silencieuse : aucune victime.`;
     } else {
-      speech += `Cette nuit, ` + nd.map(d => `${d.name} (${d.role || ""}) est ${_causeLabel(d.cause)}`).join(", ") + ".";
+      speech += `Cette nuit, ` + nd.map(d => `${d.name} (${nomDuRole(d.role)}) est ${causeEnTexte(d.cause)}`).join(", ") + ".";
     }
     speakNarration(speech);
   } catch(_) {}
@@ -751,17 +743,16 @@ const MJ_EVENT_RULES = {
 };
 
 // Affiche la carte évènement MJ : titre + narratif immersif + RÈGLE explicite.
+// Remplit et ouvre la carte de l'évènement : titre, récit, règle à appliquer
+function ouvrirCarteEvenement(data) {
+  document.getElementById("councilEventTitle").innerText = data.title || "";
+  document.getElementById("councilEventNarrative").innerText = data.narrative || "";
+  document.getElementById("councilEventRule").innerText = MJ_EVENT_RULES[data.id] || "(Règle non répertoriée — voir le récit ci-dessus.)";
+  document.getElementById("councilEventCard").style.display = "flex";
+}
 function showMjCouncilEventCard(data) {
   if (!data) return;
-  const card = document.getElementById("councilEventCard");
-  if (!card) return;
-  const titleEl = document.getElementById("councilEventTitle");
-  const narrEl  = document.getElementById("councilEventNarrative");
-  const ruleEl  = document.getElementById("councilEventRule");
-  if (titleEl) titleEl.innerText = data.title || "";
-  if (narrEl)  narrEl.innerText  = data.narrative || "";
-  if (ruleEl)  ruleEl.innerText  = MJ_EVENT_RULES[data.id] || "(Règle non répertoriée — voir le narratif ci-dessus.)";
-  card.style.display = "flex";
+  ouvrirCarteEvenement(data);
   if (_mjCouncilEventCardAutoClose) clearTimeout(_mjCouncilEventCardAutoClose);
   _mjCouncilEventCardAutoClose = setTimeout(closeCouncilEventCard, 30000);  // filet de sécurité
   // Narration TTS : titre + règle explicite (le MJ doit savoir quoi annoncer)
@@ -785,16 +776,7 @@ function afficherBandeauEvenement(data) {
 }
 // Rouvre la carte complète, sans relancer la voix du narrateur.
 function revoirCarteEvenement() {
-  const data = _mjEvenementDuJour;
-  if (!data) return;
-  const card = document.getElementById("councilEventCard");
-  if (!card) return;
-  document.getElementById("councilEventTitle").innerText = data.title || "";
-  const narr = document.getElementById("councilEventNarrative");
-  if (narr) narr.innerText = data.narrative || "";
-  const rule = document.getElementById("councilEventRule");
-  if (rule) rule.innerText = MJ_EVENT_RULES[data.id] || "(Règle non répertoriée — voir le récit ci-dessus.)";
-  card.style.display = "flex";
+  if (_mjEvenementDuJour) ouvrirCarteEvenement(_mjEvenementDuJour);
 }
 
 // Évènement du Conseil mis en attente tant que la carte récap de nuit est ouverte.
@@ -917,10 +899,6 @@ socket.on("voteResumed", data => {
   startCountdown();
 });
 
-const roleEmoji = {
-  "Loup":"🐺","Voyante":"🔮","Sorcière":"🧪","Chasseur":"🔫",
-  "Cupidon":"💘","Villageois":"🏠","Maire":"🏛️","PetiteFille":"👧","Idiot":"🤡","Ange":"😇","Corbeau":"🪶","Salvateur":"🛡","Sœurs":"👯‍♀️"
-};
 
 // ===== AUDIO =====
 const SOUNDS = {
@@ -1168,12 +1146,6 @@ socket.on("missionStarted", data=>{
 socket.on("missionTeamSelected", data=>{
   const names = data.team.map(p=>p.name).join(", ");
   showAlert(`🎭 Équipe : ${names}`, "info");
-  document.getElementById("missionMJStatus").innerText = `Équipe : ${names}`;
-  document.getElementById("missionMJCards").innerText = "0 / 3 cartes jouées";
-});
-
-socket.on("missionCardPlayed", data=>{
-  document.getElementById("missionMJCards").innerText = `${data.count} / ${data.total} cartes jouées`;
 });
 
 socket.on("missionResultMJ", data=>{
@@ -1205,7 +1177,6 @@ socket.on("missionMJBonusResult", data=>{
 socket.on("missionMJInfo", data=>{
   const st = document.getElementById("missionMJStatus");
   const cd = document.getElementById("missionMJCards");
-  if(data.step==="teamSelection") st.innerText=`${data.mayorName} sélectionne l'équipe…`;
   if(data.step==="cardVote"){ const names=data.team.map(p=>p.name).join(", "); st.innerText=`Vote en cours — équipe : ${names}`; cd.innerText="0 / 3 cartes jouées"; }
   if(data.step==="cardReceived") cd.innerText=`${data.received} / ${data.total} cartes jouées`;
 });
@@ -1241,7 +1212,7 @@ socket.on("gameEnd", msg=>{
   playAmbiance(isWolvesWin?"endgame_loups":isLoversWin?"endgame_amoureux":isAngeWin?"endgame_ange":"endgame_village");
   document.getElementById("nightPhaseBar").classList.remove("active");
   document.getElementById("missionPhaseBar").classList.remove("active");
-  ["cupidon","voyante","sorciere","chasseur","loup","petiteFille","idiot","ange","corbeau","salvateur","sisters"].forEach(k=>{
+  ROLES_COMPO.forEach(k=>{
     const src=document.getElementById(k), dst=document.getElementById("rp_"+k);
     if(src&&dst) dst.value=src.value;
   });
@@ -1274,8 +1245,7 @@ socket.on("mjReconnected", state=>{
   updateMJLayout(state.phase||"lobby");
   if(state.deadPlayers){
     deadIds=state.deadPlayers.map(d=>d.id);
-    const div=document.getElementById("dead"); div.innerHTML="";
-    state.deadPlayers.forEach(d=>{ div.innerHTML+=`<div class="dead-entry">☠️ ${d.name} ${roleEmoji[d.role]||""} (${d.role||"?"})</div>`; });
+    afficherMortsMJ(state.deadPlayers);
   }
   if(state.gameStats&&state.gameStats.deathLog) updateMJDeathLog(state.gameStats.deathLog);
   // Restaure état mission
@@ -1392,8 +1362,7 @@ function renderDayCounts(counts){
 
 socket.on("deadPlayers", dead=>{
   deadIds=dead; renderRoles();
-  const div=document.getElementById("dead"); div.innerHTML="";
-  dead.forEach(id=>{const p=players.find(x=>x.id===id);if(p) div.innerHTML+=`<div class="dead-entry">☠️ ${p.name} ${roleEmoji[roles[p.id]]||""}</div>`;});
+  afficherMortsMJ(dead.map(id => players.find(x => x.id === id)).filter(Boolean).map(p => ({ name: p.name, role: roles[p.id] })));
   playEffect("death");
 });
 
@@ -1434,19 +1403,19 @@ function showMjDeathCard(emoji, subtitle, name, role, narrative) {
   _mjVoteDeathAutoClose = setTimeout(closeMjVoteDeathCard, 25000);  // filet de sécurité
 }
 socket.on("dayVoteResult", data=>{
-  showAlert(`☠️ ${data.name} éliminé — ${data.role}`, "info");
-  showMjDeathCard("⚖️", "Le verdict du village", data.name, data.role, data.narrative);
+  showAlert(`☠️ ${data.name} éliminé — ${nomDuRole(data.role)}`, "info");
+  showMjDeathCard("⚖️", "Le verdict du village", data.name, nomDuRole(data.role), data.narrative);
   // Empêche le MJ de lancer le vote suivant avant que les joueurs aient vu la carte de mort (5 s + 0,6 s fermeture + marge)
   _mjLaunchVoteUnlocksAt = Date.now() + 6500;
-  try { speakNarration(`${data.name} a été désigné par le village. Son rôle était ${data.role}.`); } catch(_) {}
+  try { speakNarration(`${data.name} a été désigné par le village. Son rôle était ${nomDuRole(data.role)}.`); } catch(_) {}
 });
 // Le Chasseur a tiré : le MJ voit qui il a emporté
 socket.on("mjChasseurShot", data=>{
   if (!data) return;
-  showAlert(`🔫 Le Chasseur ${data.shooterName} a tué ${data.targetName} — ${data.targetRole}`, "warn");
-  showMjDeathCard("🔫", "Le Chasseur a tiré", data.targetName, data.targetRole,
+  showAlert(`🔫 Le Chasseur ${data.shooterName} a tué ${data.targetName} — ${nomDuRole(data.targetRole)}`, "warn");
+  showMjDeathCard("🔫", "Le Chasseur a tiré", data.targetName, nomDuRole(data.targetRole),
     `${data.shooterName}, le Chasseur, a emporté ${data.targetName} dans sa chute.`);
-  try { speakNarration(`Le Chasseur ${data.shooterName} a tiré sur ${data.targetName}, dont le rôle était ${data.targetRole}.`); } catch(_) {}
+  try { speakNarration(`Le Chasseur ${data.shooterName} a tiré sur ${data.targetName}, dont le rôle était ${nomDuRole(data.targetRole)}.`); } catch(_) {}
 });
 function closeMjVoteDeathCard(){
   if (_mjVoteDeathAutoClose) { clearTimeout(_mjVoteDeathAutoClose); _mjVoteDeathAutoClose = null; }
@@ -1475,7 +1444,7 @@ socket.on("gameReset", data=>{
   document.getElementById("tiebreakMJBanner").style.display="none";
   document.getElementById("timerDisplay").style.display="none";
   document.getElementById("mjTimerBar").style.display="none";
-  document.getElementById("dead").innerHTML="<span style='color:#333;font-size:12px;'>Aucun mort</span>";
+  afficherMortsMJ([]);
   document.getElementById("mjDeathLogPanel").style.display="none";
   document.getElementById("replayPanel").style.display="none";
   document.getElementById("alertBanner").style.display="none";
@@ -1549,17 +1518,20 @@ function showAlert(msg, type="info"){
 }
 
 // ===== ACTIONS =====
-function startGame(){
-  socket.emit("assignRoles",{
-    cupidon:+v("cupidon"),voyante:+v("voyante"),sorciere:+v("sorciere"),chasseur:+v("chasseur"),
-    loup:+v("loup"),petiteFille:+(v("petiteFille")||0),idiot:+(v("idiot")||0),ange:+(v("ange")||0),corbeau:+(v("corbeau")||0),salvateur:+(v("salvateur")||0),sisters:+(v("sisters")||0),
-    mission: document.getElementById("mission")?.checked||false,
-    conseil: !!document.getElementById("conseil")?.checked,
+// Les rôles de la préparation, dans l'ordre des cases (« Lancer » : id ; « Relancer » : rp_id)
+const ROLES_COMPO = ["cupidon","voyante","sorciere","chasseur","loup","petiteFille","idiot","ange","corbeau","salvateur","sisters"];
+function lireComposition(prefixe){
+  return {
+    ...Object.fromEntries(ROLES_COMPO.map(k => [k, +v(prefixe + k) || 0])),
+    mission: !!document.getElementById(prefixe + "mission")?.checked,
+    conseil: !!document.getElementById(prefixe + "conseil")?.checked,
+    // Mode autonome et mode du jour : les mêmes cases pour une partie et la suivante
     autoMode: document.getElementById("autoMode")?.checked||false,
     autoVoteMode: +(document.getElementById("autoVoteMode")?.value||1),
     mjPilotedDay: document.getElementById("mjPilotedDay")?.checked||false
-  });
+  };
 }
+function startGame(){ socket.emit("assignRoles", lireComposition("")); }
 
 // Affiche/masque les options du mode autonome
 document.addEventListener("DOMContentLoaded", () => {
@@ -1740,26 +1712,7 @@ function launchVote() {
 }
 function mjSendDeadChat(){ const inp=document.getElementById("mjDeadChatText"); const t=inp.value.trim(); if(!t)return; socket.emit("deadChat",{text:t}); inp.value=""; }
 function replayGame(){
-  socket.emit("replayGame",{
-    cupidon:    +v("rp_cupidon"),
-    voyante:    +v("rp_voyante"),
-    sorciere:   +v("rp_sorciere"),
-    chasseur:   +v("rp_chasseur"),
-    loup:       +v("rp_loup"),
-    petiteFille:+v("rp_petiteFille")||0,
-    idiot:      +v("rp_idiot")||0,
-    ange:       +v("rp_ange")||0,
-    corbeau:    +v("rp_corbeau")||0,
-    salvateur:  +v("rp_salvateur")||0,
-    sisters:    +v("rp_sisters")||0,
-    mission:    document.getElementById("rp_mission")?.checked||false,
-    conseil:    !!document.getElementById("rp_conseil")?.checked,
-    // Réutilise les paramètres du mode autonome de la partie précédente
-    autoMode:   document.getElementById("autoMode")?.checked||false,
-    autoVoteMode: +(document.getElementById("autoVoteMode")?.value||1),
-    // Le mode du jour est gardé d'une partie à l'autre
-    mjPilotedDay: document.getElementById("mjPilotedDay")?.checked||false
-  });
+  socket.emit("replayGame", lireComposition("rp_"));
   document.getElementById("replayPanel").style.display="none";
 }
 
@@ -1903,10 +1856,10 @@ function renderRoles(){
   afficherMaireMJ();
   if(!players.length||!Object.keys(roles).length){div.innerHTML="<span style='color:#333;font-size:12px;'>En attente…</span>";return;}
   div.innerHTML=players.map(p=>{
-    const r=roles[p.id]||"?",emoji=roleEmoji[r]||"",isMayor=p.id===mayorId,isLover=loversIds.includes(p.id),isDead=deadIds.includes(p.id);
+    const r=roles[p.id]||"?",emoji=emojiDuRole(r),isMayor=p.id===mayorId,isLover=loversIds.includes(p.id),isDead=deadIds.includes(p.id);
     let badges="";if(isDead)badges+="☠️";if(isMayor)badges+="🏛️ <span style=\"color:#ffe066;\">Maire</span> ";if(isLover)badges+="❤️";
     const isWolf=r==="Loup";
-    return `<div class="role-row${isDead?" dead":""}${isWolf?" wolf":""}"><span>${pastilleConnexion(p)}${p.name} <span style="color:#555;font-size:11px;">${badges}</span></span><span>${emoji} <span style="color:#777;font-size:12px;">${r}</span></span></div>`;
+    return `<div class="role-row${isDead?" dead":""}${isWolf?" wolf":""}"><span>${pastilleConnexion(p)}${p.name} <span style="color:#555;font-size:11px;">${badges}</span></span><span>${emoji} <span style="color:#777;font-size:12px;">${nomDuRole(r)}</span></span></div>`;
   }).join("");
   updateNightBar(currentPhaseForBar);
 }
@@ -1936,13 +1889,19 @@ function renderVotes(id,votes,vide="<span style='color:#333;font-size:12px;'>—
   }).join("") : vide;
 }
 
+// Liste « ☠️ Morts » ({ name, role }) : la même pendant la partie et après un rechargement
+function afficherMortsMJ(morts){
+  document.getElementById("dead").innerHTML = morts.length
+    ? morts.map(d => `<div class="dead-entry">☠️ ${d.name} ${emojiDuRole(d.role)}</div>`).join("")
+    : "<span style='color:#333;font-size:12px;'>Aucun mort</span>";
+}
+
 function updateMJDeathLog(log){
   const panel=document.getElementById("mjDeathLogPanel");
   const list=document.getElementById("mjDeathLogList");
   if(!panel||!list||!log.length)return;
   panel.style.display="block";
-  const c={"loups":"🐺","sorcière":"🧪","vote":"☀️","chasseur":"🔫","amour":"💔"};
-  list.innerHTML=log.map((d,i)=>`<div class="dead-entry">${i+1}. <strong>${d.name}</strong> ${roleEmoji[d.role]||""} ${c[d.cause]||""}</div>`).join("");
+  list.innerHTML=log.map((d,i)=>`<div class="dead-entry">${i+1}. <strong>${d.name}</strong> ${emojiDuRole(d.role)} ${(CAUSES[d.cause]||{}).emoji||""}</div>`).join("");
 }
 
 // ===== QR CODE =====

@@ -109,6 +109,7 @@ Dépendances : `state` (feuille) ← `narration`, `council` (+`lights`) ← `rol
 |---------|--------|---------|
 | `index.html` (joueur) | ~3270 | `render()` (liste des joueurs, avatars, boutons), `updateNightCover()`/`isAnyNarrativeCardOpen()`, `updateDayDebateScreen()`, `updateDeadFullScreen()`, cartes (`showRoleReveal`, `showDeathCard`, `dawnResult`…), `#introScreen`. JS inline — à lire par `Grep` + `offset`/`limit`. |
 | `mj.html` (MJ) | ~1700 | Sections `mjSectionStart` (lobby), `mjSectionUrgency`, `mjSectionRoles`, `mjSectionWolves`, `mjSectionMayor`, `mjSectionDay`, `mjSectionDeadChat`, `mjSectionQR` ; `updateMJLayout(phase)` les affiche selon la phase. TTS (`speakNarration`), sons (`playAmbiance`, `playEffect`), `MJ_CHEATSHEET`, `MJ_EVENT_RULES`, cartes MJ (`showMjDeathCard`, `#dayRecapCard`, `#councilEventCard`, `#sistersLauncherCard`, `#crashRecoveryCard`, `#qrFullscreen`). |
+| `js/communs.js` | ~30 | Chargé par les DEUX pages : noms et pictogrammes des rôles (`ROLES`, `emojiDuRole`, `nomDuRole`) et causes de mort (`CAUSES`, `causeEnTexte`). Un changement ici vaut pour l'écran des joueurs et celui du MJ. |
 | `css/player.css`, `css/mj.css` | 262 / 100 | Styles extraits (une partie des styles reste inline dans les HTML). |
 | `sounds/` | 22 mp3 | `day.mp3` et `night.mp3` pèsent ~85 Mo chacun (sous la limite GitHub de 100 Mo). `endgame_ange.mp3` (victoire de l'Ange, 3 min 21) : « Alléluia » du Messie de Haendel, London Symphony Orchestra et London Philharmonic Choir dir. Hermann Scherchen (1953), domaine public, version MP3 de Wikimedia Commons (`File:Handel - Messiah, Part 2 (Scherchen) - 45. Hallelujah.ogg`). S'il venait à manquer, `playAmbiance` joue `endgame_village` à la place. |
 
@@ -121,7 +122,7 @@ npm test                        # 13 scénarios d'intégration (Ange ×2, Petite
 npm run test:banc               # banc d'essai : 3 parties complètes jouées par des bots, règles contrôlées à chaque évènement (~10 min ; voir outils/banc-robots.js pour lancer plusieurs bancs en parallèle)
 npm run test:rythme             # rythme du MJ : crépuscule, réveil, évènement, reconnexions, pause, double clic, reprise après plantage (tests/rythme-mj.js, 25 vérifications, port 3105) puis Chasseur et maire lancés par le MJ (tests/annonces-mj.js, 13 vérifications, partie sans robots, port 3106) — ~3 min
 npm run test:hue                # diagnostic de la connexion Hue (lit .env)
-npm run test:navigateur         # 2 parties dans de vrais navigateurs (Chrome invisible), téléphones + tablette du MJ qui cliquent sur les vrais boutons : partie 1 (2 loups, 4 villageois : cartes, voile, débat, votes, fin) puis partie 2 (Salvateur, Voyante, Petite Fille, Corbeau, Sorcière, Chasseur et leurs listes de choix) ; 67 vérifications, aucune erreur JavaScript — ~4 min, ports 3107 et 3112
+npm run test:navigateur         # 2 parties dans de vrais navigateurs (Chrome invisible), téléphones + tablette du MJ qui cliquent sur les vrais boutons : partie 1 (2 loups, 4 villageois : cartes, voile, débat, votes, fin) puis partie 2 (Salvateur, Voyante, Petite Fille, Corbeau, Sorcière, Chasseur et leurs listes de choix) ; tablette du MJ rechargée en plein jour ; 71 vérifications, aucune erreur JavaScript — ~4 min, ports 3107 et 3112
 npm run lint                    # ESLint (informationnel)
 ```
 
@@ -165,6 +166,16 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-27 (suite 7) — Visuel du MJ revu ; rôles et causes de mort communs aux deux écrans
+Même revue que pour l'écran des joueurs (demande d'Alexandre).
+- **Nouveau `public/js/communs.js`**, chargé par les deux pages : noms et pictogrammes des rôles, causes de mort. Il remplace 3 tables (`roleEmoji` du MJ, `ROLE_DISPLAY` et les pictogrammes de `ROLE_EXPLAIN` côté joueur) et 2 tables de causes (`_causeLabel` et celle de la chronique du MJ ; `DEATH_CAUSE_LABEL` côté joueur ne servait plus). **Corrigé** : le MJ lisait les identifiants techniques des rôles — « PetiteFille », « Sœurs », « Idiot » — dans ses personnages, sur la carte du verdict, la carte du tir du Chasseur, le récap du matin, et la voix les prononçait ainsi ; il lit maintenant « Petite Fille », « Sœur jumelle », « Idiot du Village », comme les joueurs.
+- **Liste « ☠️ Morts » du MJ** : une seule fonction (`afficherMortsMJ`) ; elle s'écrivait « ☠️ Nom 🐺 » pendant la partie et « ☠️ Nom 🐺 (Loup) » après un rechargement de la tablette.
+- **Carte de l'évènement du Conseil** : remplie à un seul endroit (`ouvrirCarteEvenement`), à l'arrivée et par « 📖 Revoir la carte » (deux copies, textes de secours différents).
+- **Mission** : chaque étape était écrite deux fois chez le MJ (message public + message réservé au MJ, textes différents) ; seul le second écrit désormais.
+- **Composition** : « Lancer la partie » et « Relancer » lisent les cases par une seule fonction (`lireComposition(prefixe)`, liste `ROLES_COMPO`, aussi utilisée pour recopier la composition à la fin de partie).
+- Gardés tels quels : la carte des morts du MJ (déjà commune au vote et au tir du Chasseur), les libellés de la barre de nuit (des étapes, pas des rôles : « 🐺 Loups », « 💞 Amoureux »), les filets de fermeture des cartes (3 cartes, gain nul).
+- **Vérifié** : analyse des deux pages avec le fichier commun (aucune double déclaration) ; `npm run test:navigateur` 71/71 — nouveau : la tablette du MJ rechargée en plein jour garde la même liste des morts et la partie continue ; noms des rôles et morts chez le MJ en fin de partie 2. MJ : 1 983 → 1 942 lignes.
 
 ### 2026-10-27 (suite 6) — Visuel mutualisé : une fonction par besoin
 Demande d'Alexandre : « si la Voyante et le Chasseur doivent voir la même chose, une seule fonction pour le même besoin — on change à un endroit, ça change pour tous ». Trois besoins étaient écrits plusieurs fois, chacun avec son style :

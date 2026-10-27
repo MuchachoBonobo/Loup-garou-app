@@ -497,6 +497,7 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/js/communs.js"></script>
 <script>
 const socket = io();
 
@@ -686,91 +687,86 @@ let missionCardPlayed = false;  // ce joueur a-t-il joué sa carte ?
 // ===== PETITE FILLE =====
 let petiteFilleSelection = [];  // les 3 joueurs en cours de sélection (côté client)
 
-const ROLE_DISPLAY = {
-  "Loup":"🐺 Loup-Garou","Voyante":"🔮 Voyante","Sorcière":"🧪 Sorcière",
-  "Chasseur":"🔫 Chasseur","Cupidon":"💘 Cupidon","Villageois":"🏠 Villageois",
-  "Maire":"🏛️ Maire","PetiteFille":"👧 Petite Fille","Idiot":"🤡 Idiot du Village","Ange":"😇 Ange",
-  "Corbeau":"🪶 Corbeau","Salvateur":"🛡 Salvateur","Sœurs":"👯‍♀️ Sœur jumelle"
-};
+const ROLE_DISPLAY = Object.fromEntries(Object.keys(ROLES).map(k => [k, emojiDuRole(k) + " " + nomDuRole(k)]));
 
 const ROLE_EXPLAIN = {
   "Loup": {
     desc:    "Chaque nuit, concertez-vous en silence avec vos complices pour désigner une victime. Le jour, bluffez, semez le doute, accusez les autres.",
     mission: "Éliminez suffisamment de villageois pour être aussi nombreux qu'eux.",
     win:     "Tu gagnes avec les Loups-Garous.",
-    emoji:   "🐺", bg: "radial-gradient(ellipse at center,#1a0505 0%,#080000 100%)", color: "#ff6666"
+    bg: "radial-gradient(ellipse at center,#1a0505 0%,#080000 100%)", color: "#ff6666"
   },
   "Voyante": {
     desc:    "Chaque nuit, désignez secrètement un joueur : son vrai rôle vous est révélé. Utilisez cette connaissance pour guider le village… sans vous démasquer.",
     mission: "Identifiez les loups et aidez le village à les éliminer.",
     win:     "Tu gagnes avec les Villageois.",
-    emoji:   "🔮", bg: "radial-gradient(ellipse at center,#0a0520 0%,#020010 100%)", color: "#aa88ff"
+    bg: "radial-gradient(ellipse at center,#0a0520 0%,#020010 100%)", color: "#aa88ff"
   },
   "Sorcière": {
     desc:    "Vous possédez deux potions uniques : une de VIE pour sauver la victime des loups cette nuit, une de MORT pour éliminer n'importe qui. Chacune ne peut être utilisée qu'une seule fois.",
     mission: "Servez-vous de vos potions au bon moment pour renverser le cours du jeu.",
     win:     "Tu gagnes avec les Villageois.",
-    emoji:   "🧪", bg: "radial-gradient(ellipse at center,#0a1a05 0%,#020800 100%)", color: "#88ff88"
+    bg: "radial-gradient(ellipse at center,#0a1a05 0%,#020800 100%)", color: "#88ff88"
   },
   "Chasseur": {
     desc:    "Vous n'avez aucun pouvoir la nuit. Mais si vous mourez — que ce soit par les loups, la Sorcière ou le vote — vous pouvez emporter un joueur avec vous.",
     mission: "Observez attentivement. Votre mort doit coûter cher à vos ennemis.",
     win:     "Tu gagnes avec les Villageois.",
-    emoji:   "🔫", bg: "radial-gradient(ellipse at center,#1a0f00 0%,#080500 100%)", color: "#ffaa44"
+    bg: "radial-gradient(ellipse at center,#1a0f00 0%,#080500 100%)", color: "#ffaa44"
   },
   "Cupidon": {
     desc:    "Lors de la première nuit, vous liez deux joueurs par un amour irrésistible. S'ils survivent seuls jusqu'à la fin, ils gagnent ensemble. Mais si l'un meurt, l'autre mourant de chagrin le suivra immédiatement.",
     mission: "Choisissez vos amoureux avec sagesse — ce lien peut sauver ou perdre le village.",
     win:     "Tu gagnes avec les Villageois (sauf si tu es un Amoureux survivant).",
-    emoji:   "💘", bg: "radial-gradient(ellipse at center,#1a0510 0%,#080005 100%)", color: "#ff88cc"
+    bg: "radial-gradient(ellipse at center,#1a0510 0%,#080005 100%)", color: "#ff88cc"
   },
   "Villageois": {
     desc:    "Vous n'avez aucun pouvoir particulier. Votre force est collective : observez les comportements, détectez les incohérences, et votez avec conviction.",
     mission: "Débusquez les loups cachés parmi vous avant qu'il ne soit trop tard.",
     win:     "Tu gagnes avec les Villageois.",
-    emoji:   "🏠", bg: "radial-gradient(ellipse at center,#0a1000 0%,#030500 100%)", color: "#aaffaa"
+    bg: "radial-gradient(ellipse at center,#0a1000 0%,#030500 100%)", color: "#aaffaa"
   },
   "Maire": {
     desc:    "Le village vous a élu. Votre voix est décisive : en cas d'égalité lors d'un vote, c'est vous qui tranchez. Si vous mourez, vous choisissez votre successeur.",
     mission: "Guidez le village avec sagesse. Votre décision peut tout changer.",
     win:     "Tu gagnes avec les Villageois.",
-    emoji:   "🏛️", bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee44"
+    bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee44"
   },
   "PetiteFille": {
     desc:    "Chaque nuit, après la Voyante, vous désignez 3 joueurs (jamais vous-même). Vous apprenez s'il y a au moins un Loup parmi eux, ou aucun — mais pas lequel. Pendant le tour des Loups, gardez les yeux fermés comme tout le monde.",
     mission: "Recoupez vos réponses nuit après nuit pour isoler les loups. Partagez-les intelligemment pour aider le village.",
     win:     "Tu gagnes avec les Villageois.",
-    emoji:   "👧", bg: "radial-gradient(ellipse at center,#10051a 0%,#050008 100%)", color: "#cc88ff"
+    bg: "radial-gradient(ellipse at center,#10051a 0%,#050008 100%)", color: "#cc88ff"
   },
   "Idiot": {
     desc:    "Si le village vote pour vous éliminer, votre rôle est révélé à tous — mais vous restez en vie ! Vous perdez cependant le droit de voter pour le reste de la partie. Ce pouvoir ne peut être utilisé qu'une seule fois.",
     mission: "Survivez en jouant la carte de l'innocent. Si vous êtes découvert, votre immunité vous sauve une fois.",
     win:     "Tu gagnes avec les Villageois.",
-    emoji:   "🤡", bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee00"
+    bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee00"
   },
   "Ange": {
     desc:    "Vous n'avez qu'un seul but : vous faire éliminer par le village lors du tout premier vote, au lendemain de la première nuit. Si le village vous désigne à ce moment-là, vous gagnez seul ! Sinon, vous devenez un simple villageois.",
     mission: "Attirez les soupçons dès le premier jour… sans que le village devine votre jeu.",
     win:     "Tu gagnes seul si le village t'élimine au 1er vote, sinon avec les Villageois.",
-    emoji:   "😇", bg: "radial-gradient(ellipse at center,#1f1a0a 0%,#0a0804 100%)", color: "#ffe9a8"
+    bg: "radial-gradient(ellipse at center,#1f1a0a 0%,#0a0804 100%)", color: "#ffe9a8"
   },
   "Corbeau": {
     desc:    "Chaque nuit après la Voyante, vous pouvez désigner un joueur qui commencera le vote du jour suivant avec 2 votes contre lui. Vous pouvez aussi vous cibler vous-même ou passer votre tour.",
     mission: "Dirigez les soupçons du village vers les loups — ou semez la confusion pour mieux vous protéger.",
     win:     "Tu gagnes avec les Villageois.",
-    emoji:   "🪶", bg: "radial-gradient(ellipse at center,#0a0a0a 0%,#050505 100%)", color: "#aaaaaa"
+    bg: "radial-gradient(ellipse at center,#0a0a0a 0%,#050505 100%)", color: "#aaaaaa"
   },
   "Salvateur": {
     desc:    "Chaque nuit avant les Loups, vous désignez secrètement un joueur que vous protégez : si les Loups attaquent cette personne, elle survit. Vous pouvez vous protéger vous-même, mais jamais la même personne deux nuits de suite.",
     mission: "Devinez qui les Loups voudront frapper et protégez le bon villageois — votre choix peut sauver le village.",
     win:     "Tu gagnes avec les Villageois.",
-    emoji:   "🛡", bg: "radial-gradient(ellipse at center,#0a1820 0%,#020810 100%)", color: "#88ccff"
+    bg: "radial-gradient(ellipse at center,#0a1820 0%,#020810 100%)", color: "#88ccff"
   },
   "Sœurs": {
     desc:    "Vous êtes une Sœur jumelle. Chaque nuit, vous vous réveillez en silence avec votre sœur pendant 20 secondes. Vous ne pouvez pas parler — seulement vous regarder et vous faire signe pour partager vos soupçons.",
     mission: "Aidez-vous mutuellement à survivre et démasquer les Loups, tout en gardant votre lien secret pour le village.",
     win:     "Tu gagnes avec les Villageois.",
-    emoji:   "👯‍♀️", bg: "radial-gradient(ellipse at center,#3a1428 0%,#1a0814 100%)", color: "#ed93b1"
+    bg: "radial-gradient(ellipse at center,#3a1428 0%,#1a0814 100%)", color: "#ed93b1"
   }
 };
 
@@ -919,7 +915,6 @@ socket.on("voteResumed", data => {
 let deathLog = [];
 
 // Dictionnaires partagés (utilisés aussi par le rendu des joueurs morts dans la liste)
-const DEATH_CAUSE_LABEL = { "loups":"par les loups", "sorcière":"par la Sorcière", "vote":"par le village", "chasseur":"par le Chasseur", "amour":"💔 amour" };
 
 // Map id → {role, cause} pour récupération rapide depuis render()
 let deathInfoById = {};
@@ -1052,7 +1047,7 @@ function populateEndScreen(data, winner) {
     // Avatar : photo si dispo, sinon emoji du rôle
     const avatar = p.photo
       ? `<img src="${p.photo}" ${attrZoom(p.name)} style="width:32px;height:32px;border-radius:50%;object-fit:cover;cursor:zoom-in;${isDead?'filter:grayscale(0.7);':''}">`
-      : `<span style="font-size:22px;width:32px;text-align:center;display:inline-block;">${ROLE_EMOJI[r]||"❓"}</span>`;
+      : `<span style="font-size:22px;width:32px;text-align:center;display:inline-block;">${emojiDuRole(r) || "❓"}</span>`;
     // Une médaille au plus par joueur (badges.js) ; son nom s'affiche au toucher
     const medaille = ((data.badges || {})[p.name] || [])[0];
     const medailleHtml = medaille
@@ -1715,7 +1710,7 @@ function updateDeadFullScreen() {
     // Rôle en grand
     const emojiEl = document.getElementById("dfsRoleEmoji");
     const roleEl  = document.getElementById("dfsRole");
-    if (emojiEl) emojiEl.innerText = (ROLE_EMOJI && ROLE_EMOJI[role]) || "🎭";
+    if (emojiEl) emojiEl.innerText = emojiDuRole(role) || "🎭";
     if (roleEl)  roleEl.innerText  = (ROLE_DISPLAY && ROLE_DISPLAY[role]) || role || "—";
     screen.style.display = "flex";
   } else {
@@ -1984,7 +1979,6 @@ socket.on("phase", p=>{
   updateActionPendingBanner();
 });
 
-const ROLE_EMOJI = Object.fromEntries(Object.entries(ROLE_EXPLAIN).map(([k,v])=>[k,v.emoji||"🎭"]));
 
 // Ce que le joueur sait grâce à son rôle : ses compagnons loups, son amoureux·se, ou les
 // amoureux choisis par Cupidon. Montré seulement quand il regarde son rôle (annonce, « Mon
@@ -2019,7 +2013,7 @@ function showRoleCard(r) {
     if (myPhoto) { photoEl.src = myPhoto; photoEl.style.display = "block"; }
     else         { photoEl.style.display = "none"; }
   }
-  document.getElementById("rcEmoji").innerText   = info.emoji   || "🎭";
+  document.getElementById("rcEmoji").innerText   = emojiDuRole(r) || "🎭";
   document.getElementById("rcTitle").innerText   = "Votre rôle :";
   document.getElementById("rcRole").innerText    = ROLE_DISPLAY[r] || r;
   document.getElementById("rcText").innerText    = info.desc    || "";
@@ -2048,7 +2042,7 @@ function showRoleReveal(r) {
   const cont  = document.getElementById("roleFlipContinue");
   if (!cover || !inner || !flip || !cont) { showRoleCard(r); return; }  // fallback robuste
   const info = ROLE_EXPLAIN[r] || {};
-  document.getElementById("rfRoleEmoji").innerText = info.emoji || "🎭";
+  document.getElementById("rfRoleEmoji").innerText = emojiDuRole(r) || "🎭";
   const nameEl = document.getElementById("rfRoleName");
   nameEl.innerText  = ROLE_DISPLAY[r] || r;
   nameEl.style.color = info.color || "#cdb8ff";
