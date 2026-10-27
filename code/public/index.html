@@ -277,8 +277,7 @@
 <div id="status"></div>
 
 <div id="tiebreakPanel">
-  <h3>⚖️ Égalité — Le Maire doit trancher !</h3>
-  <div id="tiebreakMsg" style="font-size:13px;color:#ccc;margin-bottom:10px;"></div>
+  <div id="tiebreakMsg" style="font-size:18px;font-weight:bold;color:#ffcc66;margin-bottom:16px;"></div>
   <div id="tiebreakBtns"></div>
 </div>
 
@@ -389,11 +388,7 @@
   <div id="sistersAliveCount" style="font-size:12px;color:#c97aa0;margin-top:12px;"></div>
 </div>
 
-<div id="chasseurPanel">
-  <h3>🔫 Vous êtes mort — choisissez votre cible</h3>
-  <p style="font-size:13px;color:#ccc;">En tant que Chasseur, vous emportez un joueur avec vous.</p>
-  <div id="chasseurTargets"></div>
-</div>
+<div id="chasseurPanel"></div>
 
 <!-- Sorcière : une question à la fois (potion de vie, puis potion de mort, puis la cible) -->
 <!-- Sorcière : plein écran, seulement l'encadré de la question (le moins d'information possible) -->
@@ -859,29 +854,18 @@ let _idiotCardShown = false;
 
 socket.on("idiotRevealed", data => {
   idiotRevealed = true; idiotId = data.id;
-  document.getElementById("deathEmoji").innerText = "🤡";
-  document.getElementById("deathTitle").innerText = data.name + " est… l'Idiot du Village !";
-  document.getElementById("deathText").innerText  = "Le village a voté — mais l'Idiot du Village ne peut pas être éliminé ainsi ! Il reste en vie… mais perd son droit de vote.";
-  const c = document.getElementById("dayDeathCard");
-  c.style.background = "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)";
-  c.className = "show";
-  // Comme showDeathCard : c'est le serveur (phase=wolves) qui fait apparaître la nightFallCard ;
-  // si elle arrive pendant cette carte, showNightFallCard se remet en attente (_dawnOnClose)
-  _dawnOnClose = null;
+  carteAnnonce("🤡", data.name + " est… l'Idiot du Village !",
+    "Le village a voté — mais l'Idiot du Village ne peut pas être éliminé ainsi ! Il reste en vie… mais perd son droit de vote.",
+    "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", [data.name]);
   fermerCarteAuRythme(fermerCarteMortSiOuverte, 6000, ["day", "crepuscule"]);
   scheduleRender();
 });
 
 // L'Ange désigné au premier vote : il gagne seul (l'écran de fin suit ~5 s après)
 socket.on("angeRevele", data => {
-  renderDeathPhotos([{ name: data.name }]);
-  document.getElementById("deathEmoji").innerText = "😇";
-  document.getElementById("deathTitle").innerText = data.name + " était l'Ange !";
-  document.getElementById("deathText").innerText  = "Le village l'a désigné dès le premier vote… exactement ce qu'il voulait. Il s'envole et gagne seul !";
-  const c = document.getElementById("dayDeathCard");
-  c.style.background = "radial-gradient(ellipse at center,#3a3014 0%,#0a0804 100%)";
-  c.className = "show";
-  _dawnOnClose = null;
+  carteAnnonce("😇", data.name + " était l'Ange !",
+    "Le village l'a désigné dès le premier vote… exactement ce qu'il voulait. Il s'envole et gagne seul !",
+    "radial-gradient(ellipse at center,#3a3014 0%,#0a0804 100%)", [data.name]);
   // Pas de fermeture automatique : l'écran de fin arrive ~5 s après et referme la carte
   // (sinon l'écran « Discutez » réapparaissait une demi-seconde entre les deux).
   if (data.id === socket.id) vibrateIfDay([300, 100, 300, 100, 500]);
@@ -1218,6 +1202,73 @@ function playerAvatar(p, size, zoom = true) {
 // `victims` = array de {name, role} ; cherche dans players[] pour la photo.
 // Taille auto : 100px solo, 80px pour 2-3, 60px pour 4+.
 // Si pas de photo → placeholder rond avec initiale colorée selon le rôle.
+// ===== CARTE D'ANNONCE =====
+// Une seule carte pour toutes les annonces : aube, vote, tir du Chasseur, vision de la Voyante,
+// Petite Fille, Idiot, Ange, dernière balle. `noms` : les joueurs dont on montre la photo. La
+// nuit suivante, c'est le serveur qui la lance (`phase`), jamais la fermeture de cette carte ;
+// les règles de fermeture restent à l'appelant.
+function carteAnnonce(emoji, titre, texte, fond, noms = []) {
+  _victimesCarte = noms.map(name => ({ name }));
+  renderDeathPhotos(_victimesCarte);
+  document.getElementById("deathEmoji").innerText = emoji;
+  document.getElementById("deathTitle").innerText = titre;
+  document.getElementById("deathText").innerText  = texte;
+  const c = document.getElementById("dayDeathCard");
+  c.style.background = fond;
+  c.className = "show";
+  _dawnOnClose = null;
+  updateNightCover();
+}
+
+// ===== CHOISIR UN JOUEUR =====
+// Une seule liste pour tous les choix d'un joueur (Salvateur, Corbeau, Sorcière, Chasseur, maire :
+// égalité, transmission, abdication ; Petite Fille et mission via choisirTroisJoueurs) : photo +
+// prénom, une ligne chacun. `couleur` : la bordure, propre au rôle. `interdit(id)` renvoie la
+// raison d'une cible refusée (bouton grisé), ou rien.
+function choisirUnJoueur(conteneur, joueurs, action, couleur, interdit = () => null) {
+  conteneur.innerHTML = "";
+  conteneur.style.cssText = "display:flex;flex-direction:column;gap:6px;width:100%;max-width:360px;margin:0 auto;";
+  joueurs.forEach(j => {
+    const p = players.find(x => x.id === j.id) || j;
+    const raison = interdit(p.id);
+    const btn = document.createElement("button");
+    btn.dataset.id = p.id;
+    btn.disabled = !!raison;
+    btn.onclick = () => action(p.id);
+    btn.innerHTML = playerAvatar(p, 30, false);   // la photo fait partie du bouton (pas d'agrandissement)
+    btn.append(p.name + (p.id === socket.id ? " (vous)" : "") + (raison ? " — " + raison : ""));
+    btn.style.cssText = `display:flex;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid ${couleur};color:#ddd;font-size:15px;text-align:left;cursor:${raison ? "not-allowed;opacity:0.4" : "pointer"};`;
+    conteneur.appendChild(btn);
+  });
+}
+
+// Choix de 3 joueurs : mêmes boutons, un toucher ajoute ou retire, la validation ne s'allume qu'à 3.
+// `selection()` rend le tableau en cours, modifié sur place (il suit ainsi les reconnexions, qui
+// le remplacent). Renvoie la fonction qui remet l'affichage à jour.
+function choisirTroisJoueurs(conteneur, joueurs, couleur, idNoms, idValider, selection) {
+  const maj = () => {
+    const choix = selection();
+    conteneur.querySelectorAll("button").forEach(b => {
+      const pris = choix.includes(b.dataset.id);
+      b.style.borderColor = pris ? couleur : "#333";
+      b.style.background  = pris ? couleur + "33" : "rgba(255,255,255,0.04)";
+    });
+    const noms = choix.map(id => players.find(x => x.id === id)?.name || "?");
+    document.getElementById(idNoms).innerText = noms.length
+      ? noms.join(", ") + (noms.length < 3 ? ` (${noms.length}/3)` : "") : "Sélectionnez 3 joueurs";
+    const v = document.getElementById(idValider);
+    v.disabled = choix.length !== 3;
+    v.style.opacity = choix.length === 3 ? "1" : "0.4";
+  };
+  choisirUnJoueur(conteneur, joueurs, id => {
+    const choix = selection(), i = choix.indexOf(id);
+    if (i >= 0) choix.splice(i, 1); else if (choix.length < 3) choix.push(id);
+    maj();
+  }, "#333");
+  maj();
+  return maj;
+}
+
 function renderDeathPhotos(victims) {
   const container = document.getElementById("deathPhotos");
   if (!container) return;
@@ -1253,21 +1304,10 @@ function renderDeathPhotos(victims) {
 function showDeathCard(name, role, narrative) {
   // Carte de mort côté joueur : la photo, jamais le rôle (le MJ a l'info complète pour
   // raconter) ; role et narrative restent dans la signature pour les appelants
-  _victimesCarte = [{ name }];
-  renderDeathPhotos(_victimesCarte);
-  document.getElementById("deathEmoji").innerText = "⚖️";
-  document.getElementById("deathTitle").innerText = "Le village a tranché";
-  document.getElementById("deathText").innerText  = name + " a été désigné·e par le vote.";
-  const card = document.getElementById("dayDeathCard");
-  card.style.background = "";
-  card.className = "show";
-  // Réinitialise nightCardShownThisNight pour que la nightFallCard puisse
-  // s'afficher normalement après la fermeture de cette carte
+  carteAnnonce("⚖️", "Le village a tranché", name + " a été désigné·e par le vote.", "", [name]);
+  // La nightFallCard pourra s'afficher après cette carte (si la cascade du serveur — Chasseur,
+  // transmission, amoureux — ne finit pas la partie)
   nightCardShownThisNight = false;
-  // Pas de nightFallCard depuis l'auto-fermeture de cette carte : la cascade du serveur
-  // (Chasseur, transmission, amoureux) peut durer et finir la partie. Le serveur la fait
-  // apparaître par `phase` (wolves/cupid) si la partie continue.
-  _dawnOnClose = null;
   fermerCarteAuRythme(fermerCarteMortSiOuverte, 5000, ["day", "crepuscule"]);
 }
 
@@ -1540,7 +1580,7 @@ function rafraichirPanneauPetiteFille(){
   const sel = petiteFilleSelection.slice();
   showPetiteFillePanel();
   petiteFilleSelection = sel.filter(id => players.some(p => p.id === id) && !deadPlayers.includes(id) && id !== socket.id);
-  majPetiteFilleSelection();
+  majPetiteFille();
 }
 socket.on("players", p=>{ traduireIdsApresReconnexion(p); players=p; rafraichirPanneauPetiteFille(); renderInfoPanel(); scheduleRender(); });
 socket.on("mayorCountsPublic", c=>{ mayorCounts=c; renderVotesPanel(); scheduleRender(); });
@@ -2086,20 +2126,10 @@ socket.on("salvateurReject", data => {
   }
 });
 
+// Il peut se protéger lui-même, jamais la même personne deux nuits de suite
 function renderSalvateurTargets() {
-  const div = document.getElementById("salvateurTargets");
-  div.innerHTML = "";
-  players.forEach(p => {
-    if (deadPlayers.includes(p.id)) return;
-    const btn = document.createElement("button");
-    const isLast = (p.id === salvateurLastProtectedId);
-    btn.disabled = isLast;
-    btn.onclick = () => salvateurChoose(p.id);
-    btn.textContent = (p.id === socket.id ? "🛡 " : "") + p.name + (isLast ? " (hier)" : "");
-    btn.title = p.id === socket.id ? "Vous pouvez vous protéger vous-même" : (isLast ? "Cible interdite : déjà protégée la nuit précédente" : "");
-    btn.style.cssText = "margin:3px;padding:8px 14px;background:" + (isLast?"#1a0a0a":"#0a1820") + ";border:1px solid " + (isLast?"#552222":"#335a7a") + ";border-radius:6px;color:" + (isLast?"#553333":"#cce6ff") + ";cursor:" + (isLast?"not-allowed":"pointer") + ";font-size:13px;opacity:" + (isLast?"0.5":"1") + ";";
-    div.appendChild(btn);
-  });
+  choisirUnJoueur(document.getElementById("salvateurTargets"), players.filter(p => !deadPlayers.includes(p.id)),
+    salvateurChoose, "#335a7a", id => id === salvateurLastProtectedId ? "hier" : null);
 }
 
 function salvateurChoose(id) {
@@ -2196,16 +2226,7 @@ socket.on("corbeauConfirm", data=>{
 });
 
 function renderCorbeauTargets(){
-  const div = document.getElementById("corbeauTargets"); div.innerHTML = "";
-  players.forEach(p => {
-    if(deadPlayers.includes(p.id)) return;
-    const btn = document.createElement("button");
-    btn.onclick = () => corbeauChoose(p.id);
-    btn.textContent = (p.id === socket.id ? "🪶 " : "") + p.name;
-    btn.title = p.id === socket.id ? "Vous pouvez vous cibler vous-même" : "";
-    btn.style.cssText = "margin:3px;padding:8px 14px;background:#111;border:1px solid #444;border-radius:6px;color:#ccc;cursor:pointer;font-size:13px;";
-    div.appendChild(btn);
-  });
+  choisirUnJoueur(document.getElementById("corbeauTargets"), players.filter(p => !deadPlayers.includes(p.id)), corbeauChoose, "#666");
 }
 
 function corbeauChoose(id){
@@ -2259,19 +2280,11 @@ socket.on("deadVision", data=>{
 socket.on("seerResult", data=>{
   const rd = ROLE_DISPLAY[data.role] || data.role;
   const isWolf = data.role === "Loup";
-  document.getElementById("deathEmoji").innerText = isWolf ? "🐺" : "✨";
-  document.getElementById("deathTitle").innerText = "Vision de la Voyante";
-  document.getElementById("deathText").innerText  = `${data.name} est… ${rd}.${isWolf ? " Danger !" : " Cette personne est inoffensive."}`;
-  const c = document.getElementById("dayDeathCard");
-  c.style.background = isWolf
-    ? "radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)"
-    : "radial-gradient(ellipse at center,#050520 0%,#000008 100%)";
-  const photos = document.getElementById("deathPhotos");
-  if (photos) photos.style.display = "none";
-  c.className = "show";
-  // La voyante joue EN PLEINE NUIT — la nightFallCard a déjà été affichée.
-  // Ne pas la rappeler, ne pas toucher à nightCardShownThisNight.
-  _dawnOnClose = null;
+  // En pleine nuit : la nightFallCard a déjà été affichée, nightCardShownThisNight reste tel quel
+  carteAnnonce(isWolf ? "🐺" : "✨", "Vision de la Voyante",
+    `${data.name} est… ${rd}.${isWolf ? " Danger !" : " Cette personne est inoffensive."}`,
+    isWolf ? "radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)" : "radial-gradient(ellipse at center,#050520 0%,#000008 100%)",
+    [data.name]);
   // La nuit attend que la Voyante confirme : son bouton ferme tout de suite, sinon la
   // vision se ferme d'elle-même au bout de 10 s (demande d'Alexandre, 2026-10-26).
   _confirmationNuitEnAttente = "seerDone";
@@ -2287,47 +2300,16 @@ let _fermetureVisionVoyante = null;
 function showPetiteFillePanel(){
   if(role !== "PetiteFille" || iAmDead || gameIsOver) return;
   petiteFilleSelection = [];
-  const panel = document.getElementById("petiteFillePanel");
-  panel.style.display = "block";
-  const btns = document.getElementById("petiteFilleBtns");
-  btns.innerHTML = "";
-  players.filter(p=>!deadPlayers.includes(p.id) && p.id !== socket.id).forEach(p=>{
-    const btn = document.createElement("button");
-    btn.id = "pfille_" + p.id;
-    btn.textContent = p.name;
-    btn.onclick = () => togglePetiteFille(p.id);
-    btn.style.cssText = "padding:8px 14px;background:#111;border:1px solid #333;border-radius:6px;color:#aaa;cursor:pointer;font-size:13px;";
-    btns.appendChild(btn);
-  });
-  majPetiteFilleSelection();
+  document.getElementById("petiteFillePanel").style.display = "block";
+  majPetiteFille = choisirTroisJoueurs(document.getElementById("petiteFilleBtns"),
+    players.filter(p => !deadPlayers.includes(p.id) && p.id !== socket.id), "#cc88ff",
+    "petiteFilleSelectedNames", "petiteFilleConfirmBtn", () => petiteFilleSelection);
 }
+let majPetiteFille = () => {};
 function closePetiteFillePanel(){
   const panel = document.getElementById("petiteFillePanel");
   if (panel) panel.style.display = "none";
   petiteFilleSelection = [];
-}
-function togglePetiteFille(id){
-  const idx = petiteFilleSelection.indexOf(id);
-  if(idx >= 0) petiteFilleSelection.splice(idx, 1);
-  else { if(petiteFilleSelection.length >= 3) return; petiteFilleSelection.push(id); }
-  majPetiteFilleSelection();
-}
-// Couleur des boutons, noms choisis et bouton « Découvrir » selon la sélection
-function majPetiteFilleSelection(){
-  players.forEach(p=>{
-    const btn = document.getElementById("pfille_" + p.id);
-    if(!btn) return;
-    const choisi = petiteFilleSelection.includes(p.id);
-    btn.style.background  = choisi ? "#2a1040" : "#111";
-    btn.style.borderColor = choisi ? "#cc88ff" : "#333";
-    btn.style.color       = choisi ? "#e6ccff" : "#aaa";
-  });
-  const names = petiteFilleSelection.map(sid=>{ const p=players.find(x=>x.id===sid); return p?p.name:"?"; });
-  document.getElementById("petiteFilleSelectedNames").innerText =
-    names.length===0 ? "Sélectionnez 3 joueurs" : names.join(", ") + (names.length<3 ? ` (${names.length}/3)` : "");
-  const cb = document.getElementById("petiteFilleConfirmBtn");
-  cb.disabled = petiteFilleSelection.length !== 3;
-  cb.style.opacity = petiteFilleSelection.length === 3 ? "1" : "0.4";
 }
 function confirmPetiteFille(){
   if(petiteFilleSelection.length !== 3) return;
@@ -2342,20 +2324,11 @@ socket.on("petiteFilleError", msg => {
 socket.on("petiteFilleResult", data=>{
   closePetiteFillePanel();
   const noms = (data.names || []).join(", ");
-  document.getElementById("deathEmoji").innerText = data.auMoinsUnLoup ? "🐺" : "✨";
-  document.getElementById("deathTitle").innerText = "Ce qu'a découvert la Petite Fille";
-  document.getElementById("deathText").innerText  = data.auMoinsUnLoup
-    ? `Parmi ${noms}, il y a au moins un Loup.`
-    : `Parmi ${noms}, il n'y a aucun Loup.`;
-  const c = document.getElementById("dayDeathCard");
-  c.style.background = data.auMoinsUnLoup
-    ? "radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)"
-    : "radial-gradient(ellipse at center,#10051a 0%,#050008 100%)";
-  const photos = document.getElementById("deathPhotos");
-  if (photos) photos.style.display = "none";
-  c.className = "show";
+  carteAnnonce(data.auMoinsUnLoup ? "🐺" : "✨", "Ce qu'a découvert la Petite Fille",
+    data.auMoinsUnLoup ? `Parmi ${noms}, il y a au moins un Loup.` : `Parmi ${noms}, il n'y a aucun Loup.`,
+    data.auMoinsUnLoup ? "radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)" : "radial-gradient(ellipse at center,#10051a 0%,#050008 100%)",
+    data.names || []);
   // Comme la Voyante : en pleine nuit, pas de fermeture automatique — la nuit attend son « OK »
-  _dawnOnClose = null;
   _confirmationNuitEnAttente = "petiteFilleDone";
   boutonCarte(true);
 });
@@ -2406,10 +2379,9 @@ function afficherEtapeSorciere(etape) {
     // Comme pour le vote : les joueurs vivants, sauf elle-même et la victime des loups
     const cibles = players.filter(x => !deadPlayers.includes(x.id) && x.id !== socket.id && x.id !== nightVictimId);
     zone.innerHTML = `<div style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:14px;">Qui empoisonner ?</div>
-      <div style="display:flex;flex-direction:column;gap:6px;">${cibles.map(x =>
-        `<button onclick="sorciereEmpoisonner('${x.id}')" style="display:flex;align-items:center;padding:8px 10px;border-radius:8px;background:#1a0f24;border:1px solid #5a3a7a;color:#ddd;font-size:15px;cursor:pointer;text-align:left;">${playerAvatar(x, 30, false)}${x.name}</button>`
-      ).join("")}</div>
+      <div id="witchCibles"></div>
       <div style="display:flex;margin-top:10px;">${boutonSorciere("Passer", "finirTourSorciere()")}</div>`;
+    choisirUnJoueur(document.getElementById("witchCibles"), cibles, sorciereEmpoisonner, "#5a3a7a");
   }
 }
 function sorciereSauver() { socket.emit("witchSave"); }
@@ -2459,15 +2431,8 @@ socket.on("chasseurMustShoot", hunterId=>{
 // raconte (jusqu'au débat le matin, jusqu'à la nuit après un vote)
 socket.on("chasseurATire", d => {
   if (!d || gameIsOver) return;
-  _victimesCarte = [{ name: d.name }];
-  renderDeathPhotos(_victimesCarte);
-  document.getElementById("deathEmoji").innerText = "🔫";
-  document.getElementById("deathTitle").innerText = "Le Chasseur a tiré";
-  document.getElementById("deathText").innerText  = `${d.name} est emporté·e par le Chasseur.`;
-  const card = document.getElementById("dayDeathCard");
-  card.style.background = "radial-gradient(ellipse at center,#1a0800 0%,#080300 100%)";
-  card.className = "show";
-  _dawnOnClose = null;
+  carteAnnonce("🔫", "Le Chasseur a tiré", `${d.name} est emporté·e par le Chasseur.`,
+    "radial-gradient(ellipse at center,#1a0800 0%,#080300 100%)", [d.name]);
   if (d.nuit) { _aubeAttendLeMJ = nuitParMJ && mjPilotedDay; if (!_aubeAttendLeMJ) setTimeout(fermerCarteMortSiOuverte, 7000); }
   else fermerCarteAuRythme(fermerCarteMortSiOuverte, 5000, ["chasseur", "day", "crepuscule"]);
 });
@@ -2518,42 +2483,9 @@ socket.on("missionSelectTeam", data=>{
   missionSelectedByMe = [];
   const panel = document.getElementById("missionPanel");
   panel.style.display = "block";
-  // Peuple les boutons de sélection
-  const btns = document.getElementById("missionTeamBtns");
-  btns.innerHTML = "";
-  data.players.forEach(p=>{
-    const btn = document.createElement("button");
-    btn.id = "mbt_" + p.id;
-    btn.textContent = p.name;
-    btn.onclick = () => toggleMissionPlayer(p.id, p.name);
-    btn.style.cssText = "padding:8px 14px;background:#111;border:1px solid #333;border-radius:6px;color:#aaa;cursor:pointer;font-size:13px;transition:all 0.15s;";
-    btns.appendChild(btn);
-  });
-  document.getElementById("missionSelectedNames").innerText = "Sélectionnez 3 joueurs";
-  document.getElementById("missionConfirmBtn").disabled = true;
-  document.getElementById("missionConfirmBtn").style.opacity = "0.4";
+  choisirTroisJoueurs(document.getElementById("missionTeamBtns"), data.players, "#8888ff",
+    "missionSelectedNames", "missionConfirmBtn", () => missionSelectedByMe);
 });
-
-function toggleMissionPlayer(id, name){
-  const idx = missionSelectedByMe.indexOf(id);
-  const btn = document.getElementById("mbt_" + id);
-  if(idx >= 0){
-    missionSelectedByMe.splice(idx, 1);
-    if(btn){ btn.style.background="#111"; btn.style.borderColor="#333"; btn.style.color="#aaa"; }
-  } else {
-    if(missionSelectedByMe.length >= 3) return; // max 3
-    missionSelectedByMe.push(id);
-    if(btn){ btn.style.background="#1a1a3a"; btn.style.borderColor="#4444aa"; btn.style.color="#8888ff"; }
-  }
-  const names = missionSelectedByMe.map(sid=>{
-    const p = players.find(x=>x.id===sid); return p?p.name:"?";
-  });
-  const sel = document.getElementById("missionSelectedNames");
-  sel.innerText = missionSelectedByMe.length===0 ? "Sélectionnez 3 joueurs" : names.join(", ");
-  const confirmBtn = document.getElementById("missionConfirmBtn");
-  confirmBtn.disabled = missionSelectedByMe.length !== 3;
-  confirmBtn.style.opacity = missionSelectedByMe.length === 3 ? "1" : "0.4";
-}
 
 function confirmMissionTeam(){
   if(missionSelectedByMe.length !== 3) return;
@@ -2802,16 +2734,8 @@ socket.on("dawnResult", data=>{
   // Le résultat de mission n'est pas un rôle → on peut le montrer aux joueurs
   if (missionResult === "success")      text += "\n\n🎭 Mission réussie.";
   else if (missionResult === "fail")    text += "\n\n🎭 Mission échouée.";
-  document.getElementById("deathEmoji").innerText = emoji;
-  document.getElementById("deathTitle").innerText = title;
-  document.getElementById("deathText").innerText  = text;
-  // Photos de TOUTES les victimes (sans rôle) — auto-resize selon le nombre
-  _victimesCarte = deaths.map(d => ({ name: d.name }));
-  renderDeathPhotos(_victimesCarte);
+  carteAnnonce(emoji, title, text, "radial-gradient(ellipse at center,#1a1000 0%,#0a0800 100%)", deaths.map(d => d.name));
   const c = document.getElementById("dayDeathCard");
-  c.style.background = "radial-gradient(ellipse at center,#1a1000 0%,#0a0800 100%)";
-  c.className = "show";
-  updateNightCover();
   // Réinitialise nightCardShownThisNight : la carte d'aube précède toujours la nuit suivante
   nightCardShownThisNight = false;
   if (isChasseurDead) {
@@ -2857,41 +2781,9 @@ function showMissionBonusPanel(){
   missionBonusSelectedByMe = [];
   const panel = document.getElementById("missionBonusPanel");
   panel.style.display = "block";
-  const btns = document.getElementById("missionBonusBtns");
-  btns.innerHTML = "";
   // Le maire ne peut pas s'inspecter lui-même
-  players.filter(p=>!deadPlayers.includes(p.id) && p.id !== mayor).forEach(p=>{
-    const btn = document.createElement("button");
-    btn.id = "mbonus_" + p.id;
-    btn.textContent = p.name;
-    btn.onclick = () => toggleBonusPlayer(p.id);
-    btn.style.cssText = "padding:8px 14px;background:#111;border:1px solid #333;border-radius:6px;color:#aaa;cursor:pointer;font-size:13px;";
-    btns.appendChild(btn);
-  });
-  document.getElementById("missionBonusSelectedNames").innerText = "Sélectionnez 3 joueurs";
-  document.getElementById("missionBonusConfirmBtn").disabled = true;
-  document.getElementById("missionBonusConfirmBtn").style.opacity = "0.4";
-}
-
-function toggleBonusPlayer(id){
-  const idx = missionBonusSelectedByMe.indexOf(id);
-  const btn = document.getElementById("mbonus_" + id);
-  if(idx >= 0){
-    missionBonusSelectedByMe.splice(idx, 1);
-    if(btn){ btn.style.background="#111"; btn.style.borderColor="#333"; btn.style.color="#aaa"; }
-  } else {
-    if(missionBonusSelectedByMe.length >= 3) return;
-    missionBonusSelectedByMe.push(id);
-    if(btn){ btn.style.background="#0a2a0a"; btn.style.borderColor="#22aa44"; btn.style.color="#44ff88"; }
-  }
-  const names = missionBonusSelectedByMe.map(sid=>{
-    const p=players.find(x=>x.id===sid); return p?p.name:"?";
-  });
-  document.getElementById("missionBonusSelectedNames").innerText =
-    missionBonusSelectedByMe.length===0 ? "Sélectionnez 3 joueurs" : names.join(", ");
-  const cb = document.getElementById("missionBonusConfirmBtn");
-  cb.disabled = missionBonusSelectedByMe.length !== 3;
-  cb.style.opacity = missionBonusSelectedByMe.length === 3 ? "1" : "0.4";
+  choisirTroisJoueurs(document.getElementById("missionBonusBtns"), players.filter(p => !deadPlayers.includes(p.id) && p.id !== mayor),
+    "#22aa44", "missionBonusSelectedNames", "missionBonusConfirmBtn", () => missionBonusSelectedByMe);
 }
 
 function confirmMissionBonus(){
@@ -2919,14 +2811,7 @@ socket.on("tiebreakMayor", data=>{
   const panel=document.getElementById("tiebreakPanel");
   ouvrirPanneau(panel, "#0a0800");
   document.getElementById("tiebreakMsg").innerText="⚖️ Égalité ! En tant que Maire, vous devez trancher :";
-  const btns=document.getElementById("tiebreakBtns"); btns.innerHTML="";
-  data.candidates.forEach(c=>{
-    const btn=document.createElement("button");
-    btn.onclick=()=>tiebreakVote(c.id);
-    btn.textContent=c.name;
-    btn.style.cssText="margin:8px;padding:14px 28px;background:#2a1a00;border:2px solid #ffaa00;border-radius:8px;color:#ffaa00;cursor:pointer;font-size:16px;";
-    btns.appendChild(btn);
-  });
+  choisirUnJoueur(document.getElementById("tiebreakBtns"), data.candidates, tiebreakVote, "#ffaa00");
   // Vibration : le Maire doit trancher (toujours de jour — vote du jour ou élection)
   vibrateIfDay([200, 100, 200, 100, 400]);
 });
@@ -2961,14 +2846,7 @@ socket.on("mayorMustTransfer", dyingId=>{
   // temps que le maire (ex : cible de la Sorcière) n'apparaît pas comme successeur.
   const buildMayorTransferButtons = () => {
     document.getElementById("tiebreakMsg").innerText = "⚰️ Vous êtes mort. Désignez votre successeur :";
-    const btns = document.getElementById("tiebreakBtns"); btns.innerHTML = "";
-    players.filter(p => !deadPlayers.includes(p.id)).forEach(p => {
-      const btn = document.createElement("button");
-      btn.onclick = () => mayorTransfer(p.id);
-      btn.textContent = p.name;
-      btn.style.cssText = "margin:6px;padding:12px 24px;background:#1a1a3a;border:2px solid #8888ff;border-radius:8px;color:#aaaaff;cursor:pointer;font-size:16px;";
-      btns.appendChild(btn);
-    });
+    choisirUnJoueur(document.getElementById("tiebreakBtns"), players.filter(p => !deadPlayers.includes(p.id)), mayorTransfer, "#8888ff");
   };
 
   // Pré-remplit dès maintenant (best-effort) — sera recalculé à l'ouverture.
@@ -3015,14 +2893,7 @@ socket.on("mayorMustAbdicate", data=>{
   // Vibration : le Maire doit choisir un successeur (évènement du Conseil, de jour)
   vibrateIfDay([200, 100, 200, 100, 400]);
   document.getElementById("tiebreakMsg").innerText = "👑 L'Abdication : désignez votre successeur.";
-  const btns = document.getElementById("tiebreakBtns"); btns.innerHTML = "";
-  (data.candidates || []).forEach(c => {
-    const btn = document.createElement("button");
-    btn.onclick = () => { socket.emit("mayorAbdicationChoice", c.id); };
-    btn.textContent = c.name;
-    btn.style.cssText = "margin:6px;padding:12px 24px;background:#3a2a0a;border:2px solid #ffcc44;border-radius:8px;color:#ffe199;cursor:pointer;font-size:16px;";
-    btns.appendChild(btn);
-  });
+  choisirUnJoueur(document.getElementById("tiebreakBtns"), data.candidates || [], id => socket.emit("mayorAbdicationChoice", id), "#ffcc44");
   ouvrirPanneau(panel, "#0a0a0a");
 });
 
@@ -3397,16 +3268,10 @@ function chasseurShoot(id){
   panel.style.cssText = "display:none;";
   document.getElementById("status").innerText="🔫 Vous avez tiré !";
   // Carte narrative avant la vision spectateur
-  document.getElementById("deathEmoji").innerText = "🔫";
-  document.getElementById("deathTitle").innerText = "Votre dernière balle…";
-  document.getElementById("deathText").innerText  = target
-    ? `Vous avez tiré sur ${target.name}. Votre devoir est accompli. Vous rejoignez les rangs des morts.`
-    : "Votre devoir est accompli. Vous rejoignez les rangs des morts.";
-  const card = document.getElementById("dayDeathCard");
-  card.style.background = "radial-gradient(ellipse at center,#1a0800 0%,#080300 100%)";
-  card.className = "show";
+  carteAnnonce("🔫", "Votre dernière balle…",
+    (target ? `Vous avez tiré sur ${target.name}. ` : "") + "Votre devoir est accompli. Vous rejoignez les rangs des morts.",
+    "radial-gradient(ellipse at center,#1a0800 0%,#080300 100%)", target ? [target.name] : []);
   nightCardShownThisNight = false;
-  _dawnOnClose = null;
   setTimeout(() => closeDawnCard(), 5000);
 }
 function seerChoice(id){socket.emit("seerChoice",id);}
@@ -3439,16 +3304,7 @@ function renderChasseurTargets(){
     "<div style='font-size:15px;color:#ccc;margin-bottom:24px;'>En tant que Chasseur, vous emportez un joueur avec vous.</div>",
     "<div id='chasseurTargets'></div>"
   ].join("");
-  const div = document.getElementById("chasseurTargets");
-  players.forEach(p=>{
-    if(!deadPlayers.includes(p.id)){
-      const btn = document.createElement("button");
-      btn.onclick = () => chasseurShoot(p.id);
-      btn.textContent = p.name;
-      btn.style.cssText = "margin:6px;padding:12px 24px;background:#2a0a00;border:2px solid #ff6600;border-radius:8px;color:#ff8833;cursor:pointer;font-size:16px;";
-      div.appendChild(btn);
-    }
-  });
+  choisirUnJoueur(document.getElementById("chasseurTargets"), players.filter(p => !deadPlayers.includes(p.id)), chasseurShoot, "#ff6600");
 }
 
 function render(){

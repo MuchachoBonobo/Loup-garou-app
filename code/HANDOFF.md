@@ -121,7 +121,7 @@ npm test                        # 13 scénarios d'intégration (Ange ×2, Petite
 npm run test:banc               # banc d'essai : 3 parties complètes jouées par des bots, règles contrôlées à chaque évènement (~10 min ; voir outils/banc-robots.js pour lancer plusieurs bancs en parallèle)
 npm run test:rythme             # rythme du MJ : crépuscule, réveil, évènement, reconnexions, pause, double clic, reprise après plantage (tests/rythme-mj.js, 25 vérifications, port 3105) puis Chasseur et maire lancés par le MJ (tests/annonces-mj.js, 13 vérifications, partie sans robots, port 3106) — ~3 min
 npm run test:hue                # diagnostic de la connexion Hue (lit .env)
-npm run test:navigateur         # partie complète dans de vrais navigateurs (Chrome invisible) : 6 téléphones + la tablette du MJ cliquent sur les vrais boutons ; 42 vérifications de ce que chaque écran affiche, aucune erreur JavaScript — ~2 min, port 3107
+npm run test:navigateur         # 2 parties dans de vrais navigateurs (Chrome invisible), téléphones + tablette du MJ qui cliquent sur les vrais boutons : partie 1 (2 loups, 4 villageois : cartes, voile, débat, votes, fin) puis partie 2 (Salvateur, Voyante, Petite Fille, Corbeau, Sorcière, Chasseur et leurs listes de choix) ; 67 vérifications, aucune erreur JavaScript — ~4 min, ports 3107 et 3112
 npm run lint                    # ESLint (informationnel)
 ```
 
@@ -165,6 +165,15 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-27 (suite 6) — Visuel mutualisé : une fonction par besoin
+Demande d'Alexandre : « si la Voyante et le Chasseur doivent voir la même chose, une seule fonction pour le même besoin — on change à un endroit, ça change pour tous ». Trois besoins étaient écrits plusieurs fois, chacun avec son style :
+- **`carteAnnonce(emoji, titre, texte, fond, noms)`** : toutes les annonces de la carte plein écran (aube, vote, tir du Chasseur, vision de la Voyante, Petite Fille, Idiot, Ange, « Votre dernière balle »), 8 copies. **Changement visible** : chaque carte qui parle d'un joueur montre sa photo — la vision de la Voyante (le joueur vu), la Petite Fille (les 3 désignés), l'Idiot, la dernière balle (la cible). **Corrigé au passage** : l'Idiot et la dernière balle ne vidaient pas la zone des photos (la photo du mort précédent pouvait rester).
+- **`choisirUnJoueur(conteneur, joueurs, action, couleur, interdit)`** : tous les choix d'un joueur (Salvateur, Corbeau, Sorcière, Chasseur, égalité, transmission d'écharpe, abdication), 7 versions. **Changement visible** : partout la liste de la Sorcière (validée le 2026-10-26) — une ligne par joueur, photo (qui fait partie du bouton) + prénom, « (vous) » pour soi, la bordure à la couleur du rôle ; « — hier » grisé chez le Salvateur.
+- **`choisirTroisJoueurs(…, selection)`** : Petite Fille, équipe de mission, bonus de mission (3 copies) ; la sélection est relue à chaque toucher (`selection()`), car une reconnexion remplace le tableau. Compteur « (2/3) » partout.
+- **Corrigé** : l'égalité, la transmission d'écharpe et l'abdication partagent un cadre dont le titre fixe disait toujours « ⚖️ Égalité — Le Maire doit trancher ! » ; le message propre à chaque cas devient le titre. Contenu fixe du panneau du Chasseur (toujours remplacé) et deux règles CSS inutiles retirés.
+- Gardés tels quels : les cadres (encadré dans la page pour Salvateur, Corbeau, Petite Fille, mission ; plein écran pour Sorcière, Chasseur, égalité) et les choix faits dans la liste des joueurs (vote du maire, Cupidon, loups, Voyante, vote du jour), déjà rendus par une seule fonction (`render`).
+- **Vérifié** : planches « avant / après » des 16 écrans ; `npm run test:navigateur` passe à 2 parties (la 2e fait jouer chaque rôle qui choisit, dans ces listes) : 67/67. Page joueur : 3 542 → 3 398 lignes.
 
 ### 2026-10-27 (suite 5) — Failles des dépendances corrigées (`npm audit fix`)
 `npm audit` signalait 10 failles (1 critique, 7 élevées, 2 moyennes), toutes dans des bibliothèques utilisées indirectement : `proxy-addr` (usurpation d'adresse IP, critique), `body-parser` et `qs` (Express), `ws`, `engine.io`, `engine.io-client`, `socket.io-parser`, `socket.io-adapter` (Socket.io : épuisement de mémoire, fuite de mémoire non initialisée), `brace-expansion` et `js-yaml` (ESLint). Surtout des « déni de service » : un appareil du réseau pouvait faire planter le serveur. `npm audit fix` (sans `--force`) : uniquement des versions de correctif, `package.json` inchangé, seul `package-lock.json` change ; 0 faille ensuite. Les mises à jour touchant la liaison serveur ↔ téléphones, tous les filets ont été relancés (voir le commit).

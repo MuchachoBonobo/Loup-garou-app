@@ -26,7 +26,6 @@ button:disabled { opacity:0.35; cursor:not-allowed; }
 
 /* TIEBREAK */
 #tiebreakPanel { display:none; background:#1a1000; border:2px solid #ffaa00; border-radius:10px; margin:10px auto; max-width:480px; padding:14px 16px; }
-#tiebreakPanel h3 { color:#ffaa00; margin:0 0 8px; font-size:14px; }
 
 /* CHAT DES MORTS */
 #deadChatPanel { display:none; background:#100a0a; border:1px solid #442222; border-radius:10px; margin:10px auto; max-width:480px; padding:12px 16px; text-align:left; }
@@ -89,7 +88,6 @@ button:disabled { opacity:0.35; cursor:not-allowed; }
 
 /* CHASSEUR */
 #chasseurPanel { display:none; background:#3a1a00; border:2px solid #ff6600; padding:15px; margin:10px auto; max-width:400px; border-radius:8px; }
-#chasseurPanel h3 { color:#ff6600; margin-top:0; }
 #dayDeathCard { display:none; position:fixed; inset:0; z-index:9999; background:radial-gradient(ellipse at center,#1a0808 0%,#0a0000 100%); align-items:center; justify-content:center; flex-direction:column; text-align:center; padding:30px; }
 #dayDeathCard.show { display:flex; animation:fadeIn 0.5s ease forwards; }
 #dayDeathCard.hiding { animation:fadeOut 0.6s ease forwards; }
