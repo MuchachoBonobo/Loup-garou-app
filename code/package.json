@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node tests/scenarios.js",
-    "test:ui": "node tests/ui-headless.js",
+    "test:navigateur": "node tests/navigateur.js",
     "test:hue": "node outils/test-hue.js",
     "lint": "eslint .",
     "test:banc": "node outils/banc-robots.js 3111 3 1",
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "eslint": "^9.0.0",
+    "puppeteer-core": "^25.16.0",
     "socket.io-client": "^4.8.3"
   }
 }

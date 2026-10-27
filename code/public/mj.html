@@ -620,7 +620,7 @@ socket.on("councilEventEnd", () => {
   if (stormAudio) { stormAudio.pause(); stormAudio.currentTime = 0; stormAudio = null; }
   afficherBandeauEvenement(null);
   // Cache la carte narrative si encore affichée
-  if (typeof closeCouncilEventCard === "function") closeCouncilEventCard();
+  closeCouncilEventCard();
   _mjActiveCouncilEvent = null;
   // Masque le miroir du chat écrit si actif
   const silentPanel = document.getElementById("mjSilentDayChatPanel");
@@ -648,7 +648,7 @@ function closeDayRecapCard(){
   if (_mjPendingCouncilEvent) {
     const ev = _mjPendingCouncilEvent;
     _mjPendingCouncilEvent = null;
-    if (typeof showMjCouncilEventCard === "function") showMjCouncilEventCard(ev);
+    showMjCouncilEventCard(ev);
   }
 }
 
@@ -724,7 +724,7 @@ socket.on("mjDayRecap", data => {
     } else {
       speech += `Cette nuit, ` + nd.map(d => `${d.name} (${d.role || ""}) est ${_causeLabel(d.cause)}`).join(", ") + ".";
     }
-    if (typeof speakNarration === "function") speakNarration(speech);
+    speakNarration(speech);
   } catch(_) {}
 });
 
@@ -835,7 +835,7 @@ socket.on("mayorAbdicated", data => {
     ? `👑 ${data.oldMayorName} n'a pas tranché — ${data.newMayorName} hérite de l'écharpe.`
     : `👑 ${data.oldMayorName} a abdiqué en faveur de ${data.newMayorName}.`;
   showAlert(msg, "info");
-  if (typeof speakNarration === "function") speakNarration(msg);
+  speakNarration(msg);
 });
 
 // ===== CONSEIL DES MORTS — 💬 Les Voix Étouffées (miroir MJ lecture seule) =====
@@ -1438,7 +1438,7 @@ socket.on("dayVoteResult", data=>{
   showMjDeathCard("⚖️", "Le verdict du village", data.name, data.role, data.narrative);
   // Empêche le MJ de lancer le vote suivant avant que les joueurs aient vu la carte de mort (5 s + 0,6 s fermeture + marge)
   _mjLaunchVoteUnlocksAt = Date.now() + 6500;
-  try { if (typeof speakNarration === "function") speakNarration(`${data.name} a été désigné par le village. Son rôle était ${data.role}.`); } catch(_) {}
+  try { speakNarration(`${data.name} a été désigné par le village. Son rôle était ${data.role}.`); } catch(_) {}
 });
 // Le Chasseur a tiré : le MJ voit qui il a emporté
 socket.on("mjChasseurShot", data=>{
@@ -1446,7 +1446,7 @@ socket.on("mjChasseurShot", data=>{
   showAlert(`🔫 Le Chasseur ${data.shooterName} a tué ${data.targetName} — ${data.targetRole}`, "warn");
   showMjDeathCard("🔫", "Le Chasseur a tiré", data.targetName, data.targetRole,
     `${data.shooterName}, le Chasseur, a emporté ${data.targetName} dans sa chute.`);
-  try { if (typeof speakNarration === "function") speakNarration(`Le Chasseur ${data.shooterName} a tiré sur ${data.targetName}, dont le rôle était ${data.targetRole}.`); } catch(_) {}
+  try { speakNarration(`Le Chasseur ${data.shooterName} a tiré sur ${data.targetName}, dont le rôle était ${data.targetRole}.`); } catch(_) {}
 });
 function closeMjVoteDeathCard(){
   if (_mjVoteDeathAutoClose) { clearTimeout(_mjVoteDeathAutoClose); _mjVoteDeathAutoClose = null; }
@@ -1485,8 +1485,8 @@ socket.on("gameReset", data=>{
   document.getElementById("missionMJPanel").style.display="none";
   document.getElementById("missionBonusMJInfo").style.display="none";
   document.getElementById("voteModeLabel").innerText="Mode libre 60 s. En pilotage MJ, vous lancez le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).";
-  if (typeof closeDayRecapCard === "function") closeDayRecapCard();
-  if (typeof closeMjVoteDeathCard === "function") closeMjVoteDeathCard();
+  closeDayRecapCard();
+  closeMjVoteDeathCard();
   _mjPendingCouncilEvent = null;
   stopCountdown(); stopHeartbeat(); stopAmbiance();
   if(data.players){ players=data.players; renderPlayers(); }

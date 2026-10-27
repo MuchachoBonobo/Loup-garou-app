@@ -13,7 +13,7 @@ C:\LoupGarouVoteApp\
 ├─ code\              LE CODE — zone de Claude (Alexandre n'y va pas)
 │  ├─ server.js + modules *.js, lights-scenes.json
 │  ├─ public\         interfaces joueur (index.html) et MJ (mj.html), css\, sounds\
-│  ├─ tests\          scenarios.js (intégration), ui-headless.js (UI via Chrome)
+│  ├─ tests\          scenarios.js (intégration), rythme-mj.js, annonces-mj.js, navigateur.js (partie dans Chrome)
 │  ├─ outils\         test-hue.js (diagnostic lumières)
 │  ├─ docs\           archives techniques (ANALYSE-2026-05-07.md)
 │  ├─ HANDOFF.md, CONTEXT.md
@@ -110,7 +110,6 @@ Dépendances : `state` (feuille) ← `narration`, `council` (+`lights`) ← `rol
 | `index.html` (joueur) | ~3270 | `render()` (liste des joueurs, avatars, boutons), `updateNightCover()`/`isAnyNarrativeCardOpen()`, `updateDayDebateScreen()`, `updateDeadFullScreen()`, cartes (`showRoleReveal`, `showDeathCard`, `dawnResult`…), `#introScreen`. JS inline — à lire par `Grep` + `offset`/`limit`. |
 | `mj.html` (MJ) | ~1700 | Sections `mjSectionStart` (lobby), `mjSectionUrgency`, `mjSectionRoles`, `mjSectionWolves`, `mjSectionMayor`, `mjSectionDay`, `mjSectionDeadChat`, `mjSectionQR` ; `updateMJLayout(phase)` les affiche selon la phase. TTS (`speakNarration`), sons (`playAmbiance`, `playEffect`), `MJ_CHEATSHEET`, `MJ_EVENT_RULES`, cartes MJ (`showMjDeathCard`, `#dayRecapCard`, `#councilEventCard`, `#sistersLauncherCard`, `#crashRecoveryCard`, `#qrFullscreen`). |
 | `css/player.css`, `css/mj.css` | 262 / 100 | Styles extraits (une partie des styles reste inline dans les HTML). |
-| `test-ui.js` | — | Audit UI exécuté dans la page par `tests/ui-headless.js`. |
 | `sounds/` | 22 mp3 | `day.mp3` et `night.mp3` pèsent ~85 Mo chacun (sous la limite GitHub de 100 Mo). `endgame_ange.mp3` (victoire de l'Ange, 3 min 21) : « Alléluia » du Messie de Haendel, London Symphony Orchestra et London Philharmonic Choir dir. Hermann Scherchen (1953), domaine public, version MP3 de Wikimedia Commons (`File:Handel - Messiah, Part 2 (Scherchen) - 45. Hallelujah.ogg`). S'il venait à manquer, `playAmbiance` joue `endgame_village` à la place. |
 
 ## Tests et commandes (depuis `code/`)
@@ -122,7 +121,7 @@ npm test                        # 13 scénarios d'intégration (Ange ×2, Petite
 npm run test:banc               # banc d'essai : 3 parties complètes jouées par des bots, règles contrôlées à chaque évènement (~10 min ; voir outils/banc-robots.js pour lancer plusieurs bancs en parallèle)
 npm run test:rythme             # rythme du MJ : crépuscule, réveil, évènement, reconnexions, pause, double clic, reprise après plantage (tests/rythme-mj.js, 25 vérifications, port 3105) puis Chasseur et maire lancés par le MJ (tests/annonces-mj.js, 13 vérifications, partie sans robots, port 3106) — ~3 min
 npm run test:hue                # diagnostic de la connexion Hue (lit .env)
-npm run test:ui                 # audit UI dans Chrome headless (serveur lancé ; nécessite puppeteer-core, non installé par défaut)
+npm run test:navigateur         # partie complète dans de vrais navigateurs (Chrome invisible) : 6 téléphones + la tablette du MJ cliquent sur les vrais boutons ; 42 vérifications de ce que chaque écran affiche, aucune erreur JavaScript — ~2 min, port 3107
 npm run lint                    # ESLint (informationnel)
 ```
 
@@ -130,9 +129,9 @@ Après toute modification serveur : **arrêter et relancer** le serveur (Node ga
 
 ## Tâches en attente
 
+- `npm audit` signale des failles « déni de service » dans `body-parser` (utilisé par Express) et `brace-expansion` (utilisé par ESLint), antérieures au 2026-10-27. `npm audit fix` les corrigerait (mise à jour mineure) ; à faire puis tester (`npm test`, `npm run test:navigateur`) avant une prestation.
 - **Étape 8 de la refonte du jour** : playtest réel, mesurer le temps d'écran des joueurs en journée, puis supprimer le toggle `mjPilotedDay` et le mode legacy si validé.
 - `server.js.bak` (ancien serveur monolithique, non versionné) traîne dans `code/` : peut être supprimé.
-- Ajouter `puppeteer-core` en devDependency si on veut garder `npm run test:ui` (absent : le test d'interface ne peut pas tourner).
 
 ## Idées / améliorations potentielles (non implémentées)
 
@@ -167,6 +166,11 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-27 (suite 4) — Test dans de vrais navigateurs ; lot C (pages) mesuré puis réduit
+- **Nouveau filet : `npm run test:navigateur`** (`tests/navigateur.js`, `puppeteer-core` ajouté en devDependency, Chrome installé requis). Six téléphones et la tablette du MJ, chacun dans son propre navigateur invisible, jouent une partie complète en cliquant sur les vrais boutons (2 loups, 4 villageois, jour piloté par le MJ) : salon, carte à retourner puis description du rôle, élection et carte du maire (nom + photo), voile de nuit, boutons « Attaquer », votes des loups en haut chez le MJ, carte du matin sans « Continuer », écran de débat, écran de mort, vote du jour, fin de partie — 42 vérifications, et aucune erreur JavaScript dans les 7 pages. **Contrôlé** : deux défauts introduits exprès (nom du maire effacé, bouton « Continuer » réaffiché) → 3 vérifications en échec. Ne couvre pas encore les rôles spéciaux (Voyante, Sorcière, Chasseur, Sœurs…).
+- **Supprimé** : l'ancien audit d'interface (`public/test-ui.js`, `tests/ui-headless.js`, `npm run test:ui`, 750 lignes). Lancé une dernière fois : il cherchait des écrans qui n'existent plus (carte « la nuit tombe », Sorcière d'avant le pas-à-pas…), des dizaines d'échecs sur une partie qui fonctionne.
+- **Lot C mesuré** : les 405 attributs `style` des pages sont presque tous uniques (36 répétitions) → les regrouper en classes ne réduirait presque rien et risquerait l'affichage : **pas fait**. Fait : 40 gardes `if (typeof f === "function")` retirées (les 13 fonctions sont déclarées en tête du script, donc toujours définies) ; `ouvrirPanneau(panneau, fond, zIndex)` remplace 7 copies du style des panneaux plein écran (Chasseur, égalité, transmission, abdication) — style identique au caractère près, vérifié ; `decompteSoeurs(fin)` (2 copies), `finDuVote(data)` (2 copies). Page joueur : 3 586 → 3 542 lignes. Pas fait, faute de filet : la fusion des cartes d'annonce (vision de la Voyante, Petite Fille, Idiot, Ange, tir du Chasseur, ~15 lignes).
 
 ### 2026-10-27 (suite 3) — Lot D : commentaires d'historique réécrits
 Les commentaires qui racontaient l'histoire du code (« BUG FIX 3 : », « Refonte épuration jour (mai 2026) : », « AMÉLIORATION 2 : », « avant ce fix… », « (avant : …) ») sont réécrits : le **pourquoi** reste, le récit des anciennes versions part (il est dans ce journal et dans GitHub). Les simples paraphrases d'un appel (« carte fermée → réévalue le voile » au-dessus de `updateNightCover()`) sont retirées. Encadrés « ZONE NUIT — ne pas toucher dans le cadre de la refonte jour » supprimés (périmés). Quelques commentaires corrigés au passage : « Continuer » → « Voir les détails » sur la carte de rôle, verrouillage du vote du maire (l'ancien commentaire se contredisait), renvois à des numéros de ligne périmés.

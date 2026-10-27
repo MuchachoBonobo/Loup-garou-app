@@ -814,7 +814,7 @@ function showMayorCard(p) {
       }
       // De jour (nouveau maire après une mort de nuit) : l'écran « Parlez entre vous »
       // revient, sinon le téléphone restait sur la liste des joueurs
-      if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+      updateDayDebateScreen();
     }, 600);
   }, 5000, ["mayorVote", "crepuscule"]);
 }
@@ -921,14 +921,11 @@ socket.on("gamePaused", data => {
 socket.on("gameResumed", data => {
   document.getElementById("pauseOverlay").style.display = "none";
 });
+// Fin du vote à l'heure de ce téléphone (corrige l'écart d'horloge avec le serveur)
+function finDuVote(d) { return d.serverNow && d.endsAt ? d.endsAt + (Date.now() - d.serverNow) : d.endsAt; }
 // Quand le vote du jour reprend, on redémarre le countdown
 socket.on("voteResumed", data => {
-  if (data.serverNow && data.endsAt) {
-    const networkLatency = Date.now() - data.serverNow;
-    voteEndsAt = data.endsAt + networkLatency;
-  } else {
-    voteEndsAt = data.endsAt;
-  }
+  voteEndsAt = finDuVote(data);
   voteTotalMs = data.durationMs;
   voteActive = true;
   document.getElementById("voteTimerBox").style.display = "block";
@@ -1164,7 +1161,7 @@ socket.on("finAnnonceMatin", d => {
     if (ce && ce.style.display === "flex") closeCouncilEventCard();
   }
   relacherAube();
-  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  updateDayDebateScreen();
 });
 
 // Bouton de la carte : « OK, j'ai vu ✓ » pour la Voyante et la Petite Fille (la nuit attend leur
@@ -1191,14 +1188,14 @@ function closeDawnCard() {
     if (!c.classList.contains("hiding")) return;
     c.className=""; c.style.display=""; c.style.background="";
     if (_dawnOnClose) { _dawnOnClose(); _dawnOnClose=null; }
-    if (typeof updateNightCover === "function") updateNightCover();
+    updateNightCover();
     // Un évènement du Conseil attendait la fermeture de la carte de l'aube : on l'affiche
     if (_pendingCouncilEventData) {
       const ev = _pendingCouncilEventData;
       _pendingCouncilEventData = null;
-      if (typeof showCouncilEventCardNow === "function") showCouncilEventCardNow(ev);
+      showCouncilEventCardNow(ev);
     }
-    if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+    updateDayDebateScreen();
   }, 600);
 }
 
@@ -1297,7 +1294,7 @@ function showNightFallCard() {
   nightCardShownThisNight = true;
   // Carte « le village s'endort » désactivée : on prévient le serveur et on met à jour le voile
   socket.emit("nightCardShown");
-  if (typeof updateNightCover === "function") updateNightCover();
+  updateNightCover();
 }
 
 function closeNightFallCard() {
@@ -1305,7 +1302,7 @@ function closeNightFallCard() {
   card.classList.add("hiding");
   setTimeout(() => {
     card.className=""; card.style.display="";
-    if (typeof updateNightCover === "function") updateNightCover();
+    updateNightCover();
   }, 600);
 }
 
@@ -1481,17 +1478,7 @@ socket.on("reconnected", state => {
     const restant = state.pendingSistersTurn.timerRemainingMs;
     const endsAt = (restant != null) ? Date.now() + restant : null;
     if (endsAt && Date.now() < endsAt) {
-      // Timer en cours côté serveur — on reprend le countdown sur le restant
-      const tick = () => {
-        const remainingMs = Math.max(0, endsAt - Date.now());
-        const sec = Math.ceil(remainingMs / 1000);
-        if (timerEl) timerEl.innerText = _sistersFmt(sec);
-        if (remainingMs <= 0 && _sistersCountdownInterval) {
-          clearInterval(_sistersCountdownInterval); _sistersCountdownInterval = null;
-        }
-      };
-      tick();
-      _sistersCountdownInterval = setInterval(tick, 250);
+      decompteSoeurs(endsAt);   // décompte en cours côté serveur : on reprend sur le restant
     } else {
       // Timer pas encore lancé par le MJ → figé à 00:20
       if (timerEl) timerEl.innerText = _sistersFmt(20);
@@ -1511,13 +1498,13 @@ socket.on("reconnected", state => {
         info.style.display = "none";
       }
     }
-    if (typeof renderSalvateurTargets === "function") renderSalvateurTargets();
+    renderSalvateurTargets();
   }
   // Reconnexion pendant le tour de la Petite Fille : choix des 3 joueurs rouvert (si elle
   // avait déjà sa réponse, le serveur la lui renvoie juste après et le panneau se referme)
   if (phase === "petiteFille") showPetiteFillePanel(); else closePetiteFillePanel();
-  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
-  if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
+  updateDayDebateScreen();
+  updateDeadFullScreen();
 });
 
 socket.on("deadChatHistory", msgs=>{ if(!msgs)return; const div=document.getElementById("deadChatMessages"); div.innerHTML=""; msgs.forEach(appendChatMsg); });
@@ -1872,7 +1859,7 @@ socket.on("phase", p=>{
   // À l'aube, tout ce qui a été vu/appris pendant la nuit s'efface
   if (p === "day") clearNightSecrets();
   // Sœurs : on ferme le panneau si on quitte la phase
-  if (p !== "sisters" && typeof closeSistersPanel === "function") closeSistersPanel();
+  if (p !== "sisters") closeSistersPanel();
   if (p !== "amoureux") fermerAmoureuxPanel();
   // Petite Fille : choix des 3 joueurs ouvert pendant son tour, refermé sinon
   if (p === "petiteFille") showPetiteFillePanel(); else closePetiteFillePanel();
@@ -1951,9 +1938,9 @@ socket.on("phase", p=>{
 
   renderVotesPanel(); scheduleRender();
   // Écrans du jour réévalués à chaque phase : débat, écran de mort, vote des morts
-  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
-  if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
-  if (typeof updateDeadVoteView === "function") updateDeadVoteView();
+  updateDayDebateScreen();
+  updateDeadFullScreen();
+  updateDeadVoteView();
   updateActionPendingBanner();
 });
 
@@ -2173,24 +2160,25 @@ socket.on("sistersTurn", data => {
 // Démarrage effectif du compte à rebours, déclenché par le MJ
 socket.on("sistersTimerStart", data => {
   if (role !== "Sœurs") return;
-  const timerEl = document.getElementById("sistersTimer");
-  const durationMs = (data && data.durationMs) ? data.durationMs : 20000;
   // On part de l'heure de RÉCEPTION sur ce téléphone, pas de l'heure du serveur :
   // les deux horloges diffèrent souvent de plusieurs secondes (le compteur affichait
   // 30 s au lieu de 20 sur un téléphone en retard de 10 s sur le PC).
-  const startedAt  = Date.now();
+  decompteSoeurs(Date.now() + ((data && data.durationMs) ? data.durationMs : 20000));
+});
+// Décompte des Sœurs jusqu'à `fin` (heure de ce téléphone)
+function decompteSoeurs(fin) {
+  const timerEl = document.getElementById("sistersTimer");
   if (_sistersCountdownInterval) clearInterval(_sistersCountdownInterval);
   const tick = () => {
-    const remainingMs = Math.max(0, durationMs - (Date.now() - startedAt));
-    const sec = Math.ceil(remainingMs / 1000);
-    if (timerEl) timerEl.innerText = _sistersFmt(sec);
+    const remainingMs = Math.max(0, fin - Date.now());
+    if (timerEl) timerEl.innerText = _sistersFmt(Math.ceil(remainingMs / 1000));
     if (remainingMs <= 0 && _sistersCountdownInterval) {
       clearInterval(_sistersCountdownInterval); _sistersCountdownInterval = null;
     }
   };
   tick();
   _sistersCountdownInterval = setInterval(tick, 250);
-});
+}
 // La fermeture du panneau Sœurs en cas de changement de phase est gérée
 // dans le gros handler socket.on("phase", ...) plus haut.
 
@@ -2238,9 +2226,9 @@ socket.on("deadPlayers", dead=>{
   updateNightCover();        // les morts ne voient plus le voile
   updateRoleRevealBtn();      // un mort peut voir ses infos sans bouton
   // Si Les Voix Étouffées sont actives, rebascule l'input write/read selon vivant/mort.
-  if (typeof refreshSilentDayChatVisibility === "function") refreshSilentDayChatVisibility();
-  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
-  if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
+  refreshSilentDayChatVisibility();
+  updateDayDebateScreen();
+  updateDeadFullScreen();
 });
 
 socket.on("loversInfo", list=>{ lovers=list; renderInfoPanel(); scheduleRender(); });
@@ -2437,6 +2425,12 @@ function finirTourSorciere() {
   document.getElementById("status").innerText = "";
 }
 
+// Panneau d'action plein écran (Chasseur, égalité, transmission d'écharpe, abdication)
+const FOND_CHASSEUR = "radial-gradient(ellipse at center,#1a0800 0%,#060200 100%)";
+function ouvrirPanneau(panneau, fond, zIndex = 9500) {
+  panneau.style.cssText = `display:flex;flex-direction:column;align-items:center;justify-content:center;position:fixed;inset:0;z-index:${zIndex};background:${fond};padding:30px;text-align:center`;
+}
+
 socket.on("chasseurMustShoot", hunterId=>{
   libererAnnonceAction();
   // Ferme la nightFallCard si elle est visible (peut s'être affichée via _dawnOnClose avant ce message)
@@ -2444,26 +2438,14 @@ socket.on("chasseurMustShoot", hunterId=>{
   if(nfc && nfc.className === "show") { nfc.className=""; nfc.style.display=""; }
   nightCardShownThisNight = false;
 
+  const panel = document.getElementById("chasseurPanel");
+  ouvrirPanneau(panel, FOND_CHASSEUR);
   if(socket.id === hunterId){
     isChasseurDead = true;
-    const panel = document.getElementById("chasseurPanel");
-    panel.style.cssText = [
-      "display:flex","flex-direction:column","align-items:center",
-      "justify-content:center","position:fixed","inset:0","z-index:9500",
-      "background:radial-gradient(ellipse at center,#1a0800 0%,#060200 100%)",
-      "padding:30px","text-align:center"
-    ].join(";");
     renderChasseurTargets();
     // Vibration : c'est au Chasseur de tirer — uniquement de jour (anti-leak la nuit)
     if (isDayContext()) vibrateNow([300, 120, 300, 120, 500]);
   } else {
-    const panel = document.getElementById("chasseurPanel");
-    panel.style.cssText = [
-      "display:flex","flex-direction:column","align-items:center",
-      "justify-content:center","position:fixed","inset:0","z-index:9500",
-      "background:radial-gradient(ellipse at center,#1a0800 0%,#060200 100%)",
-      "padding:30px","text-align:center"
-    ].join(";");
     panel.innerHTML = [
       "<div style='font-size:64px;margin-bottom:20px;'>🔫</div>",
       "<div style='font-size:22px;font-weight:bold;color:#ff8833;margin-bottom:12px;'>Le Chasseur tire sa dernière balle…</div>",
@@ -2595,7 +2577,7 @@ function showMissionExplainCard(){
   if(!card) return;
   card.style.display = "flex";
   card.style.animation = "fadeIn 0.5s ease forwards";
-  if (typeof updateNightCover === "function") updateNightCover();
+  updateNightCover();
   // Auto-close après 20 secondes — filet de sécurité, fermeture manuelle attendue
   if(_missionExplainAutoClose) clearTimeout(_missionExplainAutoClose);
   _missionExplainAutoClose = setTimeout(closeMissionExplainCard, 20000);
@@ -2607,8 +2589,8 @@ function closeMissionExplainCard(){
   card.style.animation = "fadeOut 0.6s ease forwards";
   setTimeout(()=>{
     card.style.display = "none"; card.style.animation = "";
-    if (typeof updateNightCover === "function") updateNightCover();
-    if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+    updateNightCover();
+    updateDayDebateScreen();
   }, 600);
 }
 
@@ -2695,7 +2677,7 @@ function showCouncilEventCardNow(data) {
   document.getElementById("councilEventNarrative").innerText = data.narrative || "";
   card.style.display = "flex";
   card.style.animation = "fadeIn 0.5s ease forwards";
-  if (typeof updateNightCover === "function") updateNightCover();
+  updateNightCover();
   if (_councilEventCardAutoClose) clearTimeout(_councilEventCardAutoClose);
   // Annoncé par le MJ : il la referme avec « Lancer le débat » ; sinon filet de 20 s
   if (!data.parMJ) _councilEventCardAutoClose = setTimeout(closeCouncilEventCard, 20000);
@@ -2708,8 +2690,8 @@ function closeCouncilEventCard(){
   card.style.animation = "fadeOut 0.6s ease forwards";
   setTimeout(()=>{
     card.style.display = "none"; card.style.animation = "";
-    if (typeof updateNightCover === "function") updateNightCover();
-    if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+    updateNightCover();
+    updateDayDebateScreen();
   }, 600);
 }
 
@@ -2718,10 +2700,10 @@ socket.on("councilEventEnd", () => {
   _pendingCouncilEventData = null;
   const ce = document.getElementById("councilEventCard");
   if (ce && ce.style.display === "flex") closeCouncilEventCard();
-  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  updateDayDebateScreen();
   // L'événement actif s'est terminé — masque le chat écrit si actif.
   silentDayChatActive = false;
-  if (typeof refreshSilentDayChatVisibility === "function") refreshSilentDayChatVisibility();
+  refreshSilentDayChatVisibility();
 });
 
 socket.on("missionTeamSelected", data=>{
@@ -2829,18 +2811,13 @@ socket.on("dawnResult", data=>{
   const c = document.getElementById("dayDeathCard");
   c.style.background = "radial-gradient(ellipse at center,#1a1000 0%,#0a0800 100%)";
   c.className = "show";
-  if (typeof updateNightCover === "function") updateNightCover();
+  updateNightCover();
   // Réinitialise nightCardShownThisNight : la carte d'aube précède toujours la nuit suivante
   nightCardShownThisNight = false;
   if (isChasseurDead) {
     _dawnOnClose = () => {
       const panel = document.getElementById("chasseurPanel");
-      panel.style.cssText = [
-        "display:flex","flex-direction:column","align-items:center",
-        "justify-content:center","position:fixed","inset:0","z-index:9500",
-        "background:radial-gradient(ellipse at center,#1a0800 0%,#060200 100%)",
-        "padding:30px","text-align:center"
-      ].join(";");
+      ouvrirPanneau(panel, FOND_CHASSEUR);
       renderChasseurTargets();
     };
   } else if (mayorTransferPending) {
@@ -2851,11 +2828,7 @@ socket.on("dawnResult", data=>{
     if (socket.id === dyingMayorId) {
       _dawnOnClose = () => {
         const panel = document.getElementById("tiebreakPanel");
-        panel.style.cssText = [
-          "display:flex","flex-direction:column","align-items:center",
-          "justify-content:center","position:fixed","inset:0","z-index:10000",
-          "background:#0a0a0a","padding:30px","text-align:center"
-        ].join(";");
+        ouvrirPanneau(panel, "#0a0a0a", 10000);
       };
     } else {
       _dawnOnClose = null;
@@ -2944,11 +2917,7 @@ socket.on("tiebreakMayor", data=>{
   // Affiche le panel tiebreak en plein écran fixe pour le maire
   // (évite que le panel soit invisible si la page est scrollée)
   const panel=document.getElementById("tiebreakPanel");
-  panel.style.cssText = [
-    "display:flex","flex-direction:column","align-items:center",
-    "justify-content:center","position:fixed","inset:0","z-index:9500",
-    "background:#0a0800","padding:30px","text-align:center"
-  ].join(";");
+  ouvrirPanneau(panel, "#0a0800");
   document.getElementById("tiebreakMsg").innerText="⚖️ Égalité ! En tant que Maire, vous devez trancher :";
   const btns=document.getElementById("tiebreakBtns"); btns.innerHTML="";
   data.candidates.forEach(c=>{
@@ -3010,11 +2979,7 @@ socket.on("mayorMustTransfer", dyingId=>{
   const openTransferPanel = () => {
     buildMayorTransferButtons(); // ← recalcul avec deadPlayers fraîchement mis à jour
     const panel = document.getElementById("tiebreakPanel");
-    panel.style.cssText = [
-      "display:flex","flex-direction:column","align-items:center",
-      "justify-content:center","position:fixed","inset:0","z-index:10000",
-      "background:#0a0a0a","padding:30px","text-align:center"
-    ].join(";");
+    ouvrirPanneau(panel, "#0a0a0a", 10000);
   };
 
   const dayCard = document.getElementById("dayDeathCard");
@@ -3058,11 +3023,7 @@ socket.on("mayorMustAbdicate", data=>{
     btn.style.cssText = "margin:6px;padding:12px 24px;background:#3a2a0a;border:2px solid #ffcc44;border-radius:8px;color:#ffe199;cursor:pointer;font-size:16px;";
     btns.appendChild(btn);
   });
-  panel.style.cssText = [
-    "display:flex","flex-direction:column","align-items:center",
-    "justify-content:center","position:fixed","inset:0","z-index:9500",
-    "background:#0a0a0a","padding:30px","text-align:center"
-  ].join(";");
+  ouvrirPanneau(panel, "#0a0a0a");
 });
 
 socket.on("mayorAbdicated", data=>{
@@ -3174,12 +3135,7 @@ socket.on("voteStarted", data=>{
   currentVoteMode=data.mode;
   myDayVote=null;
   if(data.mode!==2) hasVotedLocked=false;
-  if(data.serverNow && data.endsAt){
-    const networkLatency = Date.now() - data.serverNow;
-    voteEndsAt = data.endsAt + networkLatency;
-  } else {
-    voteEndsAt = data.endsAt;
-  }
+  voteEndsAt = finDuVote(data);
   voteTotalMs=data.duration; voteActive=true;
   document.getElementById("voteWaitBox").style.display="none";
   if(data.existingVotes && data.mode!==5){ dayCounts=data.existingVotes; }
@@ -3190,8 +3146,8 @@ socket.on("voteStarted", data=>{
   document.getElementById("timerMode").innerText=VOTE_MODE_CARDS[data.mode]||"";
   if(voteEndsAt) startCountdown();
   if(data.mode===5) document.getElementById("status").innerText="🖤 Vote dans l'ombre — votez sans voir les résultats !";
-  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
-  if (typeof updateDeadVoteView === "function") updateDeadVoteView();
+  updateDayDebateScreen();
+  updateDeadVoteView();
   scheduleRender();
 });
 
@@ -3203,7 +3159,7 @@ socket.on("voteTimerEnd",()=>{
   if(phase === "day"){ voteActive=true; }
   // Pas de retour au débat : dayVoteResult suit, puis la nuit. Morts : le vote est fini,
   // leur vue du vote se masque.
-  if (typeof updateDeadVoteView === "function") updateDeadVoteView();
+  updateDeadVoteView();
   scheduleRender();
 });
 
@@ -3574,13 +3530,13 @@ function render(){
   });
   // À chaque rendu, l'écran de mort est réaffirmé : un mort ne voit jamais la liste ni
   // les boutons de vote, même après un évènement manqué
-  if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
+  updateDeadFullScreen();
   // Idem pour l'écran de débat : ré-affirmé à chaque rendu pour qu'il apparaisse
   // de façon fiable dès le jour, même si un changement de phase a été manqué.
-  if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
+  updateDayDebateScreen();
   // Idem pour le voile « garde les yeux fermés » : ré-affirmé à chaque rendu
   // pour qu'il apparaisse dès le début de la nuit.
-  if (typeof updateNightCover === "function") updateNightCover();
+  updateNightCover();
 }
 </script>
 </body>
