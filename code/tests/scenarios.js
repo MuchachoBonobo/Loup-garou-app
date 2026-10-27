@@ -2,16 +2,10 @@
  * tests/scenarios.js — Runner de tests d'intégration pour LoupGarouVoteApp
  *
  * Lance un serveur sur le port 3099, connecte de vrais sockets socket.io-client,
- * et vérifie le comportement bout-en-bout pour 5 scénarios ciblés.
+ * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S13) est décrit
+ * au-dessus de sa fonction.
  *
  * Usage : npm test   (ou : node tests/scenarios.js)
- *
- * Scénarios :
- *  S1 — BUG 1 regression : Chasseur tué la nuit + Sorcière empoisonne aussi
- *  S2 — BUG 2 regression : Reconnexion Corbeau pendant sa phase
- *  S3 — BUG 2 regression : Reconnexion Sorcière pendant sa phase
- *  S4 — Chasseur linché au vote de jour → reçoit chasseurMustShoot
- *  S5 — Smoke test : partie complète en autoMode (bots)
  */
 
 "use strict";
@@ -176,7 +170,7 @@ async function s1() {
     const nightVictimP = waitFor(witchP.s, "nightVictim", 10000);
     loupP.s.emit("voteWolf", huntP.s.id);
     await sleep(100);
-    loupP.s.emit("wolfConfirm"); // lock immédiat (1 seul loup)
+    mj.emit("lockWolfVotes");   // le MJ valide l'attaque
     const victim = await nightVictimP;
     check("S1-nightVictim=chasseur", victim === huntP.s.id, `victim=${victim}`);
 
@@ -231,7 +225,7 @@ async function s2() {
     crowP.s.once("corbeauTurn", () => {}); // vider l'éventuel premier event
     loupP.s.emit("voteWolf", vills[0].s.id);
     await sleep(100);
-    loupP.s.emit("wolfConfirm");
+    mj.emit("lockWolfVotes");
     await corbeauPhaseP;
 
     // Déconnecter et reconnecter le Corbeau
@@ -283,7 +277,7 @@ async function s3() {
     const firstVictimP = waitFor(witchP.s, "nightVictim", 10000);
     loupP.s.emit("voteWolf", vills[0].s.id);
     await sleep(100);
-    loupP.s.emit("wolfConfirm");
+    mj.emit("lockWolfVotes");
     await firstVictimP;
 
     // Déconnecter et reconnecter la Sorcière
@@ -347,7 +341,7 @@ async function s4() {
 
     loupP.s.emit("voteWolf", wolfTarget.s.id);
     await sleep(100);
-    loupP.s.emit("wolfConfirm");
+    mj.emit("lockWolfVotes");
     const dawn = await dawnP;
     console.log(`  dawnResult: morts=[${(dawn.deaths||[]).map(d=>d.name+"/"+d.role).join(", ")||"aucun"}]`);
     await sleep(300);
@@ -440,11 +434,11 @@ async function s5() {
 // ═══════════════════════════════════════════════════════════
 // Helper : nuit où le loup unique tue `victime`, puis attend le jour.
 // ═══════════════════════════════════════════════════════════
-async function nuitLoupUnique(players, loupP, victime) {
+async function nuitLoupUnique(mj, players, loupP, victime) {
   const dayP = waitForPhase(players[0].s, "day", 20000);
   loupP.s.emit("voteWolf", victime.s.id);
   await sleep(100);
-  loupP.s.emit("wolfConfirm");
+  mj.emit("lockWolfVotes");
   await dayP;
   await sleep(300);
 }
@@ -466,7 +460,7 @@ async function s6() {
 
     // Nuit 1 : le loup tue un villageois qui n'est pas le maire (évite mayorTransfer)
     const victime = players.find(p => roleOf[p.name] === "Villageois" && p !== players[0]);
-    await nuitLoupUnique(players, loupP, victime);
+    await nuitLoupUnique(mj, players, loupP, victime);
 
     // Jour 1 : tous votent l'Ange (lui vote le loup)
     mj.emit("startVote");
@@ -520,11 +514,11 @@ async function s7() {
     const villageois = players.filter(p => roleOf[p.name] === "Villageois" && p !== players[0]);
 
     // Nuit 1, puis le MJ passe le vote du jour 1
-    await nuitLoupUnique(players, loupP, villageois[0]);
+    await nuitLoupUnique(mj, players, loupP, villageois[0]);
     const nuit2P = waitForPhase(players[0].s, "wolves", 20000);
     mj.emit("skipDayVote");
     await nuit2P;
-    await nuitLoupUnique(players, loupP, villageois[1]);
+    await nuitLoupUnique(mj, players, loupP, villageois[1]);
 
     // Jour 2 : tous votent l'Ange
     let angeRevele = false;
@@ -571,7 +565,7 @@ async function s8() {
     const pfTourP = waitForPhase(pfP.s, "petiteFille", 20000);
     loupP.s.emit("voteWolf", villageois[0].s.id);
     await sleep(100);
-    loupP.s.emit("wolfConfirm");
+    mj.emit("lockWolfVotes");
     await pfTourP;
     check("S8-la Petite Fille se réveille après les Loups (pas de Voyante)", true);
 
@@ -608,7 +602,7 @@ async function s8() {
     const pfTour2P = waitForPhase(pfP.s, "petiteFille", 20000);
     loupP.s.emit("voteWolf", villageois[1].s.id);
     await sleep(100);
-    loupP.s.emit("wolfConfirm");
+    mj.emit("lockWolfVotes");
     await pfTour2P;
     const trois = players.filter(p => roleOf[p.name] === "Villageois" && p !== villageois[0] && p !== villageois[1]).slice(0, 3);
     const res2P = waitFor(pfP.s, "petiteFilleResult", 4000);
@@ -640,7 +634,7 @@ async function s9() {
     const { mj, players, roleOf } = await setupGame(all, NAMES, cfg);
     const loupP = players.find(p => roleOf[p.name] === "Loup");
     const villageois = players.filter(p => roleOf[p.name] === "Villageois" && p !== players[0]);
-    await nuitLoupUnique(players, loupP, villageois[0]);
+    await nuitLoupUnique(mj, players, loupP, villageois[0]);
 
     let resultats = 0, lancements = 0, nuits = 0;
     mj.on("dayVoteResult", () => resultats++);
@@ -690,7 +684,7 @@ async function s10() {
     const sorcTourP = waitForPhase(sorcP.s, "witch", 20000);
     loupP.s.emit("voteWolf", v1.s.id);
     await sleep(100);
-    loupP.s.emit("wolfConfirm");
+    mj.emit("lockWolfVotes");
     await sorcTourP;
     sorcP.s.emit("witchKill", v2.s.id);   // loup + sorcière restants : victoire des loups à l'aube
     await sleep(300);
@@ -776,7 +770,7 @@ async function s12() {
     const loupP = players.find(p => roleOf[p.name] === "Loup");
     const vill  = players.filter(p => roleOf[p.name] === "Villageois" && p !== players[0]);
     // Nuit : le loup tue un villageois ; jour : loup + maire éliminent le dernier → loups gagnants
-    await nuitLoupUnique(players, loupP, vill[0]);
+    await nuitLoupUnique(mj, players, loupP, vill[0]);
     mj.emit("startVote", 1); await sleep(400);
     players.filter(p => p !== vill[0] && p !== vill[1]).forEach(p => p.s.emit("voteDay", vill[1].s.id));
     await sleep(400);
@@ -811,6 +805,63 @@ async function s12() {
 }
 
 // ═══════════════════════════════════════════════════════════
+// S13 — Égalités au vote du jour. Jour 1 : le maire tranche. Jour 2 : il ne répond
+// pas, le hasard tranche au bout de 30 s. Chaque fois, le désigné meurt et la nuit suit.
+// ═══════════════════════════════════════════════════════════
+async function s13() {
+  console.log("\n▶ S13 — Égalités au vote : le maire tranche, puis le hasard (≈ 50 s)");
+  const all = [];
+  try {
+    const NAMES = ["s13_A","s13_B","s13_C","s13_D","s13_E","s13_F","s13_G"];
+    const cfg   = { loup:1, chasseur:0, sorciere:0, voyante:0, cupidon:0, corbeau:0,
+                    salvateur:0, sisters:0, petiteFille:0, idiot:0, ange:0, mission:false };
+    const { mj, players, roleOf } = await setupGame(all, NAMES, cfg);
+    const maire = players[0];
+    const loupP = players.find(p => roleOf[p.name] === "Loup");
+    if (!loupP) { ko("S13-setup", JSON.stringify(roleOf)); return; }
+    const vill  = players.filter(p => p !== maire && p !== loupP);
+    const autre = loupP !== maire ? loupP : vill[5];   // un votant de plus, que le loup soit maire ou non
+    const voter = bulletins => bulletins.forEach(([de, pour]) => de.s.emit("voteDay", pour.s.id));
+
+    // Jour 1 : 2 voix contre vill[1], 2 contre vill[2] ; le maire désigne vill[2]
+    await nuitLoupUnique(mj, players, loupP, vill[0]);
+    mj.emit("startVote"); await sleep(300);
+    voter([[maire, vill[1]], [vill[3], vill[1]], [vill[1], vill[2]], [vill[4], vill[2]]]);
+    await sleep(300);
+    const egaliteP = waitFor(maire.s, "tiebreakMayor", 6000);
+    mj.emit("lockDayVotes");
+    const egalite = await egaliteP.catch(() => null);
+    const candidats = (egalite?.candidates || []).map(c => c.id).sort();
+    check("S13-le maire tranche entre les deux ex æquo", JSON.stringify(candidats) === JSON.stringify([vill[1].s.id, vill[2].s.id].sort()), JSON.stringify(egalite));
+    const resultat1P = waitFor(mj, "dayVoteResult", 8000);
+    const nuit2P = waitForPhase(maire.s, "wolves", 25000);
+    maire.s.emit("tiebreakChoice", vill[2].s.id);
+    const r1 = await resultat1P.catch(() => null);
+    check("S13-le désigné par le maire est éliminé", r1 && r1.id === vill[2].s.id, JSON.stringify(r1));
+    await nuit2P.then(() => ok(), () => ko("S13-la nuit suit la décision du maire"));
+
+    // Jour 2 : 2 voix contre vill[1], 2 contre vill[4] ; le maire ne répond pas
+    await nuitLoupUnique(mj, players, loupP, vill[3]);
+    let hasard = false;
+    mj.on("autoResolve", m => { if (String(m).includes("n'a pas tranché")) hasard = true; });
+    mj.emit("startVote"); await sleep(300);
+    voter([[maire, vill[1]], [vill[4], vill[1]], [vill[1], vill[4]], [autre, vill[4]]]);
+    await sleep(300);
+    const resultat2P = waitFor(mj, "dayVoteResult", 40000);
+    const nuit3P = waitForPhase(maire.s, "wolves", 50000);
+    mj.emit("lockDayVotes");
+    const r2 = await resultat2P.catch(() => null);
+    check("S13-sans réponse du maire, le hasard tranche", hasard);
+    check("S13-l'élu du hasard est l'un des deux ex æquo", r2 && [vill[1].s.id, vill[4].s.id].includes(r2.id), JSON.stringify(r2));
+    await nuit3P.then(() => ok(), () => ko("S13-la nuit suit le tirage au sort"));
+  } catch (e) {
+    ko("S13 crash", e.message);
+  } finally {
+    await closeAll(all);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
 // Démarrage serveur + exécution des scénarios
 // ═══════════════════════════════════════════════════════════
 async function main() {
@@ -834,7 +885,7 @@ async function main() {
   });
   console.log("  Serveur test prêt : " + BASE_URL + "\n");
 
-  for (const scenario of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12]) {
+  for (const scenario of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13]) {
     try { await scenario(); }
     catch (e) { ko("crash non rattrapé", e.message); }
     await sleep(800);

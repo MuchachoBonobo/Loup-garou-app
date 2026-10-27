@@ -3389,8 +3389,6 @@ function stopCountdown(){
   if(v){v.classList.remove("urgent"); v.classList.remove("heartbeat");}
 }
 
-function alivePlayers(){ return players.filter(p=>!deadPlayers.includes(p.id)); }
-
 function renderInfoPanel(){
   if(!role)return;
   document.getElementById("infoPanel").style.display="block";

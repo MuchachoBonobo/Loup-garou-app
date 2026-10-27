@@ -3,7 +3,7 @@
 // councilEverTriggered) vit dans state.js pour que votes.js puisse lire activeCouncilEvent.
 // Seuls les timers d'ambiance (cloche, murmures, tonnerre) restent privés ici.
 
-const { state, isMJ, alivePlayers, playerName, fisherYates } = require('./state');
+const { state, isMJ, alivePlayers, playerName, fisherYates, versMJ } = require('./state');
 const lights = require('./lights');
 const log    = require('./logger');
 
@@ -140,7 +140,7 @@ function pickRandomCouncilOptions(count = 3) {
     state.councilUsedEvents = [];
     available = Object.keys(COUNCIL_EVENTS);
     log.info('council', 'pool épuisé — second cycle, réinitialisation de councilUsedEvents');
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve",
+    versMJ("autoResolve",
       "👻 Le Conseil reprend — les esprits ont épuisé leurs requêtes et reviennent de plus loin.");
   }
   return fisherYates(available).slice(0, count);
@@ -162,7 +162,7 @@ function startCouncil() {
   state.deadPlayers.forEach(did => {
     state.io.to(did).emit("councilStart", { options: optionPayload });
   });
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("councilStartMJ", { options: optionPayload });
+  versMJ("councilStartMJ", { options: optionPayload });
 }
 
 function resolveCouncil() {
@@ -184,7 +184,7 @@ function resolveCouncil() {
   state.pendingCouncilEvent = winner;
   // AMÉLIORATION 3 : on inclut le narratif complet pour que le MJ ait toute
   // l'explication de ce qui va se passer demain (pas juste le titre).
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("councilResolvedMJ", {
+  versMJ("councilResolvedMJ", {
     winner,
     title:     COUNCIL_EVENTS[winner].title,
     narrative: COUNCIL_EVENTS[winner].narrative,
@@ -215,15 +215,15 @@ function applyCouncilEvent(eventId) {
   try { lights.applyScene("council." + ev.id); } catch (_) {}
   if (ev.technical) {
     if (ev.technical.dayMusic === "night" && state.mjSocketId) {
-      state.io.to(state.mjSocketId).emit("councilMusicOverride", "night");
+      versMJ("councilMusicOverride", "night");
     }
     if (ev.technical.stormSound && state.mjSocketId) {
-      state.io.to(state.mjSocketId).emit("councilStormStart");
+      versMJ("councilStormStart");
       // Tonnerre toutes les 30 secondes pendant le jour
       const tickThunder = () => {
         councilThunderTimer = setTimeout(() => {
           if (state.mjSocketId && state.phase === "day") {
-            state.io.to(state.mjSocketId).emit("soundPlay", "thunder");
+            versMJ("soundPlay", "thunder");
             try { lights.flash("flash.lightning"); } catch (_) {}
             tickThunder();
           } else {
@@ -235,11 +235,11 @@ function applyCouncilEvent(eventId) {
     }
     if (ev.technical.bellInterval && state.mjSocketId) {
       // La cloche sonne immédiatement à l'apparition de l'événement
-      state.io.to(state.mjSocketId).emit("soundPlay", "church_bell");
+      versMJ("soundPlay", "church_bell");
       try { lights.flash("flash.bell"); } catch (_) {}
       councilBellTimer = setInterval(() => {
         if (state.mjSocketId && state.phase === "day") {
-          state.io.to(state.mjSocketId).emit("soundPlay", "church_bell");
+          versMJ("soundPlay", "church_bell");
           try { lights.flash("flash.bell"); } catch (_) {}
         } else {
           clearInterval(councilBellTimer); councilBellTimer = null;
@@ -248,7 +248,7 @@ function applyCouncilEvent(eventId) {
     }
     if (ev.technical.murmurSound && state.mjSocketId) {
       // Murmures : remplace la musique du jour par "Murmures.mp3" en boucle
-      state.io.to(state.mjSocketId).emit("councilMurmursStart");
+      versMJ("councilMurmursStart");
     }
     if (ev.technical.abdication) {
       triggerAbdicationPrompt();
@@ -294,7 +294,7 @@ function triggerAbdicationPrompt() {
   if (candidates.length === 0) return;
 
   state.io.to(state.mayor).emit("mayorMustAbdicate", { candidates });
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve",
+  versMJ("autoResolve",
     "👑 L'Abdication — le maire désigne son successeur.");
 
   if (abdicationTimeout) clearTimeout(abdicationTimeout);
@@ -332,10 +332,8 @@ function applyAbdication(newMayorId, forced) {
     newMayorId: newMayorId, newMayorName: playerName(newMayorId),
     forced: !!forced,
   });
-  if (state.mjSocketId) {
-    state.io.to(state.mjSocketId).emit("autoResolve",
-      `👑 ${playerName(oldMayor)} a abdiqué en faveur de ${playerName(newMayorId)}${forced ? " (choix par défaut)" : ""}.`);
-  }
+  versMJ("autoResolve",
+    `👑 ${playerName(oldMayor)} a abdiqué en faveur de ${playerName(newMayorId)}${forced ? " (choix par défaut)" : ""}.`);
 }
 
 function handleAbdicationChoice(socket, targetId) {
@@ -353,7 +351,7 @@ function handleCouncilVote(socket, eventId) {
   if (!state.deadPlayers.includes(socket.id)) return;
   if (!state.councilOptions || !state.councilOptions.includes(eventId)) return;
   state.councilVotes[socket.id] = eventId;
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("councilVoteUpdateMJ", { councilVotes: state.councilVotes });
+  versMJ("councilVoteUpdateMJ", { councilVotes: state.councilVotes });
   socket.emit("councilVoteConfirm", { eventId });
 }
 

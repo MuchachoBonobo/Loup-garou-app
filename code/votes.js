@@ -2,7 +2,7 @@
 // Dépendances circulaires (phases, roles) résolues via require('./module').fn() à l'usage.
 
 const {
-  state, alivePlayers, computeCounts, playerName, isMJ, hasRole,
+  state, alivePlayers, computeCounts, playerName, isMJ, hasRole, versMJ,
   VOTE_RATE_MS, FAST_RESOLVE_MS, WOLF_CONSENSUS_GRACE_MS, resetActivity,
 } = require('./state');
 
@@ -70,7 +70,7 @@ function resolveVoteWithTiebreak(counts, context, onResolved) {
   state.io.to(state.mayor).emit("tiebreakMayor", {
     candidates: tied.map(id => ({ id, name: playerName(id) })), context
   });
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("tiebreakMJ", {
+  versMJ("tiebreakMJ", {
     candidates: tied.map(id => ({ id, name: playerName(id) })),
     mayorName: playerName(state.mayor), context
   });
@@ -87,7 +87,7 @@ function resolveVoteWithTiebreak(counts, context, onResolved) {
     if (!cands.length) { state.tiebreakPending = false; state.tiebreakContext = ""; return; }
     const choice = cands[Math.floor(Math.random() * cands.length)];
     state.io.emit("autoResolve", "⏱ Le Maire n'a pas tranché — l'égalité est départagée au hasard.");
-    finishDayTiebreak(choice);
+    trancherEgalite(choice);
   }, TIEBREAK_TIMEOUT_MS);
 }
 
@@ -104,7 +104,7 @@ function performLockMayorVote() {
     state.io.emit("newMayor", state.mayor);
     try { lights.flash("flash.bell"); } catch (_) {}
     if (state.lovers.length === 2 && state.mjSocketId) {
-      state.io.to(state.mjSocketId).emit("loversInfo", state.lovers);
+      versMJ("loversInfo", state.lovers);
     }
     state.mayorVote = {};
     // Délai 5 s : laisse le temps à la lumière et au MJ d'annoncer le nouveau maire
@@ -117,7 +117,7 @@ function performLockMayorVote() {
           players: alivePlayers().filter(p => p.id !== state.mayor).map(p => ({ id: p.id, name: p.name }))
         });
         state.io.emit("missionStarted", { mayorName: playerName(state.mayor) });
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("missionMJInfo", {
+        versMJ("missionMJInfo", {
           step: "teamSelection",
           mayorName: playerName(state.mayor)
         });
@@ -136,8 +136,6 @@ function performLockWolfVotes() {
   const count = computeCounts(state.votesWolf);
   state.nightTarget = Object.keys(count).sort((a, b) => count[b] - count[a])[0] || null;
   state.votesWolf = {};
-  // AMÉLIORATION 2 : reset des validations loups quand on lock
-  if (state.wolfConfirmed) state.wolfConfirmed.clear();
   // Flash : les loups ont désigné leur proie
   try { lights.flash("flash.wolves"); } catch (_) {}
   roles.allerEtapeNuit(roles.etapeApres("wolves"));
@@ -158,14 +156,15 @@ function checkMayorAutoLock() {
   if (state.autoMode) { performLockMayorVote(); return; }
   if (state.mjSocketId && !state.mayorAllVotedNotified) {
     state.mayorAllVotedNotified = true;
-    state.io.to(state.mjSocketId).emit("autoResolve", "🏛️ Tout le monde a voté pour le maire — cliquez sur « Valider le Maire ».");
+    versMJ("autoResolve", "🏛️ Tout le monde a voté pour le maire — cliquez sur « Valider le Maire ».");
   }
 }
 
+const loupsVivants = () => Object.keys(state.roles).filter(id => state.roles[id] === "Loup" && !state.deadPlayers.includes(id));
+
 function checkWolfConsensus() {
   if (!state.autoMode || state.phase !== "wolves") return;
-  const aliveWolves = Object.keys(state.roles)
-    .filter(id => state.roles[id] === "Loup" && !state.deadPlayers.includes(id));
+  const aliveWolves = loupsVivants();
   if (aliveWolves.length === 0) return;
 
   const allVoted = aliveWolves.every(wid => state.votesWolf[wid]);
@@ -180,7 +179,7 @@ function checkWolfConsensus() {
     if (state.wolfConsensusTimer) return;
     state.wolfConsensusTimer = setTimeout(() => {
       state.wolfConsensusTimer = null;
-      const aw = Object.keys(state.roles).filter(id => state.roles[id] === "Loup" && !state.deadPlayers.includes(id));
+      const aw = loupsVivants();
       if (aw.length === 0 || !aw.every(wid => state.votesWolf[wid])) return;
       const t = aw.map(wid => state.votesWolf[wid]);
       if (t.every(x => x === t[0]) && state.phase === "wolves") {
@@ -201,89 +200,59 @@ function maybeRunBotForTiebreak() {
     if (!state.tiebreakPending) return;
     if (state.deadPlayers.includes(state.mayor)) return;
     const choice = state.tiebreakCandidates[Math.floor(Math.random() * state.tiebreakCandidates.length)];
-    if (!choice) return;
-    const savedContext = state.tiebreakContext;
-    state.tiebreakPending = false; state.tiebreakCandidates = []; state.tiebreakContext = "";
-    state.io.emit("tiebreakResolved", { winner: choice, name: playerName(choice) });
-    if (savedContext === "day") {
-      // L'Ange gagne seul si le maire-bot le désigne au premier vote
-      if (handleAngeVictoire(choice)) return;
-      // L'Idiot survit même si l'égalité a été tranchée en sa défaveur par le maire-bot
-      if (handleIdiotDayVoteSurvival(choice)) return;
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "heartbeat");
-      setTimeout(() => {
-        if (state.mjSocketId) {
-          state.io.to(state.mjSocketId).emit("stopHeartbeat");
-          setTimeout(() => state.io.to(state.mjSocketId).emit("soundPlay", "drum_roll"), 300);
-        }
-      }, 1200);
-      setTimeout(() => {
-        if (!state.resolutionJourEnCours) return;  // jour quitté ou partie relancée entre-temps
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "death");
-        try { lights.flash("flash.death"); } catch (_) {}
-        const cName = playerName(choice), cRole = state.roles[choice];
-        state.io.emit("dayVoteResult", {
-          id: choice, name: cName, role: cRole,
-          narrative: buildVoteNarrative(cName, cRole, "vote")
-        });
-      }, 2700);
-      setTimeout(() => {
-        if (!state.resolutionJourEnCours) return;  // jour quitté ou partie relancée entre-temps
-        roles.killPlayer(choice);
-        state.votesDay = {};
-        state.io.emit("votesDayMJ", state.votesDay);
-        state.io.emit("dayCountsPublic", {});
-        state.io.emit("voteTimerEnd");
-        // BUG FIX : check victoire AVANT toute transition de phase (chemin tiebreak)
-        if (state.phase !== "lobby" && state.phase !== "chasseur" && state.phase !== "mayorTransfer") {
-          if (phases.checkVictory()) return;
-          // BUG FIX : routage via startNightSequence pour que Sœurs et Salvateur
-          // jouent à toutes les nuits (avant, setPhase("wolves") les skippait).
-          roles.ouvrirNuit(false);
-        }
-      }, 8200);
-    }
+    if (choice) trancherEgalite(choice);
   });
 }
 
-// ===== RÉSOLUTION D'UNE ÉGALITÉ DU VOTE DU JOUR =====
-// Élimine le joueur désigné puis enchaîne la nuit. Utilisé par le garde-fou
-// de timeout quand le Maire n'a pas pu trancher.
-function finishDayTiebreak(winnerId) {
-  if (!state.tiebreakPending) return;
+// ===== FIN D'UNE ÉGALITÉ =====
+// Le maire, le maire-bot ou le hasard (garde-fou des 30 s) a désigné le perdant. Seul
+// le vote du jour passe par là : une égalité à l'élection du maire est tirée au sort.
+function trancherEgalite(choix) {
   if (tiebreakTimeout) { clearTimeout(tiebreakTimeout); tiebreakTimeout = null; }
   state.tiebreakPending = false;
   state.tiebreakCandidates = [];
   state.tiebreakContext = "";
-  state.io.emit("tiebreakResolved", { winner: winnerId, name: playerName(winnerId) });
-  // L'Ange gagne seul si le hasard le désigne au premier vote
-  if (handleAngeVictoire(winnerId)) return;
-  // L'Idiot survit même si l'égalité a été tranchée en sa défaveur
-  if (handleIdiotDayVoteSurvival(winnerId)) return;
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "heartbeat");
+  state.io.emit("tiebreakResolved", { winner: choix, name: playerName(choix) });
+  executerVerdict(choix);
+}
+
+// ===== VERDICT DU VOTE DU JOUR =====
+// Suspense chez le MJ : battement de cœur, puis roulement de tambour
+function suspenseVerdict() {
+  versMJ("soundPlay", "heartbeat");
   setTimeout(() => {
-    if (state.mjSocketId) {
-      state.io.to(state.mjSocketId).emit("stopHeartbeat");
-      setTimeout(() => state.io.to(state.mjSocketId).emit("soundPlay", "drum_roll"), 300);
-    }
+    if (!state.mjSocketId) return;
+    versMJ("stopHeartbeat");
+    setTimeout(() => versMJ("soundPlay", "drum_roll"), 300);
   }, 1200);
+}
+
+// Urne vidée et vote clos sur tous les écrans
+function viderVoteDuJour() {
+  state.votesDay = {};
+  state.io.emit("votesDayMJ", state.votesDay);
+  state.io.emit("dayCountsPublic", {});
+  state.io.emit("voteTimerEnd");
+}
+
+// Le village a désigné `cible` (vote, ou égalité tranchée) : l'Ange gagne seul au premier
+// vote, l'Idiot survit ; sinon suspense, annonce, mort, puis la victoire ou la nuit.
+function executerVerdict(cible, angePossible = true) {
+  if (angePossible && handleAngeVictoire(cible)) return;
+  if (handleIdiotDayVoteSurvival(cible)) return;
+  const nom = playerName(cible), role = state.roles[cible];
+  suspenseVerdict();
   setTimeout(() => {
     if (!state.resolutionJourEnCours) return;  // jour quitté ou partie relancée entre-temps
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "death");
+    versMJ("soundPlay", "death");
     try { lights.flash("flash.death"); } catch (_) {}
-    const tName = playerName(winnerId), tRole = state.roles[winnerId];
-    state.io.emit("dayVoteResult", {
-      id: winnerId, name: tName, role: tRole,
-      narrative: buildVoteNarrative(tName, tRole, "vote")
-    });
+    state.io.emit("dayVoteResult", { id: cible, name: nom, role, narrative: buildVoteNarrative(nom, role, "vote") });
   }, 2700);
   setTimeout(() => {
-    if (!state.resolutionJourEnCours) return;  // jour quitté ou partie relancée entre-temps
-    roles.killPlayer(winnerId);
-    state.votesDay = {};
-    state.io.emit("votesDayMJ", state.votesDay);
-    state.io.emit("dayCountsPublic", {});
-    state.io.emit("voteTimerEnd");
+    if (!state.resolutionJourEnCours) return;
+    roles.killPlayer(cible);
+    viderVoteDuJour();
+    // Victoire vérifiée avant toute transition ; la nuit passe par ouvrirNuit (Sœurs, Salvateur)
     if (state.phase !== "lobby" && state.phase !== "chasseur" && state.phase !== "mayorTransfer") {
       if (phases.checkVictory()) return;
       roles.ouvrirNuit(false);
@@ -295,19 +264,15 @@ function finishDayTiebreak(winnerId) {
 // L'Idiot survit s'il est désigné par le VOTE DU VILLAGE (une seule fois) : il est
 // démasqué mais reste en vie. Il meurt normalement de toute autre cause (loups,
 // sorcière, chasseur, chagrin d'amour) — ces causes passent par killPlayer sans
-// exception. Ce helper est appelé par les 3 chemins de résolution du vote du jour
-// (résolution normale + arbitrage maire + arbitrage maire-bot) pour que la survie
-// soit cohérente, y compris quand l'élimination résulte d'une égalité tranchée.
+// exception. Appelé par executerVerdict : la survie vaut aussi quand l'élimination
+// résulte d'une égalité tranchée.
 // Renvoie true si l'Idiot a été épargné (l'appelant doit alors s'arrêter).
 function handleIdiotDayVoteSurvival(victimId) {
   if (state.roles[victimId] !== "Idiot" || state.idiotRevealed) return false;
   state.idiotRevealed = true;
   state.io.emit("idiotRevealed", { id: victimId, name: playerName(victimId) });
   try { lights.flash("flash.idiot"); } catch (_) {}
-  state.votesDay = {};
-  state.io.emit("votesDayMJ", state.votesDay);
-  state.io.emit("dayCountsPublic", {});
-  state.io.emit("voteTimerEnd");
+  viderVoteDuJour();
   if (state.phase !== "chasseur" && state.phase !== "mayorTransfer") roles.ouvrirNuit(false);
   return true;
 }
@@ -319,7 +284,7 @@ function handleIdiotDayVoteSurvival(victimId) {
 // sorcière, chasseur, chagrin d'amour) ou désigné à un vote suivant, c'est un
 // simple villageois. `nbVotesJour` compte les votes résolus ET les votes passés
 // par le MJ : un premier vote passé lui fait perdre sa chance (choix du
-// 2026-10-23). Appelé par les 4 chemins de résolution, comme l'Idiot.
+// 2026-10-23). Appelé par executerVerdict, comme l'Idiot.
 // Renvoie true si l'Ange a gagné (l'appelant doit alors s'arrêter).
 function handleAngeVictoire(victimId) {
   if (state.roles[victimId] !== "Ange" || state.nbVotesJour !== 1) return false;
@@ -327,13 +292,7 @@ function handleAngeVictoire(victimId) {
   // Même suspense qu'une élimination, puis la révélation à la place de la mort. Le vote
   // n'est clos côté écrans qu'à la fin (comme une élimination) : sinon les téléphones
   // repassaient sur « Discutez » pendant le roulement de tambour.
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "heartbeat");
-  setTimeout(() => {
-    if (state.mjSocketId) {
-      state.io.to(state.mjSocketId).emit("stopHeartbeat");
-      setTimeout(() => state.io.to(state.mjSocketId).emit("soundPlay", "drum_roll"), 300);
-    }
-  }, 1200);
+  suspenseVerdict();
   setTimeout(() => {
     if (state.angeVainqueur !== victimId) return;  // partie réinitialisée entre-temps
     try { lights.flash("flash.ange"); } catch (_) {}
@@ -341,10 +300,7 @@ function handleAngeVictoire(victimId) {
   }, 2700);
   setTimeout(() => {
     if (state.angeVainqueur !== victimId || state.phase === "lobby") return;
-    state.votesDay = {};
-    state.io.emit("votesDayMJ", state.votesDay);
-    state.io.emit("dayCountsPublic", {});
-    state.io.emit("voteTimerEnd");
+    viderVoteDuJour();
     phases.checkVictory();
   }, 8200);
   return true;
@@ -357,7 +313,7 @@ function resolveDayVote() {
   if (state.phase !== "day" || state.resolutionJourEnCours) return;
   state.resolutionJourEnCours = true;
   // Écran MJ : boutons du vote grisés jusqu'à la fin du jour
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("voteClosMJ");
+  versMJ("voteClosMJ");
   log.info('resolveDayVote', 'votes=', state.votesDay);
   clearVoteTimer(); state.lockedVoters.clear();
   state.nbVotesJour++;  // le 1er vote est celui où l'Ange peut gagner
@@ -378,57 +334,15 @@ function resolveDayVote() {
   const count = computeCounts(state.votesDay);
 
   resolveVoteWithTiebreak(count, "day", (target) => {
+    // Personne n'a voté : un joueur tiré au sort, et l'Ange ne peut pas gagner ainsi
+    // (le village ne l'a pas désigné)
     const tireAuSort = !target;
-    if (!target) {
+    if (tireAuSort) {
       const alive = alivePlayers();
       target = alive[Math.floor(Math.random() * alive.length)]?.id;
       state.io.emit("randomElim");
     }
-
-    const victimName = playerName(target);
-    const victimRole = state.roles[target];
-
-    // L'Ange gagne seul s'il est désigné au premier vote — pas s'il est tiré au
-    // sort parce que personne n'a voté (le village ne l'a pas désigné)
-    if (!tireAuSort && handleAngeVictoire(target)) return;
-    // L'Idiot survit au vote du village (résolution normale, sans égalité)
-    if (handleIdiotDayVoteSurvival(target)) return;
-
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "heartbeat");
-    setTimeout(() => {
-      if (state.mjSocketId) {
-        state.io.to(state.mjSocketId).emit("stopHeartbeat");
-        setTimeout(() => state.io.to(state.mjSocketId).emit("soundPlay", "drum_roll"), 300);
-      }
-    }, 1200);
-    setTimeout(() => {
-      if (!state.resolutionJourEnCours) return;  // jour quitté ou partie relancée entre-temps
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "death");
-      try { lights.flash("flash.death"); } catch (_) {}
-      state.io.emit("dayVoteResult", {
-        id: target, name: victimName, role: victimRole,
-        narrative: buildVoteNarrative(victimName, victimRole, "vote")
-      });
-    }, 2700);
-
-    // Mémorise pour le récap MJ du prochain début de jour
-    state.lastDayVoteDeath = { name: victimName, role: victimRole };
-
-    setTimeout(() => {
-      if (!state.resolutionJourEnCours) return;  // jour quitté ou partie relancée entre-temps
-      roles.killPlayer(target);
-      state.votesDay = {};
-      state.io.emit("votesDayMJ", state.votesDay);
-      state.io.emit("dayCountsPublic", computeCounts(state.votesDay));
-      state.io.emit("voteTimerEnd");
-      // BUG FIX : check victoire AVANT toute transition de phase
-      if (state.phase !== "lobby" && state.phase !== "chasseur" && state.phase !== "mayorTransfer") {
-        if (phases.checkVictory()) return;
-        // BUG FIX : routage via startNightSequence pour que Sœurs et Salvateur
-        // jouent à toutes les nuits (avant, setPhase("wolves") les skippait).
-        roles.ouvrirNuit(false);
-      }
-    }, 8200);
+    executerVerdict(target, !tireAuSort);
   });
 }
 
@@ -470,7 +384,7 @@ function startDayVote(mode) {
     : null;
 
   state.io.emit("voteStarted", { mode, duration, endsAt, serverNow: Date.now(), existingVotes: existingCounts, corbeauInfo });
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("voteStartedMJ", { mode, duration, endsAt, serverNow: Date.now() });
+  versMJ("voteStartedMJ", { mode, duration, endsAt, serverNow: Date.now() });
   if (mode !== 5) {
     state.io.emit("votesDayPublic", realVotes);
   }
@@ -504,7 +418,7 @@ function handleLockMayorVote(socket) {
 
 // Le MJ a appuyé sur un bouton du vote alors que le vote est déjà clos : on le lui dit.
 function voteDejaClos() {
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏳ Le vote est déjà clos — le résultat est en cours d'annonce.");
+  versMJ("autoResolve", "⏳ Le vote est déjà clos — le résultat est en cours d'annonce.");
 }
 
 function handleStartVote(socket) {
@@ -512,7 +426,7 @@ function handleStartVote(socket) {
   if (state.resolutionJourEnCours) { voteDejaClos(); return; }
   // Déjà lancé (double appui) : on ne relance pas le compte à rebours
   if (state.voteTimer) {
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "🗳️ Le vote est déjà en cours.");
+    versMJ("autoResolve", "🗳️ Le vote est déjà en cours.");
     return;
   }
   startDayVote(1);
@@ -561,7 +475,7 @@ function handleVoteDay(socket, id) {
         state.voteTimer = setTimeout(() => { resolveDayVote(); }, FAST_RESOLVE_MS);
         state.io.emit("autoResolve", "✅ Tout le village a voté — vote rapide 30s !");
         state.io.emit("voteResumed", { endsAt: state.voteTimerEnd, durationMs: FAST_RESOLVE_MS, serverNow: Date.now() });
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("voteStartedMJ", { mode: state.voteMode, duration: FAST_RESOLVE_MS, endsAt: state.voteTimerEnd, serverNow: Date.now() });
+        versMJ("voteStartedMJ", { mode: state.voteMode, duration: FAST_RESOLVE_MS, endsAt: state.voteTimerEnd, serverNow: Date.now() });
       }
     }
   }
@@ -573,7 +487,7 @@ function handleLockDayVotes(socket) {
   if (state.dayResolutionPending) return;
   state.dayResolutionPending = true;
   clearVoteTimer();
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "crowd_gasp");
+  versMJ("soundPlay", "crowd_gasp");
   setTimeout(() => {
     state.dayResolutionPending = false;
     resolveDayVote();
@@ -586,11 +500,8 @@ function handleSkipDayVote(socket) {
   clearVoteTimer();
   state.lockedVoters.clear();
   state.nbVotesJour++;  // un 1er vote passé fait perdre sa chance à l'Ange
-  state.votesDay = {};
   state.corbeauTarget = null;
-  state.io.emit("votesDayMJ", state.votesDay);
-  state.io.emit("dayCountsPublic", {});
-  state.io.emit("voteTimerEnd");
+  viderVoteDuJour();
   state.io.emit("daySkipped");
   // BUG FIX : passage par startNightSequence pour les Sœurs/Salvateur
   roles.ouvrirNuit(false);
@@ -601,13 +512,8 @@ function handleVoteWolf(socket, id) {
   if (state.roles[id] === "Loup") return;
   resetActivity();
   state.votesWolf[socket.id] = id;
-  // AMÉLIORATION 2 : changer de proie annule la validation précédente
-  if (state.wolfConfirmed) state.wolfConfirmed.delete(socket.id);
   state.io.emit("wolfVotesMJ", state.votesWolf);
-  const wolfIds = Object.keys(state.roles).filter(wid => state.roles[wid] === "Loup" && !state.deadPlayers.includes(wid));
-  wolfIds.forEach(wid => state.io.to(wid).emit("wolfVotesUpdate", state.votesWolf));
-  // Émet l'état de validation à chaque loup (pour rafraîchir leur UI)
-  emitWolfConfirmStatus();
+  loupsVivants().forEach(wid => state.io.to(wid).emit("wolfVotesUpdate", state.votesWolf));
   // Vision spectateur des morts
   state.deadPlayers.forEach(did => state.io.to(did).emit("wolfVotesUpdate", state.votesWolf));
   checkWolfConsensus();
@@ -618,99 +524,11 @@ function handleLockWolfVotes(socket) {
   performLockWolfVotes();
 }
 
-// AMÉLIORATION 2 : chaque loup peut valider son choix (comme la sorcière qui passe).
-// Quand tous les loups vivants ont validé ET visent la même proie → lock auto.
-function emitWolfConfirmStatus() {
-  if (!state.wolfConfirmed) state.wolfConfirmed = new Set();
-  const wolfIds = Object.keys(state.roles).filter(wid => state.roles[wid] === "Loup" && !state.deadPlayers.includes(wid));
-  const confirmedIds = [...state.wolfConfirmed].filter(id => wolfIds.includes(id));
-  const payload = {
-    confirmed: confirmedIds,
-    total: wolfIds.length
-  };
-  wolfIds.forEach(wid => state.io.to(wid).emit("wolfConfirmStatus", payload));
-}
-
-function handleWolfConfirm(socket) {
-  if (state.phase !== "wolves" || !hasRole(socket.id, "Loup")) return;
-  if (state.deadPlayers.includes(socket.id)) return;
-  if (!state.votesWolf[socket.id]) return;  // doit avoir voté pour valider
-  if (!state.wolfConfirmed) state.wolfConfirmed = new Set();
-  state.wolfConfirmed.add(socket.id);
-  resetActivity();
-  emitWolfConfirmStatus();
-
-  // Tous les loups ont-ils validé ?
-  const wolfIds = Object.keys(state.roles).filter(wid => state.roles[wid] === "Loup" && !state.deadPlayers.includes(wid));
-  const allConfirmed = wolfIds.every(wid => state.wolfConfirmed.has(wid));
-  if (!allConfirmed) return;
-
-  // Tous votent-ils la même proie ?
-  const targets = wolfIds.map(wid => state.votesWolf[wid]);
-  const allSame = targets.every(t => t && t === targets[0]);
-  if (allSame) {
-    performLockWolfVotes();
-  } else {
-    // Désaccord — on annule toutes les validations pour forcer un re-choix conscient
-    state.wolfConfirmed.clear();
-    emitWolfConfirmStatus();
-    wolfIds.forEach(wid => state.io.to(wid).emit("wolfConfirmReject", {
-      reason: "Vous n'êtes pas d'accord sur la même cible — réessayez."
-    }));
-  }
-}
-
 function handleTiebreakChoice(socket, targetId) {
-  if (!state.tiebreakPending || socket.id !== state.mayor) return;
-  if (state.deadPlayers.includes(state.mayor)) {
-    state.tiebreakPending = false;
-    state.tiebreakCandidates = [];
-    return;
-  }
-  if (!state.tiebreakCandidates.includes(targetId)) return;
-  const savedContext = state.tiebreakContext;
-  state.tiebreakPending = false;
-  state.tiebreakCandidates = [];
-  state.tiebreakContext = "";
-  state.io.emit("tiebreakResolved", { winner: targetId, name: playerName(targetId) });
-
-  if (savedContext === "day") {
-    // L'Ange gagne seul si le maire le désigne au premier vote
-    if (handleAngeVictoire(targetId)) return;
-    // L'Idiot survit même si l'égalité a été tranchée en sa défaveur par le maire
-    if (handleIdiotDayVoteSurvival(targetId)) return;
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "heartbeat");
-    setTimeout(() => {
-      if (state.mjSocketId) {
-        state.io.to(state.mjSocketId).emit("stopHeartbeat");
-        setTimeout(() => state.io.to(state.mjSocketId).emit("soundPlay", "drum_roll"), 300);
-      }
-    }, 1200);
-    setTimeout(() => {
-      if (!state.resolutionJourEnCours) return;  // jour quitté ou partie relancée entre-temps
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "death");
-      try { lights.flash("flash.death"); } catch (_) {}
-      const tName = playerName(targetId), tRole = state.roles[targetId];
-      state.io.emit("dayVoteResult", {
-        id: targetId, name: tName, role: tRole,
-        narrative: buildVoteNarrative(tName, tRole, "vote")
-      });
-    }, 2700);
-    setTimeout(() => {
-      if (!state.resolutionJourEnCours) return;  // jour quitté ou partie relancée entre-temps
-      roles.killPlayer(targetId);
-      state.votesDay = {};
-      state.io.emit("votesDayMJ", state.votesDay);
-      state.io.emit("dayCountsPublic", {});
-      state.io.emit("voteTimerEnd");
-      // BUG 3 : check victoire AVANT toute transition de phase (chemin tiebreak handler)
-      if (state.phase !== "lobby" && state.phase !== "chasseur" && state.phase !== "mayorTransfer") {
-        if (phases.checkVictory()) return;
-        // BUG FIX : startNightSequence pour Sœurs/Salvateur à toutes les nuits
-        roles.ouvrirNuit(false);
-      }
-    }, 8200);
-  }
+  // Un maire mort ne tranche plus : le garde-fou des 30 s tire alors au sort (avant,
+  // l'égalité était effacée sans verdict et le jour restait bloqué)
+  if (!state.tiebreakPending || socket.id !== state.mayor || state.deadPlayers.includes(state.mayor)) return;
+  if (state.tiebreakCandidates.includes(targetId)) trancherEgalite(targetId);
 }
 
 // IMPORTANT : on MUTE l'objet module.exports (pas de réassignation) pour ne pas
@@ -725,6 +543,6 @@ Object.assign(module.exports, {
   // Handlers socket
   handleVoteMayor, handleLockMayorVote,
   handleStartVote, handleVoteDay, handleLockDayVotes, handleSkipDayVote,
-  handleVoteWolf, handleLockWolfVotes, handleWolfConfirm,
+  handleVoteWolf, handleLockWolfVotes,
   handleTiebreakChoice,
 });

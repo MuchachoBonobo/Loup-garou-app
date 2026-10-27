@@ -5,7 +5,7 @@
 // Dépendances circulaires (phases, votes) résolues via require('./module').fn() à l'usage.
 
 const {
-  state, alivePlayers, playerName, hasRole, isMJ, fisherYates, resetActivity,
+  state, alivePlayers, playerName, hasRole, isMJ, fisherYates, resetActivity, versMJ,
   CUPID_SOUND_MS, SISTERS_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS, PETITE_FILLE_ACK_TIMEOUT_MS,
 } = require('./state');
 
@@ -57,14 +57,12 @@ function resolveMissionCards() {
   state.mission.result = hasFail ? "fail" : "success";
 
   // Informe le MJ discrètement du résultat brut
-  if (state.mjSocketId) {
-    state.io.to(state.mjSocketId).emit("missionResultMJ", {
-      result: state.mission.result,
-      cards: state.mission.team.map(id => ({
-        id, name: playerName(id), card: state.mission.cards[id]
-      }))
-    });
-  }
+  versMJ("missionResultMJ", {
+    result: state.mission.result,
+    cards: state.mission.team.map(id => ({
+      id, name: playerName(id), card: state.mission.cards[id]
+    }))
+  });
 
   // Enregistre le résultat mais ne le révèle PAS encore au broadcast.
   // → la révélation se fera dans doResolveNight() via missionReveal.
@@ -87,7 +85,7 @@ function ouvrirNuit(premiere) {
   if (!nuitRythmeeParMJ()) { if (premiere) startFirstNight(); else startNightSequence(); return; }
   state.nuitEnAttente = premiere ? "premiere" : "suivante";
   phases.setPhase("crepuscule");
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("nuitEnAttente");
+  versMJ("nuitEnAttente");
 }
 function lancerNuitAttendue() {
   if (state.phase !== "crepuscule") return;
@@ -137,7 +135,7 @@ function allerEtapeNuit(etape, options) {
   if (sansPause || !nuitRythmeeParMJ() || !LIBELLES_ETAPES_NUIT[etape]) { lancerEtapeNuit(etape); return; }
   state.etapeNuitSuivante = etape;
   phases.setPhase("nightPause");
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("etapeNuitEnAttente", { etape, libelle: LIBELLES_ETAPES_NUIT[etape] });
+  versMJ("etapeNuitEnAttente", { etape, libelle: LIBELLES_ETAPES_NUIT[etape] });
 }
 
 // Démarre réellement l'étape : messages propres au rôle puis changement de phase.
@@ -156,7 +154,7 @@ function lancerEtapeNuit(etape) {
     // Option B : on n'envoie PAS les noms aux sœurs — elles se reconnaissent IRL.
     aliveSisters.forEach(sid => state.io.to(sid).emit("sistersTurn", { count: aliveSisters.length }));
     // Le MJ reçoit l'info détaillée pour pouvoir rappeler qui doit se réveiller.
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("sistersInfoMJ", { sisters: aliveSisters.map(id => ({ id, name: playerName(id) })) });
+    versMJ("sistersInfoMJ", { sisters: aliveSisters.map(id => ({ id, name: playerName(id) })) });
   }
   if (etape === "salvateur") {
     const salvateurId = Object.keys(state.roles).find(id => state.roles[id] === "Salvateur" && !state.deadPlayers.includes(id));
@@ -189,10 +187,6 @@ function handleMJEtapeSuivante(socket) {
 // Entrée standard d'une nuit : appelée après Cupidon (nuit 1) ET après chaque
 // vote du jour (nuits suivantes). Route séquentiellement :
 //   Sœurs (si ≥2 vivantes) → Salvateur (s'il existe) → Loups
-// Anciennement nommée startNightAfterCupid — renommée pour mieux refléter qu'elle
-// gère TOUTES les nuits (pas seulement la 1ʳᵉ). Avant ce fix, Sœurs et Salvateur
-// ne jouaient qu'à la nuit 1 parce que les transitions day→night appelaient
-// setPhase("wolves") directement, contournant ce helper.
 function startNightSequence() {
   const aliveSisters = Object.keys(state.roles).filter(id => state.roles[id] === "Sœurs" && !state.deadPlayers.includes(id));
   if (aliveSisters.length >= 2) allerEtapeNuit("sisters");
@@ -290,13 +284,11 @@ function resoudreNuit() {
   // deathLog et firstDead pour les morts d'amour sont déjà écrits par killPlayer
   // (via la mécanique amoureux). On ne fait qu'alimenter le tableau `deaths` pour
   // qu'il soit complet dans l'émission dawnResult.
-  state.deadPlayers.filter(id => !deadBeforeNight.has(id) && !deaths.find(d => d.id === id)).forEach(id => {
-    deaths.push(buildDeath(id, "amour"));
-  });
   // Les cas Chasseur / maire ci-dessous ajoutent encore des morts (cascade d'amour) : on les reprend
   // juste avant d'annoncer l'aube, pour que la carte dise qui est mort d'amour
   const ajouterMortsDAmour = () => state.deadPlayers.filter(id => !deadBeforeNight.has(id) && !deaths.find(d => d.id === id))
     .forEach(id => deaths.push(buildDeath(id, "amour")));
+  ajouterMortsDAmour();
 
   // BUG FIX (mai 2026) : si la boucle a été interrompue par `mayorTransfer`, les
   // morts restantes dans `deaths` (ex : cible de la Sorcière) n'ont pas été ajoutées
@@ -373,67 +365,15 @@ function resoudreNuit() {
   state.witchKillTarget = null;
   state.witchSaveActive = false;
 
-  if (state.phase === "chasseur") {
-    const missionResultToReveal = (state.mission.active && !state.mission.resultRevealed) ? state.mission.result : null;
-    if (missionResultToReveal !== null) state.mission.resultRevealed = true;
-    ajouterMortsDAmour();
-    state.io.emit("dawnResult", {
-      deaths, saved: savedThisNight, witchKilled: witchKillThisNight,
-      nightNum: state.gameStats.nightCount,
-      missionResult: missionResultToReveal,
-      // Avec un MJ, la carte des morts reste jusqu'à son « 🔫 Le Chasseur tire »
-      annonceParMJ: !!state.actionMJ
-    });
-    // Flash au moment de l'annonce des morts (pas dans killPlayer — mauvais timing)
-    try {
-      if (deaths.length > 0) {
-        lights.flashSequence("flash.death", deaths.length);
-        if (missionResultToReveal !== null) {
-          const mDelay = deaths.length * 750 + 300;
-          setTimeout(() => { try { lights.flash(missionResultToReveal === "success" ? "flash.victory" : "flash.death"); } catch(_){} }, mDelay);
-        }
-      } else if (missionResultToReveal !== null) {
-        lights.flash(missionResultToReveal === "success" ? "flash.victory" : "flash.death");
-      } else {
-        lights.flash("flash.dawn");
-      }
-    } catch (_) {}
-    state.pendingDayRecap = {
-      nightNum: state.gameStats.nightCount,
-      previousDayDeath: state.lastDayVoteDeath,
-      nightDeaths: deaths.map(d => ({ name: d.name, role: d.role, cause: d.cause })),
-      saved: savedThisNight,
-      savedByWitch:     protectedByWitch,
-      savedBySalvateur: protectedBySalvateur,
-      missionResult: missionResultToReveal
-    };
-    // BUG 3 : émet le récap MJ maintenant — setPhase("day") ne sera pas appelé
-    // (le chasseur tire avant que le jour démarre) donc le MdJ verrait le récap
-    // seulement après le tir. On l'envoie ici pour qu'il soit déjà affiché.
-    if (state.mjSocketId && state.pendingDayRecap) {
-      state.io.to(state.mjSocketId).emit("mjDayRecap", {
-        dayNum: state.gameStats.dayCount + 1,
-        ...state.pendingDayRecap
-      });
-      state.pendingDayRecap = null;
-    }
-    state.lastDayVoteDeath = null;
-    state.inNightResolution = false;
-    // Une victoire constatée pendant cette nuit attendait d'être annoncée : le Chasseur
-    // tire d'abord, la victoire sera réévaluée après son tir (performChasseurShot). Sans
-    // cet oubli volontaire, cette fin de partie périmée ressurgissait à l'aube suivante.
-    state.pendingEndGame = null;
-    return;
-  }
-
+  const enChasseur = state.phase === "chasseur";
   const missionResultToReveal = (state.mission.active && !state.mission.resultRevealed) ? state.mission.result : null;
   if (missionResultToReveal !== null) state.mission.resultRevealed = true;
-
   const bonusMission = state.mission.active && state.mission.result === "success" && !state.mission.bonusDone
     && state.mayor && !state.deadPlayers.includes(state.mayor);
-  // Carte des morts gardée jusqu'au MJ : réveil mené par lui, ou transmission d'écharpe qu'il lance
-  const annonceParMJ = (state.actionMJ === "mayorTransfer" || require('./council').annonceMatinParMJ())
-    && !state.pendingEndGame && !bonusMission;
+  // Avec un MJ, la carte des morts reste jusqu'à son clic : « 🔫 Le Chasseur tire », la
+  // transmission d'écharpe qu'il lance, ou le réveil qu'il mène
+  const annonceParMJ = enChasseur ? !!state.actionMJ
+    : (state.actionMJ === "mayorTransfer" || require('./council').annonceMatinParMJ()) && !state.pendingEndGame && !bonusMission;
   ajouterMortsDAmour();
   state.io.emit("dawnResult", {
     deaths, saved: savedThisNight, witchKilled: witchKillThisNight,
@@ -441,49 +381,34 @@ function resoudreNuit() {
     missionResult: missionResultToReveal,
     annonceParMJ
   });
-  // Flash au moment de l'annonce des morts (pas dans killPlayer — mauvais timing)
-  try {
-    if (deaths.length > 0) {
-      lights.flashSequence("flash.death", deaths.length);
-      if (missionResultToReveal !== null) {
-        const mDelay = deaths.length * 750 + 300;
-        setTimeout(() => { try { lights.flash(missionResultToReveal === "success" ? "flash.victory" : "flash.death"); } catch(_){} }, mDelay);
-      }
-    } else if (missionResultToReveal !== null) {
-      lights.flash(missionResultToReveal === "success" ? "flash.victory" : "flash.death");
-    } else {
-      lights.flash("flash.dawn");
-    }
-  } catch (_) {}
+  lumieresAube(deaths.length, missionResultToReveal);
 
-  // === Carte narrative MJ — prépare le récap (émis quand la phase day démarre) ===
+  // Récap de la nuit pour le MJ, envoyé au début du jour (setPhase("day")) ou plus tôt ci-dessous
   state.pendingDayRecap = {
     nightNum: state.gameStats.nightCount,
-    previousDayDeath: state.lastDayVoteDeath,
     nightDeaths: deaths.map(d => ({ name: d.name, role: d.role, cause: d.cause })),
     saved: savedThisNight,
     savedByWitch:     protectedByWitch,
     savedBySalvateur: protectedBySalvateur,
     missionResult: missionResultToReveal
   };
-  state.lastDayVoteDeath = null;
-
-  // BUG 5 : on sort de la résolution de nuit avant les setPhase pour que les
-  // narrations/transitions normales ne soient pas retardées.
+  // Fin de la résolution avant tout changement de phase, pour ne pas retarder les transitions
   state.inNightResolution = false;
 
-  // BUG 5 : si une victoire s'est déclenchée pendant la résolution, endGame a
-  // mis sa fonction d'émission dans state.pendingEndGame. On émet d'abord le
-  // récap MJ, puis on déclenche la fin de partie après ~7 s pour laisser les
-  // joueurs voir la dayDeathCard avec la chronique de la nuit.
+  if (enChasseur) {
+    // Le Chasseur tire avant que le jour ne commence : récap tout de suite. Une victoire
+    // constatée cette nuit sera réévaluée après son tir (performChasseurShot) ; sans cet
+    // oubli volontaire, cette fin de partie périmée ressurgissait à l'aube suivante.
+    envoyerRecapMJ();
+    state.pendingEndGame = null;
+    return;
+  }
+
+  // Victoire pendant la résolution : endGame a mis sa fonction d'émission dans
+  // state.pendingEndGame. Récap MJ d'abord, puis la fin de partie ~7 s plus tard, le
+  // temps de voir la carte des morts.
   if (state.pendingEndGame) {
-    if (state.mjSocketId && state.pendingDayRecap) {
-      state.io.to(state.mjSocketId).emit("mjDayRecap", {
-        dayNum: state.gameStats.dayCount + 1,
-        ...state.pendingDayRecap
-      });
-      state.pendingDayRecap = null;
-    }
+    envoyerRecapMJ();
     const fire = state.pendingEndGame;
     state.pendingEndGame = null;
     // Minuteur mémorisé : un reset pendant ces 7 s l'annule (sinon la fin de partie
@@ -492,25 +417,27 @@ function resoudreNuit() {
     return;
   }
 
-  if (state.phase !== "chasseur" && state.phase !== "mayorTransfer") {
-    if (state.mission.active && state.mission.result === "success" && !state.mission.bonusDone
-        && state.mayor && !state.deadPlayers.includes(state.mayor)) {
-      phases.setPhase("missionBonus");
-    } else {
-      phases.setPhase("day");
-    }
-  } else if (state.phase === "mayorTransfer") {
-    // BUG 3 : mayorTransfer intercepte avant setPhase("day"), donc mjDayRecap ne serait
-    // jamais émis. On l'envoie ici pour que le MdJ voie le récap de nuit AVANT
-    // d'annoncer que le maire doit désigner son successeur.
-    if (state.mjSocketId && state.pendingDayRecap) {
-      state.io.to(state.mjSocketId).emit("mjDayRecap", {
-        dayNum: state.gameStats.dayCount + 1,
-        ...state.pendingDayRecap
-      });
-      state.pendingDayRecap = null;
-    }
-  }
+  // La transmission d'écharpe passe avant le jour : le MJ voit déjà le récap de la nuit
+  if (state.phase === "mayorTransfer") envoyerRecapMJ();
+  else phases.setPhase(bonusMission ? "missionBonus" : "day");
+}
+
+// Récap de la nuit envoyé au MJ sans attendre le début du jour
+function envoyerRecapMJ() {
+  if (!state.mjSocketId || !state.pendingDayRecap) return;
+  versMJ("mjDayRecap", { dayNum: state.gameStats.dayCount + 1, ...state.pendingDayRecap });
+  state.pendingDayRecap = null;
+}
+
+// Lumières de l'aube : un éclair par mort puis la couleur de la mission ; l'aube si personne n'est mort
+function lumieresAube(nbMorts, mission) {
+  try {
+    const couleurMission = mission === "success" ? "flash.victory" : "flash.death";
+    if (nbMorts > 0) {
+      lights.flashSequence("flash.death", nbMorts);
+      if (mission !== null) setTimeout(() => { try { lights.flash(couleurMission); } catch (_) {} }, nbMorts * 750 + 300);
+    } else lights.flash(mission !== null ? couleurMission : "flash.dawn");
+  } catch (_) {}
 }
 
 // ===== MORT =====
@@ -645,13 +572,11 @@ function performChasseurShot(shooterId, targetId) {
   // du Chasseur pour savoir où aller après le transfert du maire.
   // Refonte (mai 2026) : informe le MJ de qui le Chasseur a emporté — sinon il ne
   // voit pas facilement cette mort (elle n'est pas dans le récap de nuit/jour).
-  if (state.mjSocketId) {
-    state.io.to(state.mjSocketId).emit("mjChasseurShot", {
-      shooterName: playerName(shooterId),
-      targetName:  playerName(targetId),
-      targetRole:  state.roles[targetId] || "?"
-    });
-  }
+  versMJ("mjChasseurShot", {
+    shooterName: playerName(shooterId),
+    targetName:  playerName(targetId),
+    targetRole:  state.roles[targetId] || "?"
+  });
   // Tout le monde voit qui le Chasseur a emporté (le MJ raconte la suite)
   state.io.emit("chasseurATire", { id: targetId, name: playerName(targetId), nuit: postCtx !== "day" });
   killPlayer(targetId);
@@ -755,22 +680,22 @@ function assignAndStart(config, playerList) {
     numSisters;
 
   if (numPlayers < 4) {
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve",
+    versMJ("autoResolve",
       `⚠️ Au moins 4 joueurs requis (${numPlayers} connectés).`);
     return;
   }
   if (numLoups < 1) {
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve",
+    versMJ("autoResolve",
       "⚠️ Il faut au moins 1 loup.");
     return;
   }
   if (numLoups * 2 >= numPlayers) {
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve",
+    versMJ("autoResolve",
       `⚠️ Trop de loups : ${numLoups} loups vs ${numPlayers} joueurs — ils gagnent dès la 1ère nuit.`);
     return;
   }
   if (numSpecial > numPlayers) {
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve",
+    versMJ("autoResolve",
       `⚠️ Total des rôles spéciaux (${numSpecial}) > nombre de joueurs (${numPlayers}).`);
     return;
   }
@@ -829,7 +754,7 @@ function assignAndStart(config, playerList) {
     });
   });
 
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("rolesMJ", { roles: state.roles, players: state.players });
+  versMJ("rolesMJ", { roles: state.roles, players: state.players });
 
   if (config.mission) {
     state.mission.active = true;
@@ -852,9 +777,9 @@ function handleCupidChoice(socket, data) {
   state.lovers = data;
   state.cupidDone = true;
   [...new Set([socket.id, ...state.lovers])].forEach(id => state.io.to(id).emit("loversInfo", state.lovers));
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("loversInfo", state.lovers);
+  versMJ("loversInfo", state.lovers);
   if (state.mjSocketId) {
-    state.io.to(state.mjSocketId).emit("soundPlay", "cupid");
+    versMJ("soundPlay", "cupid");
     state.skipWolvesSoundOnce = true;
     // Le son loups est différé de 4s pour laisser cupid.mp3 se terminer. MAIS si
     // entre-temps on est passé par sisters/salvateur (qui durent ≥20s), la phase
@@ -864,7 +789,7 @@ function handleCupidChoice(socket, data) {
     // à false dans ce setTimeout, et setPhase ne le skippera plus).
     setTimeout(() => {
       if (state.mjSocketId && state.phase === "wolves") {
-        state.io.to(state.mjSocketId).emit("soundPlay", "wolves");
+        versMJ("soundPlay", "wolves");
       }
       state.skipWolvesSoundOnce = false;
     }, CUPID_SOUND_MS);
@@ -921,7 +846,7 @@ function handleSalvateurAction(socket, targetId) {
   state.protectedTarget = targetId;
   state.io.to(socket.id).emit("salvateurConfirm", { targetId, targetName: playerName(targetId) });
   // Son shield.mp3 côté MJ pour souligner la confirmation
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "shield");
+  versMJ("soundPlay", "shield");
   allerEtapeNuit("wolves");
 }
 
@@ -936,10 +861,10 @@ function seerReveal(seerId, targetId) {
   state.seerPendingResult = result;
   state.io.to(seerId).emit("seerResult", result);
   state.gameStats.seerLog.push({ name: result.name, role: result.role });
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "seer");
+  versMJ("soundPlay", "seer");
   state.seerTimeout = setTimeout(() => {
     if (state.phase !== "seer") return;
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Voyante n'a pas confirmé sa vision — la nuit continue.");
+    versMJ("autoResolve", "⏱ La Voyante n'a pas confirmé sa vision — la nuit continue.");
     advanceAfterSeer();
   }, SEER_ACK_TIMEOUT_MS);
 }
@@ -985,15 +910,15 @@ function petiteFilleReveal(pfId, ids) {
   state.io.to(pfId).emit("petiteFilleResult", result);
   state.gameStats.petiteFilleLog.push({ names: result.names, auMoinsUnLoup });
   if (state.mjSocketId) {
-    state.io.to(state.mjSocketId).emit("petiteFilleMJInfo", {
+    versMJ("petiteFilleMJInfo", {
       names: result.names, auMoinsUnLoup,
       loups: ids.filter(id => state.roles[id] === "Loup").map(playerName)
     });
-    state.io.to(state.mjSocketId).emit("soundPlay", "petite_fille");
+    versMJ("soundPlay", "petite_fille");
   }
   state.petiteFilleTimeout = setTimeout(() => {
     if (state.phase !== "petiteFille") return;
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Petite Fille n'a pas confirmé sa réponse — la nuit continue.");
+    versMJ("autoResolve", "⏱ La Petite Fille n'a pas confirmé sa réponse — la nuit continue.");
     advanceAfterPetiteFille();
   }, PETITE_FILLE_ACK_TIMEOUT_MS);
   return null;
@@ -1026,15 +951,15 @@ function handleCorbeauAction(socket, targetId) {
   resetActivity();
   state.corbeauTarget = (targetId === "skip" || !targetId) ? "skip" : targetId;
   socket.emit("corbeauConfirm", { targetId: state.corbeauTarget });
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "crow");
+  versMJ("soundPlay", "crow");
   if (state.corbeauTarget !== "skip") {
     state.io.emit("corbeauVotesPublic", { targetId: state.corbeauTarget, targetName: playerName(state.corbeauTarget) });
   }
   if (state.corbeauTarget !== "skip") {
     const name = playerName(state.corbeauTarget);
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("corbeauMJInfo", { name, id: state.corbeauTarget });
+    versMJ("corbeauMJInfo", { name, id: state.corbeauTarget });
   } else {
-    if (state.mjSocketId) state.io.to(state.mjSocketId).emit("corbeauMJInfo", { name: null, id: null });
+    versMJ("corbeauMJInfo", { name: null, id: null });
   }
   allerEtapeNuit(etapeApres("corbeau"));
 }
@@ -1046,7 +971,7 @@ function handleWitchSave(socket) {
   state.witchSaveUsed = true;
   state.witchSaveActive = true;
   state.io.to(socket.id).emit("witchSaveConfirm");
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "witch");
+  versMJ("soundPlay", "witch");
 }
 
 function handleWitchKill(socket, id) {
@@ -1060,7 +985,7 @@ function handleWitchKill(socket, id) {
   state.witchKillUsed = true;
   state.witchKillTarget = id;
   state.io.to(socket.id).emit("witchKillConfirm");
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "witch");
+  versMJ("soundPlay", "witch");
 }
 
 function handleWitchDone(socket) {
@@ -1084,40 +1009,56 @@ function handleMayorTransferChoice(socket, targetId) {
   performMayorTransfer(targetId);
 }
 
-// ===== MISSION HANDLERS =====
+// ===== MISSION =====
+// 3 joueurs vivants distincts, autres que le maire (il ne s'envoie ni ne s'inspecte lui-même)
+function equipeValide(ids) {
+  const alive = alivePlayers().map(p => p.id);
+  return ids.every(id => alive.includes(id) && id !== state.mayor) && new Set(ids).size === 3;
+}
+
+// Le maire (joueur ou robot) a choisi l'équipe : chacun de ses membres reçoit ses cartes
+function envoyerEnMission(teamIds) {
+  clearMissionTimeouts();
+  state.mission.team = teamIds;
+  const equipe = teamIds.map(id => ({ id, name: playerName(id) }));
+  state.io.emit("missionTeamSelected", { team: equipe, mayorName: playerName(state.mayor) });
+  teamIds.forEach(id => state.io.to(id).emit("missionCardChoice", {
+    mayorName: playerName(state.mayor),
+    teamNames: teamIds.map(tid => playerName(tid))
+  }));
+  versMJ("missionMJInfo", { step: "cardVote", team: equipe });
+  phases.setPhase("missionVote");
+}
+
+// Carte jouée par un membre de l'équipe (joueur ou robot) ; la mission se résout à la dernière
+function jouerCarteMission(id, card) {
+  state.mission.cards[id] = card;
+  state.io.to(id).emit("missionCardConfirm", { card });
+  const recues = Object.keys(state.mission.cards).length, total = state.mission.team.length;
+  versMJ("missionMJInfo", { step: "cardReceived", received: recues, total });
+  state.io.emit("missionCardPlayed", { count: recues, total });
+  if (recues === total) resolveMissionCards();
+}
+
+// Bonus d'une mission réussie : le maire apprend si un loup est parmi les 3 qu'il désigne
+function inspecterBonus(teamIds) {
+  clearMissionTimeouts();
+  state.mission.bonusDone = true;
+  const equipe = teamIds.map(id => ({ id, name: playerName(id) }));
+  const loups = teamIds.filter(id => state.roles[id] === "Loup");
+  state.io.to(state.mayor).emit("missionBonusResult", { team: equipe, hasWolf: loups.length > 0 });
+  versMJ("missionMJBonusResult", {
+    team: equipe, hasWolf: loups.length > 0, wolves: loups.map(id => playerName(id))
+  });
+  state.io.emit("missionBonusUsed", { mayorName: playerName(state.mayor), team: equipe });
+  phases.setPhase("day");
+}
+
 function handleMissionTeamChoice(socket, teamIds) {
   if (state.phase !== "mission" || socket.id !== state.mayor) return;
   if (!Array.isArray(teamIds) || teamIds.length !== 3) return;
-  const alive = alivePlayers().map(p => p.id);
-  // Le maire ne peut pas s'envoyer en mission
-  const valid = teamIds.every(id => alive.includes(id) && id !== state.mayor);
-  const unique = new Set(teamIds).size === 3;
-  if (!valid || !unique) {
-    socket.emit("missionError", "Sélection invalide — 3 joueurs vivants autres que vous.");
-    return;
-  }
-
-  clearMissionTimeouts();
-  state.mission.team = teamIds;
-
-  state.io.emit("missionTeamSelected", {
-    team: teamIds.map(id => ({ id, name: playerName(id) })),
-    mayorName: playerName(state.mayor)
-  });
-
-  teamIds.forEach(id => {
-    state.io.to(id).emit("missionCardChoice", {
-      mayorName: playerName(state.mayor),
-      teamNames: teamIds.map(tid => playerName(tid))
-    });
-  });
-
-  if (state.mjSocketId) state.io.to(state.mjSocketId).emit("missionMJInfo", {
-    step: "cardVote",
-    team: teamIds.map(id => ({ id, name: playerName(id) }))
-  });
-
-  phases.setPhase("missionVote");
+  if (!equipeValide(teamIds)) return socket.emit("missionError", "Sélection invalide — 3 joueurs vivants autres que vous.");
+  envoyerEnMission(teamIds);
 }
 
 function handleMissionCard(socket, card) {
@@ -1125,77 +1066,25 @@ function handleMissionCard(socket, card) {
   if (!state.mission.team.includes(socket.id)) return;
   if (state.mission.cards[socket.id]) return;
   if (card !== "success" && card !== "fail") return;
-
-  state.mission.cards[socket.id] = card;
-  socket.emit("missionCardConfirm", { card });
-
-  if (state.mjSocketId) {
-    state.io.to(state.mjSocketId).emit("missionMJInfo", {
-      step: "cardReceived",
-      received: Object.keys(state.mission.cards).length,
-      total: state.mission.team.length
-    });
-  }
-
-  state.io.emit("missionCardPlayed", {
-    count: Object.keys(state.mission.cards).length,
-    total: state.mission.team.length
-  });
-
-  if (Object.keys(state.mission.cards).length === state.mission.team.length) {
-    resolveMissionCards();
-  }
+  jouerCarteMission(socket.id, card);
 }
 
 function handleMissionBonusChoice(socket, bonusTeamIds) {
   if (state.phase !== "missionBonus" || socket.id !== state.mayor) return;
   if (!Array.isArray(bonusTeamIds) || bonusTeamIds.length !== 3) return;
-  const alive = alivePlayers().map(p => p.id);
-  // Le maire ne peut pas s'inspecter lui-même
-  const valid = bonusTeamIds.every(id => alive.includes(id) && id !== state.mayor);
-  const unique = new Set(bonusTeamIds).size === 3;
-  if (!valid || !unique) {
-    socket.emit("missionError", "S\u00e9lection bonus invalide \u2014 3 joueurs vivants autres que vous.");
-    return;
-  }
-
-  clearMissionTimeouts();
-  state.mission.bonusDone = true;
-
-  const hasWolf = bonusTeamIds.some(id => state.roles[id] === "Loup");
-
-  socket.emit("missionBonusResult", {
-    team: bonusTeamIds.map(id => ({ id, name: playerName(id) })),
-    hasWolf
-  });
-
-  if (state.mjSocketId) {
-    state.io.to(state.mjSocketId).emit("missionMJBonusResult", {
-      team: bonusTeamIds.map(id => ({ id, name: playerName(id) })),
-      hasWolf,
-      wolves: bonusTeamIds.filter(id => state.roles[id] === "Loup").map(id => playerName(id))
-    });
-  }
-
-  state.io.emit("missionBonusUsed", {
-    mayorName: playerName(state.mayor),
-    team: bonusTeamIds.map(id => ({ id, name: playerName(id) }))
-  });
-
-  phases.setPhase("day");
+  if (!equipeValide(bonusTeamIds)) return socket.emit("missionError", "Sélection bonus invalide — 3 joueurs vivants autres que vous.");
+  inspecterBonus(bonusTeamIds);
 }
 
-// IMPORTANT : on MUTE l'objet module.exports (pas de r\u00e9assignation) pour ne pas
-// invalider les r\u00e9f\u00e9rences captur\u00e9es par phases.js et votes.js pendant la phase
+// IMPORTANT : on MUTE l'objet module.exports (pas de réassignation) pour ne pas
+// invalider les références capturées par phases.js et votes.js pendant la phase
 // de chargement circulaire.
 Object.assign(module.exports, {
   // Mission
-  clearMissionTimeouts, resetMissionState, resolveMissionCards,
+  clearMissionTimeouts, resetMissionState, resolveMissionCards, envoyerEnMission, jouerCarteMission, inspecterBonus,
   // Nuit
   startNightSequence, startNightAfterSisters, nextNightPhase, doResolveNight,
   allerEtapeNuit, etapeApres, handleMJEtapeSuivante,
-  // Alias historique (gard\u00e9 pour compat \u2014 supprimer apr\u00e8s v\u00e9rif des call-sites)
-  startNightAfterCupid: startNightSequence,
   // Morts / transferts
   killPlayer, sendDeadVision,
   performChasseurShot, performMayorTransfer,

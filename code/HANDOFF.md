@@ -87,10 +87,10 @@ Reconnexion par prénom (registre `playerRegistry`, toutes les phases couvertes)
 | Fichier | Lignes | Rôle |
 |---------|--------|------|
 | `server.js` | ~450 | Bootstrap : lecture `.env`, Express (static, `/mj`, `/api/ip`), Socket.io, middleware pause, câblage des ~47 évènements socket vers les modules, handlers crash / reprise, `http.listen`. Aucune logique de jeu. |
-| `state.js` | ~300 | État partagé + toutes les constantes de timeout + helpers (`alivePlayers`, `computeCounts`, `playerName`, `fisherYates`, `buildFullState`, `idActuel`). **Ne jamais déstructurer** (`state.players`, jamais `const { players } = state`). |
-| `phases.js` | ~980 | Orchestration : `setPhase` (le cœur : lumières, narration, Conseil, auto-vote), `installPhaseTimeouts`/`clearPhaseTimeouts`, `runBotsForPhase`, `checkVictory`, pause/reprise, `resetGameState`, replay. |
-| `roles.js` | ~980 | Rôles, mission, mort : `startNightSequence` (alias `startNightAfterCupid`), `nextNightPhase`, `doResolveNight`, `killPlayer`, `sendDeadVision`, `performChasseurShot`, `performMayorTransfer`, `assignAndStart`, handlers de chaque rôle. `PHASES_DE_NUIT` : liste unique des phases où une mort compte « de nuit » (contexte de transmission d'écharpe). |
-| `votes.js` | ~640 | Tous les votes : maire, loups (`wolfConfirm`), jour (`startDayVote`, `resolveDayVote`), égalités (`resolveVoteWithTiebreak`, arbitrage maire / bot), survie de l'Idiot, victoire de l'Ange, skip. |
+| `state.js` | ~360 | État partagé + toutes les constantes de timeout + helpers (`alivePlayers`, `computeCounts`, `playerName`, `fisherYates`, `versMJ` — tout envoi à la tablette du MJ passe par lui —, `buildFullState`, `idActuel`). **Ne jamais déstructurer** (`state.players`, jamais `const { players } = state`). |
+| `phases.js` | ~920 | Orchestration : `setPhase` (le cœur : lumières, narration, Conseil, auto-vote), `installPhaseTimeouts`/`clearPhaseTimeouts`, `runBotsForPhase` (les robots appellent les mêmes fonctions que les joueurs, via un faux socket `commeJoueur(bot)`), `checkVictory`, pause/reprise, `resetGameState`, replay. |
+| `roles.js` | ~1100 | Rôles, mission, mort : `startNightSequence`, `nextNightPhase`, `doResolveNight` (aube : `lumieresAube`, `envoyerRecapMJ`), mission (`envoyerEnMission`, `jouerCarteMission`, `inspecterBonus`, partagées avec les robots), `killPlayer`, `sendDeadVision`, `performChasseurShot`, `performMayorTransfer`, `assignAndStart`, handlers de chaque rôle. `PHASES_DE_NUIT` : liste unique des phases où une mort compte « de nuit » (contexte de transmission d'écharpe). |
+| `votes.js` | ~550 | Tous les votes : maire, loups, jour (`startDayVote`, `resolveDayVote`), égalités (`resolveVoteWithTiebreak`, `trancherEgalite` pour le maire, le maire-bot et le hasard), **`executerVerdict` : la seule suite d'un vote du jour** (Ange, Idiot, suspense, mort, nuit), skip. |
 | `council.js` | ~370 | Conseil des Morts : 18 évènements, tirage, vote, application des effets, Abdication, Voix Étouffées. |
 | `narration.js` | ~210 | Dictionnaire des narrations TTS par transition (`"wolves_to_seer"`…). |
 | `lights.js` | ~295 | Pilote Hue CLIP v2, fire-and-forget (timeout 1,5 s, jamais d'`await`, jamais de `throw`). `applyScene`, `flash`, `flashSequence`, `reset`, `status`. |
@@ -118,7 +118,7 @@ Dépendances : `state` (feuille) ← `narration`, `council` (+`lights`) ← `rol
 ```bash
 node --check server.js          # syntaxe (à faire sur chaque .js modifié)
 npm start                       # démarrer le serveur
-npm test                        # 12 scénarios d'intégration (Ange ×2, Petite Fille, clics en trop du MJ ×2, pastilles de connexion, nouvelle partie + retrait d'un joueur), ~8 min, port 3099, lumières coupées
+npm test                        # 13 scénarios d'intégration (Ange ×2, Petite Fille, clics en trop du MJ ×2, pastilles de connexion, nouvelle partie + retrait d'un joueur, égalités tranchées par le maire puis par le hasard), ~9 min, port 3099, lumières coupées
 npm run test:banc               # banc d'essai : 3 parties complètes jouées par des bots, règles contrôlées à chaque évènement (~10 min ; voir outils/banc-robots.js pour lancer plusieurs bancs en parallèle)
 npm run test:rythme             # rythme du MJ : crépuscule, réveil, évènement, reconnexions, pause, double clic, reprise après plantage (tests/rythme-mj.js, 25 vérifications, port 3105) puis Chasseur et maire lancés par le MJ (tests/annonces-mj.js, 13 vérifications, partie sans robots, port 3106) — ~3 min
 npm run test:hue                # diagnostic de la connexion Hue (lit .env)
@@ -133,7 +133,6 @@ Après toute modification serveur : **arrêter et relancer** le serveur (Node ga
 - **Étape 8 de la refonte du jour** : playtest réel, mesurer le temps d'écran des joueurs en journée, puis supprimer le toggle `mjPilotedDay` et le mode legacy si validé.
 - `server.js.bak` (ancien serveur monolithique, non versionné) traîne dans `code/` : peut être supprimé.
 - Ajouter `puppeteer-core` en devDependency si on veut garder `npm run test:ui` (absent : le test d'interface ne peut pas tourner).
-- Doublons structurels laissés en l'état (risque de divergence) : les bots recopient la logique des humains au lieu de l'appeler (vote du jour et son « sprint final » dans `phases.runBotsForPhase` vs `votes.handleVoteDay`, Salvateur, Sorcière). À factoriser un jour, avec les tests d'intégration comme filet.
 
 ## Idées / améliorations potentielles (non implémentées)
 
@@ -168,6 +167,15 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-27 (suite 2) — Nettoyage du serveur : code inutile retiré, copies fusionnées
+Demande d'Alexandre : un code plus court et plus propre, sans nouveau bug. Méthode : inventaire d'abord (code inutile, doublons), tests ajoutés AVANT de toucher aux chemins non couverts, référence prise sur l'ancien code, puis les mêmes tests sur le nouveau. Lots A (code inutile) et B (doublons du serveur) ; les pages (lot C) et les commentaires d'historique (lot D) restent à faire.
+- **Supprimé** (décision d'Alexandre) : la confirmation des loups (`wolfConfirm`, `wolfConfirmStatus`, `wolfConfirmReject`, `state.wolfConfirmed`) — aucun téléphone ne l'envoyait plus depuis que le MJ valide l'attaque ; seuls les tests s'en servaient, ils passent maintenant par la validation du MJ (`lockWolfVotes`). Aussi : `lastDayVoteDeath` / `previousDayDeath` (enregistré, jamais affiché depuis mai), l'alias `startNightAfterCupid`, `alivePlayers` de la page joueur, deux imports inutiles.
+- **Fusionné** : la suite d'un vote du jour était recopiée 4 fois (vote normal, égalité tranchée par le maire, par le maire-bot, par le hasard) → `votes.executerVerdict` (+ `suspenseVerdict`, `viderVoteDuJour`, `trancherEgalite`). Les copies avaient déjà divergé (corrections ajoutées une par une). L'aube recopiée 2 fois et l'envoi du récap au MJ 3 fois → une seule annonce, `envoyerRecapMJ`, `lumieresAube`. Les robots recopiaient les actions des joueurs (vote du maire, Cupidon, loups, Salvateur, Corbeau, Sorcière, vote du jour et son sprint final, mission) → ils appellent les mêmes fonctions via un faux socket (`commeJoueur`). Les 69 « si le MJ est connecté, lui envoyer » → `versMJ(...)`.
+- **Deux effets voulus** : un maire mort qui tentait de trancher une égalité effaçait l'égalité sans verdict (jour bloqué) — sa demande est maintenant ignorée et le garde-fou des 30 s tire au sort ; une action de robot compte comme de l'activité pour l'alerte « partie bloquée » (la partie avance).
+- **Tests** : nouveau scénario S13 (égalité tranchée par le maire ; égalité sans réponse du maire → hasard au bout de 30 s ; chaque fois le désigné meurt et la nuit suit) — ces chemins n'étaient couverts par aucun test. Référence sur l'ancien code : 48/48. Code serveur : −420 lignes environ (`votes.js` 730 → 548, `phases.js` 1 095 → 924).
+- Accents écrits en code (`é`…) dans `roles.js` remplacés par les vrais caractères.
+
 
 ### 2026-10-27 (suite) — Vue joueur épurée, photo du nouveau maire, votes des loups en haut chez le MJ
 Demandes d'Alexandre.

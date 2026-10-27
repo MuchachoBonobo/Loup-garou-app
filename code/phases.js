@@ -2,15 +2,14 @@
 // Dépendances circulaires (roles, votes) résolues via require('./module').fn() à l'usage.
 
 const {
-  state, alivePlayers, playerName, fisherYates, computeCounts, isMJ, resetActivity,
+  state, alivePlayers, playerName, fisherYates, isMJ, resetActivity, versMJ,
   WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS,
-  PETITE_FILLE_TIMEOUT_MS,
-  SISTERS_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS,
+  PETITE_FILLE_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS,
   MISSION_TEAM_TIMEOUT_MS, MISSION_CARD_TIMEOUT_MS, MISSION_BONUS_TIMEOUT_MS,
   MAYOR_AUTO_TIMEOUT_MS, WOLVES_AUTO_TIMEOUT_MS,
   DAY_AUTO_START_DELAY_MS, STUCK_TIMEOUT_MS,
-  BOT_MIN_DELAY_MS, BOT_MAX_DELAY_MS, FAST_RESOLVE_MS,
+  BOT_MIN_DELAY_MS, BOT_MAX_DELAY_MS,
 } = require('./state');
 
 const lights    = require('./lights');
@@ -28,7 +27,7 @@ function startStuckTimer() {
   function scheduleAlert() {
     state.stuckGameTimer = setTimeout(() => {
       if (state.mjSocketId && ['wolves','seer','petiteFille','witch','cupid'].includes(state.phase)) {
-        state.io.to(state.mjSocketId).emit('stuckGame', {
+        versMJ('stuckGame', {
           phase: state.phase,
           idleMinutes: Math.round((Date.now() - state.lastActivityTime) / 60000)
         });
@@ -65,7 +64,7 @@ function setPhase(p) {
 
     // === Carte narrative MJ ===
     if (state.mjSocketId && state.pendingDayRecap) {
-      state.io.to(state.mjSocketId).emit("mjDayRecap", {
+      versMJ("mjDayRecap", {
         dayNum: state.gameStats.dayCount,
         ...state.pendingDayRecap
       });
@@ -94,7 +93,7 @@ function setPhase(p) {
     state.annonceMatinEnCours = council.annonceMatinParMJ();
     if (state.annonceMatinEnCours && state.mjSocketId) {
       const ev = state.activeCouncilEvent && council.COUNCIL_EVENTS[state.activeCouncilEvent];
-      state.io.to(state.mjSocketId).emit("matinEnAttente", { evenement: ev ? { id: ev.id, title: ev.title, narrative: ev.narrative } : null });
+      versMJ("matinEnAttente", { evenement: ev ? { id: ev.id, title: ev.title, narrative: ev.narrative } : null });
     }
     // Conseil des morts : se déclenche chaque début de journée dès qu'il y a au moins
     // COUNCIL_TRIGGER_THRESHOLD mort(s) (1 aujourd'hui). Un nouveau vote est proposé à chaque
@@ -117,20 +116,16 @@ function setPhase(p) {
   if (p === "mayorVote" && !state.gameStats.startTime) state.gameStats.startTime = Date.now();
   if (p === "wolves") {
     if (!state.skipWolvesSoundOnce) {
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "wolves");
+      versMJ("soundPlay", "wolves");
     }
     state.skipWolvesSoundOnce = false;
-    // AMÉLIORATION 2 : reset des validations + émet un statut initial 0/N aux loups
-    if (state.wolfConfirmed) state.wolfConfirmed.clear();
-    const wolfIds = Object.keys(state.roles).filter(wid => state.roles[wid] === "Loup" && !state.deadPlayers.includes(wid));
-    wolfIds.forEach(wid => state.io.to(wid).emit("wolfConfirmStatus", { confirmed: [], total: wolfIds.length }));
   }
 
   // Chasseur, transmission d'écharpe : avec un MJ, l'action attend son clic (ouvrirActionMJ) —
   // l'annonce du mort reste sur les téléphones pendant qu'il raconte (demande d'Alexandre, 2026-10-26)
   state.actionMJ = (["chasseur", "mayorTransfer"].includes(p) && !state.autoMode) ? p : null;
   if (state.actionMJ && state.mjSocketId) {
-    state.io.to(state.mjSocketId).emit("actionMJEnAttente", { type: p, nom: playerName(p === "chasseur" ? state.currentChasseurShooter : state.dyingMayorId) });
+    versMJ("actionMJEnAttente", { type: p, nom: playerName(p === "chasseur" ? state.currentChasseurShooter : state.dyingMayorId) });
   }
 
   // Nettoie tous les timeouts de phase
@@ -229,7 +224,7 @@ function installPhaseTimeouts(p) {
   if (p === "witch") {
     state.witchTimeout = setTimeout(() => {
       if (state.phase === "witch") {
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Sorcière a trop tardé — passage automatique à l'aube.");
+        versMJ("autoResolve", "⏱ La Sorcière a trop tardé — passage automatique à l'aube.");
         roles.doResolveNight();
       }
     }, WITCH_TIMEOUT_MS);
@@ -238,7 +233,7 @@ function installPhaseTimeouts(p) {
   if (p === "seer") {
     state.seerTimeout = setTimeout(() => {
       if (state.phase !== "seer") return;
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Voyante a tardé — passage automatique.");
+      versMJ("autoResolve", "⏱ La Voyante a tardé — passage automatique.");
       roles.advanceAfterSeer();
     }, SEER_TIMEOUT_MS);
   }
@@ -246,7 +241,7 @@ function installPhaseTimeouts(p) {
   if (p === "petiteFille") {
     state.petiteFilleTimeout = setTimeout(() => {
       if (state.phase !== "petiteFille") return;
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ La Petite Fille a tardé — passage automatique.");
+      versMJ("autoResolve", "⏱ La Petite Fille a tardé — passage automatique.");
       roles.advanceAfterPetiteFille();
     }, PETITE_FILLE_TIMEOUT_MS);
   }
@@ -254,7 +249,7 @@ function installPhaseTimeouts(p) {
   if (p === "corbeau") {
     state.corbeauTimeout = setTimeout(() => {
       if (state.phase === "corbeau") {
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Le Corbeau a tardé — passage automatique.");
+        versMJ("autoResolve", "⏱ Le Corbeau a tardé — passage automatique.");
         state.corbeauTarget = "skip";
         roles.allerEtapeNuit(roles.etapeApres("corbeau"));
       }
@@ -264,7 +259,7 @@ function installPhaseTimeouts(p) {
   if (p === "cupid") {
     state.cupidTimeout = setTimeout(() => {
       if (state.phase === "cupid") {
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Cupidon n'a pas choisi — passage automatique à la nuit.");
+        versMJ("autoResolve", "⏱ Cupidon n'a pas choisi — passage automatique à la nuit.");
         roles.startNightSequence();
       }
     }, CUPID_TIMEOUT_MS);
@@ -273,7 +268,7 @@ function installPhaseTimeouts(p) {
   if (p === "salvateur") {
     state.salvateurTimeout = setTimeout(() => {
       if (state.phase === "salvateur") {
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Le Salvateur a tardé — la nuit avance sans protection.");
+        versMJ("autoResolve", "⏱ Le Salvateur a tardé — la nuit avance sans protection.");
         state.protectedTarget = null;
         roles.allerEtapeNuit("wolves");
       }
@@ -293,7 +288,7 @@ function installPhaseTimeouts(p) {
   if (p === "crepuscule") {
     state.nightPauseTimeout = setTimeout(() => {
       if (state.phase !== "crepuscule") return;
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — la nuit commence.");
+      versMJ("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — la nuit commence.");
       roles.lancerNuitAttendue();
     }, NIGHT_PAUSE_TIMEOUT_MS);
   }
@@ -303,7 +298,7 @@ function installPhaseTimeouts(p) {
   if (p === "nightPause") {
     state.nightPauseTimeout = setTimeout(() => {
       if (state.phase !== "nightPause" || !state.etapeNuitSuivante) return;
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — la nuit continue.");
+      versMJ("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — la nuit continue.");
       const etape = state.etapeNuitSuivante;
       roles.allerEtapeNuit(etape, { sansPause: true });
     }, NIGHT_PAUSE_TIMEOUT_MS);
@@ -420,6 +415,10 @@ function clearPhaseTimeouts() {
 // │ /chasseur/mayorTransfer/mission*/missionVote/missionBonus sont gelés dans   │
 // │ le cadre de la refonte jour. Seul le bloc `if (p === "day")` est concerné.   │
 // └──────────────────────────────────────────────────────────────────────────────┘
+// Un robot agit par les mêmes portes qu'un joueur : un faux socket qui porte son identifiant
+const commeJoueur = bot => ({ id: bot.id, emit: (evt, data) => state.io.to(bot.id).emit(evt, data) });
+const auHasard = liste => liste[Math.floor(Math.random() * liste.length)];
+
 function runBotsForPhase(p) {
   const aliveBots = state.players.filter(pl => pl.isBot && !state.deadPlayers.includes(pl.id));
   if (aliveBots.length === 0) return;
@@ -428,16 +427,9 @@ function runBotsForPhase(p) {
   if (p === "mayorVote") {
     aliveBots.forEach(bot => {
       scheduleBot(() => {
-        if (state.phase !== "mayorVote" || state.deadPlayers.includes(bot.id)) return;
-        if (state.mayorVote[bot.id]) return;
+        if (state.phase !== "mayorVote" || state.deadPlayers.includes(bot.id) || state.mayorVote[bot.id]) return;
         const targets = alivePlayers().filter(pl => pl.id !== bot.id);
-        if (targets.length === 0) return;
-        const target = targets[Math.floor(Math.random() * targets.length)];
-        state.mayorVote[bot.id] = target.id;
-        state.io.emit("mayorVotesMJ", state.mayorVote);
-        state.io.emit("mayorCountsPublic", computeCounts(state.mayorVote));
-        state.io.emit("mayorVoted", bot.id);
-        votes.checkMayorAutoLock();
+        if (targets.length) votes.handleVoteMayor(commeJoueur(bot), auHasard(targets).id);
       });
     });
   }
@@ -447,29 +439,8 @@ function runBotsForPhase(p) {
     const cupidBot = aliveBots.find(bot => state.roles[bot.id] === "Cupidon");
     if (cupidBot && !state.cupidDone) {
       scheduleBot(() => {
-        if (state.phase !== "cupid" || state.cupidDone) return;
-        const candidates = alivePlayers();
-        if (candidates.length < 2) return;
-        const shuffled = fisherYates(candidates);
-        const choice = [shuffled[0].id, shuffled[1].id];
-        clearTimeout(state.cupidTimeout); state.cupidTimeout = null;
-        state.lovers = choice;
-        state.cupidDone = true;
-        [...new Set([cupidBot.id, ...state.lovers])].forEach(id => state.io.to(id).emit("loversInfo", state.lovers));
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("loversInfo", state.lovers);
-        if (state.mjSocketId) {
-          state.io.to(state.mjSocketId).emit("soundPlay", "cupid");
-          state.skipWolvesSoundOnce = true;
-          // Idem handleCupidChoice : on ne joue le son loups différé que si la
-          // phase est bien wolves à 4s (pas sisters/salvateur en cours).
-          setTimeout(() => {
-            if (state.mjSocketId && state.phase === "wolves") {
-              state.io.to(state.mjSocketId).emit("soundPlay", "wolves");
-            }
-            state.skipWolvesSoundOnce = false;
-          }, 4000);
-        }
-        roles.reveillerAmoureux();
+        const candidates = fisherYates(alivePlayers());
+        if (candidates.length >= 2) roles.handleCupidChoice(commeJoueur(cupidBot), [candidates[0].id, candidates[1].id]);
       });
     }
   }
@@ -478,35 +449,21 @@ function runBotsForPhase(p) {
   if (p === "wolves") {
     aliveBots.filter(b => state.roles[b.id] === "Loup").forEach(bot => {
       scheduleBot(() => {
-        if (state.phase !== "wolves") return;
-        if (state.votesWolf[bot.id]) return;
-        const targets = alivePlayers().filter(pl => state.roles[pl.id] !== "Loup" && pl.id !== bot.id);
-        if (targets.length === 0) return;
-        const target = targets[Math.floor(Math.random() * targets.length)];
-        state.votesWolf[bot.id] = target.id;
-        state.io.emit("wolfVotesMJ", state.votesWolf);
-        const wolfIds = Object.keys(state.roles).filter(wid => state.roles[wid] === "Loup" && !state.deadPlayers.includes(wid));
-        wolfIds.forEach(wid => state.io.to(wid).emit("wolfVotesUpdate", state.votesWolf));
-        state.deadPlayers.forEach(did => state.io.to(did).emit("wolfVotesUpdate", state.votesWolf));
-        votes.checkWolfConsensus();
+        if (state.phase !== "wolves" || state.votesWolf[bot.id]) return;
+        const targets = alivePlayers().filter(pl => state.roles[pl.id] !== "Loup");
+        if (targets.length) votes.handleVoteWolf(commeJoueur(bot), auHasard(targets).id);
       });
     });
   }
 
-  // Salvateur
+  // Salvateur (jamais la même personne deux nuits de suite)
   if (p === "salvateur") {
     const salvateurBot = aliveBots.find(b => state.roles[b.id] === "Salvateur");
     if (salvateurBot) {
       scheduleBot(() => {
         if (state.phase !== "salvateur") return;
         const candidates = alivePlayers().filter(pl => pl.id !== state.lastProtectedTarget);
-        if (candidates.length === 0) return;
-        const target = candidates[Math.floor(Math.random() * candidates.length)];
-        if (state.salvateurTimeout) { clearTimeout(state.salvateurTimeout); state.salvateurTimeout = null; }
-        state.protectedTarget = target.id;
-        state.io.to(salvateurBot.id).emit("salvateurConfirm", { targetId: target.id, targetName: playerName(target.id) });
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "shield");
-        roles.allerEtapeNuit("wolves");
+        if (candidates.length) roles.handleSalvateurAction(commeJoueur(salvateurBot), auHasard(candidates).id);
       });
     }
   }
@@ -519,8 +476,7 @@ function runBotsForPhase(p) {
         if (state.phase !== "seer") return;
         const targets = alivePlayers().filter(pl => pl.id !== seerBot.id);
         if (targets.length === 0) return;
-        const target = targets[Math.floor(Math.random() * targets.length)];
-        roles.seerReveal(seerBot.id, target.id);
+        roles.seerReveal(seerBot.id, auHasard(targets).id);
         // Le bot « lit » sa vision quelques secondes puis confirme, comme un humain.
         scheduleBot(() => roles.advanceAfterSeer());
       });
@@ -541,107 +497,43 @@ function runBotsForPhase(p) {
     }
   }
 
-  // Corbeau
+  // Corbeau : une fois sur deux, il passe son tour
   if (p === "corbeau") {
     const corbeauBot = aliveBots.find(b => state.roles[b.id] === "Corbeau");
     if (corbeauBot) {
       scheduleBot(() => {
         if (state.phase !== "corbeau") return;
-        clearTimeout(state.corbeauTimeout); state.corbeauTimeout = null;
-        const willSkip = Math.random() < 0.5;
-        if (willSkip) {
-          state.corbeauTarget = "skip";
-          if (state.mjSocketId) state.io.to(state.mjSocketId).emit("corbeauMJInfo", { name: null, id: null });
-        } else {
-          const targets = alivePlayers();
-          const target = targets[Math.floor(Math.random() * targets.length)];
-          state.corbeauTarget = target.id;
-          state.io.emit("corbeauVotesPublic", { targetId: state.corbeauTarget, targetName: playerName(state.corbeauTarget) });
-          if (state.mjSocketId) state.io.to(state.mjSocketId).emit("corbeauMJInfo", { name: playerName(state.corbeauTarget), id: state.corbeauTarget });
-        }
-        if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "crow");
-        roles.allerEtapeNuit(roles.etapeApres("corbeau"));
+        roles.handleCorbeauAction(commeJoueur(corbeauBot), Math.random() < 0.5 ? "skip" : auHasard(alivePlayers()).id);
       });
     }
   }
 
-  // Sorcière
+  // Sorcière : 30 % sauver, 30 % empoisonner, sinon rien ; puis elle termine son tour
   if (p === "witch") {
     const witchBot = aliveBots.find(b => state.roles[b.id] === "Sorcière");
     if (witchBot) {
       scheduleBot(() => {
         if (state.phase !== "witch") return;
-        const r = Math.random();
-        // 30% sauver
-        if (r < 0.3 && !state.witchSaveUsed && state.nightTarget) {
-          state.witchSaveUsed = true;
-          state.witchSaveActive = true;
-          state.io.to(witchBot.id).emit("witchSaveConfirm");
-          if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "witch");
-        }
-        // 30-60% tuer
+        const sorciere = commeJoueur(witchBot), r = Math.random();
+        if (r < 0.3 && !state.witchSaveUsed && state.nightTarget) roles.handleWitchSave(sorciere);
         else if (r < 0.6 && !state.witchKillUsed) {
-          const targets = alivePlayers().filter(pl =>
-            pl.id !== witchBot.id && pl.id !== state.nightTarget);
-          if (targets.length > 0) {
-            const target = targets[Math.floor(Math.random() * targets.length)];
-            state.witchKillUsed = true;
-            state.witchKillTarget = target.id;
-            state.io.to(witchBot.id).emit("witchKillConfirm");
-            if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soundPlay", "witch");
-          }
+          const targets = alivePlayers().filter(pl => pl.id !== witchBot.id && pl.id !== state.nightTarget);
+          if (targets.length) roles.handleWitchKill(sorciere, auHasard(targets).id);
         }
-        clearTimeout(state.witchTimeout); state.witchTimeout = null;
-        roles.doResolveNight();
+        roles.handleWitchDone(sorciere);
       });
     }
   }
 
-  // Vote du Jour
+  // Vote du Jour : un robot ne revote qu'en vote libre (mode 1) ; le reste (vote lancé par le
+  // MJ, jour clos, vote verrouillé, sprint final) est vérifié comme pour un humain
   if (p === "day") {
     aliveBots.forEach(bot => {
       if (state.idiotRevealed && state.roles[bot.id] === "Idiot") return;
       scheduleBot(() => {
-        if (state.phase !== "day" || state.deadPlayers.includes(bot.id) || state.resolutionJourEnCours) return;
-        // Jour piloté par le MJ : un bot ne vote qu'une fois le vote lancé officiellement
-        // (comme les humains, cf. handleVoteDay). startDayVote relance les bots à ce moment-là.
-        if (state.mjPilotedDay && state.voteTimer == null) return;
         if (state.votesDay[bot.id] && state.voteMode !== 1) return;
-        if (state.voteMode === 2 && state.lockedVoters.has(bot.id)) return;
         const targets = alivePlayers().filter(pl => pl.id !== bot.id);
-        if (targets.length === 0) return;
-        const target = targets[Math.floor(Math.random() * targets.length)];
-        state.votesDay[bot.id] = target.id;
-        if (state.voteMode === 2) state.lockedVoters.add(bot.id);
-        state.io.emit("votesDayMJ", state.votesDay);
-        if (state.voteMode === 5) {
-          state.io.to(bot.id).emit("hasVotedConfirm", { targetName: playerName(target.id) });
-        } else {
-          state.io.emit("dayCountsPublic", computeCounts(state.votesDay));
-          const publicDetail = {};
-          Object.entries(state.votesDay).forEach(([voter, t]) => {
-            if (!voter.startsWith("__corbeau")) publicDetail[voter] = t;
-          });
-          state.io.emit("votesDayPublic", publicDetail);
-        }
-        // Sprint final 30s quand tous ont voté.
-        // Refonte épuration jour (mai 2026) : désactivé en mode piloté MJ (cf. votes.js).
-        if (state.voteMode === 1 && !state.fastResolveTriggered && !state.mjPilotedDay) {
-          const alive = alivePlayers();
-          const allVoted = alive.every(pl => state.votesDay[pl.id] !== undefined);
-          if (allVoted && state.voteTimer) {
-            const remainingMs = state.voteTimerEnd ? Math.max(0, state.voteTimerEnd - Date.now()) : Infinity;
-            if (remainingMs > FAST_RESOLVE_MS) {
-              state.fastResolveTriggered = true;
-              votes.clearVoteTimer();
-              state.voteTimerEnd = Date.now() + FAST_RESOLVE_MS;
-              state.voteTimer = setTimeout(() => { votes.resolveDayVote(); }, FAST_RESOLVE_MS);
-              state.io.emit("autoResolve", "✅ Tout le village a voté — vote rapide 30s !");
-              state.io.emit("voteResumed", { endsAt: state.voteTimerEnd, durationMs: FAST_RESOLVE_MS, serverNow: Date.now() });
-              if (state.mjSocketId) state.io.to(state.mjSocketId).emit("voteStartedMJ", { mode: state.voteMode, duration: FAST_RESOLVE_MS, endsAt: state.voteTimerEnd, serverNow: Date.now() });
-            }
-          }
-        }
+        if (targets.length) votes.handleVoteDay(commeJoueur(bot), auHasard(targets).id);
       });
     });
   }
@@ -679,103 +571,42 @@ function runBotsForPhase(p) {
   }
 
   // Mission — sélection équipe
-  if (p === "mission") {
-    if (state.mayor) {
-      const mayorPlayer = state.players.find(pl => pl.id === state.mayor);
-      if (mayorPlayer && mayorPlayer.isBot) {
-        scheduleBot(() => {
-          if (state.phase !== "mission") return;
-          const candidates = alivePlayers().filter(pl => pl.id !== state.mayor);
-          if (candidates.length < 3) return;
-          const shuffled = fisherYates(candidates);
-          const teamIds = [shuffled[0].id, shuffled[1].id, shuffled[2].id];
-          roles.clearMissionTimeouts();
-          state.mission.team = teamIds;
-          state.io.emit("missionTeamSelected", {
-            team: teamIds.map(id => ({ id, name: playerName(id) })),
-            mayorName: playerName(state.mayor)
-          });
-          teamIds.forEach(id => {
-            state.io.to(id).emit("missionCardChoice", {
-              mayorName: playerName(state.mayor),
-              teamNames: teamIds.map(tid => playerName(tid))
-            });
-          });
-          if (state.mjSocketId) state.io.to(state.mjSocketId).emit("missionMJInfo", {
-            step: "cardVote",
-            team: teamIds.map(id => ({ id, name: playerName(id) }))
-          });
-          setPhase("missionVote");
-        });
-      }
-    }
+  if (p === "mission" && mayorBot()) {
+    scheduleBot(() => {
+      if (state.phase !== "mission") return;
+      const candidates = alivePlayers().filter(pl => pl.id !== state.mayor);
+      if (candidates.length >= 3) roles.envoyerEnMission(fisherYates(candidates).slice(0, 3).map(pl => pl.id));
+    });
   }
 
-  // Mission — vote secret de chaque bot dans l'équipe
+  // Mission — carte secrète de chaque robot de l'équipe : un loup sabote 7 fois sur 10,
+  // un villageois réussit 8 fois sur 10
   if (p === "missionVote") {
     aliveBots.filter(b => state.mission.team.includes(b.id)).forEach(bot => {
       scheduleBot(() => {
-        if (state.phase !== "missionVote") return;
-        if (state.mission.cards[bot.id]) return;
-        const isWolf = state.roles[bot.id] === "Loup";
-        const card = isWolf
+        if (state.phase !== "missionVote" || state.mission.cards[bot.id]) return;
+        const card = state.roles[bot.id] === "Loup"
           ? (Math.random() < 0.7 ? "fail" : "success")
           : (Math.random() < 0.8 ? "success" : "fail");
-        state.mission.cards[bot.id] = card;
-        state.io.to(bot.id).emit("missionCardConfirm", { card });
-        if (state.mjSocketId) {
-          state.io.to(state.mjSocketId).emit("missionMJInfo", {
-            step: "cardReceived",
-            received: Object.keys(state.mission.cards).length,
-            total: state.mission.team.length
-          });
-        }
-        state.io.emit("missionCardPlayed", {
-          count: Object.keys(state.mission.cards).length,
-          total: state.mission.team.length
-        });
-        if (Object.keys(state.mission.cards).length === state.mission.team.length) {
-          roles.resolveMissionCards();
-        }
+        roles.jouerCarteMission(bot.id, card);
       });
     });
   }
 
-  // Mission — bonus du maire
-  if (p === "missionBonus") {
-    if (state.mayor) {
-      const mayorPlayer = state.players.find(pl => pl.id === state.mayor);
-      if (mayorPlayer && mayorPlayer.isBot) {
-        scheduleBot(() => {
-          if (state.phase !== "missionBonus") return;
-          // Le maire ne peut pas s'inspecter lui-même
-          const candidates = alivePlayers().filter(pl => pl.id !== state.mayor);
-          if (candidates.length < 3) return;
-          const shuffled = fisherYates(candidates);
-          const teamIds = [shuffled[0].id, shuffled[1].id, shuffled[2].id];
-          roles.clearMissionTimeouts();
-          state.mission.bonusDone = true;
-          const hasWolf = teamIds.some(id => state.roles[id] === "Loup");
-          state.io.to(state.mayor).emit("missionBonusResult", {
-            team: teamIds.map(id => ({ id, name: playerName(id) })),
-            hasWolf
-          });
-          if (state.mjSocketId) {
-            state.io.to(state.mjSocketId).emit("missionMJBonusResult", {
-              team: teamIds.map(id => ({ id, name: playerName(id) })),
-              hasWolf,
-              wolves: teamIds.filter(id => state.roles[id] === "Loup").map(id => playerName(id))
-            });
-          }
-          state.io.emit("missionBonusUsed", {
-            mayorName: playerName(state.mayor),
-            team: teamIds.map(id => ({ id, name: playerName(id) }))
-          });
-          setPhase("day");
-        });
-      }
-    }
+  // Mission — bonus du maire (il ne s'inspecte pas lui-même)
+  if (p === "missionBonus" && mayorBot()) {
+    scheduleBot(() => {
+      if (state.phase !== "missionBonus") return;
+      const candidates = alivePlayers().filter(pl => pl.id !== state.mayor);
+      if (candidates.length >= 3) roles.inspecterBonus(fisherYates(candidates).slice(0, 3).map(pl => pl.id));
+    });
   }
+}
+
+// Le maire actuel est-il un robot ?
+function mayorBot() {
+  const maire = state.mayor && state.players.find(pl => pl.id === state.mayor);
+  return !!(maire && maire.isBot);
 }
 
 // ===== VICTOIRE =====
@@ -830,7 +661,7 @@ function checkVictory() {
     const doEnd = () => {
       state.players.forEach(p => state.io.to(p.id).emit("deadVision", fullVision));
       state.io.emit("gameSummary", buildSummary(winner));
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("soireeMJ", soiree.resume());
+      versMJ("soireeMJ", soiree.resume());
       state.io.emit("gameEnd", msg);
       try { lights.flash("flash.victory"); } catch (_) {}
       setPhase("lobby");
@@ -931,7 +762,6 @@ function resetGameState(keepPlayers) {
   state.votesDay = {};
   state.votesWolf = {};
   state.mayorVote = {};
-  if (state.wolfConfirmed) state.wolfConfirmed.clear();
   state.cupidDone = false;
   state.witchSaveUsed = false;
   state.witchKillUsed = false;
@@ -949,7 +779,6 @@ function resetGameState(keepPlayers) {
   state.dayResolutionPending = false;
   state.resolutionJourEnCours = false;
   state.fastResolveTriggered = false;
-  state.lastDayVoteDeath = null;
   state.pendingDayRecap = null;
   state.inNightResolution = false;
   state.pendingEndGame = null;

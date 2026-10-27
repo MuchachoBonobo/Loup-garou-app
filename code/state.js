@@ -166,7 +166,6 @@ const state = {
   pendingRestore: null,
 
   // Récap narratif jour
-  lastDayVoteDeath:    null,
   pendingDayRecap:     null,
   skipWolvesSoundOnce: false,
   // BUG 5 : marqueur "on est en train de résoudre une nuit" — endGame diffère alors
@@ -176,8 +175,6 @@ const state = {
   inNightResolution:   false,
   pendingEndGame:      null,
   pendingEndGameTimer: null,  // les 7 s avant l'écran de fin : annulées par un reset
-  // AMÉLIORATION 2 : ids des loups qui ont validé leur choix de proie (Set)
-  wolfConfirmed:       new Set(),
 
   // Conseil des morts (état partagé — les timers privés restent dans council.js)
   councilOptions:        null,
@@ -245,6 +242,11 @@ function fisherYates(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+// Envoi à la tablette du MJ, s'il est connecté
+function versMJ(...args) {
+  if (state.mjSocketId) state.io.to(state.mjSocketId).emit(...args);
 }
 
 function resetActivity() {
@@ -355,6 +357,6 @@ module.exports = {
   MAYOR_AUTO_TIMEOUT_MS, WOLVES_AUTO_TIMEOUT_MS, WOLF_CONSENSUS_GRACE_MS,
   DAY_AUTO_START_DELAY_MS, BOT_MIN_DELAY_MS, BOT_MAX_DELAY_MS,
   // Helpers
-  alivePlayers, computeCounts, hasRole, isMJ, playerName, fisherYates,
+  alivePlayers, computeCounts, hasRole, isMJ, playerName, fisherYates, versMJ,
   resetActivity, buildFullState,
 };

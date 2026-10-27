@@ -34,7 +34,6 @@ const http = require("http").createServer(app);
 const io   = require("socket.io")(http, { pingInterval: 25000, pingTimeout: 60000 });
 
 // Modules métier
-const lights    = require("./lights");
 const S         = require("./state");
 const { state, isMJ, playerName, buildFullState, idActuel, computeCounts } = S;
 // Choix reçus des téléphones : un identifiant de joueur périmé (écran construit avant une
@@ -311,9 +310,6 @@ io.on("connection", socket => {
         if (state.protectedTarget        === oldId) state.protectedTarget        = socket.id;
         if (state.lastProtectedTarget    === oldId) state.lastProtectedTarget    = socket.id;
         if (state.pendingChasseurAfterTransfer === oldId) state.pendingChasseurAfterTransfer = socket.id;
-        if (state.wolfConfirmed && state.wolfConfirmed.has(oldId)) {
-          state.wolfConfirmed.delete(oldId); state.wolfConfirmed.add(socket.id);
-        }
       }
       // Journal des morts : il garde l'identifiant de connexion du défunt ; on le met à
       // jour pour que son rôle reste affiché à côté de son nom après une reconnexion.
@@ -530,7 +526,6 @@ io.on("connection", socket => {
   });
   socket.on("voteWolf",        id       => votes.handleVoteWolf(socket, actuel(id)));
   socket.on("lockWolfVotes",   ()       => votes.handleLockWolfVotes(socket));
-  socket.on("wolfConfirm",     ()       => votes.handleWolfConfirm(socket));
   socket.on("seerChoice",      id       => roles.handleSeerChoice(socket, actuel(id)));
   socket.on("seerDone",        ()       => roles.handleSeerDone(socket));
   socket.on("petiteFilleChoice", ids    => roles.handlePetiteFilleChoice(socket, actuel(ids)));

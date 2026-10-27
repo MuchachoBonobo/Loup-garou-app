@@ -49,7 +49,6 @@ function serializeState(state) {
     voteTimerEnd: state.voteTimerEnd,
     lockedVoters: Array.from(state.lockedVoters || []),
     fastResolveTriggered: state.fastResolveTriggered,
-    wolfConfirmed: Array.from(state.wolfConfirmed || []),
     // Nuit
     nightTarget: state.nightTarget,
     witchSaveUsed: state.witchSaveUsed,
@@ -84,7 +83,6 @@ function serializeState(state) {
     silentDayChatHistory: state.silentDayChatHistory,
     // Stats + récap
     gameStats: state.gameStats,
-    lastDayVoteDeath: state.lastDayVoteDeath,
     pendingDayRecap: state.pendingDayRecap,
     // Tiebreak
     tiebreakPending: state.tiebreakPending,
@@ -126,7 +124,6 @@ function applySnapshot(state, snap) {
   state.voteTimerEnd = snap.voteTimerEnd || null;
   state.lockedVoters = new Set(snap.lockedVoters || []);
   state.fastResolveTriggered = !!snap.fastResolveTriggered;
-  state.wolfConfirmed = new Set(snap.wolfConfirmed || []);
   state.nightTarget = snap.nightTarget || null;
   state.witchSaveUsed = !!snap.witchSaveUsed;
   state.witchKillUsed = !!snap.witchKillUsed;
@@ -153,7 +150,6 @@ function applySnapshot(state, snap) {
     // Sauvegarde antérieure à la Petite Fille enquêtrice : journal absent
     if (!Array.isArray(state.gameStats.petiteFilleLog)) state.gameStats.petiteFilleLog = [];
   }
-  state.lastDayVoteDeath = snap.lastDayVoteDeath || null;
   state.pendingDayRecap = snap.pendingDayRecap || null;
   state.tiebreakPending = !!snap.tiebreakPending;
   state.tiebreakCandidates = snap.tiebreakCandidates || [];
