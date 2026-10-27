@@ -45,7 +45,9 @@ function lireSnapshot() { try { return JSON.parse(fs.readFileSync(path.join(SNAP
 function pilote(mj) {
   mj.on("etapeNuitEnAttente", () => setTimeout(() => mj.emit("mjEtapeSuivante"), 300));
   mj.on("actionMJEnAttente", () => setTimeout(() => mj.emit("mjOuvrirAction"), 300));
-  mj.on("phase", p => { if (p === "wolves") setTimeout(() => mj.emit("lockWolfVotes"), 6000); });
+  // Les loups robots votent entre 2 et 8 s (BOT_MAX_DELAY_MS) : le MJ valide après, sinon la nuit
+  // passe parfois sans mort (et sans Conseil des Morts le lendemain)
+  mj.on("phase", p => { if (p === "wolves") setTimeout(() => mj.emit("lockWolfVotes"), 9000); });
 }
 async function nouveauMJ(recupererCrash) {
   const mj = await client();

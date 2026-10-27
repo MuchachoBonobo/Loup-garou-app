@@ -28,6 +28,8 @@
 
 <!-- Prochaine action du MJ : un seul gros bouton, toujours en haut (2026-10-26) -->
 <div id="mjActionSuivante" style="display:none;position:sticky;top:0;z-index:60;background:#0a0a0a;padding:6px 0 10px;">
+  <!-- Votes des loups, en grand pendant leur tour (demande d'Alexandre, 2026-10-27) -->
+  <div id="wolfVotes" style="display:none;margin:0 0 8px;"></div>
   <button id="mjBtnActionSuivante" style="width:100%;padding:16px 18px;border-radius:12px;border:2px solid #e0b870;background:rgba(224,184,112,0.18);color:#fff;font-size:18px;font-weight:bold;cursor:pointer;"></button>
 </div>
 
@@ -322,13 +324,6 @@
 <div class="section" id="mjSectionRoles">
   <div class="section-title">Personnages — rôle &amp; état <span id="mjConnexionsResume" style="text-transform:none;letter-spacing:0;font-weight:normal;margin-left:6px;"></span></div>
   <div id="roles"><span style="color:#333;font-size:12px;">En attente…</span></div>
-</div>
-
-<!-- VOTES DES LOUPS — visible pendant la phase Loups uniquement -->
-<div class="section" id="mjSectionWolves">
-  <div class="section-title">🐺 Votes des Loups</div>
-  <div id="wolfVotes"><span style="color:#333;font-size:12px;">—</span></div>
-  <button class="btn" style="width:100%;margin-top:8px;" onclick="lockWolves()">✅ Valider l'attaque</button>
 </div>
 
 <!-- ④ VOTE MAIRE — visible pendant la phase mayorVote uniquement -->
@@ -1118,7 +1113,6 @@ function updateMJLayout(phase) {
   set("mjSectionUrgency",  inGame);
   set("mjSectionDeadChat", inGame);
   // Strictement contextuel à la phase en cours
-  set("mjSectionWolves", phase === "wolves");
   set("mjSectionMayor",  phase === "mayorVote");
   set("mjSectionDay",    phase === "day");
 }
@@ -1140,7 +1134,7 @@ socket.on("phase", p=>{
   if (mv && p!=="day" && p!=="mayorVote") mv.style.display="none";
   if(p==="wolves"){
     // Nouvelle nuit : le vote des loups de la nuit d'avant ne reste pas affiché
-    renderVotes("wolfVotes", {});
+    renderVotes("wolfVotes", {}, "");
     // Réinitialise les votes du jour à chaque nouvelle nuit
     corbeauTarget=null; lastDayCounts={};
     const dc=document.getElementById("dayCounts"); if(dc) dc.innerHTML="";
@@ -1311,9 +1305,9 @@ socket.on("mjReconnected", state=>{
   // Cible nuit : si les loups ont déjà choisi et qu'on est en phase seer/corbeau/witch
   if (state.nightTarget && ["seer","petiteFille","corbeau","witch"].includes(state.phase)) {
     showAlert(`🐺 Cible des Loups : ${state.nightTarget.name}`, "info");
-    const wv = document.getElementById("wolfVotes");
-    if (wv) wv.innerHTML = `<span style="color:#c66;font-weight:bold;">Cible : ${state.nightTarget.name}</span>`;
   }
+  // Tablette rechargée : la barre du haut (et les votes des loups) suit la phase en cours
+  majActionSuivante();
 });
 
 // ===== EVENTS =====
@@ -1342,7 +1336,7 @@ function afficherMaireMJ() {
   el.style.display = m ? "inline" : "none";
 }
 socket.on("mayorVotesMJ",  votes=>{ renderVotes("mayorVotes", votes); renderMissingVoters(votes); });
-socket.on("wolfVotesMJ",   votes=>renderVotes("wolfVotes",  votes));
+socket.on("wolfVotesMJ",   votes=>renderVotes("wolfVotes",  votes, ""));
 socket.on("votesDayMJ",    votes=>{ renderVotes("dayVotes", votes); renderDayCounts(computeCounts(votes)); renderMissingVoters(votes); });
 socket.on("dayCountsPublic", counts=>renderDayCounts(counts));
 socket.on("corbeauVotesPublic", data=>{ corbeauTarget=data.targetId; renderDayCounts(lastDayCounts||{}); });
@@ -1659,6 +1653,8 @@ function majActionSuivante() {
   const barre = document.getElementById("mjActionSuivante"), btn = document.getElementById("mjBtnActionSuivante");
   if (!barre || !btn) return;
   const a = actionSuivanteMJ();
+  const votesLoups = document.getElementById("wolfVotes");
+  if (votesLoups) votesLoups.style.display = currentPhaseForBar === "wolves" ? "block" : "none";
   barre.style.display = a ? "block" : "none";
   if (!a) return;
   btn.textContent = a.libelle;
@@ -1949,13 +1945,14 @@ function renderPlayers(){
   if (counter) counter.innerText = botCount + (botCount > 1 ? " bots" : " bot");
 }
 
-function renderVotes(id,votes){
+// vide : ce qui s'affiche sans aucun vote (rien pour les loups, en haut de l'écran)
+function renderVotes(id,votes,vide="<span style='color:#333;font-size:12px;'>—</span>"){
   const div=document.getElementById(id); if(!div)return;
   const entries=Object.entries(votes);
   div.innerHTML=entries.length ? entries.map(([from,to])=>{
     const a=players.find(p=>p.id===from), b=players.find(p=>p.id===to);
     return a&&b?`<div class="vote-entry">${a.name} → ${b.name}</div>`:"";
-  }).join("") : "<span style='color:#333;font-size:12px;'>—</span>";
+  }).join("") : vide;
 }
 
 function updateMJDeathLog(log){

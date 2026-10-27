@@ -86,6 +86,8 @@ body { background:#0a0a0a; color:#eee; font-family:'Segoe UI',Arial,sans-serif; 
 
 .vote-entry { font-size:12px; padding:3px 0; border-bottom:1px solid #1a1a1a; color:#999; }
 .vote-entry:last-child { border:none; }
+/* Votes des loups dans la barre du haut : lisibles d'un coup d'œil */
+#mjActionSuivante .vote-entry { font-size:22px; font-weight:bold; color:#ffb0a0; padding:6px 0; text-align:center; border-bottom:1px solid #2a1a1a; }
 
 .dead-entry { font-size:12px; padding:2px 0; color:#886666; }
 

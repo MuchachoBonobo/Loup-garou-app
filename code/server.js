@@ -327,7 +327,7 @@ io.on("connection", socket => {
       state.playerRegistry[key].oldId = socket.id;
       io.emit("players", state.players);
       io.emit("deadPlayers", state.deadPlayers);
-      io.emit("newMayor", state.mayor);
+      io.emit("newMayor", state.mayor, { reconnexion: true });
       // L'écran du MJ repère les rôles par identifiant de connexion : sans cette mise à
       // jour, il affichait « ? » pour un joueur qui s'était reconnecté.
       if (state.mjSocketId) {

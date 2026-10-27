@@ -95,9 +95,9 @@
 </div>
 
 <div id="mayorCard" style="display:none;position:fixed;inset:0;z-index:9997;background:radial-gradient(ellipse at center,#1a1400 0%,#080700 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
-  <div class="card-emoji">🏛️</div>
-  <div class="card-title">Félicitations !</div>
-  <div class="card-text" id="mayorCardText"></div>
+  <div id="mayorCardPhoto"></div>
+  <div class="card-title" id="mayorCardNom"></div>
+  <div class="card-text">Nouveau Maire</div>
 </div>
 
 <div id="offlineBanner">
@@ -143,7 +143,6 @@
   <div class="rc-emoji" id="rcEmoji"></div>
   <div class="rc-title" id="rcTitle">Votre rôle</div>
   <div class="rc-role"  id="rcRole"></div>
-  <div id="rcSecrets" style="display:none;font-size:15px;color:#f0d49a;font-weight:bold;text-align:center;line-height:1.6;margin:4px 0 10px;"></div>
   <div class="rc-text"  id="rcText"></div>
   <div class="rc-mission" id="rcMission"></div>
   <div class="rc-win"     id="rcWin"></div>
@@ -257,8 +256,6 @@
   </button>
 </div>
 
-<h1>🐺 Loup-Garou <span id="connDot" title="Connexion" style="font-size:12px;vertical-align:middle;">🔴</span></h1>
-
 <div id="lobby" style="margin:20px auto;">
   <input id="name" placeholder="Votre prénom" style="padding:8px;border-radius:6px;border:1px solid #555;background:#222;color:#eee;font-size:15px;">
   <button onclick="join()">Rejoindre</button>
@@ -304,20 +301,6 @@
 
 <!-- BANNIÈRE ACTION EN COURS (chasseur / transfert maire) -->
 <div id="actionPendingBanner"></div>
-
-<div id="infoPanel">
-  <h3>Votre identité</h3>
-  <!-- Bouton anti-triche jour : maintenir pour révéler -->
-  <button id="infoRevealBtn" style="display:none;width:100%;margin-bottom:10px;padding:14px;background:#0a0a1a;border:1px solid #334466;border-radius:8px;color:#88aacc;font-size:14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;">
-    🎴 <strong>Maintenir pour voir mon rôle</strong>
-  </button>
-  <div id="infoPanelContent">
-    <div class="info-role" id="infoRole"></div>
-    <div class="info-section" id="infoAllies" style="display:none"><strong id="infoAlliesTitle"></strong><div id="infoAlliesList"></div></div>
-    <div class="info-section" id="infoLovers" style="display:none"><strong id="infoLoversTitle">💘 Votre amoureux·se</strong><div id="infoLoversList"></div></div>
-    <div class="info-section" id="infoPotions" style="display:none"><strong>🧪 Vos potions</strong><div id="infoPotionsList"></div></div>
-  </div>
-</div>
 
 <div id="deadVisionPanel">
   <h3>👁️ Vision Spectateur — Tous les rôles</h3>
@@ -509,6 +492,20 @@
 <div id="playersSection">
   <h3>Joueurs</h3>
   <div id="players"></div>
+</div>
+
+<div id="infoPanel">
+  <h3>Votre identité</h3>
+  <!-- Bouton anti-triche jour : maintenir pour révéler -->
+  <button id="infoRevealBtn" style="display:none;width:100%;margin-bottom:10px;padding:14px;background:#0a0a1a;border:1px solid #334466;border-radius:8px;color:#88aacc;font-size:14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;">
+    🎴 <strong>Maintenir pour voir mon rôle</strong>
+  </button>
+  <div id="infoPanelContent">
+    <div class="info-role" id="infoRole"></div>
+    <div class="info-section" id="infoAllies" style="display:none"><strong id="infoAlliesTitle"></strong><div id="infoAlliesList"></div></div>
+    <div class="info-section" id="infoLovers" style="display:none"><strong id="infoLoversTitle">💘 Votre amoureux·se</strong><div id="infoLoversList"></div></div>
+    <div class="info-section" id="infoPotions" style="display:none"><strong>🧪 Vos potions</strong><div id="infoPotionsList"></div></div>
+  </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
@@ -805,9 +802,11 @@ function scheduleRender() {
   requestAnimationFrame(() => { _renderPending = false; render(); });
 }
 
-function showMayorCard(name) {
+function showMayorCard(p) {
   const card = document.getElementById("mayorCard");
-  document.getElementById("mayorCardText").innerText = name + " est élu Maire du village !";
+  // Photo du nouveau maire (initiale colorée s'il n'en a pas)
+  document.getElementById("mayorCardPhoto").innerHTML = playerAvatar(p, 110, false);
+  document.getElementById("mayorCardNom").innerText = p.name;
   card.style.display = "flex";
   card.setAttribute("data-open","1");
   card.style.animation = "fadeIn 0.5s ease forwards";
@@ -832,7 +831,6 @@ function showMayorCard(name) {
 
 let _wasConnected = false;
 socket.on("connect", () => {
-  setConnected(true);
   document.getElementById("offlineBanner").className = "";
   // Reconnexion, ou page rechargée (bouton ⟳ ou navigateur) : le prénom de cet onglet suffit
   // à retrouver sa place, sans retaper « Rejoindre ».
@@ -860,11 +858,9 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pageshow", () => { if (!socket.connected) socket.connect(); });
 socket.on("disconnect", () => {
-  setConnected(false);
   document.getElementById("offlineBanner").className = "show";
 });
 socket.on("connect_error", () => {
-  setConnected(false);
   document.getElementById("offlineBanner").className = "show";
 });
 
@@ -916,11 +912,6 @@ socket.on("registerError", msg=>{
   if(inp){ inp.style.borderColor="#ff4444"; inp.placeholder=msg; }
   document.getElementById("status").innerText="⚠️ "+msg;
 });
-function setConnected(ok) {
-  const dot = document.getElementById("connDot");
-  if (dot) dot.textContent = ok ? "🟢" : "🔴";
-}
-setConnected(socket.connected);
 socket.on("autoResolve", msg => {
   const b = document.getElementById("autoResolveBanner");
   b.innerText = msg; b.style.display = "block";
@@ -1043,7 +1034,6 @@ socket.on("gameEnd", msg=>{
   ].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
   // Carte de rôle encore ouverte (pas retournée, page rechargée) : elle masquait la victoire
   const carteRole = document.getElementById("roleCard"); if (carteRole) carteRole.className = "";
-  document.querySelector("h1")?.style.setProperty("display","none");
   const lobby = document.getElementById("lobby"); if(lobby) lobby.style.display="none";
 
   document.getElementById("endScreen").className="visible";
@@ -1190,16 +1180,28 @@ socket.on("finAnnonceMatin", d => {
   if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
 });
 
+// Bouton de la carte : « OK, j'ai vu ✓ » pour la Voyante et la Petite Fille (la nuit attend leur
+// confirmation) ; sinon « Continuer → », masqué quand un MJ mène la partie : c'est lui qui
+// referme les annonces (body.avec-mj, cf. player.css)
+function boutonCarte(confirmer) {
+  const btn = document.getElementById("deathCardBtn"), lbl = document.getElementById("deathCardBtnLabel");
+  if (btn) btn.classList.toggle("confirmer", confirmer);
+  if (lbl) lbl.textContent = confirmer ? "OK, j'ai vu ✓" : "Continuer →";
+}
+function majModeMJ() { document.body.classList.toggle("avec-mj", nuitParMJ); }
+
 function closeDawnCard() {
   if (_confirmationNuitEnAttente) {
     socket.emit(_confirmationNuitEnAttente);
     _confirmationNuitEnAttente = null;
-    const lbl = document.getElementById("deathCardBtnLabel");
-    if (lbl) lbl.textContent = "Continuer →";
+    boutonCarte(false);
   }
   const c = document.getElementById("dayDeathCard");
   c.classList.add("hiding");
   setTimeout(() => {
+    // Rouverte entre-temps (la carte du matin arrive juste après le « OK, j'ai vu » de la
+    // Voyante, dernier rôle de la nuit) : elle ne doit pas se refermer avec l'ancienne
+    if (!c.classList.contains("hiding")) return;
     c.className=""; c.style.display=""; c.style.background="";
     if (_dawnOnClose) { _dawnOnClose(); _dawnOnClose=null; }
     // BUG FIX 1 : carte fermée → réévalue si on doit afficher le voile de nuit
@@ -1437,7 +1439,6 @@ socket.on("reconnected", state => {
   if (document.visibilityState !== "visible") socket.emit("visibilite", false);
   dismissIntro();
   document.getElementById("lobby").style.display = "none";
-  setConnected(true);
   players=state.players||[]; deadPlayers=state.deadPlayers||[];
   phase=state.phase; mayor=state.mayor; lovers=state.lovers||[];
   mayorCounts=state.mayorCounts||{}; dayCounts=state.dayCounts||{};
@@ -1445,7 +1446,7 @@ socket.on("reconnected", state => {
   iAmDead=deadPlayers.includes(socket.id);
   // Refonte épuration jour : restaure le mode (pilotage MJ du jour)
   if (typeof state.mjPilotedDay === "boolean") mjPilotedDay = state.mjPilotedDay;
-  if (typeof state.nuitParMJ === "boolean") nuitParMJ = state.nuitParMJ;
+  if (typeof state.nuitParMJ === "boolean") { nuitParMJ = state.nuitParMJ; majModeMJ(); }
   mayorVotedSet.clear();
   if(state.mayorVote) Object.keys(state.mayorVote).forEach(id=>mayorVotedSet.add(id));
   myMayorVote = state.myMayorVoteId || null;
@@ -1893,7 +1894,8 @@ function clearNightSecrets() {
 function updateActionPendingBanner() {
   const banner = document.getElementById("actionPendingBanner");
   if (!banner) return;
-  if (gameIsOver) { banner.style.display = "none"; return; }
+  // Tant que le MJ n'a pas lancé le tir ou la transmission, rien ne trahit le Chasseur
+  if (gameIsOver || _actionAttendMJ) { banner.style.display = "none"; return; }
   if (phase === "chasseur" && !isChasseurDead) {
     banner.innerHTML = "🔫 Le Chasseur choisit sa cible…";
     banner.style.display = "block";
@@ -2053,7 +2055,6 @@ function showRoleCard(r) {
   document.getElementById("rcEmoji").innerText   = info.emoji   || "🎭";
   document.getElementById("rcTitle").innerText   = "Votre rôle :";
   document.getElementById("rcRole").innerText    = ROLE_DISPLAY[r] || r;
-  afficherSecrets(document.getElementById("rcSecrets"));
   document.getElementById("rcText").innerText    = info.desc    || "";
   document.getElementById("rcMission").innerText = info.mission ? "🎯 " + info.mission : "";
   document.getElementById("rcWin").innerText     = info.win     ? "🏆 " + info.win    : "";
@@ -2111,7 +2112,7 @@ socket.on("yourRole", data=>{
   role=data.role; wolves=data.wolves||[];
   // Refonte épuration jour : mémorise le mode (pilotage MJ du jour)
   if (typeof data.mjPilotedDay === "boolean") mjPilotedDay = data.mjPilotedDay;
-  if (typeof data.nuitParMJ === "boolean") nuitParMJ = data.nuitParMJ;
+  if (typeof data.nuitParMJ === "boolean") { nuitParMJ = data.nuitParMJ; majModeMJ(); }
   // À l'attribution du rôle, la partie démarre vraiment → on masque le lobby + photo
   const lobby = document.getElementById("lobby");
   if (lobby) lobby.style.display = "none";
@@ -2310,13 +2311,14 @@ socket.on("deadPlayers", dead=>{
 socket.on("loversInfo", list=>{ lovers=list; renderInfoPanel(); scheduleRender(); });
 // Un autre loup s'est reconnecté (nouvel identifiant) : liste des loups à jour
 socket.on("loupsMisAJour", liste=>{ if(role==="Loup"){ wolves=liste||[]; renderInfoPanel(); scheduleRender(); } });
-socket.on("newMayor", id=>{
+socket.on("newMayor", (id, info)=>{
   const prevMayor = mayor;
   mayor=id;
-  // La carte maire s'affiche pour TOUS les joueurs (pas seulement le nouveau maire)
-  if(id && id!==prevMayor && !gameIsOver){
+  // La carte maire s'affiche pour TOUS les joueurs (pas seulement le nouveau maire) ;
+  // le maire qui se reconnecte (nouvel identifiant) n'est pas réannoncé
+  if(id && id!==prevMayor && !gameIsOver && !(info && info.reconnexion)){
     const p=players.find(x=>x.id===id);
-    if(p) showMayorCard(p.name);
+    if(p) showMayorCard(p);
     // Vibration plus longue si c'est moi le nouveau maire
     if(id === socket.id) vibrateIfDay([100, 50, 100, 50, 300]);
     else vibrateIfDay(150);
@@ -2350,8 +2352,7 @@ socket.on("seerResult", data=>{
   // La nuit attend que la Voyante confirme : son bouton ferme tout de suite, sinon la
   // vision se ferme d'elle-même au bout de 10 s (demande d'Alexandre, 2026-10-26).
   _confirmationNuitEnAttente = "seerDone";
-  const lbl = document.getElementById("deathCardBtnLabel");
-  if (lbl) lbl.textContent = "OK, j'ai vu ✓";
+  boutonCarte(true);
   clearTimeout(_fermetureVisionVoyante);
   _fermetureVisionVoyante = setTimeout(() => { if (_confirmationNuitEnAttente === "seerDone") closeDawnCard(); }, 10000);
 });
@@ -2433,8 +2434,7 @@ socket.on("petiteFilleResult", data=>{
   // Comme la Voyante : en pleine nuit, pas de fermeture automatique — la nuit attend son « OK »
   _dawnOnClose = null;
   _confirmationNuitEnAttente = "petiteFilleDone";
-  const lbl = document.getElementById("deathCardBtnLabel");
-  if (lbl) lbl.textContent = "OK, j'ai vu ✓";
+  boutonCarte(true);
 });
 
 // Potions restantes (envoyé juste avant nightVictim, y compris après une reconnexion)
@@ -2551,7 +2551,7 @@ socket.on("chasseurATire", d => {
   card.style.background = "radial-gradient(ellipse at center,#1a0800 0%,#080300 100%)";
   card.className = "show";
   _dawnOnClose = null;
-  if (d.nuit) { _aubeAttendLeMJ = nuitParMJ; if (!nuitParMJ) setTimeout(fermerCarteMortSiOuverte, 7000); }
+  if (d.nuit) { _aubeAttendLeMJ = nuitParMJ && mjPilotedDay; if (!_aubeAttendLeMJ) setTimeout(fermerCarteMortSiOuverte, 7000); }
   else fermerCarteAuRythme(fermerCarteMortSiOuverte, 5000, ["chasseur", "day", "crepuscule"]);
 });
 
@@ -3057,8 +3057,8 @@ socket.on("mayorMustTransfer", dyingId=>{
   if(nfcMayor && nfcMayor.className === "show") { nfcMayor.className=""; nfcMayor.style.display=""; }
   nightCardShownThisNight = false;
 
-  updateActionPendingBanner();
   libererAnnonceAction();
+  updateActionPendingBanner();
   if(socket.id !== dyingId) return;
 
   // Vibration : le Maire mourant doit désigner un successeur — de jour uniquement
@@ -3245,6 +3245,13 @@ function sendDeadChat(){
 }
 
 socket.on("voteStarted", data=>{
+  // Filet (plus de « Continuer » avec un MJ) : une annonce encore ouverte — fin d'annonce
+  // manquée pendant une coupure… — se referme pour laisser voir le vote
+  if (phase === "day") {
+    _aubeAttendLeMJ = false;
+    const carte = document.getElementById("dayDeathCard");
+    if (carte && carte.className === "show" && !_confirmationNuitEnAttente) closeDawnCard();
+  }
   // Vibration : début de vote du jour (mayorVote ou day) — pas en mission/nuit
   if(phase === "day" || phase === "mayorVote") vibrateIfDay([100, 50, 100]);
   currentVoteMode=data.mode;
@@ -3319,7 +3326,7 @@ socket.on("gameReset", data => {
   fermerPhotoZoom();
   // Réponse de nuit qui attendait son « OK » : abandonnée avec la partie
   _confirmationNuitEnAttente = null;
-  const dlbl = document.getElementById("deathCardBtnLabel"); if (dlbl) dlbl.textContent = "Continuer →";
+  boutonCarte(false);
   // Reset mission
   missionActive=false; missionTeamSelected=[]; missionSelectedByMe=[]; missionBonusSelectedByMe=[]; missionCardPlayed=false;
   ["missionPanel","missionVotePanel","missionBonusPanel","missionBonusResult","missionStatusPanel","missionExplainCard","councilPanel","councilEventCard"].forEach(id=>{
@@ -3347,7 +3354,6 @@ socket.on("gameReset", data => {
     // (et la remise à zéro a lieu à chaque lancement de partie)
     if(el){ el.style.display="none"; if (id === "endCard") el.style.background=""; el.style.animation=""; el.removeAttribute("data-open"); }
   });
-  document.querySelector("h1")?.style.removeProperty("display");
   const ps=document.getElementById("playersSection"); if(ps) ps.style.display="";
   const es=document.getElementById("endScreen"); if(es) es.className="";
   document.getElementById("deadChatMessages").innerHTML="";

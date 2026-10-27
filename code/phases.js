@@ -154,7 +154,7 @@ function setPhase(p) {
 }
 
 // ===== ACTION LANCÉE PAR LE MJ (Chasseur, transmission d'écharpe) =====
-// Clic « 🔫 Le Chasseur tire » ou « 🏛️ Transmettre l'écharpe » (ou filet de 3 min) : l'appel part
+// Clic « 🔫 Le Chasseur tire » ou « 🏛️ Transmettre l'écharpe » (ou filet si la tablette ne répond plus) : l'appel part
 // vers les téléphones, la minuterie de l'action démarre, les robots concernés jouent.
 function ouvrirActionMJ() {
   const p = state.actionMJ;
@@ -166,6 +166,18 @@ function ouvrirActionMJ() {
   if (p === "mayorTransfer" && state.dyingMayorId) state.io.emit("mayorMustTransfer", state.dyingMayorId);
   installPhaseTimeouts(p);
   runBotsForPhase(p);
+}
+
+// Le tir du Chasseur ou la transmission d'écharpe attend le clic du MJ sans limite tant que sa
+// tablette est connectée (il raconte) ; l'action ne démarre seule que si la tablette ne répond
+// plus, à deux contrôles de suite (30 s d'écart : un simple rechargement ne la déclenche pas).
+function filetActionMJ(champ, p, mjAbsent = false) {
+  state[champ] = setTimeout(() => {
+    if (state.phase !== p || state.actionMJ !== p) return;
+    if (state.mjSocketId) return filetActionMJ(champ, p);
+    if (!mjAbsent) return filetActionMJ(champ, p, true);
+    ouvrirActionMJ();
+  }, mjAbsent ? 30 * 1000 : NIGHT_PAUSE_TIMEOUT_MS);
 }
 
 // ===== MINUTERIES DU MODE AUTONOME ET DU JOUR NON PILOTÉ =====
@@ -331,11 +343,7 @@ function installPhaseTimeouts(p) {
 
   // Chasseur : tir aléatoire si inactif
   if (p === "chasseur" && state.actionMJ === "chasseur") {
-    // L'appel au Chasseur attend le MJ : filet de 3 min si la tablette ne répond plus
-    state.chasseurTimeout = setTimeout(() => {
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — le Chasseur tire.");
-      ouvrirActionMJ();
-    }, NIGHT_PAUSE_TIMEOUT_MS);
+    filetActionMJ("chasseurTimeout", "chasseur");
   } else if (p === "chasseur") {
     state.chasseurTimeout = setTimeout(() => {
       if (state.phase !== "chasseur" || !state.currentChasseurShooter) return;
@@ -360,11 +368,7 @@ function installPhaseTimeouts(p) {
 
   // Transfert maire : successeur aléatoire si inactif
   if (p === "mayorTransfer" && state.actionMJ === "mayorTransfer") {
-    // La transmission d'écharpe attend le MJ : filet de 3 min
-    state.mayorTransferTimeout = setTimeout(() => {
-      if (state.mjSocketId) state.io.to(state.mjSocketId).emit("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — le maire transmet son écharpe.");
-      ouvrirActionMJ();
-    }, NIGHT_PAUSE_TIMEOUT_MS);
+    filetActionMJ("mayorTransferTimeout", "mayorTransfer");
   } else if (p === "mayorTransfer") {
     state.mayorTransferTimeout = setTimeout(() => {
       if (state.phase !== "mayorTransfer" || !state.dyingMayorId) return;
