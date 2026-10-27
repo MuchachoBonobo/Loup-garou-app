@@ -75,9 +75,7 @@ const NARRATIONS = {
     "Le lien des Sœurs se referme. Loups, ouvrez les yeux et désignez votre proie."
   ],
 
-  // === Salvateur — transitions vers et depuis ===
-  // Avant ce fix, *_to_salvateur n'existait pas → la nuit 2+ passait silencieusement
-  // au Salvateur. Ces variantes couvrent l'arrivée sur la phase depuis day/cupid/sisters.
+  // === Salvateur — arrivée sur sa phase depuis day / cupid / sisters ===
   "*_to_salvateur": [
     "Salvateur, lève-toi. Désigne celui ou celle que tu protégeras cette nuit.",
     "Que le Salvateur ouvre les yeux et choisisse son protégé.",
@@ -249,9 +247,8 @@ function narrate(fromPhase, toPhase) {
   const variants = pickNarrationVariant(fromPhase, toPhase);
   if (!variants || !variants.length) return;
   const text = variants[Math.floor(Math.random() * variants.length)];
-  // Petit délai pour laisser les sons de rôle (loup, voyante, etc.) finir.
-  // BUG FIX : si la phase a changé entre-temps (par ex. victoire qui setPhase("lobby")),
-  // on n'émet plus la narration de la phase qu'on a quittée.
+  // Petit délai pour laisser les sons de rôle (loup, voyante, etc.) finir ; rien si la
+  // phase a changé entre-temps (ex. victoire → lobby)
   setTimeout(() => {
     if (state.mjSocketId && state.phase === toPhase) {
       versMJ("narrate", { text });

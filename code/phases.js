@@ -199,11 +199,8 @@ function armerMinuteriesAutomatiques(p) {
     }
   }
 
-  // Jour : auto-démarre le vote dès que la phase de jour commence.
-  // Refonte épuration jour (mai 2026) : si `state.mjPilotedDay` est vrai, on saute
-  // l'auto-démarrage — c'est le MJ qui lance le vote manuellement via le bouton
-  // « Lancer le vote » (handler `handleStartVote` dans votes.js). Le mode autonome
-  // continue de fonctionner comme avant (auto-vote) car il vise une partie sans MJ.
+  // Jour : en mode autonome (ou jour non piloté), le vote démarre seul ; sinon le MJ le
+  // lance (« Lancer le vote », votes.handleStartVote)
   if (p === "day" && (state.autoMode || !state.mjPilotedDay)) {
     state.dayAutoStartTimer = setTimeout(() => {
       if (state.phase === "day" && state.voteTimer == null) {
@@ -214,12 +211,6 @@ function armerMinuteriesAutomatiques(p) {
 }
 
 // ===== INSTALLATION DES TIMEOUTS PAR PHASE =====
-// ┌──────────────────────────────────────────────────────────────────────────────┐
-// │ ⚠ ZONE NUIT — NE PAS TOUCHER DANS LE CADRE DE LA REFONTE JOUR (mai 2026)    │
-// │ Les timeouts witch/corbeau/cupid/salvateur/sisters/chasseur/mayorTransfer    │
-// │ sont volontairement gelés. Seuls les blocs jour (mission*/day) peuvent être  │
-// │ touchés par la refonte d'épuration de la phase jour.                          │
-// └──────────────────────────────────────────────────────────────────────────────┘
 function installPhaseTimeouts(p) {
   if (p === "witch") {
     state.witchTimeout = setTimeout(() => {
@@ -354,7 +345,6 @@ function installPhaseTimeouts(p) {
         state.chasseurPostContext = null;
         if (checkVictory()) return;
         if (state.mayorTransferPending && state.dyingMayorId) setPhase("mayorTransfer");
-        // BUG FIX : startNightSequence pour Sœurs/Salvateur
         else if (postCtx === "day") roles.ouvrirNuit(false);
         else setPhase("day");
       }
@@ -410,11 +400,6 @@ function clearPhaseTimeouts() {
 }
 
 // ===== ACTIONS DES BOTS PAR PHASE =====
-// ┌──────────────────────────────────────────────────────────────────────────────┐
-// │ ⚠ ZONE NUIT — les blocs mayorVote/cupid/wolves/salvateur/seer/corbeau/witch  │
-// │ /chasseur/mayorTransfer/mission*/missionVote/missionBonus sont gelés dans   │
-// │ le cadre de la refonte jour. Seul le bloc `if (p === "day")` est concerné.   │
-// └──────────────────────────────────────────────────────────────────────────────┘
 // Un robot agit par les mêmes portes qu'un joueur : un faux socket qui porte son identifiant
 const commeJoueur = bot => ({ id: bot.id, emit: (evt, data) => state.io.to(bot.id).emit(evt, data) });
 const auHasard = liste => liste[Math.floor(Math.random() * liste.length)];
@@ -641,7 +626,7 @@ function checkVictory() {
       lovers: state.lovers,
       gameStats: state.gameStats,
       winner,
-      idiotRevealed: state.idiotRevealed,  // BUG FIX 8
+      idiotRevealed: state.idiotRevealed,
     }),
     // Classement de la soirée (1 point par victoire), mis à jour avec cette partie.
     // buildSummary n'est appelé qu'une fois par partie (doEnd) : la partie n'est comptée qu'une fois.
@@ -666,9 +651,8 @@ function checkVictory() {
       try { lights.flash("flash.victory"); } catch (_) {}
       setPhase("lobby");
     };
-    // BUG 5 : si on est au milieu d'une résolution de nuit, on diffère l'émission
-    // de fin de partie. doResolveNight déclenchera la fonction après avoir émis
-    // dawnResult et mjDayRecap (carte chronique de nuit + récap MJ).
+    // En pleine résolution de nuit, la fin de partie attend : doResolveNight la déclenche
+    // après l'annonce de l'aube et le récap du MJ
     if (state.inNightResolution) {
       state.pendingEndGame = doEnd;
     } else {
@@ -874,8 +858,7 @@ function handleSetPhase(socket, p) {
     setPhase("witch"); return;
   }
   if (p === "witch") {
-    // AMÉLIORATION 4 : on saute la phase si la sorcière est morte OU si elle a déjà
-    // utilisé ses deux potions (plus rien à faire pour elle).
+    // On saute la Sorcière si elle est morte ou n'a plus de potion
     const witchAlive = Object.keys(state.roles).some(id => state.roles[id] === "Sorcière" && !state.deadPlayers.includes(id));
     if (!witchAlive || (state.witchSaveUsed && state.witchKillUsed)) {
       roles.doResolveNight({ sansPause: true }); return;

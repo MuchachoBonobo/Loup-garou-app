@@ -214,8 +214,7 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
     }
   }
 
-  // 🤡 Bouffon impardonnable — Idiot révélé qui a survécu jusqu'à la fin
-  // BUG FIX 8 : on ne donne ce badge que si l'Idiot a effectivement été démasqué
+  // 🤡 Bouffon impardonnable — Idiot démasqué (et épargné) au vote, vivant à la fin
   if (idiotRevealed) {
     players.forEach(p => {
       if (roles[p.id] === "Idiot" && isAlive(p.id)) {

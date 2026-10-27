@@ -100,7 +100,7 @@ function handleMJLancerNuit(socket) {
 
 // ===== NUIT =====
 // Première nuit : Cupidon ne se réveille que s'il y en a un. Sans Cupidon, la nuit
-// enchaîne directement (avant : l'étape Cupidon attendait 60 s pour rien).
+// enchaîne directement.
 function startFirstNight() {
   const cupidonVivant = Object.keys(state.roles).some(id => state.roles[id] === "Cupidon" && !state.deadPlayers.includes(id));
   if (cupidonVivant) allerEtapeNuit("cupid");
@@ -211,8 +211,7 @@ function nextNightPhase(after) {
   const seerAlive    = Object.keys(state.roles).some(id => state.roles[id] === "Voyante"  && !state.deadPlayers.includes(id));
   const pfCanPlay    = petiteFillePeutJouer();
   const corbeauAlive = Object.keys(state.roles).some(id => state.roles[id] === "Corbeau"  && !state.deadPlayers.includes(id));
-  // AMÉLIORATION 4 : la phase sorcière n'a de sens que si elle est vivante ET qu'il
-  // lui reste au moins une potion. Sinon on saute directement à la résolution.
+  // La Sorcière ne se réveille que vivante et avec au moins une potion ; sinon, résolution directe
   const witchAlive   = Object.keys(state.roles).some(id => state.roles[id] === "Sorcière" && !state.deadPlayers.includes(id));
   const witchHasPotions = witchAlive && !(state.witchSaveUsed && state.witchKillUsed);
   if (after === "wolves") {
@@ -247,8 +246,7 @@ function resoudreNuit() {
   // Guard : si deux handlers (ex. witchDone + resolveNight MJ) arrivent dans le même
   // tick, le second est ignoré. inNightResolution est remis à false à la fin.
   if (state.inNightResolution) return;
-  // BUG 5 : marqueur — toute victoire qui déclenche durant cette résolution sera
-  // retardée par endGame() pour laisser la carte chronique de nuit s'afficher d'abord.
+  // Toute victoire survenue pendant la résolution attend (endGame) que l'aube soit annoncée
   state.inNightResolution = true;
   state.gameStats.nightCount++;
   const protectedBySalvateur = !!(state.nightTarget && state.protectedTarget && state.nightTarget === state.protectedTarget);
@@ -290,13 +288,9 @@ function resoudreNuit() {
     .forEach(id => deaths.push(buildDeath(id, "amour")));
   ajouterMortsDAmour();
 
-  // BUG FIX (mai 2026) : si la boucle a été interrompue par `mayorTransfer`, les
-  // morts restantes dans `deaths` (ex : cible de la Sorcière) n'ont pas été ajoutées
-  // à state.deadPlayers → elles apparaissent à tort comme successeurs potentiels dans
-  // le panneau de transfert de maire.
-  // On les traite ici, APRÈS la boucle, pour que le prochain emit `deadPlayers`
-  // arrive au client avant que le panneau s'ouvre (le panneau s'ouvre après la carte
-  // d'aube, soit plusieurs secondes plus tard).
+  // Boucle interrompue par `mayorTransfer` : les morts restantes (ex. cible de la Sorcière)
+  // sont traitées ici, pour ne pas apparaître comme successeurs possibles dans le panneau
+  // de transmission (il s'ouvre plusieurs secondes après la carte de l'aube)
   if (state.phase === "mayorTransfer") {
     for (const d of deaths) {
       if (state.deadPlayers.includes(d.id)) continue; // déjà mort (cascade amour ou 1ère itération)
@@ -321,9 +315,8 @@ function resoudreNuit() {
     }
   }
 
-  // BUG FIX (mai 2026) : même logique si la boucle a été interrompue par `chasseur`.
-  // Sans ce bloc, les morts restantes dans `deaths` (p.ex. cible de la Sorcière) ne
-  // sont jamais ajoutées à state.deadPlayers — elles restent « vivantes » côté client.
+  // Même chose si la boucle a été interrompue par `chasseur` : sans cela, les morts
+  // restantes resteraient « vivantes » sur les téléphones
   if (state.phase === "chasseur") {
     for (const d of deaths) {
       if (state.deadPlayers.includes(d.id)) continue;
@@ -476,10 +469,8 @@ function killPlayer(id) {
           state.io.emit("newMayor", null); annoncerTransfert(partner);
           phases.setPhase("mayorTransfer"); return;
         } else if (isMayorDying) {
-          // BUG FIX : le joueur mort (id) est le maire, son amoureux (partner) est le chasseur.
-          // On doit d'abord transférer l'écharpe (phase mayorTransfer), PUIS le chasseur tire.
-          // Avant ce fix, setPhase("chasseur") était appelé ici → performMayorTransfer refusait
-          // le transfert (phase !== "mayorTransfer") et le tiebreakPanel du maire se fermait.
+          // Le mort est le maire et son amoureux le Chasseur : l'écharpe d'abord, le tir ensuite
+          // (passer directement en phase chasseur faisait refuser la transmission)
           state.dyingMayorId = id; state.mayorTransferPending = true; state.mayor = null;
           state.dyingMayorWasChasseur = false;
           // Mémorise le chasseur en attente — il tirera dans performMayorTransfer après le transfert.
@@ -539,11 +530,8 @@ function killPlayer(id) {
 }
 
 function sendDeadVision(socketId) {
-  // Refonte épuration jour (mai 2026) : en mode piloté MJ, on n'envoie plus la
-  // vision spectateur complète pendant la partie. Le joueur mort voit seulement
-  // l'écran épuré « Vous êtes mort » + son rôle (deadFullScreen côté client,
-  // déclenché par l'event `deadPlayers`). La révélation complète a lieu uniquement
-  // en fin de partie (emit `deadVision` direct dans phases.js `endGame`).
+  // Jour piloté par le MJ : pas de vision spectateur pendant la partie, le mort voit
+  // « Vous êtes mort » (deadFullScreen) ; tout est révélé en fin de partie (endGame)
   if (state.mjPilotedDay) return;
   state.io.to(socketId).emit("deadVision", {
     roles:     state.roles,
@@ -570,8 +558,7 @@ function performChasseurShot(shooterId, targetId) {
   // NE PAS remettre chasseurPostContext à null ici : si le tir tue le Maire,
   // killPlayer déclenchera mayorTransfer et doit connaître le contexte (jour/nuit)
   // du Chasseur pour savoir où aller après le transfert du maire.
-  // Refonte (mai 2026) : informe le MJ de qui le Chasseur a emporté — sinon il ne
-  // voit pas facilement cette mort (elle n'est pas dans le récap de nuit/jour).
+  // Le MJ apprend qui le Chasseur a emporté (cette mort n'est pas dans le récap)
   versMJ("mjChasseurShot", {
     shooterName: playerName(shooterId),
     targetName:  playerName(targetId),
@@ -587,7 +574,6 @@ function performChasseurShot(shooterId, targetId) {
       phases.setPhase("mayorTransfer");
       return;
     }
-    // BUG FIX : startNightSequence pour passer par Sœurs/Salvateur si jour→nuit
     if (postCtx === "day") { ouvrirNuit(false); } else { phases.setPhase("day"); }
   }
 }
@@ -621,9 +607,7 @@ function performMayorTransfer(targetId) {
     return;
   }
 
-  // BUG FIX : cas "maire et chasseur = deux amoureux distincts".
-  // Le maire (oldDyingId) vient de transférer l'écharpe.
-  // Le chasseur (pendingChasseurAfterTransfer) peut maintenant tirer.
+  // Maire et Chasseur, deux amoureux distincts : l'écharpe est transmise, le Chasseur tire
   if (state.pendingChasseurAfterTransfer) {
     const chasseurId = state.pendingChasseurAfterTransfer;
     state.pendingChasseurAfterTransfer = null;
@@ -704,9 +688,8 @@ function assignAndStart(config, playerList) {
   state.autoMode = !!config.autoMode;
   state.autoVoteMode = [1, 2, 4, 5].includes(+config.autoVoteMode) ? +config.autoVoteMode : 1;
 
-  // Refonte épuration jour (mai 2026) : si la config contient `mjPilotedDay`,
-  // l'appliquer ; sinon on conserve la valeur déjà posée (par défaut true au boot).
-  // Le MJ peut basculer ce flag via le toggle de la config initiale.
+  // `mjPilotedDay` (case de la préparation du MJ) : appliqué s'il est fourni, sinon on
+  // garde la valeur en place (true au démarrage)
   if (typeof config.mjPilotedDay === "boolean") {
     state.mjPilotedDay = config.mjPilotedDay;
   }
@@ -746,9 +729,7 @@ function assignAndStart(config, playerList) {
     state.io.to(p.id).emit("yourRole", {
       role: state.roles[p.id],
       wolves: isWolf ? wolves : [],
-      // Refonte épuration jour : le client a besoin de connaître le mode pour
-      // décider d'afficher l'écran de mort épuré (deadFullScreen) plutôt que la
-      // vision spectateur complète (deadVisionPanel).
+      // Le téléphone en a besoin pour choisir l'écran de mort épuré plutôt que la vision complète
       mjPilotedDay: !!state.mjPilotedDay,
       nuitParMJ: !state.autoMode
     });
@@ -768,7 +749,7 @@ function assignAndStart(config, playerList) {
 // ===== HANDLERS SOCKETS =====
 function handleCupidChoice(socket, data) {
   if (state.phase !== "cupid" || !hasRole(socket.id, "Cupidon") || state.cupidDone) return;
-  // BUG FIX 3 : valider strictement le tableau avant de l'accepter
+  // Exactement deux joueurs vivants distincts
   if (!Array.isArray(data) || data.length !== 2) return;
   if (new Set(data).size !== 2) return;  // pas deux fois le même ID
   const aliveIds = alivePlayers().map(p => p.id);

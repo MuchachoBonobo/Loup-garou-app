@@ -141,12 +141,9 @@ function performLockWolfVotes() {
   roles.allerEtapeNuit(roles.etapeApres("wolves"));
 }
 
-// ===== AUTO-LOCK DU VOTE MAIRE =====
-// AMÉLIORATION 1 : on verrouille dès que tout le monde a voté, en mode autonome
-// comme en mode MJ — le MJ n'a plus besoin d'attendre/cliquer.
-// Quand tout le monde a voté pour le maire : verrouillage automatique en mode
-// autonome uniquement. Sinon c'est le MJ qui verrouille (bouton du panneau
-// « Vote du Maire ») ; on le prévient simplement que tout le monde a voté.
+// ===== VOTE DU MAIRE : TOUT LE MONDE A VOTÉ =====
+// Mode autonome : verrouillage automatique. Avec un MJ, il est seulement prévenu
+// (c'est lui qui valide le maire).
 function checkMayorAutoLock() {
   if (state.phase !== "mayorVote") return;
   const alive = alivePlayers();
@@ -309,7 +306,7 @@ function handleAngeVictoire(victimId) {
 // ===== VOTE JOUR — RÉSOLUTION =====
 function resolveDayVote() {
   // Un seul dépouillement par jour : un 2e appui sur « Terminer », ou la fin du minuteur
-  // pendant le suspense, est ignoré (avant : vote résolu deux fois, plusieurs nuits lancées).
+  // pendant le suspense, est ignoré.
   if (state.phase !== "day" || state.resolutionJourEnCours) return;
   state.resolutionJourEnCours = true;
   // Écran MJ : boutons du vote grisés jusqu'à la fin du jour
@@ -353,7 +350,7 @@ function startDayVote(mode) {
   const vientDEtreAnnonce = council.annoncerEvenement();
   council.finAnnonceMatin(!vientDEtreAnnonce);
   log.info('startDayVote', 'mode=' + mode, 'event=' + (state.activeCouncilEvent || 'none'));
-  // CONSEIL DES MORTS — overrides (BUG FIX 2 : pas de fallback mode=1 qui écrasait autoVoteMode)
+  // Conseil des Morts : l'évènement impose son mode de vote
   if      (state.activeCouncilEvent === "riot")     mode = 5;
   else if (state.activeCouncilEvent === "judgment") mode = 2;
   else if (state.activeCouncilEvent === "panic")    mode = 4;
@@ -436,7 +433,7 @@ function handleVoteDay(socket, id) {
   if (state.phase !== "day" || state.deadPlayers.includes(socket.id) || state.deadPlayers.includes(id)) return;
   if (id === socket.id) return;
   if (state.resolutionJourEnCours) return;  // vote clos : plus de changement
-  // BUG FIX 4 : en mode piloté MJ, le vote n'est accepté qu'une fois lancé officiellement
+  // Jour piloté par le MJ : vote accepté seulement une fois lancé
   if (state.mjPilotedDay && state.voteTimer === null) return;
   if (state.idiotRevealed && state.roles[socket.id] === "Idiot") return;
   if (state.voteMode === 2 && state.lockedVoters.has(socket.id)) return;
@@ -457,11 +454,8 @@ function handleVoteDay(socket, id) {
     });
     state.io.emit("votesDayPublic", publicDetail);
   }
-  // Sprint final 30s — uniquement si le vote a déjà été lancé (voteTimer != null).
-  // Refonte épuration jour (mai 2026) : désactivé en mode piloté MJ car le vote
-  // dure déjà 60 s, raccourcir à 30 s casserait l'effet battement de cœur final.
-  // En mode autonome (parties sans MJ), le sprint reste utile et conserve son
-  // comportement historique.
+  // Sprint final de 30 s quand tout le monde a voté — mode autonome seulement : avec un
+  // MJ, le vote dure 60 s et le battement de cœur final doit aller au bout
   if (state.voteMode === 1 && !state.fastResolveTriggered && state.voteTimer && !state.mjPilotedDay) {
     const alive = alivePlayers();
     const allVoted = alive.every(p => state.votesDay[p.id] !== undefined);
@@ -503,7 +497,6 @@ function handleSkipDayVote(socket) {
   state.corbeauTarget = null;
   viderVoteDuJour();
   state.io.emit("daySkipped");
-  // BUG FIX : passage par startNightSequence pour les Sœurs/Salvateur
   roles.ouvrirNuit(false);
 }
 
@@ -525,8 +518,7 @@ function handleLockWolfVotes(socket) {
 }
 
 function handleTiebreakChoice(socket, targetId) {
-  // Un maire mort ne tranche plus : le garde-fou des 30 s tire alors au sort (avant,
-  // l'égalité était effacée sans verdict et le jour restait bloqué)
+  // Un maire mort ne tranche plus : le garde-fou des 30 s tire alors au sort
   if (!state.tiebreakPending || socket.id !== state.mayor || state.deadPlayers.includes(state.mayor)) return;
   if (state.tiebreakCandidates.includes(targetId)) trancherEgalite(targetId);
 }

@@ -126,7 +126,7 @@ function buildDeathNarrative({ role, cause, name, roleLabel }) {
 }
 
 // Nom du rôle tel qu'il apparaît dans les récits de mort (« … était la Voyante »).
-// Partagé par roles.js et votes.js (avant : deux copies identiques).
+// Partagé par roles.js et votes.js.
 const ROLE_LABEL = {
   Loup: "Loup-Garou", Voyante: "Voyante", Sorcière: "Sorcière",
   Chasseur: "Chasseur", Cupidon: "Cupidon", Villageois: "Villageois",

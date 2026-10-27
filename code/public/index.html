@@ -113,9 +113,8 @@
   <div style="font-size:14px;color:rgba(255,255,255,0.6);max-width:320px;line-height:1.6;">Le MJ a mis le jeu en pause.<br>Reprise dans quelques instants…</div>
 </div>
 
-<!-- Refonte (mai 2026) : carte à retourner — le rôle n'apparaît pas tout de suite.
-     Le joueur touche la carte « Découvre ton rôle », elle se retourne (flip 3D)
-     et révèle le rôle, puis « Continuer » ouvre la carte de rôle détaillée. -->
+<!-- Carte à retourner : « Découvre ton rôle » se retourne au toucher (flip 3D), puis
+     « Voir les détails » ouvre la carte de rôle complète. -->
 <div id="roleRevealCover" style="display:none;position:fixed;inset:0;z-index:10000;background:radial-gradient(ellipse at center,#0a0a1a 0%,#000000 100%);align-items:center;justify-content:center;flex-direction:column;padding:30px;">
   <div style="font-size:13px;color:#8878bb;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;">La partie commence</div>
   <div id="roleFlip" style="width:240px;height:336px;perspective:1200px;cursor:pointer;">
@@ -170,9 +169,8 @@
   </button>
 </div>
 
-<!-- Refonte épuration jour (mai 2026) : écran de débat plein écran pendant le jour.
-     Affiché entre la carte d'aube et le vote, fermé à réception de voteStarted.
-     But : recentrer les joueurs sur la table — message court, soleil discret, pas d'interface. -->
+<!-- Écran de débat (jour), entre la carte de l'aube et le vote : recentrer les joueurs sur
+     la table — message court, soleil discret, pas d'interface. -->
 <div id="dayDebateScreen" style="display:none;position:fixed;inset:0;z-index:9000;background:radial-gradient(ellipse at 50% 30%,#3a2810 0%,#1a1408 60%,#0a0805 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
   <div id="ddSun" style="font-size:88px;margin-bottom:18px;filter:drop-shadow(0 0 28px rgba(255,200,90,0.5));animation:ddSunBreathe 6s ease-in-out infinite;">☀️</div>
   <div id="ddTitre" style="font-size:24px;font-weight:bold;color:#f0d49a;margin-bottom:18px;line-height:1.3;max-width:360px;">🗣️ Discutez,<br>cherchez les loups.</div>
@@ -188,11 +186,8 @@
 }
 </style>
 
-<!-- Refonte épuration jour (mai 2026) : écran épuré du joueur mort.
-     Plein écran, scrollable. Header immersif (rôle en grand) + en dessous, le
-     salon des morts (deadChatPanel) et le Conseil des Morts (councilPanel) y sont
-     déplacés au chargement (appendChild) pour rester accessibles. Plus de vision
-     spectateur complète pendant la partie. -->
+<!-- Écran du joueur mort : plein écran, défilant, rôle en grand ; le salon des morts et le
+     Conseil des Morts y sont déplacés (appendChild). -->
 <div id="deadFullScreen" style="display:none;position:fixed;inset:0;z-index:9100;background:radial-gradient(ellipse at 50% 22%,#2a0a0a 0%,#140505 55%,#080303 100%);flex-direction:column;align-items:center;text-align:center;padding:36px 20px 28px;overflow-y:auto;">
   <div id="dfsSkull" style="font-size:80px;margin-bottom:14px;filter:drop-shadow(0 0 26px rgba(200,60,60,0.5));">☠️</div>
   <div style="font-size:13px;color:#aa6666;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Votre destin s'achève</div>
@@ -211,10 +206,8 @@
   <div id="deadFullScreenSlot" style="width:100%;max-width:520px;"></div>
 </div>
 
-<!-- Carte plein écran : événement actif du Conseil des Morts (tous joueurs).
-     Refonte (mai 2026) : les joueurs voient seulement l'icône + le titre.
-     La règle de l'évènement est expliquée à voix haute par le MJ — le narratif
-     (councilEventNarrative) est donc masqué côté joueur (display:none). -->
+<!-- Carte plein écran : évènement actif du Conseil des Morts. Les joueurs n'en voient que
+     l'icône et le titre ; le MJ explique la règle à voix haute (récit masqué). -->
 <div id="councilEventCard" style="display:none;position:fixed;inset:0;z-index:9998;background:radial-gradient(ellipse at center,#1a0a1a 0%,#0a000a 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
   <div style="font-size:72px;margin-bottom:14px;">🪦</div>
   <div style="font-size:14px;color:#996699;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
@@ -670,8 +663,7 @@ let corbeauVotesTarget=null;
 let mayorVotedSet = new Set();
 let nightVictimId=null, isChasseurDead=false;
 let mayorTransferPending = false;
-// BUG FIX : mémorise l'id du maire mourant pour ne rouvrir le tiebreakPanel
-// après la carte d'aube QUE pour lui (et non pour tous les joueurs).
+// Maire mourant : lui seul rouvre le panneau de transmission après la carte de l'aube
 let dyingMayorId = null;
 let currentVoteMode=0, hasVotedLocked=false, myDayVote=null, myMayorVote=null;
 let _heartbeatVibrated=false;
@@ -681,8 +673,7 @@ let witchSaveUsed=false, witchKillUsed=false;
 let idiotRevealed=false, idiotId=null;
 let nightCardShownThisNight = false;
 let gameIsOver = false;
-// Refonte épuration jour (mai 2026) : reçu via `yourRole` / `reconnected`.
-// Quand true → écran de mort épuré (deadFullScreen) au lieu de la vision spectateur.
+// Reçu par `yourRole` / `reconnected` : true → écran de mort épuré au lieu de la vision spectateur
 let mjPilotedDay = true;
 // Rythme du MJ (2026-10-26) : la nuit attend son « 🌙 Lancer la nuit », le matin son
 // « Lancer le débat ». Reçu via `yourRole` / l'état complet.
@@ -874,10 +865,8 @@ socket.on("idiotRevealed", data => {
   const c = document.getElementById("dayDeathCard");
   c.style.background = "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)";
   c.className = "show";
-  // BUG FIX cascade-victoire : symétrie avec showDeathCard — c'est le serveur
-  // (via phase=wolves) qui pilote l'affichage de la nightFallCard. Si phase
-  // arrive pendant que cette carte est encore ouverte, showNightFallCard
-  // reposera lui-même _dawnOnClose pour différer après fermeture.
+  // Comme showDeathCard : c'est le serveur (phase=wolves) qui fait apparaître la nightFallCard ;
+  // si elle arrive pendant cette carte, showNightFallCard se remet en attente (_dawnOnClose)
   _dawnOnClose = null;
   fermerCarteAuRythme(fermerCarteMortSiOuverte, 6000, ["day", "crepuscule"]);
   scheduleRender();
@@ -1021,8 +1010,7 @@ socket.on("gameEnd", msg=>{
   releaseWakeLock();
   stopCountdown();
   document.body.classList.remove("vote-urgent");
-  // FIX BUG 1 : voteActive mis à false immédiatement pour que render()
-  // ne génère plus de boutons "🗳️ Voter" après la fin de partie
+  // Plus de boutons « 🗳️ Voter » après la fin de partie
   voteActive = false;
 
   ["status","autoResolveBanner",
@@ -1112,9 +1100,8 @@ function populateEndScreen(data, winner) {
 }
 
 let _dawnOnClose = null;
-// Refonte (mai 2026) : évènement du Conseil mis en attente tant que la carte
-// d'aube (récap de nuit) est ouverte. Séquence voulue au début du jour :
-// carte récap de nuit → (fermeture) → carte évènement.
+// Évènement du Conseil gardé en attente tant que la carte de l'aube est ouverte : récap
+// de la nuit d'abord, évènement ensuite
 let _pendingCouncilEventData = null;
 
 // Réponse de nuit en attente de confirmation (Voyante ou Petite Fille) : la nuit ne
@@ -1204,16 +1191,13 @@ function closeDawnCard() {
     if (!c.classList.contains("hiding")) return;
     c.className=""; c.style.display=""; c.style.background="";
     if (_dawnOnClose) { _dawnOnClose(); _dawnOnClose=null; }
-    // BUG FIX 1 : carte fermée → réévalue si on doit afficher le voile de nuit
     if (typeof updateNightCover === "function") updateNightCover();
-    // Refonte (mai 2026) : carte d'aube fermée → si un évènement du Conseil
-    // attend, on l'affiche maintenant (récap de nuit d'abord, évènement ensuite).
+    // Un évènement du Conseil attendait la fermeture de la carte de l'aube : on l'affiche
     if (_pendingCouncilEventData) {
       const ev = _pendingCouncilEventData;
       _pendingCouncilEventData = null;
       if (typeof showCouncilEventCardNow === "function") showCouncilEventCardNow(ev);
     }
-    // Refonte épuration jour : carte fermée → ouvre l'écran de débat si phase=day
     if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
   }, 600);
 }
@@ -1253,7 +1237,7 @@ function renderDeathPhotos(victims) {
       const img = document.createElement("img");
       img.src = photo;
       img.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.5);filter:grayscale(0.5);animation:cardPop 0.5s ease 0.1s both;`;
-      // Refonte (mai 2026) : pas de rôle dans l'infobulle — les joueurs ne le voient pas
+      // Pas de rôle dans l'infobulle : les joueurs ne le voient pas
       img.title = v.name || "";
       img.style.cursor = "zoom-in";
       img.onclick = e => { e.stopPropagation(); ouvrirPhotoZoom(v.name); };
@@ -1270,10 +1254,8 @@ function renderDeathPhotos(victims) {
 }
 
 function showDeathCard(name, role, narrative) {
-  // Refonte (mai 2026) : carte de mort côté joueur = PHOTO uniquement, sans rôle.
-  // Les joueurs voient QUI a été éliminé (photo) mais pas son rôle — le MJ garde
-  // l'info complète pour narrer (paramètres role/narrative volontairement ignorés
-  // ici, conservés dans la signature pour compat avec les appelants).
+  // Carte de mort côté joueur : la photo, jamais le rôle (le MJ a l'info complète pour
+  // raconter) ; role et narrative restent dans la signature pour les appelants
   _victimesCarte = [{ name }];
   renderDeathPhotos(_victimesCarte);
   document.getElementById("deathEmoji").innerText = "⚖️";
@@ -1285,27 +1267,18 @@ function showDeathCard(name, role, narrative) {
   // Réinitialise nightCardShownThisNight pour que la nightFallCard puisse
   // s'afficher normalement après la fermeture de cette carte
   nightCardShownThisNight = false;
-  // BUG FIX cascade-victoire : on ne déclenche PAS la nightFallCard depuis le
-  // minuteur d'auto-fermeture de la dayDeathCard. La cascade serveur (chasseur,
-  // transfert maire, amoureux) peut prendre plusieurs secondes ; pendant ce
-  // temps `gameIsOver` n'est pas encore positionné si la partie va se terminer.
-  // C'est désormais le serveur qui pilote l'apparition via `phase`=wolves/cupid :
-  // si la victoire est scellée par la cascade, aucun setPhase("wolves") n'est
-  // émis et la carte "village s'endort" n'apparaît jamais. Si la cascade ne
-  // tue pas la partie, le handler `socket.on("phase")` rappellera
-  // showNightFallCard, qui se synchronisera proprement avec la dayDeathCard
-  // (defer via _dawnOnClose pendant l'animation, voir showNightFallCard).
+  // Pas de nightFallCard depuis l'auto-fermeture de cette carte : la cascade du serveur
+  // (Chasseur, transmission, amoureux) peut durer et finir la partie. Le serveur la fait
+  // apparaître par `phase` (wolves/cupid) si la partie continue.
   _dawnOnClose = null;
   fermerCarteAuRythme(fermerCarteMortSiOuverte, 5000, ["day", "crepuscule"]);
 }
 
 function showNightFallCard() {
   if (gameIsOver) return;
-  // Refonte (mai 2026) : les morts ne voient pas la carte « la nuit tombe »
-  // (ils restent sur leur écran de mort épuré).
+  // Les morts restent sur leur écran de mort
   if (iAmDead) return;
-  // FIX BUG 2 : mayorTransferPending est désormais positionné AVANT que mayorMustTransfer
-  // n'arrive ici, donc cette guard fonctionne correctement
+  // Transmission d'écharpe ou tir du Chasseur en attente : pas encore de nuit
   if (mayorTransferPending || isChasseurDead) return;
   if (nightCardShownThisNight) return;
 
@@ -1314,11 +1287,7 @@ function showNightFallCard() {
   const selfCard  = document.getElementById("nightFallCard");
 
   if (selfCard && selfCard.className === "show") return;
-  // BUG FIX cascade-victoire : on défère aussi pendant l'animation de fermeture
-  // de la dayDeathCard (className="show hiding"). Sinon, quand phase=wolves
-  // arrive juste après le début de l'auto-close, le check `=== "show"` échouait
-  // et la nightFallCard apparaissait par-dessus la dayDeathCard en train de se
-  // fermer. classList.contains("show") couvre les deux états.
+  // Carte du mort encore ouverte ou en train de se fermer (« show hiding ») : on attend sa fin
   if (dayCard && dayCard.classList && dayCard.classList.contains("show")) {
     _dawnOnClose = showNightFallCard;
     return;
@@ -1326,8 +1295,7 @@ function showNightFallCard() {
   if (mayorCard && mayorCard.hasAttribute("data-open")) return;
 
   nightCardShownThisNight = true;
-  // Carte « village s'endort » désactivée (mai 2026) : on notifie le serveur
-  // et on met à jour le voile sans afficher la carte immersive.
+  // Carte « le village s'endort » désactivée : on prévient le serveur et on met à jour le voile
   socket.emit("nightCardShown");
   if (typeof updateNightCover === "function") updateNightCover();
 }
@@ -1337,7 +1305,6 @@ function closeNightFallCard() {
   card.classList.add("hiding");
   setTimeout(() => {
     card.className=""; card.style.display="";
-    // BUG FIX 1 : la nightFallCard se ferme → afficher le voile pour les non-actifs
     if (typeof updateNightCover === "function") updateNightCover();
   }, 600);
 }
@@ -1345,8 +1312,7 @@ function closeNightFallCard() {
 function join() {
   const name = document.getElementById("name").value.trim();
   if (!name) return;
-  // FIX BUG #1 : sauvegarde du nom pour permettre la reconnexion automatique
-  // (utilisé ligne ~568 lors d'un reconnect)
+  // Nom gardé pour la reconnexion automatique
   ecrireIdentite("lgName", name);
   entrerPleinEcran();
   socket.emit("register", name);
@@ -1444,7 +1410,6 @@ socket.on("reconnected", state => {
   mayorCounts=state.mayorCounts||{}; dayCounts=state.dayCounts||{};
   role=state.role; wolves=state.wolves||[];
   iAmDead=deadPlayers.includes(socket.id);
-  // Refonte épuration jour : restaure le mode (pilotage MJ du jour)
   if (typeof state.mjPilotedDay === "boolean") mjPilotedDay = state.mjPilotedDay;
   if (typeof state.nuitParMJ === "boolean") { nuitParMJ = state.nuitParMJ; majModeMJ(); }
   mayorVotedSet.clear();
@@ -1453,9 +1418,7 @@ socket.on("reconnected", state => {
   myDayVote   = state.myDayVoteId   || null;
   hasVotedLocked = !!state.isVoteLocked;
   requestWakeLock();
-  // Refonte épuration jour : on ne force plus l'ouverture de voteWaitBox à la
-  // reconnexion en phase=day. Si un vote est en cours, voteTimerBox sera ouvert
-  // juste en dessous. Sinon, updateDayDebateScreen() ouvrira l'écran de débat.
+  // Reconnexion de jour : vote en cours → voteTimerBox (plus bas), sinon l'écran de débat
   if(phase==="day"){ voteActive=true; }
   if(state.voteTimerEnd && (state.serverNow ? state.voteTimerEnd > state.serverNow : Date.now() < state.voteTimerEnd)){
     // Écart d'horloge téléphone ↔ PC compensé (comme pour voteStarted)
@@ -1494,7 +1457,7 @@ socket.on("reconnected", state => {
     document.getElementById("deadChatPanel").style.display="block";
     socket.emit("deadChatHistory");
   }
-  // FIX BUG AUDIT-F : ré-affiche la carte d'événement Conseil des Morts si actif au moment du reconnect
+  // Reconnexion : la carte de l'évènement du Conseil revient s'il est actif
   evenementDuJour = (state.activeCouncilEvent && state.activeCouncilEvent.id) || null;
   if (state.activeCouncilEvent) {
     const card = document.getElementById("councilEventCard");
@@ -1553,10 +1516,7 @@ socket.on("reconnected", state => {
   // Reconnexion pendant le tour de la Petite Fille : choix des 3 joueurs rouvert (si elle
   // avait déjà sa réponse, le serveur la lui renvoie juste après et le panneau se referme)
   if (phase === "petiteFille") showPetiteFillePanel(); else closePetiteFillePanel();
-  // Refonte épuration jour : après reconnexion, réévalue l'écran de débat
-  // (s'ouvre si phase=day, vivant, pas de vote en cours ni de carte ouverte).
   if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
-  // Refonte épuration jour : réévalue l'écran de mort épuré (si mort + mode piloté).
   if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
 });
 
@@ -1631,9 +1591,8 @@ function isActiveDuringPhase(p, r) {
   if (p === 'witch'     && r === 'Sorcière')                           return true;
   return false;
 }
-// BUG FIX 1 : le voile de nuit doit céder le pas aux cartes narratives.
-// On considère qu'une carte est ouverte si son element existe avec class="show"
-// ou data-open="1" (cas du mayorCard).
+// Le voile de nuit cède la place aux cartes : une carte est ouverte si elle a la classe
+// « show » ou data-open="1" (carte du maire)
 function isAnyNarrativeCardOpen() {
   const ids = ['roleCard','dayDeathCard','nightFallCard','councilEventCard','missionExplainCard','mayorCard','sistersPanel','amoureuxPanel'];
   for (const id of ids) {
@@ -1658,11 +1617,8 @@ function updateNightCover() {
   cover.style.display = show ? "flex" : "none";
 }
 
-// Refonte épuration jour (mai 2026) : écran de débat plein écran pendant le jour.
-// Affiché aux joueurs vivants quand : phase=day, aucune carte narrative ouverte,
-// aucun vote en cours. Le but est de soulager l'écran et renvoyer les joueurs au
-// contact visuel autour de la table. Fermé dès que voteStarted arrive ou que la
-// phase change. Pas affiché aux morts (étape 6 leur donne leur propre écran).
+// Écran de débat, plein écran, pour les vivants pendant le jour quand aucune carte n'est
+// ouverte et qu'aucun vote n'est en cours : les regards se tournent vers la table.
 // Évènement du Conseil des Morts actif aujourd'hui (id, ex. "voteMute"), ou null.
 let evenementDuJour = null;
 // Textes de l'écran de débat : par défaut on invite à discuter ; pendant le Vote Muet,
@@ -1700,10 +1656,8 @@ function updateDayDebateScreen() {
   }
 }
 
-// Refonte épuration jour (mai 2026) : écran épuré du joueur mort.
-// Affiché plein écran dès que le joueur est mort (et mode piloté actif).
-// Le salon des morts et le Conseil des Morts y sont déplacés une fois (appendChild)
-// pour rester accessibles en scrollant — plus de vision spectateur complète.
+// Écran du joueur mort (plein écran) : le salon des morts et le Conseil des Morts y sont
+// déplacés une fois (appendChild) pour rester accessibles en faisant défiler
 let _deadFullScreenPanelsMoved = false;
 function updateDeadFullScreen() {
   const screen = document.getElementById("deadFullScreen");
@@ -1719,10 +1673,8 @@ function updateDeadFullScreen() {
       _deadFullScreenPanelsMoved = true;
     }
   }
-  // Refonte (mai 2026) : l'écran de mort épuré est INCONDITIONNEL — dès qu'on est
-  // mort, on ne voit QUE cet écran (plus de liste joueurs ni de boutons voter),
-  // de jour comme de nuit. Ne dépend plus de mjPilotedDay (évite tout cas où le
-  // flag serait mal propagé). La vision spectateur complète n'existe plus.
+  // Mort = cet écran seulement, de jour comme de nuit (ni liste ni boutons de vote), quel
+  // que soit le mode du jour
   const show = iAmDead && !gameIsOver;
   if (show) {
     // Photo perso
@@ -1746,9 +1698,7 @@ function updateDeadFullScreen() {
   updateDeadVoteView();
 }
 
-// Refonte épuration jour (mai 2026) : vue du vote du jour pour les morts.
-// Affichée DANS l'écran de mort quand un vote du village est en cours — les morts
-// voient qui est ciblé et par qui (mais plus la vision spectateur des rôles).
+// Vue du vote du jour pour les morts, dans leur écran : qui est visé et par qui (pas les rôles)
 function updateDeadVoteView() {
   const box     = document.getElementById("deadVoteView");
   const content = document.getElementById("deadVoteViewContent");
@@ -1881,10 +1831,8 @@ function updateRoleRevealBtn() {
 function clearNightSecrets() {
   const s = document.getElementById("status");
   if (s) s.innerText = "";
-  // BUG FIX : NE PAS fermer la dayDeathCard ici — elle vient juste d'être ouverte
-  // par dawnResult (qui est émis JUSTE AVANT setPhase("day")). Elle a son propre
-  // auto-close de 7s. La fermer ici la fait disparaître instantanément.
-  // Panneaux d'action de nuit : on s'assure qu'ils sont tous fermés
+  // La carte de l'aube (dawnResult, juste avant ce changement de phase) reste ouverte : elle
+  // se ferme seule. Les panneaux d'action de nuit, eux, sont tous fermés.
   ["corbeauPanel","salvateurPanel","sistersPanel","petiteFillePanel","witchPanel"].forEach(id=>{
     const el = document.getElementById(id);
     if (el) el.style.display = "none";
@@ -1957,11 +1905,8 @@ socket.on("phase", p=>{
   if(p==="day"){
     nightCardShownThisNight = false;
     if(!gameIsOver){
-      // Refonte épuration jour (mai 2026) : on n'ouvre PAS l'interface de vote
-      // à l'entrée en phase day. Elle s'ouvrira uniquement au handler `voteStarted`
-      // (quand le MJ aura cliqué « Lancer le vote »). L'écran joueur reste épuré.
-      // En mode autonome / non piloté, le serveur émettra voteStarted ~2s plus tard
-      // et voteWaitBox/voteTimerBox apparaîtront naturellement à ce moment-là.
+      // Pas de vote à l'entrée du jour : l'interface s'ouvre à `voteStarted` (« Lancer le
+      // vote » du MJ, ou ~2 s plus tard en mode autonome)
       voteActive=true;
       currentVoteMode=0; hasVotedLocked=false;
       document.getElementById("voteWaitBox").style.display="none";
@@ -2005,14 +1950,9 @@ socket.on("phase", p=>{
   }
 
   renderVotesPanel(); scheduleRender();
-  // Refonte épuration jour : réévalue l'écran de débat (fermé si phase != day, ou
-  // ouvert dans la foulée si on entre en day — la dayDeathCard prendra le pas si
-  // elle s'ouvre derrière, updateDayDebateScreen est rappelé à sa fermeture).
+  // Écrans du jour réévalués à chaque phase : débat, écran de mort, vote des morts
   if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
-  // Refonte épuration jour : réévalue l'écran de mort à chaque phase (jour ET nuit
-  // — un mort ne doit jamais voir la liste joueurs/les boutons voter).
   if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
-  // Refonte épuration jour : réévalue la vue du vote des morts (masquée hors vote).
   if (typeof updateDeadVoteView === "function") updateDeadVoteView();
   updateActionPendingBanner();
 });
@@ -2072,9 +2012,8 @@ function closeRoleCard() {
   renderInfoPanel();
 }
 
-// Refonte (mai 2026) : carte à retourner. Au lancement, le rôle n'apparaît pas
-// directement — le joueur touche la carte « Découvre ton rôle », elle se retourne
-// (flip 3D) et révèle le rôle, puis « Voir les détails » ouvre la roleCard complète.
+// Carte à retourner : « Découvre ton rôle » se retourne au toucher, puis « Voir les
+// détails » ouvre la carte de rôle complète
 function showRoleReveal(r) {
   const cover = document.getElementById("roleRevealCover");
   const inner = document.getElementById("roleFlipInner");
@@ -2110,15 +2049,13 @@ function closeRoleReveal() {
 
 socket.on("yourRole", data=>{
   role=data.role; wolves=data.wolves||[];
-  // Refonte épuration jour : mémorise le mode (pilotage MJ du jour)
   if (typeof data.mjPilotedDay === "boolean") mjPilotedDay = data.mjPilotedDay;
   if (typeof data.nuitParMJ === "boolean") { nuitParMJ = data.nuitParMJ; majModeMJ(); }
   // À l'attribution du rôle, la partie démarre vraiment → on masque le lobby + photo
   const lobby = document.getElementById("lobby");
   if (lobby) lobby.style.display = "none";
-  // Refonte (mai 2026) : vibration franche au lancement — alerte les joueurs distraits.
+  // Vibration franche au lancement, pour les joueurs distraits
   try { if (navigator.vibrate) navigator.vibrate([450, 160, 450, 160, 250]); } catch(_) {}
-  // Refonte (mai 2026) : le rôle se découvre via une carte à retourner.
   showRoleReveal(role);
   renderInfoPanel();
   updateNightCover();
@@ -2302,9 +2239,7 @@ socket.on("deadPlayers", dead=>{
   updateRoleRevealBtn();      // un mort peut voir ses infos sans bouton
   // Si Les Voix Étouffées sont actives, rebascule l'input write/read selon vivant/mort.
   if (typeof refreshSilentDayChatVisibility === "function") refreshSilentDayChatVisibility();
-  // Refonte épuration jour : réévalue l'écran de débat (caché si je deviens mort)
   if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
-  // Refonte épuration jour : si je viens de mourir → écran de mort épuré
   if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
 });
 
@@ -2660,7 +2595,6 @@ function showMissionExplainCard(){
   if(!card) return;
   card.style.display = "flex";
   card.style.animation = "fadeIn 0.5s ease forwards";
-  // BUG FIX 1 : carte ouverte → cache le voile de nuit
   if (typeof updateNightCover === "function") updateNightCover();
   // Auto-close après 20 secondes — filet de sécurité, fermeture manuelle attendue
   if(_missionExplainAutoClose) clearTimeout(_missionExplainAutoClose);
@@ -2673,9 +2607,7 @@ function closeMissionExplainCard(){
   card.style.animation = "fadeOut 0.6s ease forwards";
   setTimeout(()=>{
     card.style.display = "none"; card.style.animation = "";
-    // BUG FIX 1 : carte fermée → réévalue le voile de nuit
     if (typeof updateNightCover === "function") updateNightCover();
-    // Refonte épuration jour : carte fermée → ouvre le débat si phase=day
     if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
   }, 600);
 }
@@ -2743,8 +2675,7 @@ let _councilEventCardAutoClose = null;
 socket.on("councilEventActive", data => {
   if (!data) return;
   evenementDuJour = data.id || null;
-  // Refonte (mai 2026) : si la carte d'aube (récap de nuit) est encore ouverte,
-  // on met l'évènement en file d'attente — il s'affichera à sa fermeture.
+  // Carte de l'aube encore ouverte : l'évènement attend sa fermeture
   const dayCard = document.getElementById("dayDeathCard");
   if (dayCard && dayCard.classList && dayCard.classList.contains("show")) {
     _pendingCouncilEventData = data;
@@ -2764,7 +2695,6 @@ function showCouncilEventCardNow(data) {
   document.getElementById("councilEventNarrative").innerText = data.narrative || "";
   card.style.display = "flex";
   card.style.animation = "fadeIn 0.5s ease forwards";
-  // BUG FIX 1 : carte ouverte → cache le voile de nuit
   if (typeof updateNightCover === "function") updateNightCover();
   if (_councilEventCardAutoClose) clearTimeout(_councilEventCardAutoClose);
   // Annoncé par le MJ : il la referme avec « Lancer le débat » ; sinon filet de 20 s
@@ -2778,9 +2708,7 @@ function closeCouncilEventCard(){
   card.style.animation = "fadeOut 0.6s ease forwards";
   setTimeout(()=>{
     card.style.display = "none"; card.style.animation = "";
-    // BUG FIX 1 : carte fermée → réévalue le voile de nuit
     if (typeof updateNightCover === "function") updateNightCover();
-    // Refonte épuration jour : carte fermée → ouvre le débat si phase=day
     if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
   }, 600);
 }
@@ -2875,9 +2803,7 @@ socket.on("dawnResult", data=>{
     });
     updateDeathLog(deathLog);
   }
-  // Refonte (mai 2026) : carte d'aube côté joueur = PHOTOS uniquement.
-  // Les joueurs voient QUI est mort cette nuit (photos) mais pas les rôles — le MJ
-  // garde l'info complète via la carte mjDayRecap pour pouvoir narrer.
+  // Carte de l'aube côté joueur : les photos, jamais les rôles (le MJ les a dans son récap)
   let title, text, emoji;
   if (deaths.length === 0 && saved) {
     emoji = "🌅"; title = "Une vie sauvée dans l'ombre";
@@ -2903,7 +2829,6 @@ socket.on("dawnResult", data=>{
   const c = document.getElementById("dayDeathCard");
   c.style.background = "radial-gradient(ellipse at center,#1a1000 0%,#0a0800 100%)";
   c.className = "show";
-  // BUG FIX 1 : la carte chronique s'ouvre → on cache le voile de nuit
   if (typeof updateNightCover === "function") updateNightCover();
   // Réinitialise nightCardShownThisNight : la carte d'aube précède toujours la nuit suivante
   nightCardShownThisNight = false;
@@ -2922,10 +2847,7 @@ socket.on("dawnResult", data=>{
     // Le maire est mort cette nuit : la carte s'affiche d'abord, puis le panel de transfert s'ouvre.
     // On cache temporairement le tiebreakPanel pendant l'affichage de la carte.
     document.getElementById("tiebreakPanel").style.cssText = "display:none;";
-    // BUG FIX : ne rouvrir le tiebreakPanel QUE pour le maire mourant.
-    // Avant ce fix, _dawnOnClose rouvrait le panel pour TOUS les joueurs (mayorTransferPending
-    // est vrai côté client pour tout le monde), leur affichant un panneau "Le Maire doit trancher"
-    // vide et confus.
+    // Seul le maire mourant rouvre le panneau (les autres verraient un panneau vide)
     if (socket.id === dyingMayorId) {
       _dawnOnClose = () => {
         const panel = document.getElementById("tiebreakPanel");
@@ -3047,12 +2969,12 @@ socket.on("tiebreakResolved", data=>{
   document.getElementById("status").innerText="⚖️ Le Maire a tranché : "+data.name;
 });
 
-// FIX BUG 1 : mayorTransferPending positionné EN PREMIER, avant le guard socket.id
+// mayorTransferPending posé en premier, avant le filtre sur socket.id
 socket.on("mayorMustTransfer", dyingId=>{
   mayorTransferPending = true; // ← EN PREMIER — bloque showNightFallCard immédiatement
   dyingMayorId = dyingId;      // ← mémorisé pour cibler uniquement le maire mourant dans dawnResult
 
-  // FIX BUG 1 : ferme la nightFallCard si elle est visible (même pattern que chasseurMustShoot)
+  // Ferme la nightFallCard si elle est visible (comme chasseurMustShoot)
   const nfcMayor = document.getElementById("nightFallCard");
   if(nfcMayor && nfcMayor.className === "show") { nfcMayor.className=""; nfcMayor.style.display=""; }
   nightCardShownThisNight = false;
@@ -3083,8 +3005,8 @@ socket.on("mayorMustTransfer", dyingId=>{
   // Pré-remplit dès maintenant (best-effort) — sera recalculé à l'ouverture.
   buildMayorTransferButtons();
 
-  // Ouvre le panneau plein écran de désignation du successeur.
-  // BUG FIX : reconstruit les boutons ici (deadPlayers à jour après la carte d'aube).
+  // Panneau plein écran de désignation du successeur, boutons reconstruits à l'ouverture
+  // (deadPlayers à jour après la carte de l'aube)
   const openTransferPanel = () => {
     buildMayorTransferButtons(); // ← recalcul avec deadPlayers fraîchement mis à jour
     const panel = document.getElementById("tiebreakPanel");
@@ -3097,10 +3019,8 @@ socket.on("mayorMustTransfer", dyingId=>{
 
   const dayCard = document.getElementById("dayDeathCard");
   if(dayCard && dayCard.className === "show"){
-    // La carte de mort du jour est affichée : on ouvre le panneau dès qu'elle se
-    // ferme (clic ou auto-fermeture). FIX : avant, on attendait `dawnResult` qui
-    // n'arrive JAMAIS après une mort de jour → le Maire mourant restait bloqué,
-    // incapable de désigner son successeur.
+    // Carte de mort du jour affichée : le panneau s'ouvre à sa fermeture (après une mort de
+    // jour, aucun dawnResult n'arrive)
     _dawnOnClose = openTransferPanel;
     // Filet de sécurité : si la carte ne se ferme pas proprement, on force après 7 s
     setTimeout(() => { if (mayorTransferPending) openTransferPanel(); }, 7000);
@@ -3111,12 +3031,9 @@ socket.on("mayorMustTransfer", dyingId=>{
   openTransferPanel();
 });
 
-// FIX BUG #11 : la définition canonique de mayorTransfer est plus bas (ligne ~1772)
-// avec la garde gameIsOver. Cette définition redondante est supprimée.
-
 socket.on("mayorTransferred", targetId=>{
   mayorTransferPending = false;
-  dyingMayorId = null; // BUG FIX : réinitialise après le transfert
+  dyingMayorId = null;
   updateActionPendingBanner();
   const panel = document.getElementById("tiebreakPanel");
   panel.style.display = "none";
@@ -3273,9 +3190,7 @@ socket.on("voteStarted", data=>{
   document.getElementById("timerMode").innerText=VOTE_MODE_CARDS[data.mode]||"";
   if(voteEndsAt) startCountdown();
   if(data.mode===5) document.getElementById("status").innerText="🖤 Vote dans l'ombre — votez sans voir les résultats !";
-  // Refonte épuration jour : le vote démarre → ferme l'écran de débat
   if (typeof updateDayDebateScreen === "function") updateDayDebateScreen();
-  // Refonte épuration jour : morts → affiche la vue du vote
   if (typeof updateDeadVoteView === "function") updateDeadVoteView();
   scheduleRender();
 });
@@ -3286,11 +3201,8 @@ socket.on("voteTimerEnd",()=>{
   if(phase !== "day") document.getElementById("voteWaitBox").style.display="none";
   document.getElementById("status").innerText="✅ Vote terminé !";
   if(phase === "day"){ voteActive=true; }
-  // Refonte épuration jour : NE PAS rouvrir le débat ici — on enchaîne sur la
-  // résolution du vote (dayVoteResult arrive juste après avec sa carte de mort)
-  // puis le serveur transitionne vers la nuit. Si jamais on restait en day sans
-  // résolution, l'updateDayDebateScreen sera rappelé au prochain change de phase.
-  // Morts : le vote est fini → masque leur vue du vote.
+  // Pas de retour au débat : dayVoteResult suit, puis la nuit. Morts : le vote est fini,
+  // leur vue du vote se masque.
   if (typeof updateDeadVoteView === "function") updateDeadVoteView();
   scheduleRender();
 });
@@ -3300,7 +3212,7 @@ socket.on("gameReset", data => {
   _fermeturesRetenues = []; _aubeAttendLeMJ = false;
   role=null; wolves=[]; lovers=[]; mayor=null; iAmDead=false;
   deadVisionData=null; nightVictimId=null; mayorCounts={}; dayCounts={}; wolfVotes={};
-  dyingMayorId=null; // BUG FIX : réinitialisation au reset
+  dyingMayorId=null;
   witchSaveUsed=false; witchKillUsed=false; hasVotedLocked=false; voteActive=false; myDayVote=null; myMayorVote=null;
   deathLog=[]; lastGameSummary=null; mayorVotedSet.clear();
   votesDayDetail={}; corbeauVotesTarget=null;
@@ -3340,12 +3252,12 @@ socket.on("gameReset", data => {
     const el=document.getElementById(id);
     if(el){ el.className=""; el.style.display=""; el.style.background=""; el.removeAttribute("data-open"); }
   });
-  // Refonte épuration jour : ferme l'écran de débat et l'écran de mort à un reset
+  // Reset : ferme l'écran de débat et l'écran de mort…
   const dds = document.getElementById("dayDebateScreen");
   if (dds) dds.style.display = "none";
   const dfs = document.getElementById("deadFullScreen");
   if (dfs) dfs.style.display = "none";
-  // Refonte (mai 2026) : ferme aussi la carte à retourner « Découvre ton rôle »
+  // … et la carte à retourner « Découvre ton rôle »
   const rrc = document.getElementById("roleRevealCover");
   if (rrc) rrc.style.display = "none";
   ["endCard","mayorCard"].forEach(id=>{
@@ -3643,9 +3555,7 @@ function render(){
     if(phase==="day"&&currentVoteMode===5&&p.id===socket.id&&hasVotedLocked){
       noirBadge=` <span style="font-size:11px;color:#888;font-style:italic;">A voté</span>`;
     }
-    // Refonte (mai 2026) : les joueurs ne voient PLUS le rôle des morts dans la
-    // liste. Un simple ☠️ marque les morts (la ligne est déjà stylée « dead-row »).
-    // Le MJ garde la chronique complète de son côté.
+    // Les joueurs ne voient pas le rôle des morts dans la liste : un simple ☠️
     let deathInfo = "";
     if (isDead) {
       deathInfo = ` <span style="color:#777;font-size:11px;margin-left:6px;">☠️</span>`;
@@ -3662,9 +3572,8 @@ function render(){
     }
     div.appendChild(row);
   });
-  // Refonte (mai 2026) : à chaque rendu, on ré-affirme l'écran de mort épuré.
-  // Garantit qu'un mort ne voit JAMAIS la liste joueurs / les boutons voter,
-  // même si un event a été manqué. Idempotent (no-op si déjà dans le bon état).
+  // À chaque rendu, l'écran de mort est réaffirmé : un mort ne voit jamais la liste ni
+  // les boutons de vote, même après un évènement manqué
   if (typeof updateDeadFullScreen === "function") updateDeadFullScreen();
   // Idem pour l'écran de débat : ré-affirmé à chaque rendu pour qu'il apparaisse
   // de façon fiable dès le jour, même si un changement de phase a été manqué.

@@ -91,7 +91,6 @@ function serializeState(state) {
     // Mode autonome
     autoMode: state.autoMode,
     autoVoteMode: state.autoVoteMode,
-    // BUG FIX 6 : champs manquants pour la reprise après crash
     mjPilotedDay: state.mjPilotedDay,
     conseilActif: state.conseilActif,
     gamePaused: state.gamePaused,
@@ -156,7 +155,6 @@ function applySnapshot(state, snap) {
   state.tiebreakContext = snap.tiebreakContext || '';
   state.autoMode = !!snap.autoMode;
   state.autoVoteMode = snap.autoVoteMode || 1;
-  // BUG FIX 6 : restauration des champs manquants
   if (typeof snap.mjPilotedDay === 'boolean') state.mjPilotedDay = snap.mjPilotedDay;
   if (typeof snap.conseilActif === 'boolean') state.conseilActif = snap.conseilActif;
   state.gamePaused = !!snap.gamePaused;

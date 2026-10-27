@@ -168,6 +168,11 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 
 ## Journal (du plus récent au plus ancien)
 
+### 2026-10-27 (suite 3) — Lot D : commentaires d'historique réécrits
+Les commentaires qui racontaient l'histoire du code (« BUG FIX 3 : », « Refonte épuration jour (mai 2026) : », « AMÉLIORATION 2 : », « avant ce fix… », « (avant : …) ») sont réécrits : le **pourquoi** reste, le récit des anciennes versions part (il est dans ce journal et dans GitHub). Les simples paraphrases d'un appel (« carte fermée → réévalue le voile » au-dessus de `updateNightCover()`) sont retirées. Encadrés « ZONE NUIT — ne pas toucher dans le cadre de la refonte jour » supprimés (périmés). Quelques commentaires corrigés au passage : « Continuer » → « Voir les détails » sur la carte de rôle, verrouillage du vote du maire (l'ancien commentaire se contredisait), renvois à des numéros de ligne périmés.
+- **Preuve que le code n'a pas bougé** : pour chacun des 12 fichiers, la suite des jetons du code (commentaires et espaces ignorés, fins de ligne neutralisées) est identique à celle de la version précédente sur GitHub ; pour les pages, le HTML hors commentaires aussi.
+- **Gain** : −170 lignes environ (serveur −65, page joueur −90, page MJ −20). Plus aucune étiquette d'historique dans le code.
+
 ### 2026-10-27 (suite 2) — Nettoyage du serveur : code inutile retiré, copies fusionnées
 Demande d'Alexandre : un code plus court et plus propre, sans nouveau bug. Méthode : inventaire d'abord (code inutile, doublons), tests ajoutés AVANT de toucher aux chemins non couverts, référence prise sur l'ancien code, puis les mêmes tests sur le nouveau. Lots A (code inutile) et B (doublons du serveur) ; les pages (lot C) et les commentaires d'historique (lot D) restent à faire.
 - **Supprimé** (décision d'Alexandre) : la confirmation des loups (`wolfConfirm`, `wolfConfirmStatus`, `wolfConfirmReject`, `state.wolfConfirmed`) — aucun téléphone ne l'envoyait plus depuis que le MJ valide l'attaque ; seuls les tests s'en servaient, ils passent maintenant par la validation du MJ (`lockWolfVotes`). Aussi : `lastDayVoteDeath` / `previousDayDeath` (enregistré, jamais affiché depuis mai), l'alias `startNightAfterCupid`, `alivePlayers` de la page joueur, deux imports inutiles.

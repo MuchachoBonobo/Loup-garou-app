@@ -132,8 +132,8 @@ const state = {
   mayorTransferContext:  "",
   chasseurPostContext:   null,
   currentChasseurShooter: null,
-  // BUG FIX : chasseur amoureux en attente après un transfert de maire
-  // (cas : maire et chasseur = deux personnes différentes, toutes deux amoureuses)
+  // Chasseur amoureux qui tirera après la transmission de l'écharpe (maire et Chasseur,
+  // deux amoureux distincts)
   pendingChasseurAfterTransfer: null,
 
   // Pause
@@ -149,11 +149,8 @@ const state = {
   wolvesAutoLockTimer: null,
   dayAutoStartTimer:   null,
 
-  // Refonte épuration jour (mai 2026) : quand `true`, la phase jour est pilotée
-  // entièrement par le MJ — pas d'auto-démarrage du vote, pas d'écran de vote
-  // affiché aux joueurs tant que le MJ ne l'a pas lancé explicitement. Les joueurs
-  // voient seulement une carte « le jour se lève » puis un écran de débat épuré
-  // (cf. handler `phase=day` côté client). Default ON. Toggle dans la config MJ.
+  // true : jour piloté par le MJ — le vote ne démarre et ne s'affiche qu'à son signal ;
+  // les joueurs voient « le jour se lève » puis l'écran de débat. Case de la préparation du MJ.
   mjPilotedDay:        true,
 
   // Conseil des Morts activé pour cette partie (case du MJ avant la partie, 2026-10-26)
@@ -168,10 +165,8 @@ const state = {
   // Récap narratif jour
   pendingDayRecap:     null,
   skipWolvesSoundOnce: false,
-  // BUG 5 : marqueur "on est en train de résoudre une nuit" — endGame diffère alors
-  // ses émissions et stocke la fonction de fin dans pendingEndGame ; doResolveNight
-  // la déclenche après dawnResult + mjDayRecap pour que la carte chronique s'affiche
-  // avant l'écran de fin de partie.
+  // Résolution de nuit en cours : endGame range sa fin de partie dans pendingEndGame,
+  // déclenchée après l'annonce de l'aube
   inNightResolution:   false,
   pendingEndGame:      null,
   pendingEndGameTimer: null,  // les 7 s avant l'écran de fin : annulées par un reset
@@ -292,10 +287,8 @@ function buildFullState(socketId) {
                   (state.voteMode === 5 && !!state.votesDay[socketId]),
   };
 
-  // Refonte épuration jour (mai 2026) : en mode piloté MJ, un mort qui reconnecte
-  // ne reçoit PAS la vision spectateur complète — il retombe sur l'écran épuré
-  // (deadFullScreen côté client, déclenché par `isDead` + flag `mjPilotedDay`).
-  // En mode legacy, on conserve la vision complète à la reconnexion.
+  // Jour piloté par le MJ : un mort qui se reconnecte retrouve « Vous êtes mort »,
+  // pas la vision spectateur complète
   snapshot.mjPilotedDay = !!state.mjPilotedDay;
   snapshot.nuitParMJ = !state.autoMode;
   if (isDead && !state.mjPilotedDay) {

@@ -103,7 +103,7 @@ function getLocalIPv4() {
 app.get("/api/ip", (req, res) => res.json({ ip: getLocalIPv4(), port: PORT }));
 
 // QR code de connexion des joueurs, dessiné par le serveur (image SVG) : il s'affiche
-// même sans Internet (avant, l'écran MJ téléchargeait un outil depuis un site externe).
+// même sans Internet.
 // ?theme=sombre → modules clairs sur fond sombre (petit QR du panneau MJ) ;
 // sinon noir sur blanc (QR plein écran, le plus facile à scanner).
 const QRCode = require("qrcode");
@@ -402,7 +402,7 @@ io.on("connection", socket => {
         state.playerRegistry[key].id = socket.id;
         state.playerRegistry[key].oldId = socket.id;
         io.emit("players", state.players);
-        // BUG FIX 7 : notifier le nouveau socket qu'il est bien reconnu
+        // Le nouveau socket apprend qu'il est reconnu
         socket.emit("reconnected", buildFullState(socket.id));
         return;
       }

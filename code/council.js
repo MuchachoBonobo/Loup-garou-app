@@ -182,8 +182,7 @@ function resolveCouncil() {
     winner = tied[Math.floor(Math.random() * tied.length)];
   }
   state.pendingCouncilEvent = winner;
-  // AMÉLIORATION 3 : on inclut le narratif complet pour que le MJ ait toute
-  // l'explication de ce qui va se passer demain (pas juste le titre).
+  // Le MJ reçoit le récit complet de ce qui se passera demain, pas seulement le titre
   versMJ("councilResolvedMJ", {
     winner,
     title:     COUNCIL_EVENTS[winner].title,

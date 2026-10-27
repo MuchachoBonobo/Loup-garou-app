@@ -106,9 +106,8 @@
   </button>
 </div>
 
-<!-- Refonte (mai 2026) : carte MJ générique — mort par le vote du jour OU tir du
-     Chasseur. Les joueurs ne voient plus le rôle des morts ; le MJ garde cette
-     carte pour narrer et savoir qui est mort. -->
+<!-- Carte du MJ pour une mort au vote ou par le tir du Chasseur : les joueurs ne voient pas
+     le rôle des morts, le MJ si (pour raconter). -->
 <div id="mjVoteDeathCard" style="display:none;position:fixed;inset:0;z-index:9997;background:radial-gradient(ellipse at center,#221206 0%,#0a0502 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:30px;">
   <div id="mjVoteDeathEmoji" style="font-size:56px;margin-bottom:10px;">⚖️</div>
   <div id="mjVoteDeathSubtitle" style="font-size:13px;color:#d8a37a;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le verdict du village</div>
@@ -146,7 +145,6 @@
   <div style="font-size:14px;color:#996699;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
   <div id="councilEventTitle" style="font-size:28px;font-weight:bold;color:#cc99cc;margin-bottom:14px;"></div>
   <div id="councilEventNarrative" style="max-width:420px;color:rgba(255,255,255,0.78);line-height:1.6;font-size:14px;font-style:italic;margin-bottom:14px;"></div>
-  <!-- Refonte (mai 2026) : encadré RÈGLE explicite pour le MJ -->
   <div id="councilEventRuleBox" style="max-width:440px;background:rgba(204,153,204,0.10);border:1px solid rgba(204,153,204,0.45);border-radius:10px;padding:14px 16px;margin-bottom:16px;text-align:left;">
     <div style="color:#e0b0e0;font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">📋 Règle à appliquer</div>
     <div id="councilEventRule" style="color:#f0e0f0;font-size:14px;line-height:1.55;"></div>
@@ -265,7 +263,7 @@
     </div>
   </div>
 
-  <!-- Refonte épuration jour (mai 2026) : pilotage MJ du jour -->
+  <!-- Jour piloté par le MJ -->
   <div style="margin-top:6px;padding:10px 12px;background:#1a1408;border:1px solid #4a3a1a;border-radius:8px;">
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:#ccaa66;cursor:pointer;">
       <input id="mjPilotedDay" type="checkbox" checked style="width:16px;height:16px;cursor:pointer;accent-color:#aa8833;">
@@ -336,7 +334,7 @@
 <!-- ⑤ LE JOUR — visible pendant la phase day uniquement -->
 <div class="section" id="mjSectionDay">
   <div class="section-title">Le Jour — Débat &amp; Vote</div>
-  <!-- Refonte épuration jour : indicateur d'état du jour (débat vs vote) -->
+  <!-- Indicateur du jour : débat ou vote -->
   <div id="dayStateBanner" style="display:none;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.5;text-align:center;"></div>
   <div id="voteModeLabel" style="font-size:12px;color:#888;">Mode libre 60 s. En pilotage MJ, vous lancez le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).</div>
   <div class="btn-group" style="margin-top:8px;">
@@ -407,8 +405,7 @@
   <button class="btn" onclick="showQRFullscreen()" style="margin-top:10px;">📺 Afficher le QR en grand</button>
 </div>
 
-<!-- Refonte (mai 2026) : vue QR plein écran — uniquement le QR, pour l'immersion.
-     Le MJ affiche cet écran le temps que tout le monde scanne, puis le ferme. -->
+<!-- QR code seul, en plein écran, le temps que tout le monde scanne -->
 <div id="qrFullscreen" style="display:none;position:fixed;inset:0;z-index:10000;background:radial-gradient(ellipse at center,#10131c 0%,#04050a 100%);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:30px;">
   <div style="font-size:15px;color:#8a93b0;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Rejoignez la partie</div>
   <div style="font-size:26px;font-weight:bold;color:#e8ecff;margin-bottom:24px;">Scannez pour entrer dans le village</div>
@@ -647,8 +644,7 @@ function closeDayRecapCard(){
   if (_mjDayRecapAutoClose) { clearTimeout(_mjDayRecapAutoClose); _mjDayRecapAutoClose = null; }
   const card = document.getElementById("dayRecapCard");
   if (card) card.style.display = "none";
-  // Refonte (mai 2026) : récap de nuit fermé → si un évènement du Conseil
-  // attend, on l'affiche maintenant (séquence : récap nuit → puis évènement).
+  // Récap de la nuit fermé : un évènement du Conseil en attente s'affiche maintenant
   if (_mjPendingCouncilEvent) {
     const ev = _mjPendingCouncilEvent;
     _mjPendingCouncilEvent = null;
@@ -672,9 +668,8 @@ socket.on("mjDayRecap", data => {
   titleEl.innerText = `Jour ${data.dayNum || "?"} · Nuit ${data.nightNum || "?"}`;
   blocks.innerHTML = "";
 
-  // Refonte (mai 2026) : la carte de début de jour ne contient QUE le récap de
-  // la nuit. Le récap du jour précédent (vote du village) a déjà été présenté au
-  // MJ via la carte mjVoteDeathCard au moment du vote — inutile de le répéter.
+  // La carte de début de jour ne contient que la nuit : le vote de la veille a déjà eu sa
+  // carte (mjVoteDeathCard)
 
   // Bloc « Cette nuit »
   const nightBlock = document.createElement("div");
@@ -718,9 +713,8 @@ socket.on("mjDayRecap", data => {
     _mjDayRecapAutoClose = setTimeout(closeDayRecapCard, 25000);  // filet de sécurité 25 s
   }
 
-  // Narration TTS : phrase de synthèse pour aider le MJ à raconter le réveil.
-  // Refonte (mai 2026) : on ne rappelle plus le vote d'hier (déjà narré au moment
-  // du vote via mjVoteDeathCard).
+  // Narration TTS : phrase de synthèse pour aider le MJ à raconter le réveil (sans le
+  // vote de la veille, déjà raconté)
   try {
     let speech = `Jour ${data.dayNum}. `;
     if (nd.length === 0 && data.saved) {
@@ -734,8 +728,7 @@ socket.on("mjDayRecap", data => {
   } catch(_) {}
 });
 
-// Refonte (mai 2026) : règle EXPLICITE de chaque évènement du Conseil, pour que
-// le MJ sache exactement quoi appliquer/annoncer. Affichée dans la carte MJ.
+// Règle exacte de chaque évènement du Conseil, affichée dans la carte du MJ : quoi appliquer et annoncer
 const MJ_EVENT_RULES = {
   riot:           "Le vote du village est ANONYME : personne ne voit qui vote pour qui. Durée 60 s.",
   judgment:       "Vote VERROUILLÉ : une fois qu'un joueur a voté, il ne peut plus changer son choix. Durée 60 s.",
@@ -812,8 +805,7 @@ socket.on("councilEventActive", data => {
   _mjActiveCouncilEvent = data.id;
   // Bandeau MJ permanent avec l'événement actif (titre + règle + « Revoir la carte »)
   afficherBandeauEvenement(data);
-  // Refonte (mai 2026) : séquence au début du jour — la carte récap de nuit
-  // d'abord, l'évènement ensuite. Si dayRecapCard est ouverte, on met en file.
+  // Début du jour : récap de la nuit d'abord, évènement ensuite (en attente si le récap est ouvert)
   const recap = document.getElementById("dayRecapCard");
   if (recap && recap.style.display === "flex") {
     _mjPendingCouncilEvent = data;
@@ -832,10 +824,8 @@ socket.on("councilVoteUpdateMJ", data => {
 });
 
 socket.on("councilResolvedMJ", data => {
-  // AMÉLIORATION 3 : on affiche la même carte plein écran que pour un événement
-  // actif, avec titre + narratif + RÈGLE explicite, pour que le MJ sache
-  // exactement ce qui se passera demain et puisse l'appliquer/le raconter.
-  // `data.winner` est l'id de l'évènement.
+  // Même carte plein écran qu'un évènement actif (titre, récit, règle) : le MJ sait ce qui
+  // se passera demain. `data.winner` est l'id de l'évènement.
   showMjCouncilEventCard({ id: data.winner, title: data.title, narrative: data.narrative });
   showAlert(`🪦 Événement choisi pour demain : ${data.title}`, "success");
 });
@@ -1096,9 +1086,7 @@ function updateNightBar(currentPhase) {
 // ===== PHASES =====
 let currentPhaseForBar = "lobby"; // stocke la phase réelle pour updateNightBar
 
-// Refonte épuration MJ (mai 2026) : cockpit contextuel à la phase.
-// On n'affiche que ce qui sert à la phase en cours — le MJ trouve l'info
-// nécessaire en un coup d'œil, sans scroller ni chercher.
+// Cockpit selon la phase : seulement ce qui sert maintenant, sans faire défiler.
 // Toujours visibles : ③ Personnages (rôle + état), Sons, Info live.
 function updateMJLayout(phase) {
   const inGame = !!phase && phase !== "lobby";
@@ -1122,7 +1110,7 @@ socket.on("phase", p=>{
   currentPhaseForBar = p;
   document.getElementById("mjPhaseDisplay").innerText = phaseLabel(p);
   updateCheatSheet(p);
-  // Refonte épuration jour : entrée en phase day = on repart en débat (pas de vote)
+  // Entrée dans le jour : débat d'abord, pas de vote
   if (p === "day") { mjVoteRunning = false; mjEtatVote = "debat"; majBoutonsJour(); }
   refreshDayStateBanner();
   if(p!=="chasseur") document.getElementById("chasseurPanel").style.display="none";
@@ -1425,8 +1413,7 @@ socket.on("tiebreakResolved", data=>{
 });
 
 socket.on("autoResolve",   msg=>showAlert(msg, "success"));
-// Refonte (mai 2026) : les joueurs ne voient plus le rôle des morts. Le MJ reçoit
-// une carte dédiée avec nom + rôle + récit, pour pouvoir narrer l'élimination.
+// Les joueurs ne voient pas le rôle des morts : le MJ a sa carte (nom, rôle, récit) pour raconter
 let _mjVoteDeathAutoClose = null;
 // Carte MJ générique « une mort à annoncer » — vote du jour OU tir du Chasseur.
 function showMjDeathCard(emoji, subtitle, name, role, narrative) {
@@ -1453,7 +1440,7 @@ socket.on("dayVoteResult", data=>{
   _mjLaunchVoteUnlocksAt = Date.now() + 6500;
   try { if (typeof speakNarration === "function") speakNarration(`${data.name} a été désigné par le village. Son rôle était ${data.role}.`); } catch(_) {}
 });
-// Refonte (mai 2026) : le Chasseur a tiré → le MJ voit qui il a emporté.
+// Le Chasseur a tiré : le MJ voit qui il a emporté
 socket.on("mjChasseurShot", data=>{
   if (!data) return;
   showAlert(`🔫 Le Chasseur ${data.shooterName} a tué ${data.targetName} — ${data.targetRole}`, "warn");
@@ -1525,7 +1512,6 @@ socket.on("voteStarted", data=>{
   document.getElementById("timerDisplay").style.display="block";
   document.getElementById("mjTimerBar").style.display="block";
   startCountdown();
-  // Refonte épuration jour : le vote démarre → bascule l'indicateur d'état
   mjVoteRunning = true; changerEtatVote("vote");
 });
 socket.on("voteStartedMJ", data=>{ mjEndsAt=data.endsAt; mjTotalMs=data.duration; startCountdown(); mjVoteRunning = true; changerEtatVote("vote"); });
@@ -1536,7 +1522,6 @@ socket.on("voteTimerEnd",()=>{
   document.getElementById("voteModeLabel").innerText="✅ Vote résolu";
   document.getElementById("timerDisplay").innerText="0s";
   document.getElementById("timerDisplay").classList.remove("urgent");
-  // Refonte épuration jour : vote terminé — la nuit va revenir
   mjVoteRunning = false; refreshDayStateBanner();
 });
 
@@ -1572,7 +1557,6 @@ function startGame(){
     conseil: !!document.getElementById("conseil")?.checked,
     autoMode: document.getElementById("autoMode")?.checked||false,
     autoVoteMode: +(document.getElementById("autoVoteMode")?.value||1),
-    // Refonte épuration jour (mai 2026) : transmet le toggle MJ pilote au serveur
     mjPilotedDay: document.getElementById("mjPilotedDay")?.checked||false
   });
 }
@@ -1773,7 +1757,7 @@ function replayGame(){
     // Réutilise les paramètres du mode autonome de la partie précédente
     autoMode:   document.getElementById("autoMode")?.checked||false,
     autoVoteMode: +(document.getElementById("autoVoteMode")?.value||1),
-    // Refonte épuration jour : conserve aussi le toggle MJ pilote entre parties
+    // Le mode du jour est gardé d'une partie à l'autre
     mjPilotedDay: document.getElementById("mjPilotedDay")?.checked||false
   });
   document.getElementById("replayPanel").style.display="none";
@@ -1824,10 +1808,7 @@ function updateCheatSheet(p) {
   wrap.style.display = "block";
 }
 
-// Refonte épuration jour (mai 2026) : indicateur d'état du jour côté MJ.
-// Affiche clairement si on est en phase de DÉBAT (joueurs écran posé, le MJ
-// raconte) ou de VOTE (joueurs sur leur téléphone). Aide le MJ à savoir où il
-// en est et quoi faire ensuite.
+// Indicateur du jour : DÉBAT (téléphones posés, le MJ raconte) ou VOTE (téléphones en main)
 let mjVoteRunning = false;
 // Étape du jour vue par le MJ : "debat" (vote pas encore lancé), "vote" (en cours) ou
 // "resultat" (vote clos : suspense, égalité, élimination — jusqu'à la nuit). Elle décide
@@ -1978,7 +1959,7 @@ let _gameJoinUrl = "";
   }catch(e){document.getElementById("gameUrl").innerText="Erreur IP";}
 })();
 
-// Refonte (mai 2026) : vue QR plein écran — uniquement le QR code, pour l'immersion.
+// QR code seul, en plein écran
 function showQRFullscreen(){
   const overlay = document.getElementById("qrFullscreen");
   const box     = document.getElementById("qrFullscreenCode");
