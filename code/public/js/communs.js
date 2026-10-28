@@ -22,12 +22,13 @@ const ROLES = {
 const emojiDuRole = r => (ROLES[r] || {}).emoji || "";
 const nomDuRole   = r => (ROLES[r] || {}).nom || r || "?";
 
-// Causes de mort : pictogramme et phrase (« Ana — tué par les Loups »)
+// Causes de mort : pictogramme et phrase, neutre pour tout le monde (« Ana — victime des Loups »,
+// « Ana est victime des Loups » dans le récit lu par le MJ)
 const CAUSES = {
-  loups:    { emoji: "🐺", texte: "tué par les Loups" },
-  sorcière: { emoji: "🧪", texte: "empoisonné par la Sorcière" },
-  vote:     { emoji: "☀️", texte: "éliminé par le village" },
-  chasseur: { emoji: "🔫", texte: "emporté par le Chasseur" },
-  amour:    { emoji: "💔", texte: "mort d'amour" },
+  loups:    { emoji: "🐺", texte: "victime des Loups" },
+  sorcière: { emoji: "🧪", texte: "victime du poison de la Sorcière" },
+  vote:     { emoji: "☀️", texte: "victime du vote du village" },
+  chasseur: { emoji: "🔫", texte: "victime du tir du Chasseur" },
+  amour:    { emoji: "💔", texte: "victime d'un chagrin d'amour" },
 };
 const causeEnTexte = c => (CAUSES[c] || {}).texte || c || "mort";

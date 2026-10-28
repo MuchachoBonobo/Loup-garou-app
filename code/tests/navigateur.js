@@ -4,7 +4,7 @@
  * ce que chaque écran affiche (cartes, voile de nuit, listes de choix, écran de débat, écran de
  * mort, boutons de vote, fin de partie) et qu'aucune page n'a d'erreur JavaScript.
  *
- * Partie 1 — 2 loups, 4 villageois, MJ qui pilote le jour, sans Conseil ni mission.
+ * Partie 1 — 2 loups, 4 villageois dont 2 Sœurs, MJ qui pilote le jour, sans Conseil ni mission.
  *   Nuit 1 : les loups tuent V1. Jour 1 : le village élimine L1. Nuit 2 : L2 tue V2.
  *   Jour 2 : le village élimine L2 → victoire du village. Le maire (V4) n'est jamais visé.
  * Partie 2 — les rôles qui choisissent : Cupidon, Salvateur, Voyante, Petite Fille, Corbeau,
@@ -126,18 +126,20 @@ async function partie(navigateur, titre, port, noms, composition, deroule) {
   await P.fermer();
 }
 
-// Découverte du rôle sur chaque téléphone : carte retournée, détails, fermeture. Avec deux loups, le
-// premier doit voir son compagnon sur la carte retournée, et pas dans la description du rôle.
-async function decouvrirRoles({ tel, pages }, [loup, compagnon] = []) {
+// Découverte du rôle sur chaque téléphone : carte retournée, détails, fermeture. Avec deux loups
+// (ou deux Sœurs), le premier doit voir l'autre sur la carte retournée, et pas dans la description.
+async function decouvrirRoles({ tel, pages }, [loup, compagnon] = [], [soeur, autreSoeur] = []) {
   console.log("\n▶ Découverte du rôle");
   for (const p of pages) await clic(p, "#roleFlip");
   check("la carte retournée montre le rôle", await tous(pages, p => attendre(p, () => document.getElementById("rfRoleName").innerText.trim().length > 0)));
   if (compagnon) { const t = await texte(tel[loup], "rfSecrets"); check("un loup voit son compagnon sur la carte retournée", t.includes(compagnon), t); }
+  if (autreSoeur) { const t = await texte(tel[soeur], "rfSecrets"); check("une Sœur voit sa sœur sur la carte retournée", t.includes(autreSoeur), t); }
   check("« Voir les détails » apparaît", await tous(pages, p => affiche(p, "#roleFlipContinue")));
   for (const p of pages) await clic(p, "#roleFlipContinue");
   check("la carte de rôle détaillée s'ouvre", await tous(pages, p => attendre(p, () => document.getElementById("roleCard").className === "show")));
   check("le nom du rôle n'est pas précédé de son pictogramme (déjà en grand)", await tous(pages, p => p.evaluate(() => !/\p{Extended_Pictographic}/u.test(document.getElementById("rcRole").innerText + document.getElementById("rfRoleName").innerText))));
   if (compagnon) { const t = await texte(tel[loup], "roleCard"); check("la description du rôle ne cite pas les compagnons", !t.includes(compagnon), t.slice(0, 120)); }
+  if (autreSoeur) { const t = await texte(tel[soeur], "roleCard"); check("la description du rôle ne cite pas la sœur", !t.includes(autreSoeur), t.slice(0, 120)); }
   for (const p of pages) await clic(p, '#roleCard button[onclick="closeRoleCard()"]');
   check("la carte de rôle se referme", await tous(pages, p => attendre(p, () => document.getElementById("roleCard").className === "")));
 }
@@ -165,10 +167,11 @@ async function victoireDuVillage({ tel, pages }, temoin) {
 async function partieVillage(P) {
   const { mj, tel, noms, roleDe, id, etapeMJ } = P;
   const loups = noms.filter(n => roleDe[n] === "Loup"), vill = noms.filter(n => roleDe[n] !== "Loup");
-  check("2 loups et 4 villageois", loups.length === 2 && vill.length === 4, roleDe);
+  const soeurs = noms.filter(n => roleDe[n] === "Sœurs");
+  check("2 loups et 4 villageois, dont 2 Sœurs", loups.length === 2 && vill.length === 4 && soeurs.length === 2, roleDe);
   const [L1, L2] = loups, [V1, V2, V3, V4] = vill;
 
-  await decouvrirRoles(P, [L1, L2]);
+  await decouvrirRoles(P, [L1, L2], soeurs);
   await election(P, V4, V3);
   const carteMaire = await tel[V1].evaluate(() => ({ nom: document.getElementById("mayorCardNom").innerText, photo: document.getElementById("mayorCardPhoto").children.length }));
   check("elle montre le nom et la photo du maire", carteMaire.nom === V4 && carteMaire.photo === 1, carteMaire);
@@ -297,7 +300,7 @@ async function main() {
     executablePath: CHROME, headless: true,
     args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required", "--mute-audio"],
   });
-  await partie(navigateur, "PARTIE 1 — 2 loups, 4 villageois", 3107, ["Ana", "Bob", "Cyd", "Dan", "Eve", "Fox"], { loup: 2 }, partieVillage);
+  await partie(navigateur, "PARTIE 1 — 2 loups, 4 villageois dont 2 Sœurs", 3107, ["Ana", "Bob", "Cyd", "Dan", "Eve", "Fox"], { loup: 2, sisters: 2 }, partieVillage);
   await partie(navigateur, "PARTIE 2 — les rôles qui choisissent", 3112, ["Gil", "Hal", "Ivy", "Jon", "Kim", "Lou", "Max", "Ned", "Oz"],
     { loup: 1, voyante: 1, salvateur: 1, corbeau: 1, sorciere: 1, chasseur: 1, petiteFille: 1, cupidon: 1 }, partieRoles);
   check("aucune erreur JavaScript dans les pages", erreursJS.length === 0, erreursJS.slice(0, 5).join(" ‖ "));

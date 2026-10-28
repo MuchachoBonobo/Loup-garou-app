@@ -670,13 +670,15 @@ function assignAndStart(config, playerList) {
     if (state.playerRegistry[k]) state.playerRegistry[k].role = state.roles[p.id];
   });
 
-  const wolves = Object.entries(state.roles).filter(r => r[1] === "Loup").map(r => r[0]);
+  const wolves = joueursAvecRole("Loup"), soeurs = joueursAvecRole("Sœurs");
 
   playerList.forEach(p => {
     const isWolf = state.roles[p.id] === "Loup";
     state.io.to(p.id).emit("yourRole", {
       role: state.roles[p.id],
+      // Loups et Sœurs savent dès le début avec qui ils sont
       wolves: isWolf ? wolves : [],
+      soeurs: state.roles[p.id] === "Sœurs" ? soeurs : [],
       // Le téléphone en a besoin pour choisir l'écran de mort épuré plutôt que la vision complète
       mjPilotedDay: !!state.mjPilotedDay,
       nuitParMJ: !state.autoMode

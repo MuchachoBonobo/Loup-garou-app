@@ -321,12 +321,13 @@ io.on("connection", socket => {
         envoyerConnexionsMJ();
         if (etaitPerdu) io.to(state.mjSocketId).emit("joueurRevenu", { name: playerName(socket.id) });
       }
-      // Les téléphones des loups et des amoureux mémorisent leurs partenaires par
+      // Les téléphones des loups, des sœurs et des amoureux mémorisent leurs partenaires par
       // identifiant : on leur renvoie la liste à jour, sinon un loup ne reconnaissait
       // plus son coéquipier reconnecté (et pouvait cliquer pour le dévorer).
-      if (state.roles[socket.id] === "Loup") {
-        const loups = joueursAvecRole("Loup");
-        loups.filter(id => id !== socket.id).forEach(id => io.to(id).emit("loupsMisAJour", loups));
+      for (const [r, evenement] of [["Loup", "loupsMisAJour"], ["Sœurs", "soeursMisAJour"]]) {
+        if (state.roles[socket.id] !== r) continue;
+        const ids = joueursAvecRole(r);
+        ids.filter(id => id !== socket.id).forEach(id => io.to(id).emit(evenement, ids));
       }
       if (state.lovers.includes(socket.id)) {
         const cupidons = joueursAvecRole("Cupidon");

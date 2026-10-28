@@ -282,6 +282,7 @@ function buildFullState(socketId) {
     voteMode:     state.voteMode,
     role:         state.roles[socketId],
     wolves:       isWolf ? joueursAvecRole("Loup") : [],
+    soeurs:       state.roles[socketId] === "Sœurs" ? joueursAvecRole("Sœurs") : [],
     deathLog:     state.gameStats.deathLog,
     idiotRevealed: state.idiotRevealed,
     idiotId:      state.idiotRevealed ? joueursAvecRole("Idiot")[0] : null,

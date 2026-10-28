@@ -440,7 +440,7 @@
   <div id="infoPanelContent">
     <div class="info-role" id="infoRole"></div>
     <div class="info-section" id="infoAllies" style="display:none"><strong id="infoAlliesTitle"></strong><div id="infoAlliesList"></div></div>
-    <div class="info-section" id="infoLovers" style="display:none"><strong id="infoLoversTitle">💘 Ton amoureux·se</strong><div id="infoLoversList"></div></div>
+    <div class="info-section" id="infoLovers" style="display:none"><strong id="infoLoversTitle">💘 Ton amour</strong><div id="infoLoversList"></div></div>
     <div class="info-section" id="infoPotions" style="display:none"><strong>🧪 Tes potions</strong><div id="infoPotionsList"></div></div>
   </div>
 </div>
@@ -599,7 +599,7 @@ function isDayContext() {
   return phase === "day" || _prevPhase === "day";
 }
 
-let players=[], deadPlayers=[], lovers=[], wolves=[];
+let players=[], deadPlayers=[], lovers=[], wolves=[], soeurs=[];
 let role=null, mayor=null, phase=null, _prevPhase=null;
 let roles={};
 let mayorCounts={}, dayCounts={}, wolfVotes={};
@@ -724,7 +724,7 @@ const VOTE_MODE_CARDS = {
   1:"⏱️ Mode Libre — tu peux changer ton vote",
   2:"⚖️ Le Jugement — premier vote définitif",
   4:"⚡ La Panique — vote vite !",
-  5:"🖤 Émeute — vote anonyme"
+  5:"🖤 L'Émeute — vote anonyme"
 };
 
 let _renderPending = false;
@@ -1071,16 +1071,17 @@ function libererAnnonceAction() {
   fermerCarteMortSiOuverte();
   libererCartesRetenues();
 }
-// « X est mort·e cette nuit. », « X et Y sont morts cette nuit. », puis « 💔 Z est mort·e d'amour. »
+// « X a péri cette nuit. », « X et Y ont péri cette nuit. », puis « 💔 Z a succombé au chagrin d'amour. »
+// (tournures neutres : elles conviennent à tout le monde, sans « mort·e »)
 function listeDeNoms(noms) { return noms.length <= 1 ? (noms[0] || "") : noms.slice(0, -1).join(", ") + " et " + noms[noms.length - 1]; }
 function phraseDesMorts(morts, quand) {
   const ordinaires = morts.filter(d => d.cause !== "amour").map(d => d.name);
   const lignes = [];
-  if (ordinaires.length) lignes.push(`${listeDeNoms(ordinaires)} ${ordinaires.length > 1 ? "sont morts" : "est mort·e"} ${quand}.`);
-  morts.filter(d => d.cause === "amour").forEach(d => lignes.push(`💔 ${d.name} est mort·e d'amour.`));
+  if (ordinaires.length) lignes.push(`${listeDeNoms(ordinaires)} ${ordinaires.length > 1 ? "ont péri" : "a péri"} ${quand}.`);
+  morts.filter(d => d.cause === "amour").forEach(d => lignes.push(`💔 ${d.name} a succombé au chagrin d'amour.`));
   return lignes.join("\n");
 }
-// Victimes montrées sur la carte ouverte (un amoureux·se mort d'amour s'y ajoute)
+// Victimes montrées sur la carte ouverte (un amoureux mort de chagrin s'y ajoute)
 let _victimesCarte = [];
 
 socket.on("finAnnonceMatin", d => {
@@ -1250,7 +1251,7 @@ function renderDeathPhotos(victims) {
 function showDeathCard(name, role, narrative) {
   // Carte de mort côté joueur : la photo, jamais le rôle (le MJ a l'info complète pour
   // raconter) ; role et narrative restent dans la signature pour les appelants
-  carteAnnonce("⚖️", "Le village a tranché", name + " a été désigné·e par le vote.", "", [name]);
+  carteAnnonce("⚖️", "Le village a tranché", "Le village a désigné " + name + ".", "", [name]);
   // La nightFallCard pourra s'afficher après cette carte (si la cascade du serveur — Chasseur,
   // transmission, amoureux — ne finit pas la partie)
   nightCardShownThisNight = false;
@@ -1391,7 +1392,7 @@ socket.on("reconnected", state => {
   players=state.players||[]; deadPlayers=state.deadPlayers||[];
   phase=state.phase; mayor=state.mayor; lovers=state.lovers||[];
   mayorCounts=state.mayorCounts||{}; dayCounts=state.dayCounts||{};
-  role=state.role; wolves=state.wolves||[];
+  role=state.role; wolves=state.wolves||[]; soeurs=state.soeurs||[];
   iAmDead=deadPlayers.includes(socket.id);
   if (typeof state.mjPilotedDay === "boolean") mjPilotedDay = state.mjPilotedDay;
   if (typeof state.nuitParMJ === "boolean") { nuitParMJ = state.nuitParMJ; majModeMJ(); }
@@ -1507,7 +1508,7 @@ function traduireIdsApresReconnexion(nouveauxJoueurs) {
   const T  = id => (typeof id === "string" && table[id]) ? table[id] : id;
   const TL = l => Array.isArray(l) ? l.map(T) : l;
   const TK = o => { const r = {}; Object.entries(o || {}).forEach(([k, v]) => { r[T(k)] = (typeof v === "string") ? T(v) : v; }); return r; };
-  wolves = TL(wolves); lovers = TL(lovers); deadPlayers = TL(deadPlayers);
+  wolves = TL(wolves); soeurs = TL(soeurs); lovers = TL(lovers); deadPlayers = TL(deadPlayers);
   mayor = T(mayor); myDayVote = T(myDayVote); myMayorVote = T(myMayorVote);
   nightVictimId = T(nightVictimId); corbeauVotesTarget = T(corbeauVotesTarget);
   idiotId = T(idiotId); dyingMayorId = T(dyingMayorId); salvateurLastProtectedId = T(salvateurLastProtectedId);
@@ -1931,7 +1932,7 @@ socket.on("phase", p=>{
 });
 
 
-// Ce que le joueur sait grâce à son rôle : ses compagnons loups, son amoureux·se, ou les
+// Ce que le joueur sait grâce à son rôle : ses compagnons loups, son amour, ou les
 // amoureux choisis par Cupidon. Montré seulement quand il regarde son rôle (annonce, « Mon
 // rôle »), jamais en permanence dans la liste des joueurs (2026-10-26). Le MJ voit tout.
 function secretsDuRole() {
@@ -1941,8 +1942,12 @@ function secretsDuRole() {
     const autres = wolves.filter(w => w !== socket.id).map(nom).filter(Boolean);
     if (autres.length) lignes.push("🐺 Avec toi : " + autres.join(", "));
   }
+  if (role === "Sœurs") {
+    const autre = soeurs.filter(s => s !== socket.id).map(nom).filter(Boolean);
+    if (autre.length) lignes.push("👯‍♀️ Ta sœur : " + autre.join(", "));
+  }
   const monAmour = lovers.includes(socket.id) ? lovers.find(l => l !== socket.id) : null;
-  if (monAmour && nom(monAmour)) lignes.push("💘 Ton amoureux·se : " + nom(monAmour));
+  if (monAmour && nom(monAmour)) lignes.push("💘 Ton amour : " + nom(monAmour));
   else if (role === "Cupidon" && lovers.length === 2) lignes.push("💘 Tes amoureux : " + lovers.map(nom).filter(Boolean).join(" et "));
   return lignes;
 }
@@ -2020,7 +2025,7 @@ function closeRoleReveal() {
 }
 
 socket.on("yourRole", data=>{
-  role=data.role; wolves=data.wolves||[];
+  role=data.role; wolves=data.wolves||[]; soeurs=data.soeurs||[];
   if (typeof data.mjPilotedDay === "boolean") mjPilotedDay = data.mjPilotedDay;
   if (typeof data.nuitParMJ === "boolean") { nuitParMJ = data.nuitParMJ; majModeMJ(); }
   // À l'attribution du rôle, la partie démarre vraiment → on masque le lobby + photo
@@ -2200,6 +2205,7 @@ socket.on("deadPlayers", dead=>{
 socket.on("loversInfo", list=>{ lovers=list; renderInfoPanel(); scheduleRender(); });
 // Un autre loup s'est reconnecté (nouvel identifiant) : liste des loups à jour
 socket.on("loupsMisAJour", liste=>{ if(role==="Loup"){ wolves=liste||[]; renderInfoPanel(); scheduleRender(); } });
+socket.on("soeursMisAJour", liste=>{ if(role==="Sœurs"){ soeurs=liste||[]; renderInfoPanel(); } });
 socket.on("newMayor", (id, info)=>{
   const prevMayor = mayor;
   mayor=id;
@@ -2376,7 +2382,7 @@ socket.on("chasseurMustShoot", hunterId=>{
 // raconte (jusqu'au débat le matin, jusqu'à la nuit après un vote)
 socket.on("chasseurATire", d => {
   if (!d || gameIsOver) return;
-  carteAnnonce("🔫", "Le Chasseur a tiré", `${d.name} est emporté·e par le Chasseur.`,
+  carteAnnonce("🔫", "Le Chasseur a tiré", `Le Chasseur emporte ${d.name}.`,
     "radial-gradient(ellipse at center,rgb(var(--braise-nuit)) 0%,rgb(var(--braise-nuit)) 100%)", [d.name]);
   if (d.nuit) { _aubeAttendLeMJ = nuitParMJ && mjPilotedDay; if (!_aubeAttendLeMJ) setTimeout(fermerCarteMortSiOuverte, 7000); }
   else fermerCarteAuRythme(fermerCarteMortSiOuverte, 5000, ["chasseur", "day", "crepuscule"]);
@@ -2391,13 +2397,13 @@ socket.on("loversDeathInfo", data=>{
     deathLog.push({ id:partnerId, name:partnerName, role:partnerRole, cause:"amour" });
     updateDeathLog(deathLog);
   }
-  // Carte d'un mort encore ouverte (vote, tir du Chasseur) : l'amoureux·se y apparaît aussi
+  // Carte d'un mort encore ouverte (vote, tir du Chasseur) : son amour y apparaît aussi
   const carte = document.getElementById("dayDeathCard");
   if (carte && carte.classList.contains("show") && !_victimesCarte.some(v => v.name === partnerName)) {
     _victimesCarte.push({ name: partnerName });
     renderDeathPhotos(_victimesCarte);
     const texte = document.getElementById("deathText");
-    texte.innerText = texte.innerText + `\n💔 ${partnerName} est mort·e d'amour.`;
+    texte.innerText = texte.innerText + `\n💔 ${partnerName} a succombé au chagrin d'amour.`;
   }
 });
 
@@ -2982,7 +2988,7 @@ socket.on("voteTimerEnd",()=>{
 socket.on("gameReset", data => {
   evenementDuJour = null;
   _fermeturesRetenues = []; _aubeAttendLeMJ = false;
-  role=null; wolves=[]; lovers=[]; mayor=null; iAmDead=false;
+  role=null; wolves=[]; soeurs=[]; lovers=[]; mayor=null; iAmDead=false;
   deadVisionData=null; nightVictimId=null; mayorCounts={}; dayCounts={}; wolfVotes={};
   dyingMayorId=null;
   witchSaveUsed=false; witchKillUsed=false; hasVotedLocked=false; voteActive=false; myDayVote=null; myMayorVote=null;
@@ -3078,15 +3084,16 @@ function renderInfoPanel(){
   document.getElementById("infoPanel").style.display="block";
   document.getElementById("infoRole").innerText=ROLE_DISPLAY[role]||role;
   const ad=document.getElementById("infoAllies"),al=document.getElementById("infoAlliesList"),at=document.getElementById("infoAlliesTitle");
-  if(role==="Loup"&&wolves.length>1){
-    at.innerText="🐺 Tes compagnons :"; al.innerHTML="";
-    wolves.filter(w=>w!==socket.id).forEach(wid=>{const p=players.find(x=>x.id===wid);if(!p)return;const dead=deadPlayers.includes(wid),s=document.createElement("span");s.className="info-badge badge-wolf"+(dead?" badge-dead":"");s.innerText=(dead?"☠️ ":"🐺 ")+p.name;al.appendChild(s);});
+  const loup=role==="Loup", compagnons=loup?wolves:role==="Sœurs"?soeurs:[];
+  if(compagnons.length>1){
+    at.innerText=loup?"🐺 Tes compagnons :":"👯‍♀️ Ta sœur :"; al.innerHTML="";
+    compagnons.filter(w=>w!==socket.id).forEach(wid=>{const p=players.find(x=>x.id===wid);if(!p)return;const dead=deadPlayers.includes(wid),s=document.createElement("span");s.className="info-badge "+(loup?"badge-wolf":"badge-lover")+(dead?" badge-dead":"");s.innerText=(dead?"☠️ ":loup?"🐺 ":"👯‍♀️ ")+p.name;al.appendChild(s);});
     ad.style.display="block";
   } else ad.style.display="none";
   const ld=document.getElementById("infoLovers"),ll=document.getElementById("infoLoversList"),lt=document.getElementById("infoLoversTitle");
   const myLover=lovers.find(l=>l!==socket.id);
   if(lovers.includes(socket.id)&&myLover){
-    lt.innerText="💘 Ton amoureux·se :"; ll.innerHTML="";
+    lt.innerText="💘 Ton amour :"; ll.innerHTML="";
     const p=players.find(x=>x.id===myLover);if(p){const dead=deadPlayers.includes(myLover),s=document.createElement("span");s.className="info-badge badge-lover"+(dead?" badge-dead":"");s.innerText=(dead?"☠️ ":"❤️ ")+p.name;ll.appendChild(s);}
     ld.style.display="block";
   } else if(role==="Cupidon"&&lovers.length===2){

@@ -50,9 +50,9 @@ async function setupGame(all, names, config) {
   await sleep(300);
 
   // Écouter les événements phase et yourRole AVANT d'émettre assignRoles
-  const roleOf = {};
+  const roleOf = {}, infos = {};
   const rolePs      = players.map(p => new Promise(res =>
-    p.s.once("yourRole", d => { roleOf[p.name] = d.role; res(); })
+    p.s.once("yourRole", d => { roleOf[p.name] = d.role; infos[p.name] = d; res(); })
   ));
   const mayorVoteP  = attendrePhase(players[0].s, "mayorVote");
 
@@ -73,7 +73,7 @@ async function setupGame(all, names, config) {
   mj.emit("setPhase", "wolves");
   await wolvesP;
 
-  return { mj, players, roleOf };
+  return { mj, players, roleOf, infos };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -799,6 +799,28 @@ async function s13() {
 // ═══════════════════════════════════════════════════════════
 // Démarrage serveur + exécution des scénarios
 // ═══════════════════════════════════════════════════════════
+// S14 — Les Sœurs savent dès l'attribution des rôles avec qui elles sont, comme les Loups ;
+// personne d'autre ne l'apprend
+async function s14() {
+  console.log("\n▶ S14 — Les Sœurs se connaissent dès le début");
+  const all = [];
+  try {
+    const NAMES = ["s14_A","s14_B","s14_C","s14_D","s14_E"];
+    const cfg   = { loup:1, chasseur:0, sorciere:0, voyante:0, cupidon:0, corbeau:0,
+                    salvateur:0, sisters:2, petiteFille:0, idiot:0, mission:false };
+    const { players, roleOf, infos } = await setupGame(all, NAMES, cfg);
+    const soeurs = players.filter(p => roleOf[p.name] === "Sœurs");
+    const ids = soeurs.map(p => p.s.id).sort().join();
+    check("S14-deux Sœurs tirées", soeurs.length === 2, JSON.stringify(roleOf));
+    check("S14-chaque Sœur reçoit les deux Sœurs", soeurs.every(p => [...(infos[p.name].soeurs || [])].sort().join() === ids));
+    check("S14-les autres ne reçoivent aucune Sœur", players.filter(p => roleOf[p.name] !== "Sœurs").every(p => (infos[p.name].soeurs || []).length === 0));
+  } catch (e) {
+    ko("S14 crash", e.message);
+  } finally {
+    await closeAll(all);
+  }
+}
+
 async function main() {
   console.log("═".repeat(62));
   console.log("🐺 LOUP-GAROU — Tests intégration — port " + TEST_PORT);
@@ -807,7 +829,7 @@ async function main() {
   const serveur = await demarrerServeur(TEST_PORT);
   console.log("  Serveur test prêt : http://localhost:" + TEST_PORT + "\n");
 
-  for (const scenario of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13]) {
+  for (const scenario of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14]) {
     try { await scenario(); }
     catch (e) { ko("crash non rattrapé", e.message); }
     await sleep(800);

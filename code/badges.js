@@ -91,7 +91,7 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
       if (!vise) give(w.name, "insoupconnable", {
         emoji: "🦊",
         label: "Insoupçonnable",
-        desc: `Pas une seule voix contre lui en ${voteLog.length} votes.`
+        desc: `Aucune voix contre soi en ${voteLog.length} votes.`
       });
     });
   }
@@ -115,7 +115,7 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
       give(d.name, "coeur", {
         emoji: "💔",
         label: "Cœur brisé",
-        desc: "Est mort de chagrin en suivant son amour."
+        desc: "A suivi son amour dans la mort."
       });
     }
   });
@@ -127,7 +127,7 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
       if (p) give(p.name, "couple", {
         emoji: "💘",
         label: "Couple éternel",
-        desc: "A survécu jusqu'à la fin avec son amoureux·se."
+        desc: "A survécu jusqu'à la fin avec son amour."
       });
     });
   }
@@ -209,7 +209,7 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
       give(gameStats.mayorName, "etoile", {
         emoji: "🏛️",
         label: "Étoile du village",
-        desc: "Élu Maire et toujours debout à la fin."
+        desc: "Maire jusqu'au bout, et toujours debout."
       });
     }
   }
@@ -221,7 +221,7 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
         give(p.name, "bouffon", {
           emoji: "🤡",
           label: "Bouffon impardonnable",
-          desc: "A été démasqué, mais le village l'a épargné."
+          desc: "Son rôle a été révélé, mais le village l'a épargné."
         });
       }
     });
@@ -255,10 +255,10 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
   players.forEach(p => {
     if (!p.name || badges[p.name]) return;
     badges[p.name] = [isDead(p.id)
-      ? { emoji: "🕯️", label: "Tombé·e au combat", desc: "N'a pas vu la fin, mais a joué jusqu'au bout." }
+      ? { emoji: "🕯️", label: "Au champ d'honneur", desc: "N'a pas vu la fin, mais a joué jusqu'au bout." }
       : aGagne(p.id)
-        ? { emoji: "🏆", label: "Victorieux·se", desc: "Debout à la fin, dans le camp gagnant." }
-        : { emoji: "🛡️", label: "Rescapé·e", desc: "A survécu jusqu'au bout de la partie." }];
+        ? { emoji: "🏆", label: "Victoire", desc: "Debout à la fin, dans le camp gagnant." }
+        : { emoji: "🛡️", label: "Survie", desc: "A survécu jusqu'au bout de la partie." }];
   });
   return badges;
 }

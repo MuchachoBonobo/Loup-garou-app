@@ -17,7 +17,7 @@ const COUNCIL_TRIGGER_THRESHOLD = 1;
 const COUNCIL_EVENTS = {
   riot: {
     id: "riot",
-    title: "⚖️ Émeute",
+    title: "🖤 L'Émeute",
     narrative: "Un grondement traverse la place du village. La méfiance brouille les regards, les voix se confondent. Personne ne saura qui aura voté pour qui : ce vote sera entièrement anonyme.",
     technical: { forceVoteMode: 5 }
   },
@@ -53,7 +53,7 @@ const COUNCIL_EVENTS = {
   },
   storm: {
     id: "storm",
-    title: "⛈ Tempête",
+    title: "⛈️ La Tempête",
     narrative: "Le ciel s'assombrit. Au loin, le tonnerre gronde. Une pluie froide commence à fouetter les visages. Le village vivra cette journée sous l'orage.",
     technical: { stormSound: true }
   },
@@ -67,8 +67,8 @@ const COUNCIL_EVENTS = {
   },
   fire: {
     id: "fire",
-    title: "🔥 Incendie",
-    narrative: "Une fumée âcre monte de la grange du maire. Son écharpe brûle avec ses derniers privilèges. Aujourd'hui, en cas d'égalité, c'est le hasard — et non lui — qui tranchera.",
+    title: "🔥 L'Incendie",
+    narrative: "Une fumée âcre monte de la grange du Maire. Son écharpe brûle avec ses derniers privilèges. Aujourd'hui, en cas d'égalité, c'est le hasard — et non lui — qui tranchera.",
     technical: { mayorPowerless: true }
   },
   whispers: {
@@ -79,13 +79,13 @@ const COUNCIL_EVENTS = {
   },
   tribunal: {
     id: "tribunal",
-    title: "⚖️ Le Tribunal",
+    title: "🧍 Le Tribunal",
     narrative: "Une vieille tradition refait surface. Les anciens insistent : pour parler, il faut se lever. Quiconque souhaite s'exprimer devra se mettre debout face à l'assemblée.",
     technical: null
   },
   bell: {
     id: "bell",
-    title: "⛪ La Cloche du Village",
+    title: "⛪ La Cloche du village",
     narrative: "La vieille cloche de l'église s'est mise à sonner sans raison. Toutes les 45 secondes, elle retentira — et chacun devra se taire quelques instants pour l'écouter.",
     technical: { bellInterval: true }
   },
@@ -97,7 +97,7 @@ const COUNCIL_EVENTS = {
   },
   wind: {
     id: "wind",
-    title: "🌬 Le Vent",
+    title: "🌬️ Le Vent",
     narrative: "Un vent persistant traverse la place. Il pousse les regards vers le sol. Aujourd'hui, plus personne ne pourra fixer un autre dans les yeux en parlant.",
     technical: null
   },
@@ -122,7 +122,7 @@ const COUNCIL_EVENTS = {
   abdication: {
     id: "abdication",
     title: "👑 L'Abdication",
-    narrative: "L'écharpe pèse trop lourd. Le maire renonce à ses insignes et désigne, ici et maintenant, celui ou celle qui portera la responsabilité pour ce jour et les suivants.",
+    narrative: "L'écharpe pèse trop lourd. Le Maire renonce à ses insignes et désigne, ici et maintenant, celui ou celle qui portera la responsabilité pour ce jour et les suivants.",
     technical: { abdication: true }
   }
 };

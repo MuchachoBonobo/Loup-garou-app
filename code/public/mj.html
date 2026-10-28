@@ -496,11 +496,18 @@ if ('speechSynthesis' in window) {
   speechSynthesis.addEventListener('voiceschanged', loadVoices);
 }
 
+// Les phrases se suivent sans se couper (le récit du matin arrivait 1 s avant « Le jour se lève »,
+// qui le coupait : les noms des morts n'étaient jamais dits). Au-delà d'une phrase en attente, on
+// repart de la dernière, pour ne pas prendre de retard sur la partie.
+let _phrasesEnCours = 0;
 function speakNarration(text) {
   if (!narrationOn || !('speechSynthesis' in window) || !text) return;
-  // Annule l'éventuelle voix en cours pour ne pas accumuler
-  speechSynthesis.cancel();
+  text = text.replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, "").replace(/(\d+) ?s\b/g, "$1 secondes").replace(/\s+/g, " ").trim();
+  if (!text) return;
+  if (_phrasesEnCours >= 2) { speechSynthesis.cancel(); _phrasesEnCours = 0; }
   const utt = new SpeechSynthesisUtterance(text);
+  utt.onend = utt.onerror = () => { _phrasesEnCours = Math.max(0, _phrasesEnCours - 1); };
+  _phrasesEnCours++;
   utt.lang = 'fr-FR';
   utt.rate = narrationRate;
   utt.pitch = 1.0;
@@ -528,7 +535,7 @@ function setNarrationEnabled(enabled) {
   socket.emit('setNarration', narrationOn);
   // Si on coupe pendant qu'une phrase joue, on l'arrête
   if (!narrationOn && 'speechSynthesis' in window) {
-    try { speechSynthesis.cancel(); } catch(e) {}
+    try { speechSynthesis.cancel(); _phrasesEnCours = 0; } catch(e) {}
   }
   // Bouton ON/OFF (dans le panneau)
   const onOffBtn = document.getElementById('narrationOnOffBtn');
@@ -574,7 +581,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function testNarration() {
-  speakNarration("La nuit tombe sur le village. Les loups-garous se réveillent.");
+  speakNarration("La nuit tombe sur le village. Les Loups-Garous se réveillent.");
 }
 
 // ===== CONSEIL DES MORTS — handlers MJ =====
@@ -597,7 +604,7 @@ socket.on("councilStormStart", () => {
     stormAudio = new Audio(SOUNDS.rainynight || "sounds/rainynight.mp3");
     stormAudio.loop = true;
     stormAudio.volume = masterVolume * 0.5;
-    stormAudio.play().then(()=>{ dotSet(true); lblSet("⛈ Tempête"); }).catch(()=>dotSet(false,true));
+    stormAudio.play().then(()=>{ dotSet(true); lblSet("⛈️ La Tempête"); }).catch(()=>dotSet(false,true));
   } catch(e) {}
 });
 
@@ -666,7 +673,7 @@ socket.on("mjDayRecap", data => {
   let nightHtml = `<div style="color:rgb(var(--lune-vif));font-size:13px;font-weight:bold;margin-bottom:6px;">🌙 Cette nuit…</div>`;
   const nd = data.nightDeaths || [];
   const saveLabel = data.savedBySalvateur
-    ? "🛡️ Le Salvateur a protégé la victime des loups"
+    ? "🛡️ Le Salvateur a protégé la victime des Loups"
     : data.savedByWitch
       ? "🧪 La Sorcière a sauvé une vie"
       : data.saved
@@ -706,14 +713,13 @@ socket.on("mjDayRecap", data => {
   // vote de la veille, déjà raconté)
   try {
     let speech = `Jour ${data.dayNum}. `;
-    if (nd.length === 0 && data.saved) {
-      speech += `Cette nuit, la Sorcière a sauvé une vie : personne n'est mort.`;
-    } else if (nd.length === 0) {
-      speech += `La nuit a été silencieuse : aucune victime.`;
+    if (nd.length === 0) {
+      speech += `Personne n'a péri cette nuit.`;
     } else {
-      speech += `Cette nuit, ` + nd.map(d => `${d.name} (${nomDuRole(d.role)}) est ${causeEnTexte(d.cause)}`).join(", ") + ".";
+      speech += nd.map(d => d.cause === "amour" ? `${d.name} a succombé au chagrin d'amour.` : `${d.name} a péri cette nuit.`).join(" ")
+        + " " + nd.map(d => `Rôle de ${d.name} : ${nomDuRole(d.role)}.`).join(" ");
     }
-    speakNarration(speech);
+    setTimeout(() => speakNarration(speech), 1500);   // après la phrase du réveil (1 s après l'aube)
   } catch(_) {}
 });
 
@@ -1399,7 +1405,7 @@ socket.on("dayVoteResult", data=>{
   showMjDeathCard("⚖️", "Le verdict du village", data.name, nomDuRole(data.role), data.narrative);
   // Empêche le MJ de lancer le vote suivant avant que les joueurs aient vu la carte de mort (5 s + 0,6 s fermeture + marge)
   _mjLaunchVoteUnlocksAt = Date.now() + 6500;
-  try { speakNarration(`${data.name} a été désigné par le village. Son rôle était ${nomDuRole(data.role)}.`); } catch(_) {}
+  try { speakNarration(`Le village a désigné ${data.name}. Rôle : ${nomDuRole(data.role)}.`); } catch(_) {}
 });
 // Le Chasseur a tiré : le MJ voit qui il a emporté
 socket.on("mjChasseurShot", data=>{
@@ -1465,7 +1471,7 @@ socket.on("deadChatMsg", msg=>{
 let countdownInterval=null, mjEndsAt=null, mjTotalMs=null;
 socket.on("voteStarted", data=>{
   mjEndsAt=data.endsAt; mjTotalMs=data.duration;
-  const labels={1:"⏱️ Mode Libre (60s)",2:"⚖️ Le Jugement — verrouillé (60s)",4:"⚡ La Panique — express (30s)",5:"🖤 Émeute — vote anonyme (60s)"};
+  const labels={1:"⏱️ Mode Libre (60s)",2:"⚖️ Le Jugement — verrouillé (60s)",4:"⚡ La Panique — express (30s)",5:"🖤 L'Émeute — vote anonyme (60s)"};
   // Certains events du Conseil écrasent la durée par défaut : adapte le label.
   let label = labels[data.mode] || "Vote en cours";
   if (_mjActiveCouncilEvent === "voteMute") label = "🤐 Le Vote Muet — silence total (90s)";
@@ -1722,23 +1728,23 @@ function phaseLabel(p){
 const MJ_CHEATSHEET = {
   crepuscule:   { title:"🌆 Crépuscule",           lines:["Les téléphones montrent encore le résultat", "Laisse le village réagir", "Puis « 🌙 Lancer la nuit » : « Le village s'endort »"] },
   nightPause:   { title:"🌙 Entre deux rôles",     lines:["« … ferme les yeux »", "Vérifie que tout le monde a bien les yeux fermés", "Puis clique sur « Passer à l'étape suivante »"] },
-  mayorVote:    { title:"🏛️ Vote du Maire",     lines:["Demande au village d'élire son maire", "Le maire tranche en cas d'égalité", "Quand tout le monde a voté, clique sur « Valider le Maire »"] },
-  cupid:        { title:"💘 Cupidon",             lines:["« Cupidon, ouvre les yeux »", "Il désigne 2 amoureux (en silence)", "« Cupidon, ferme les yeux »"] },
+  mayorVote:    { title:"🏛️ Vote du Maire",     lines:["Demande au village d'élire son Maire", "Le Maire tranche en cas d'égalité", "Quand tout le monde a voté, clique sur « Valider le Maire »"] },
+  cupid:        { title:"💘 Cupidon",             lines:["« Cupidon, ouvre les yeux »", "Il choisit les 2 amoureux sur son téléphone", "« Cupidon, ferme les yeux »"] },
   amoureux:     { title:"💞 Les Amoureux",         lines:["« Amoureux, ouvrez les yeux et regardez-vous »", "Chacun voit l'autre sur son téléphone — 15 s qui démarrent seules", "« Amoureux, fermez les yeux »"] },
   sisters:      { title:"👯‍♀️ Sœurs jumelles",  lines:["Vérifie que tout le monde dort", "« Sœurs jumelles, ouvrez les yeux »", "Les 20 s démarrent toutes seules à leur réveil", "À la fin, la nuit marque une pause comme pour les autres rôles"] },
-  salvateur:    { title:"🛡️ Salvateur",            lines:["« Salvateur, ouvre les yeux »", "Il pointe qui il protège (≠ d'hier)", "« Salvateur, ferme les yeux »"] },
-  wolves:       { title:"🐺 Loups-Garous",         lines:["« Loups-garous, ouvrez les yeux »", "Ils désignent une proie en silence", "Quand ils sont d'accord, clique « Valider l'attaque »", "« Loups-garous, fermez les yeux »"] },
-  seer:         { title:"🔮 Voyante",              lines:["« Voyante, ouvre les yeux »", "Elle pointe un joueur — tu lui montres son rôle silencieusement", "« Voyante, ferme les yeux »"] },
-  petiteFille:  { title:"👧 Petite Fille",         lines:["« Petite Fille, ouvre les yeux »", "Elle désigne 3 joueurs sur son téléphone (pas elle-même)", "Son écran lui dit s'il y a au moins un loup parmi eux — la réponse s'affiche aussi chez toi", "La nuit attend son « OK, j'ai vu »", "« Petite Fille, ferme les yeux »"] },
-  corbeau:      { title:"🪶 Corbeau",              lines:["« Corbeau, ouvre les yeux »", "Il désigne un joueur (ou passe) — 2 votes contre demain", "« Corbeau, ferme les yeux »"] },
-  witch:        { title:"🧪 Sorcière",             lines:["« Sorcière, ouvre les yeux. Voici la victime des loups »", "Elle peut : sauver (potion vie), tuer (potion mort), ou rien", "« Sorcière, ferme les yeux »"] },
-  day:          { title:"☀️ Le jour — à toi de jouer", lines:["1. Annonce les morts de la nuit à voix haute (carte récap = ton support)", "2. Clique « ▶ Lancer le débat » en haut : « Le village se réveille… à vous de parler »", "3. Laisse les joueurs discuter — ils n'ont PAS leur écran, c'est voulu", "4. Quand le débat est mûr, clique « 🚀 Lancer le vote » en haut", "5. Le maire tranche en cas d'égalité — puis « 🌙 Lancer la nuit » quand tu es prêt"] },
-  chasseur:     { title:"🔫 Chasseur",             lines:["Le chasseur vient de mourir : raconte sa mort", "Puis clique « 🔫 Le Chasseur tire » en haut — il emporte qui il veut (45 s)"] },
-  mayorTransfer:{ title:"🏛️ Transfert d'écharpe", lines:["Le maire mourant désigne son successeur (60 s)"] },
-  mission:      { title:"🎭 Mission — sélection",  lines:["Le maire choisit 3 envoyés (il ne peut pas s'inclure)"] },
+  salvateur:    { title:"🛡️ Salvateur",            lines:["« Salvateur, ouvre les yeux »", "Il choisit sur son téléphone qui il protège (pas le même qu'hier)", "« Salvateur, ferme les yeux »"] },
+  wolves:       { title:"🐺 Loups-Garous",         lines:["« Loups-Garous, ouvrez les yeux »", "Ils désignent une proie en silence", "Quand ils sont d'accord, clique « Valider l'attaque »", "« Loups-Garous, fermez les yeux »"] },
+  seer:         { title:"🔮 Voyante",              lines:["« Voyante, ouvre les yeux »", "Elle choisit un joueur sur son téléphone, qui lui montre son rôle", "La nuit attend son « OK, j'ai vu »", "« Voyante, ferme les yeux »"] },
+  petiteFille:  { title:"👧 Petite Fille",         lines:["« Petite Fille, ouvre les yeux »", "Elle désigne 3 joueurs sur son téléphone (pas elle-même)", "Son écran lui dit s'il y a au moins un Loup parmi eux — la réponse s'affiche aussi chez toi", "La nuit attend son « OK, j'ai vu »", "« Petite Fille, ferme les yeux »"] },
+  corbeau:      { title:"🪶 Corbeau",              lines:["« Corbeau, ouvre les yeux »", "Il choisit un joueur sur son téléphone (ou passe) : 2 votes contre lui demain", "« Corbeau, ferme les yeux »"] },
+  witch:        { title:"🧪 Sorcière",             lines:["« Sorcière, ouvre les yeux. Voici la victime des Loups »", "Elle peut : sauver (potion vie), tuer (potion mort), ou rien", "« Sorcière, ferme les yeux »"] },
+  day:          { title:"☀️ Le jour — à toi de jouer", lines:["1. Annonce les morts de la nuit à voix haute (carte récap = ton support)", "2. Clique « ▶ Lancer le débat » en haut : « Le village se réveille… à vous de parler »", "3. Laisse les joueurs discuter — ils n'ont PAS leur écran, c'est voulu", "4. Quand le débat est mûr, clique « 🚀 Lancer le vote » en haut, puis « Terminer le vote »", "5. Le Maire tranche en cas d'égalité — puis « 🌙 Lancer la nuit » quand tu es prêt"] },
+  chasseur:     { title:"🔫 Chasseur",             lines:["Le Chasseur vient de mourir : raconte sa mort", "Puis clique « 🔫 Le Chasseur tire » en haut — il emporte qui il veut (60 s)"] },
+  mayorTransfer:{ title:"🏛️ Transfert d'écharpe", lines:["Le Maire mourant désigne son successeur (60 s)"] },
+  mission:      { title:"🎭 Mission — sélection",  lines:["Le Maire choisit 3 envoyés (il ne peut pas s'inclure)"] },
   missionVote:  { title:"🎭 Mission — vote",       lines:["Les 3 envoyés choisissent secrètement Réussite ou Échec"] },
-  missionBonus: { title:"🔍 Inspection bonus",     lines:["Maire choisit 3 joueurs — il saura si un loup est présent"] },
-  lobby:        { title:"⏳ Lobby",                lines:["Configure les rôles puis clique « Lancer la partie »"] },
+  missionBonus: { title:"🔍 Inspection bonus",     lines:["Le Maire choisit 3 joueurs : il saura si un Loup se cache parmi eux"] },
+  lobby:        { title:"⏳ Salon",                lines:["Configure les rôles puis clique « Lancer la partie »"] },
 };
 function updateCheatSheet(p) {
   const sheet = MJ_CHEATSHEET[p];
