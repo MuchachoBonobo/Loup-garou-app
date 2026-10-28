@@ -124,7 +124,7 @@ npm test                        # 13 scénarios d'intégration (Ange ×2, Petite
 npm run test:banc               # banc d'essai : 3 parties complètes jouées par des bots, règles contrôlées à chaque évènement ; échoue s'il trouve une anomalie (~10 min ; voir outils/banc-robots.js pour lancer plusieurs bancs en parallèle)
 npm run test:rythme             # rythme du MJ : crépuscule, réveil, évènement, reconnexions, pause, double clic, reprise après plantage (tests/rythme-mj.js, 25 vérifications, port 3105) puis Chasseur et maire lancés par le MJ (tests/annonces-mj.js, 13 vérifications, partie sans robots, port 3106) — ~3 min
 npm run test:hue                # diagnostic de la connexion Hue (lit .env)
-npm run test:navigateur         # 2 parties dans de vrais navigateurs (Chrome invisible), téléphones + tablette du MJ qui cliquent sur les vrais boutons : partie 1 (2 loups, 4 villageois : cartes, voile, débat, votes, fin) puis partie 2 (Salvateur, Voyante, Petite Fille, Corbeau, Sorcière, Chasseur et leurs listes de choix) ; tablette du MJ rechargée en plein jour ; 71 vérifications, aucune erreur JavaScript — ~4 min, ports 3107 et 3112
+npm run test:navigateur         # 2 parties dans de vrais navigateurs (Chrome invisible), téléphones + tablette du MJ qui cliquent sur les vrais boutons : partie 1 (2 loups, 4 villageois : cartes, voile, débat, votes, fin) puis partie 2 (Salvateur, Voyante, Petite Fille, Corbeau, Sorcière, Chasseur et leurs listes de choix) ; tablette du MJ rechargée en plein jour ; 75 vérifications, aucune erreur JavaScript — ~4 min, ports 3107 et 3112
 npm run lint                    # ESLint (informationnel)
 ```
 
@@ -173,6 +173,13 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ## Journal (du plus récent au plus ancien)
 
 Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOURNAL-ARCHIVE.md`.
+
+### 2026-10-28 (suite) — Revue du test navigateur : un geste, une fonction
+Même revue que pour le reste du code (demande d'Alexandre), sur `tests/navigateur.js`.
+- **Un geste, une fonction** : « le MJ voit l'action en haut, puis la lance » (`etapeMJ`, 8 fois), « choisir un joueur dans une liste » (`choisir`, 5 fois), le bouton d'un joueur pour voter, attaquer ou voir (`boutonJoueur`, 10 fois), la découverte du rôle (`decouvrirRoles`, désormais jouée aussi dans la partie 2), la fin de partie (`victoireDuVillage`), l'encadrement d'une partie (`partie` : bandeau, plantage, fermeture), la lecture d'un texte (`texte`) ; `clic` et `clicTexte` fusionnés.
+- **Deux failles du test corrigées** : un clic sur un bouton introuvable passait sous silence — le test attendait ensuite 15 à 30 s et échouait plus loin sans dire pourquoi → échec immédiat qui nomme le bouton ; une vérification « sur tous les téléphones » réussissait avec une liste vide → échec.
+- **Vérifié** : 75/75 (les 71 d'avant, mêmes intitulés, + 4 pour la découverte du rôle dans la partie 2) ; défaut introduit exprès (bouton « Passer » de la Sorcière renommé) → « bouton introuvable : #witchEtape button « Passer » » dès le clic, puis la suite de la partie en échec (68/77) ; page restaurée.
+- Taille : 291 → 296 lignes (4 vérifications et deux garde-fous de plus ; chaque geste n'est plus écrit qu'une fois).
 
 ### 2026-10-28 — Journal d'avant octobre archivé
 Demande d'Alexandre : alléger ce document.
