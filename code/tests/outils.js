@@ -10,10 +10,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // Serveur jetable : lumières coupées, sauvegardes dans un dossier temporaire (vidé au départ,
 // sauf `viderDossier: false` pour une reprise après plantage). `surLigne(texte)` reçoit tout ce
-// que le serveur écrit ; ses erreurs JavaScript s'affichent toujours.
+// que le serveur écrit ; ses erreurs JavaScript s'affichent toujours et restent dans `srv.erreurs`.
 function demarrerServeur(port, { viderDossier = true, surLigne } = {}) {
   const dossier = path.join(os.tmpdir(), "loupgarou-test-" + port);
-  if (viderDossier) try { fs.rmSync(dossier, { recursive: true, force: true }); } catch (_) {}
+  if (viderDossier) try { fs.rmSync(dossier, { recursive: true, force: true }); } catch { /* dossier temporaire : tant pis s'il résiste */ }
   return new Promise((res, rej) => {
     const srv = spawn(process.execPath, ["server.js"], {
       cwd: path.join(__dirname, ".."),
@@ -21,11 +21,12 @@ function demarrerServeur(port, { viderDossier = true, surLigne } = {}) {
       stdio: ["ignore", "pipe", "pipe"],
     });
     let pret = false;
+    const erreurs = [];
     const lire = d => {
       const t = String(d);
       if (surLigne) surLigne(t);
-      if (/TypeError|ReferenceError|RangeError|UNCAUGHT|UNHANDLED|Cannot read|is not a function|is not defined/.test(t)) console.log("[serveur] " + t.trim().slice(0, 400));
-      if (!pret && t.includes("démarré")) { pret = true; res(Object.assign(srv, { dossier })); }
+      if (/TypeError|ReferenceError|RangeError|UNCAUGHT|UNHANDLED|Cannot read|is not a function|is not defined/.test(t)) { erreurs.push(t.trim().slice(0, 400)); console.log("[serveur] " + t.trim().slice(0, 400)); }
+      if (!pret && t.includes("démarré")) { pret = true; res(Object.assign(srv, { dossier, erreurs })); }
     };
     srv.stdout.on("data", lire);
     srv.stderr.on("data", lire);
@@ -37,7 +38,7 @@ function demarrerServeur(port, { viderDossier = true, surLigne } = {}) {
 // sauf s'il doit servir à la reprise
 async function arreterServeur(srv, { brutal = false, garderDossier = false } = {}) {
   if (srv.exitCode === null) await new Promise(r => { srv.once("exit", r); srv.kill(brutal ? "SIGKILL" : "SIGTERM"); });
-  if (!garderDossier) try { fs.rmSync(srv.dossier, { recursive: true, force: true }); } catch (_) {}
+  if (!garderDossier) try { fs.rmSync(srv.dossier, { recursive: true, force: true }); } catch { /* dossier temporaire : tant pis s'il résiste */ }
 }
 
 // Faux téléphone (ou tablette) : une connexion ; avec un prénom, il rejoint la partie
@@ -62,11 +63,12 @@ const attendrePhase = (s, phase, ms = 15000) => attendre(s, "phase", ms, p => p 
 
 // MJ automatique : passe les pauses de nuit, ouvre les actions (Chasseur, maire mourant), et selon
 // les options lance la nuit et valide l'attaque des loups (un test qui vérifie une de ces étapes
-// la laisse au test)
+// la laisse au test). `delai` : en ms, ou une fonction qui le tire à chaque clic.
 function piloterMJ(mj, { delai = 500, etapes = true, actions = true, nuit = false, loupsApres = 0 } = {}) {
-  if (etapes) mj.on("etapeNuitEnAttente", () => setTimeout(() => mj.emit("mjEtapeSuivante"), delai));
-  if (actions) mj.on("actionMJEnAttente", () => setTimeout(() => mj.emit("mjOuvrirAction"), delai));
-  if (nuit) mj.on("nuitEnAttente", () => setTimeout(() => mj.emit("mjLancerNuit"), delai));
+  const cliquer = evenement => () => setTimeout(() => mj.emit(evenement), typeof delai === "function" ? delai() : delai);
+  if (etapes) mj.on("etapeNuitEnAttente", cliquer("mjEtapeSuivante"));
+  if (actions) mj.on("actionMJEnAttente", cliquer("mjOuvrirAction"));
+  if (nuit) mj.on("nuitEnAttente", cliquer("mjLancerNuit"));
   if (loupsApres) mj.on("phase", p => { if (p === "wolves") setTimeout(() => mj.emit("lockWolfVotes"), loupsApres); });
 }
 
