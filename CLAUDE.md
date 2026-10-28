@@ -24,13 +24,13 @@ Lis impérativement :
 
 - **Langue** : tout en français — code, commentaires, narrations, UI, documents. Réponds en français, simplement : Alexandre n'est pas développeur.
 - **Git** : dépôt à la racine, branche `master`. `git pull` en début de session.
-- **Architecture** : `code/server.js` est un bootstrap ; la logique vit dans `state`, `phases`, `roles`, `votes`, `council`, `narration`, `lights` (+ `badges`, `death-narratives`, `snapshot`, `logger`). Repérer le module via la Carte du code, puis `Grep` pour la ligne.
-- **`public/index.html` (~3300 lignes) et `public/mj.html` (~1700 lignes)** : lire par portions (`offset`/`limit`) ou via `Grep`.
+- **Architecture** : `code/server.js` ne fait que le câblage ; repérer le module dans la **Carte du code** de `code/HANDOFF.md`, puis `Grep` pour la ligne. `public/index.html` et `public/mj.html` font plusieurs milliers de lignes : les lire par portions (`offset`/`limit`) ou via `Grep`.
+- **Un besoin, une fonction** (revues du 2026-10-27) : avant d'écrire, chercher si l'outil existe déjà — `public/js/communs.js` et `public/css/communs.css` (partagés par les deux écrans), `state.js` (`versMJ`, `vivantsAvecRole`…), `roles.js` (`ETAPES_NUIT`, `marquerMort`), `snapshot.js` (`CHAMPS`), `tests/outils.js`. Ne pas recopier : appeler.
 - **Convention `state.js`** : ne JAMAIS faire `const { players } = state` — toujours `state.players`.
 - **Cycle `phases` ↔ `roles` ↔ `votes`** : terminer ces modules par `Object.assign(module.exports, {...})`, jamais `module.exports = {...}`.
 - **Chemins** : toujours relatifs à `__dirname` (le serveur peut être lancé depuis n'importe quel dossier).
-- **Après toute modification** : `node --check <fichier>.js` ; après une modification serveur qui touche au déroulé, `npm test` dans `code/` (~160 s). Relancer le serveur pour tester (Node garde les anciens modules en mémoire).
-- **Modification visible** : tester dans le navigateur (preview `loupgarou`, `.claude/launch.json`, port 3000) avant de considérer la tâche terminée.
+- **Après toute modification** : `node --check <fichier>.js`, puis les filets décrits dans « Tests et commandes » de `code/HANDOFF.md` (`npm test` et `npm run test:rythme` pour le serveur, `npm run test:navigateur` pour les écrans). Relancer le serveur pour tester (Node garde les anciens modules en mémoire).
+- **Modification visible** : la vérifier dans le navigateur avant de considérer la tâche terminée — `npm run test:navigateur`, ou un serveur d'essai sans lumières (`PORT=3097 LIGHTS_ENABLED=false node server.js`). Le preview `loupgarou` (`.claude/launch.json`, port 3000) allume les **vraies** lumières Hue.
 - **Ne jamais bloquer le moteur de jeu** sur des appels externes (pattern fire-and-forget de `lights.js` : timeout court, pas d'`await`, pas de `throw`).
 - **Secrets** : `code/.env` contient la clé Hue — jamais versionné, jamais affiché.
 
@@ -42,7 +42,7 @@ Passe-la au filtre de `code/CONTEXT.md` :
 3. Est-ce que ça tient pour un public d'inconnus ?
 4. Est-ce maintenable en temps libre ?
 
-**Principe d'Alexandre (2026-10-23)** : le plaisir n'est pas sur le téléphone. L'application s'efface derrière le jeu : elle le rend plus dynamique et plus fluide, ajoute le Conseil des Morts et de petites fonctionnalités, mais chaque fois qu'elle fait regarder un écran, ce doit être pour une **grosse plus-value** — sinon c'est juste trop d'écran. Idées déjà écartées pour cette raison (voir `code/HANDOFF.md`) : chronique de fin de partie détaillée, « dernières paroles » chronométrées.
+**Principe d'Alexandre (2026-10-23)** : le plaisir n'est pas sur le téléphone. L'application s'efface derrière le jeu : elle le rend plus dynamique et plus fluide, ajoute le Conseil des Morts et de petites fonctionnalités, mais chaque fois qu'elle fait regarder un écran, ce doit être pour une **grosse plus-value** — sinon c'est juste trop d'écran. Les idées déjà écartées sont listées dans `code/HANDOFF.md` (section « Idées ») : ne pas les reproposer.
 
 Si tu hésites sur une priorité ou une direction, **demande** plutôt que de partir tête baissée.
 

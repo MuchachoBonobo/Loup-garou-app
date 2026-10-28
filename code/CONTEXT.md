@@ -8,7 +8,7 @@ Offrir aux joueurs un **moment interactif, immersif et mémorable** autour du je
 
 L'immersion passe par :
 - Une **mise en scène** soignée (narration vocale, lumières connectées Hue, cartes plein écran, sons d'ambiance).
-- Une **mécanique fluide** qui efface autant que possible la friction du MJ humain (verrouillages automatiques des votes de nuit et du maire, transitions de phase, narration assistée) — tout en laissant au MJ la main sur le rythme du jour (c'est lui qui lance le vote).
+- Une **mécanique fluide** qui efface autant que possible la friction du MJ humain (transitions de phase, minuteries, narration assistée, récaps) — tout en lui laissant la main sur le rythme : il valide l'élection et l'attaque des loups, lance la nuit et chaque réveil, le débat et le vote, pour pouvoir raconter.
 - Des **moments forts** dramatisés (Conseil des Morts, évènements narratifs, battement de cœur des 10 dernières secondes de vote, voile de nuit en filet de sécurité).
 - Des **cartes narratives plein écran** (récap de nuit, évènements du Conseil des Morts) qui jouent un double rôle : **renforcer l'ambiance** pour les joueurs, et **soulager le MJ** en lui donnant un support visuel et un texte de synthèse à raconter — il n'a pas à tout improviser.
 

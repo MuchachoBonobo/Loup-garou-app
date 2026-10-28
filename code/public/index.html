@@ -3296,7 +3296,7 @@ function render(){
     if(phase==="day"&&currentVoteMode===5&&p.id===socket.id&&hasVotedLocked){
       noirBadge=` <span style="font-size:11px;color:#888;font-style:italic;">A voté</span>`;
     }
-    // Les joueurs ne voient pas le rôle des morts dans la liste : un simple ☠️
+    // À côté du prénom d'un mort, un simple ☠️ (son rôle, révélé à sa mort, est à droite : `tags`)
     let deathInfo = "";
     if (isDead) {
       deathInfo = ` <span style="color:#777;font-size:11px;margin-left:6px;">☠️</span>`;

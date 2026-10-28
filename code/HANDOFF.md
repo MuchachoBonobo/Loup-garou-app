@@ -1,6 +1,6 @@
 # Handoff — LoupGarouVoteApp
 
-Document de reprise pour continuer ce projet dans une nouvelle conversation. Il décrit **l'état réel du code** (section « État actuel », revérifiée sur le code le 2026-10-16) puis garde l'historique de ce qui a été construit (section « Journal »).
+Document de reprise pour continuer ce projet dans une nouvelle conversation. Il décrit **l'état réel du code** (section « État actuel », revérifiée sur le code le 2026-10-27) puis garde l'historique de ce qui a été construit (section « Journal »).
 
 > **Règle de lecture** : si une entrée ancienne du Journal contredit la section « État actuel », c'est l'État actuel qui fait foi — le Journal raconte l'histoire, pas forcément le présent (ex. : le vote du jour a duré 90 s, puis 200 s, puis 60 s).
 
@@ -12,10 +12,9 @@ C:\LoupGarouVoteApp\
 ├─ LISEZMOI.md        page d'accueil : explique les deux dossiers
 ├─ code\              LE CODE — zone de Claude (Alexandre n'y va pas)
 │  ├─ server.js + modules *.js, lights-scenes.json
-│  ├─ public\         interfaces joueur (index.html) et MJ (mj.html), css\, sounds\
+│  ├─ public\         interfaces joueur (index.html) et MJ (mj.html), css\, js\ (communs aux deux), sounds\
 │  ├─ tests\          outils.js (outils communs), scenarios.js (intégration), rythme-mj.js, annonces-mj.js, navigateur.js (partie dans Chrome)
-│  ├─ outils\         test-hue.js (diagnostic lumières)
-│  ├─ docs\           archives techniques (ANALYSE-2026-05-07.md)
+│  ├─ outils\         test-hue.js (diagnostic lumières), banc-robots.js (parties de robots)
 │  ├─ HANDOFF.md, CONTEXT.md
 │  ├─ start.ps1, .env (secrets Hue, non versionné), .env.example
 │  └─ logs\, snapshots\, node_modules\  (générés, non versionnés)
@@ -25,10 +24,10 @@ C:\LoupGarouVoteApp\
 ```
 
 - Tous les chemins du serveur sont relatifs à `__dirname` (y compris `express.static`, corrigé le 2026-10-16) : `node code/server.js` marche depuis n'importe quel dossier.
-- **`gestion\` appartient à Alexandre.** Claude n'y touche que sur demande — mais si une modification du code change la mise en place (nouvelle variable `.env`, nouveau port, nouvelle étape de lancement, nouveau rôle…), Claude met à jour la fiche concernée de `gestion\` dans le même mouvement et le signale.
+- **`gestion\` appartient à Alexandre** : les règles (sur demande seulement, fiches tenues à jour quand la mise en place change) sont dans `CLAUDE.md`.
 - Le dépôt Git est à la racine (`C:\LoupGarouVoteApp`, branche `master`, remote `https://github.com/MuchachoBonobo/Loup-garou-app`). Il n'est plus dans OneDrive : les problèmes de fichiers tronqués décrits dans le Journal concernaient l'ancien emplacement `OneDrive\Documents\LoupGarouVoteApp`.
 
-## État actuel (vérifié sur le code le 2026-10-16)
+## État actuel (vérifié sur le code le 2026-10-27)
 
 ### Vue d'ensemble
 
@@ -53,7 +52,7 @@ Loup, Villageois, Voyante, Sorcière, Cupidon, Chasseur, Petite Fille, Idiot du 
 4. **Mission** (si activée) : le maire choisit 3 envoyés (**il ne peut pas s'inclure** — règle confirmée par Alexandre le 2026-10-22), cartes secrètes Réussite/Échec, bonus d'inspection si réussite.
 5. **Crépuscule** (depuis le 2026-10-26, hors mode autonome) : après l'élection du maire (ou la mission) et après chaque fin de jour (vote, vote passé, Idiot, tir du Chasseur, transmission d'écharpe), phase `crepuscule` : les téléphones gardent la carte du maire élu ou du mort, le MJ voit la grande carte « 🌙 Lancer la nuit » (filet 3 min). La nuit ne commence qu'à ce clic (`roles.ouvrirNuit` / `handleMJLancerNuit`). **Nuit rythmée par le MJ** (hors mode autonome) : entre deux étapes, phase `nightPause` (tous les écrans voilés, la voix endort le rôle précédent) et grande carte MJ « ▶ Passer à l'étape suivante » ; le rôle suivant ne se réveille qu'au clic (filet 3 min). Ordre : Cupidon (1ʳᵉ nuit, seulement s'il y a un Cupidon : `roles.startFirstNight`) → Amoureux (1ʳᵉ nuit : chacun voit l'autre, 15 s qui démarrent seules) → Sœurs (si 2 vivantes ; leurs 20 s démarrent seules au réveil) → Salvateur → Loups (ils désignent leur proie d'un toucher, le MJ valide l'attaque ; verrouillage auto au consensus en mode autonome seulement) → Voyante (la nuit attend son « OK, j'ai vu », filet 30 s) → Petite Fille (3 joueurs, « au moins un loup » ou « aucun », attend aussi son « OK ») → Corbeau → Sorcière (sautée si plus de potions ; une question à la fois : « Sauver X ? » avec sa photo, puis « Potion de mort ? », puis la liste avec « Passer ») → résolution. Les phases des rôles morts sont sautées. Voile « garde les yeux fermés » pour tous ceux qui ne jouent pas.
 6. **Aube** : carte des morts (photos et prénoms — « X est mort·e cette nuit. », « 💔 Y est mort·e d'amour. » —, jamais le rôle ni la cause ; le MJ a le récit complet + rôle). Dans la liste des joueurs, chaque mort affiche ensuite son rôle à droite (évènement `playerDied`). **Chasseur ou maire mort** (la nuit comme au vote, depuis le 2026-10-26, hors mode autonome) : rien ne s'enchaîne ; la carte du mort reste, le MJ raconte puis clique en haut « 🔫 Le Chasseur tire » ou « 🏛️ Transmettre l'écharpe » (`state.actionMJ`, `phases.ouvrirActionMJ`) — sans limite de temps tant que la tablette du MJ est connectée, aucun bandeau ni écran de tir avant ; démarre seule seulement si la tablette ne répond plus (`filetActionMJ`) ; après le tir, tout le monde voit « X est emporté·e par le Chasseur » (`chasseurATire`).
-7. **Jour piloté par le MJ** (`mjPilotedDay`, défaut ON) : **réveil mené par le MJ** (depuis le 2026-10-26) : la carte des morts reste sur les téléphones jusqu'à son « ▶ Lancer le débat » ; s'il y a un évènement du Conseil, il l'annonce d'abord (« 📜 Annoncer l'évènement : … »), puis « Lancer le débat » referme les deux cartes. « Lancer le vote » est grisé pendant le réveil. Puis écran « Parlez entre vous. » côté joueurs, le MJ lance le vote quand il veut. Exception : si un Chasseur, un maire mourant, le bonus de mission ou une fin de partie suit l'aube, la carte se ferme seule (7 s) comme avant. Égalité → le maire tranche. Chasseur, transfert d'écharpe et cascades d'amoureux gérés partout.
+7. **Jour piloté par le MJ** (`mjPilotedDay`, défaut ON) : **réveil mené par le MJ** (depuis le 2026-10-26) : la carte des morts reste sur les téléphones jusqu'à son « ▶ Lancer le débat » ; s'il y a un évènement du Conseil, il l'annonce d'abord (« 📜 Annoncer l'évènement : … »), puis « Lancer le débat » referme les deux cartes. « Lancer le vote » est grisé pendant le réveil. Puis écran « Parlez entre vous. » côté joueurs, le MJ lance le vote quand il veut. Exception : si le bonus de mission ou une fin de partie suit l'aube, la carte se ferme seule (7 s) ; un Chasseur ou un maire mourant attendent le clic du MJ (point 6). Égalité → le maire tranche. Chasseur, transfert d'écharpe et cascades d'amoureux gérés partout.
 8. **Conseil des Morts** (case « 🪦 Conseil » du MJ avant la partie, cochée par défaut, reprise par « Relancer » ; `state.conseilActif`) : chaque début de journée dès qu'**au moins 1 joueur est mort** (`council.COUNCIL_TRIGGER_THRESHOLD`), les morts votent un évènement appliqué le jour suivant, au moment où le MJ l'annonce (mode autonome : 3 s après l'aube). Les évènements déjà proposés ne reviennent pas tant que la réserve n'est pas épuisée (puis nouveau cycle, notifié au MJ).
 9. **Fin** (épurée le 2026-10-26) : carte de victoire (emoji + titre), puis une seule liste « photo · prénom · rôle · médaille » (une médaille exactement par joueur : 17 médailles d'exploit, et sinon 🕯️ Tombé·e au combat, 🏆 Victorieux·se ou 🛡️ Rescapé·e, `badges.js` ; son nom au toucher ; la sienne aussi sous le titre de la carte de victoire) et le classement de la soirée (`soiree.js`). Plus de statistiques, de messagerie ni de carte « Ta médaille ».
 
@@ -72,7 +71,7 @@ Le « sprint final » (raccourci à 30 s quand tout le monde a voté) n'existe q
 Émeute, Le Jugement, La Panique, La Paranoïa, La Folie, L'Éclipse, Tempête (tonnerre toutes les 30 s), La Paralysie (ex-Brouillard, id `fog`), Incendie, Les Chuchotements, Le Tribunal, La Cloche du Village, Les Dernières Volontés, Le Vent, Les Morts Murmurent, Le Vote Muet, Les Voix Étouffées (chat écrit pour la journée), L'Abdication (le maire désigne son successeur). La plupart sont des contraintes sociales que le MJ fait respecter ; la règle exacte s'affiche sur la carte MJ (`MJ_EVENT_RULES` dans `mj.html`).
 
 ### Modes particuliers
-- **Mode autonome** : la partie tourne sans clic MJ (votes auto-démarrés, verrouillages auto). ⚠ Les libellés du menu « mode du vote » dans `mj.html` (90 s / 10 s) ne correspondent plus aux durées réelles du serveur (60 s / 30 s) — à corriger.
+- **Mode autonome** : la partie tourne sans clic MJ (votes auto-démarrés, verrouillages auto, nuit sans pauses).
 - **Mode entraînement** : bots niveau 2 (choix aléatoires cohérents), ajoutés au lobby.
 - **Jour non piloté** (case décochée) : ancien comportement, vote lancé automatiquement 2 s après l'aube et vision spectateur complète pour les morts.
 
@@ -84,43 +83,45 @@ Reconnexion par prénom (registre `playerRegistry`, toutes les phases couvertes)
 
 ## Carte du code — serveur (`code/`)
 
-| Fichier | Lignes | Rôle |
-|---------|--------|------|
-| `server.js` | ~450 | Bootstrap : lecture `.env`, Express (static, `/mj`, `/api/ip`), Socket.io, middleware pause, câblage des ~47 évènements socket vers les modules, handlers crash / reprise, `http.listen`. Aucune logique de jeu. |
-| `state.js` | ~360 | État partagé + toutes les constantes de timeout + helpers (`alivePlayers`, `computeCounts`, `playerName`, `fisherYates`, `versMJ` — tout envoi à la tablette du MJ passe par lui —, `joueursAvecRole` / `vivantsAvecRole` — toute recherche d'un rôle —, `oublierTransfert`, `infosSalvateur`, `buildFullState`, `idActuel`). **Ne jamais déstructurer** (`state.players`, jamais `const { players } = state`). |
-| `phases.js` | ~920 | Orchestration : `setPhase` (le cœur : lumières, narration, Conseil, auto-vote), `installPhaseTimeouts`/`clearPhaseTimeouts`, `runBotsForPhase` (les robots appellent les mêmes fonctions que les joueurs, via un faux socket `commeJoueur(bot)`), `checkVictory`, pause/reprise, `resetGameState`, replay. |
-| `roles.js` | ~1030 | Rôles, mission, mort : **`ETAPES_NUIT` + `etapeApres` — le seul endroit qui définit l'ordre de la nuit** (Sœurs → Salvateur → Loups → Voyante → Petite Fille → Corbeau → Sorcière, et la condition de chaque réveil), `startNightSequence`, `doResolveNight` (aube : `lumieresAube`, `envoyerRecapMJ`), mission (`envoyerEnMission`, `jouerCarteMission`, `inspecterBonus`, partagées avec les robots), `killPlayer`, `sendDeadVision`, `performChasseurShot`, `performMayorTransfer`, `assignAndStart`, handlers de chaque rôle. `PHASES_DE_NUIT` : liste unique des phases où une mort compte « de nuit » (contexte de transmission d'écharpe). |
-| `votes.js` | ~550 | Tous les votes : maire, loups, jour (`startDayVote`, `resolveDayVote`), égalités (`resolveVoteWithTiebreak`, `trancherEgalite` pour le maire, le maire-bot et le hasard), **`executerVerdict` : la seule suite d'un vote du jour** (Ange, Idiot, suspense, mort, nuit), skip. |
-| `council.js` | ~370 | Conseil des Morts : 18 évènements, tirage, vote, application des effets, Abdication, Voix Étouffées. |
-| `narration.js` | ~210 | Dictionnaire des narrations TTS par transition (`"wolves_to_seer"`…). |
-| `lights.js` | ~295 | Pilote Hue CLIP v2, fire-and-forget (timeout 1,5 s, jamais d'`await`, jamais de `throw`). `applyScene`, `flash`, `flashSequence`, `reset`, `status`. |
-| `lights-scenes.json` | 43 entrées | 16 scènes de phase (dont `petiteFille`, rose pêche), 18 `council.*`, 8 `flash.*` (dont `flash.ange`, blanc doré), `pause`. |
-| `badges.js` | ~250 | 17 médailles de fin de partie, **une seule par joueur** (la plus prestigieuse, `RANGS`). |
-| `soiree.js` | ~90 | Classement de la soirée (1 point par victoire), fichier `soiree.json` dans le dossier des sauvegardes (non versionné), remis à zéro par le bouton MJ « Nouvelle soirée ». |
-| `death-narratives.js` | ~120 | Récits de mort par cause × rôle. |
-| `snapshot.js` | ~180 | Sauvegarde périodique, dump de crash, reprise. **`CHAMPS`** : la seule liste des champs sauvegardés, avec leur valeur par défaut à la relecture — un champ ajouté ici est à la fois écrit et relu. |
-| `logger.js` | ~55 | Journal console + `logs/AAAA-MM-JJ.log`. |
+Tailles : `wc -l *.js` (une colonne « Lignes » se périmait à chaque changement).
 
-Dépendances : `state` (feuille) ← `narration`, `council` (+`lights`) ← `roles` ← `votes` ← `phases` ← `server`. **`phases`, `roles` et `votes` se requièrent en cycle** : ils doivent finir par `Object.assign(module.exports, {...})`, jamais `module.exports = {...}` (sinon crash au lancement de partie — voir Journal).
+| Fichier | Rôle |
+|---------|------|
+| `server.js` | Bootstrap : lecture `.env`, Express (static, `/mj`, `/api/ip`, `/api/qr.svg`), Socket.io, middleware pause, câblage des évènements socket vers les modules, reconnexion par prénom, handlers crash / reprise, `http.listen`. Aucune logique de jeu. |
+| `state.js` | État partagé + toutes les constantes de timeout + helpers (`alivePlayers`, `computeCounts`, `playerName`, `fisherYates`, `versMJ` — tout envoi à la tablette du MJ passe par lui —, `joueursAvecRole` / `vivantsAvecRole` — toute recherche d'un rôle —, `oublierTransfert`, `infosSalvateur`, `buildFullState`, `idActuel`). |
+| `phases.js` | Orchestration : `setPhase` (le cœur : lumières, narration, Conseil, auto-vote), `installPhaseTimeouts`/`clearPhaseTimeouts`, `runBotsForPhase` (les robots appellent les mêmes fonctions que les joueurs, via un faux socket `commeJoueur(bot)`), `checkVictory`, pause/reprise, `resetGameState`, replay. |
+| `roles.js` | Rôles, mission, mort : **`ETAPES_NUIT` + `etapeApres` — le seul endroit qui définit l'ordre de la nuit** (Sœurs → Salvateur → Loups → Voyante → Petite Fille → Corbeau → Sorcière, et la condition de chaque réveil), `startNightSequence`, `doResolveNight` (aube : `lumieresAube`, `envoyerRecapMJ`), mission (`envoyerEnMission`, `jouerCarteMission`, `inspecterBonus`, partagées avec les robots), `killPlayer`, `sendDeadVision`, `performChasseurShot`, `performMayorTransfer`, `assignAndStart`, handlers de chaque rôle. `PHASES_DE_NUIT` : liste unique des phases où une mort compte « de nuit » (contexte de transmission d'écharpe). |
+| `votes.js` | Tous les votes : maire, loups, jour (`startDayVote`, `resolveDayVote`), égalités (`resolveVoteWithTiebreak`, `trancherEgalite` pour le maire, le maire-bot et le hasard), **`executerVerdict` : la seule suite d'un vote du jour** (Ange, Idiot, suspense, mort, nuit), skip. |
+| `council.js` | Conseil des Morts : 18 évènements, tirage, vote, application des effets, Abdication, Voix Étouffées ; `evenementPublic(id)`, l'évènement tel que les écrans le reçoivent. |
+| `narration.js` | Dictionnaire des narrations TTS par transition (`"wolves_to_seer"`…). |
+| `lights.js` | Pilote Hue CLIP v2, fire-and-forget (timeout 1,5 s, jamais d'`await`, jamais de `throw`). `applyScene`, `flash`, `flashSequence`, `reset`, `status`. |
+| `lights-scenes.json` | 43 entrées : 16 scènes de phase (dont `petiteFille`, rose pêche), 18 `council.*`, 8 `flash.*` (dont `flash.ange`, blanc doré), `pause`. |
+| `badges.js` | 17 médailles de fin de partie, **une seule par joueur** (la plus prestigieuse, `RANGS`). |
+| `soiree.js` | Classement de la soirée (1 point par victoire), fichier `soiree.json` dans le dossier des sauvegardes (non versionné), remis à zéro par le bouton MJ « Nouvelle soirée ». |
+| `death-narratives.js` | Récits de mort par cause × rôle (libellés accordés, propres au serveur). |
+| `snapshot.js` | Sauvegarde périodique, dump de crash, reprise. **`CHAMPS`** : la seule liste des champs sauvegardés, avec leur valeur par défaut à la relecture — un champ ajouté ici est à la fois écrit et relu. |
+| `logger.js` | Journal console + `logs/AAAA-MM-JJ.log`. |
+
+Dépendances : `state` (feuille) ← `narration`, `council` (+`lights`) ← `roles` ← `votes` ← `phases` ← `server`. **`phases`, `roles` et `votes` se requièrent en cycle** (règle d'écriture qui en découle : `CLAUDE.md`).
 
 ## Carte du code — front (`code/public/`)
 
-| Fichier | Lignes | Repères |
-|---------|--------|---------|
-| `index.html` (joueur) | ~3270 | `render()` (liste des joueurs, avatars, boutons), `updateNightCover()`/`isAnyNarrativeCardOpen()`, `updateDayDebateScreen()`, `updateDeadFullScreen()`, cartes (`showRoleReveal`, `showDeathCard`, `dawnResult`…), `#introScreen`. JS inline — à lire par `Grep` + `offset`/`limit`. |
-| `mj.html` (MJ) | ~1700 | Sections `mjSectionStart` (lobby), `mjSectionUrgency`, `mjSectionRoles`, `mjSectionWolves`, `mjSectionMayor`, `mjSectionDay`, `mjSectionDeadChat`, `mjSectionQR` ; `updateMJLayout(phase)` les affiche selon la phase. TTS (`speakNarration`), sons (`playAmbiance`, `playEffect`), `MJ_CHEATSHEET`, `MJ_EVENT_RULES`, cartes MJ (`showMjDeathCard`, `#dayRecapCard`, `#councilEventCard`, `#sistersLauncherCard`, `#crashRecoveryCard`, `#qrFullscreen`). |
-| `js/communs.js` | ~30 | Chargé par les DEUX pages : noms et pictogrammes des rôles (`ROLES`, `emojiDuRole`, `nomDuRole`) et causes de mort (`CAUSES`, `causeEnTexte`). Un changement ici vaut pour l'écran des joueurs et celui du MJ. |
-| `css/communs.css` | ~10 | Chargé par les DEUX pages : mise en page des cartes plein écran (`.plein-ecran`, plus `#roleCard`, `#dayDeathCard`, `#nightFallCard` désignées par leur identifiant car le code remplace leur classe). |
-| `css/player.css`, `css/mj.css` | 262 / 100 | Styles extraits (une partie des styles reste inline dans les HTML). |
-| `sounds/` | 22 mp3 | `day.mp3` et `night.mp3` pèsent ~85 Mo chacun (sous la limite GitHub de 100 Mo). `endgame_ange.mp3` (victoire de l'Ange, 3 min 21) : « Alléluia » du Messie de Haendel, London Symphony Orchestra et London Philharmonic Choir dir. Hermann Scherchen (1953), domaine public, version MP3 de Wikimedia Commons (`File:Handel - Messiah, Part 2 (Scherchen) - 45. Hallelujah.ogg`). S'il venait à manquer, `playAmbiance` joue `endgame_village` à la place. |
+| Fichier | Repères |
+|---------|---------|
+| `index.html` (joueur) | `render()` (liste des joueurs, avatars, boutons), `updateNightCover()`/`isAnyNarrativeCardOpen()`, `updateDayDebateScreen()`, `updateDeadFullScreen()`, cartes (`showRoleReveal`, `carteAnnonce` pour toutes les annonces), listes de choix (`choisirUnJoueur`, `choisirTroisJoueurs`), panneaux (`ouvrirPanneau`), `#introScreen`. JS inline — à lire par `Grep` + `offset`/`limit`. |
+| `mj.html` (MJ) | Barre du haut `#mjActionSuivante` (prochaine action du MJ, votes des loups ; `actionSuivanteMJ`). Sections `mjSectionStart` (lobby, `lireComposition`), `mjSectionUrgency`, `mjSectionRoles`, `mjSectionMayor`, `mjSectionDay`, `mjSectionDeadChat`, `mjSectionQR` ; `updateMJLayout(phase)` les affiche selon la phase. TTS (`speakNarration`), sons (`playAmbiance`, `playEffect`), `MJ_CHEATSHEET`, `MJ_EVENT_RULES`, cartes MJ (`showMjDeathCard`, `#dayRecapCard`, `#councilEventCard`, `#sistersLauncherCard`, `#crashRecoveryCard`, `#qrFullscreen`). |
+| `js/communs.js` | Chargé par les DEUX pages : noms et pictogrammes des rôles (`ROLES`, `emojiDuRole`, `nomDuRole`) et causes de mort (`CAUSES`, `causeEnTexte`). Un changement ici vaut pour l'écran des joueurs et celui du MJ. |
+| `css/communs.css` | Chargé par les DEUX pages : mise en page des cartes plein écran (`.plein-ecran`, plus `#roleCard`, `#dayDeathCard`, `#nightFallCard` désignées par leur identifiant car le code remplace leur classe). |
+| `css/player.css`, `css/mj.css` | Styles propres à chaque écran (`.panneau` : les encadrés de la page joueur). Les réglages d'un seul élément restent dans son HTML. |
+| `sounds/` | 22 mp3. `day.mp3` et `night.mp3` pèsent ~85 Mo chacun (sous la limite GitHub de 100 Mo). `endgame_ange.mp3` (victoire de l'Ange, 3 min 21) : « Alléluia » du Messie de Haendel, London Symphony Orchestra et London Philharmonic Choir dir. Hermann Scherchen (1953), domaine public, version MP3 de Wikimedia Commons (`File:Handel - Messiah, Part 2 (Scherchen) - 45. Hallelujah.ogg`). S'il venait à manquer, `playAmbiance` joue `endgame_village` à la place. |
 
 ## Tests et commandes (depuis `code/`)
 
 ```bash
 node --check server.js          # syntaxe (à faire sur chaque .js modifié)
 npm start                       # démarrer le serveur
-npm test                        # 13 scénarios d'intégration (Ange ×2, Petite Fille, clics en trop du MJ ×2, pastilles de connexion, nouvelle partie + retrait d'un joueur, égalités tranchées par le maire puis par le hasard), ~9 min, port 3099, lumières coupées
-npm run test:banc               # banc d'essai : 3 parties complètes jouées par des bots, règles contrôlées à chaque évènement (~10 min ; voir outils/banc-robots.js pour lancer plusieurs bancs en parallèle)
+npm test                        # 13 scénarios d'intégration (Ange ×2, Petite Fille, clics en trop du MJ ×2, pastilles de connexion, nouvelle partie + retrait d'un joueur, égalités tranchées par le maire puis par le hasard), ~5 min, port 3099, lumières coupées
+npm run test:banc               # banc d'essai : 3 parties complètes jouées par des bots, règles contrôlées à chaque évènement ; échoue s'il trouve une anomalie (~10 min ; voir outils/banc-robots.js pour lancer plusieurs bancs en parallèle)
 npm run test:rythme             # rythme du MJ : crépuscule, réveil, évènement, reconnexions, pause, double clic, reprise après plantage (tests/rythme-mj.js, 25 vérifications, port 3105) puis Chasseur et maire lancés par le MJ (tests/annonces-mj.js, 13 vérifications, partie sans robots, port 3106) — ~3 min
 npm run test:hue                # diagnostic de la connexion Hue (lit .env)
 npm run test:navigateur         # 2 parties dans de vrais navigateurs (Chrome invisible), téléphones + tablette du MJ qui cliquent sur les vrais boutons : partie 1 (2 loups, 4 villageois : cartes, voile, débat, votes, fin) puis partie 2 (Salvateur, Voyante, Petite Fille, Corbeau, Sorcière, Chasseur et leurs listes de choix) ; tablette du MJ rechargée en plein jour ; 71 vérifications, aucune erreur JavaScript — ~4 min, ports 3107 et 3112
@@ -134,7 +135,7 @@ Après toute modification serveur : **arrêter et relancer** le serveur (Node ga
 ## Tâches en attente
 
 - **Étape 8 de la refonte du jour** : playtest réel, mesurer le temps d'écran des joueurs en journée, puis supprimer le toggle `mjPilotedDay` et le mode legacy si validé.
-- `server.js.bak` (ancien serveur monolithique, non versionné) traîne dans `code/` : peut être supprimé.
+- `server.js.bak` (ancien serveur monolithique, non versionné, donc absent de GitHub) traîne dans `code/` : à supprimer par Alexandre s'il n'en veut plus (Claude ne supprime pas un fichier qui n'a pas de copie).
 
 ## Idées / améliorations potentielles (non implémentées)
 
@@ -147,7 +148,7 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 - Historique des parties (replay JSON sauvegardé), statistiques multi-parties (taux de victoire par rôle).
 - Nouveaux rôles : Ancien (survit au 1er coup des loups), Bouc émissaire.
 - Compteur « joueurs ayant voté / total » plus visible.
-- Tests unitaires pour `checkVictory`, `resolveVoteWithTiebreak`, `doResolveNight`.
+- Tests unitaires pour `checkVictory` et `doResolveNight` (les égalités au vote sont couvertes par le scénario S13 depuis le 2026-10-27).
 - Outil d'appairage Hue en un script (générer la clé + lister les groupes) pour éviter les commandes `curl` à la main.
 - Internationalisation (anglais) — hors-scope tant que le concept n'est pas validé (cf. `CONTEXT.md`).
 
@@ -165,11 +166,21 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 1. Ouvrir Claude Code sur `C:\LoupGarouVoteApp` (le `CLAUDE.md` racine est lu automatiquement).
 2. `git pull` avant de commencer.
 3. Lire ce document, puis cibler les fichiers via la Carte du code + `Grep`.
-4. Après une modification significative : ajouter une entrée en tête du Journal ci-dessous, et mettre à jour l'État actuel si le comportement change.
+4. Après une modification significative : voir « Mise à jour de la documentation » dans `CLAUDE.md`.
 
 ---
 
 ## Journal (du plus récent au plus ancien)
+
+### 2026-10-27 (suite 11) — Revue de la documentation : chaque information à un seul endroit
+Même revue que pour le code (demande d'Alexandre). Règle suivie : une information n'est écrite qu'à un endroit, les autres documents y renvoient — `CLAUDE.md` pour les règles de travail, `CONTEXT.md` pour le pourquoi, `HANDOFF.md` pour l'état du code, la carte et l'histoire, `LISEZMOI.md` pour Alexandre.
+- **Périmé, corrigé** : l'« État actuel » (revérifié sur le code ce jour) annonçait des libellés faux dans le menu du mode autonome — ils sont justes depuis le 2026-10-22 ; il disait que la carte de l'aube se ferme seule quand un Chasseur ou un maire mourant suit — c'est désormais le MJ ; la carte du code citait `mjSectionWolves` (supprimée) et des tailles de fichiers dépassées ; `CONTEXT.md` parlait de « verrouillages automatiques des votes de nuit et du maire » — c'est le MJ qui valide ; `CLAUDE.md` donnait `npm test` en ~160 s (≈ 5 min), des tailles de pages fausses, et proposait de vérifier dans le preview `loupgarou`, qui allume les vraies lumières.
+- **Doublons, réduits à un renvoi** : les règles de `gestion/` (dans `CLAUDE.md` et ici), la règle « ne jamais déstructurer `state` » et celle des modules en cycle (idem), la consigne de mise à jour de la documentation, la liste des idées écartées (`CLAUDE.md` n'en citait que deux sur quatre).
+- **Colonne « Lignes » retirée des deux cartes du code** : elle se périmait à chaque changement (`wc -l` donne la taille).
+- **Ajouté à `CLAUDE.md`** : « Un besoin, une fonction » — la liste des outils partagés créés pendant les revues du jour, à chercher avant d'écrire.
+- **Retiré** : `docs/ANALYSE-2026-05-07.md`, rapport d'analyse d'une version de mai (page joueur de 1 879 lignes, serveur d'un seul fichier) ; ses 17 points sont corrigés ou dépassés (vérifié pour les deux qui pouvaient rester ouverts : prénoms et messages nettoyés par le serveur et affichés en texte simple). Il reste dans l'historique GitHub.
+- **Commentaire trompeur corrigé** (`index.html`, code identique) : « les joueurs ne voient pas le rôle des morts dans la liste » — ils le voient, à droite de la ligne ; le commentaire ne parlait que du ☠️ à côté du prénom.
+- Fiches de `gestion/` : rien de ce qui a changé aujourd'hui n'y est décrit ; la composition par défaut citée par la fiche 2 (2 Loups, Cupidon, Voyante, Sorcière, Chasseur) est celle du MJ.
 
 ### 2026-10-27 (suite 10) — Revue des tests : des outils communs
 Même revue que pour le code (demande d'Alexandre). Les quatre tests et le banc de robots réécrivaient chacun leurs outils : démarrage du serveur jetable (5 fois), pause (5), faux téléphone (3), attente d'un message (3), compte des vérifications et bilan (4 fois, 4 présentations différentes), MJ automatique (3 fois, avec des délais différents).
