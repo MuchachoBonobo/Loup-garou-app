@@ -276,6 +276,23 @@
 </div>
 <div id="voteWaitBox" class="panneau">🗳️ Tu peux déjà voter — le MJ choisira le mode et lancera le minuteur.</div>
 
+<div id="seerPanel" class="panneau" style="display:none;background:rgb(var(--voyance-fond));border:2px solid rgb(var(--voyance-base));">
+  <h3 style="color:rgb(var(--voyance-vif));margin:0 0 8px;font-size:14px;">🔮 La Voyante sonde un joueur</h3>
+  <p style="font-size:12px;color:rgb(var(--voyance-vif));margin-bottom:10px;">Choisis un joueur : son vrai rôle te sera révélé.</p>
+  <div id="seerTargets"></div>
+</div>
+
+<div id="cupidPanel" class="panneau" style="display:none;background:rgb(var(--amour-fond));border:2px solid rgb(var(--amour-base));">
+  <h3 style="color:rgb(var(--amour-vif));margin:0 0 8px;font-size:14px;">💘 Cupidon unit deux joueurs</h3>
+  <p style="font-size:12px;color:rgb(var(--amour-vif));margin-bottom:10px;">Choisis les deux amoureux : si l'un meurt, l'autre le suit.</p>
+  <div id="cupidTargets"></div>
+  <div id="cupidNoms" style="margin-top:10px;font-size:12px;color:rgb(var(--amour-vif));text-align:center;min-height:18px;"></div>
+  <button id="cupidValider" onclick="confirmerAmoureux()" disabled
+    style="width:100%;margin-top:12px;padding:12px;background:rgb(var(--amour-fond));border:2px solid rgb(var(--amour-vif));border-radius:8px;color:rgb(var(--amour-vif));font-size:14px;cursor:pointer;opacity:0.4;">
+    💘 Unir
+  </button>
+</div>
+
 <div id="corbeauPanel" class="panneau" style="display:none;background:rgb(var(--n0));border:2px solid rgb(var(--n5));">
   <h3 style="color:rgb(var(--n7));margin:0 0 8px;font-size:14px;">🪶 Le Corbeau désigne sa cible</h3>
   <p style="font-size:12px;color:rgb(var(--n5));margin-bottom:10px;">Choisis un joueur qui recevra 2 votes supplémentaires demain, ou passe ton tour.</p>
@@ -285,11 +302,8 @@
 
 <!-- Petite Fille : désigne 3 joueurs, apprend s'il y a au moins un loup parmi eux -->
 <div id="petiteFillePanel" class="panneau" style="display:none;background:rgb(var(--voyance-fond));border:2px solid rgb(var(--voyance-vif));">
-  <div style="font-size:24px;text-align:center;margin-bottom:8px;">👧</div>
-  <div style="font-weight:bold;color:rgb(var(--voyance-vif));font-size:15px;text-align:center;margin-bottom:6px;">La Petite Fille enquête</div>
-  <div style="font-size:12px;color:rgb(var(--voyance-vif));margin-bottom:12px;text-align:center;line-height:1.6;">
-    Désigne 3 joueurs. Tu sauras s'il y a au moins un Loup parmi eux — mais pas lequel.
-  </div>
+  <h3 style="color:rgb(var(--voyance-vif));margin:0 0 8px;font-size:14px;">👧 La Petite Fille enquête</h3>
+  <p style="font-size:12px;color:rgb(var(--voyance-vif));margin-bottom:10px;">Désigne 3 joueurs. Tu sauras s'il y a au moins un Loup parmi eux — mais pas lequel.</p>
   <div id="petiteFilleBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
   <div id="petiteFilleSelectedNames" style="margin-top:10px;font-size:12px;color:rgb(var(--voyance-vif));text-align:center;min-height:18px;"></div>
   <button id="petiteFilleConfirmBtn" onclick="confirmPetiteFille()" disabled
@@ -621,6 +635,7 @@ let missionCardPlayed = false;  // ce joueur a-t-il joué sa carte ?
 
 // ===== PETITE FILLE =====
 let petiteFilleSelection = [];  // les 3 joueurs en cours de sélection (côté client)
+let visionDemandee = false, amoureuxSelection = [], amoureuxEnvoyes = false;  // Voyante et Cupidon (majChoixDeNuit)
 
 const ROLE_DISPLAY = Object.fromEntries(Object.keys(ROLES).map(k => [k, emojiDuRole(k) + " " + nomDuRole(k)]));
 
@@ -1152,7 +1167,7 @@ function carteAnnonce(emoji, titre, texte, fond, noms = []) {
 
 // ===== CHOISIR UN JOUEUR =====
 // Une seule liste pour tous les choix d'un joueur (Salvateur, Corbeau, Sorcière, Chasseur, maire :
-// égalité, transmission, abdication ; Petite Fille et mission via choisirTroisJoueurs) : photo +
+// égalité, transmission, abdication, Voyante ; Petite Fille, mission et Cupidon via choisirDesJoueurs) : photo +
 // prénom, une ligne chacun. `couleur` : la bordure, propre au rôle. `interdit(id)` renvoie la
 // raison d'une cible refusée (bouton grisé), ou rien.
 function choisirUnJoueur(conteneur, joueurs, action, couleur, interdit = () => null) {
@@ -1172,10 +1187,11 @@ function choisirUnJoueur(conteneur, joueurs, action, couleur, interdit = () => n
   });
 }
 
-// Choix de 3 joueurs : mêmes boutons, un toucher ajoute ou retire, la validation ne s'allume qu'à 3.
+// Choix de plusieurs joueurs (3 pour la Petite Fille et la mission, 2 pour Cupidon) : mêmes boutons,
+// un toucher ajoute ou retire, la validation ne s'allume qu'au compte.
 // `selection()` rend le tableau en cours, modifié sur place (il suit ainsi les reconnexions, qui
 // le remplacent). Renvoie la fonction qui remet l'affichage à jour.
-function choisirTroisJoueurs(conteneur, joueurs, couleur, idNoms, idValider, selection) {
+function choisirDesJoueurs(conteneur, joueurs, couleur, idNoms, idValider, selection, nombre = 3) {
   const maj = () => {
     const choix = selection();
     conteneur.querySelectorAll("button").forEach(b => {
@@ -1185,14 +1201,14 @@ function choisirTroisJoueurs(conteneur, joueurs, couleur, idNoms, idValider, sel
     });
     const noms = choix.map(id => players.find(x => x.id === id)?.name || "?");
     document.getElementById(idNoms).innerText = noms.length
-      ? noms.join(", ") + (noms.length < 3 ? ` (${noms.length}/3)` : "") : "Sélectionne 3 joueurs";
+      ? noms.join(", ") + (noms.length < nombre ? ` (${noms.length}/${nombre})` : "") : `Sélectionne ${nombre} joueurs`;
     const v = document.getElementById(idValider);
-    v.disabled = choix.length !== 3;
-    v.style.opacity = choix.length === 3 ? "1" : "0.4";
+    v.disabled = choix.length !== nombre;
+    v.style.opacity = choix.length === nombre ? "1" : "0.4";
   };
   choisirUnJoueur(conteneur, joueurs, id => {
     const choix = selection(), i = choix.indexOf(id);
-    if (i >= 0) choix.splice(i, 1); else if (choix.length < 3) choix.push(id);
+    if (i >= 0) choix.splice(i, 1); else if (choix.length < nombre) choix.push(id);
     maj();
   }, "rgb(var(--n4))");
   maj();
@@ -1500,7 +1516,7 @@ function traduireIdsApresReconnexion(nouveauxJoueurs) {
   mayorVotedSet = new Set([...mayorVotedSet].map(T));
   missionTeamSelected = TL(missionTeamSelected); missionSelectedByMe = TL(missionSelectedByMe); missionBonusSelectedByMe = TL(missionBonusSelectedByMe);
   petiteFilleSelection = TL(petiteFilleSelection);
-  if (Array.isArray(window.selected)) window.selected = window.selected.map(T);
+  amoureuxSelection = TL(amoureuxSelection);
 }
 // Liste des joueurs changée pendant le tour de la Petite Fille (quelqu'un s'est reconnecté) :
 // ses boutons sont reconstruits avec les identifiants à jour, sa sélection est conservée.
@@ -1646,7 +1662,7 @@ function updateDeadFullScreen() {
     const emojiEl = document.getElementById("dfsRoleEmoji");
     const roleEl  = document.getElementById("dfsRole");
     if (emojiEl) emojiEl.innerText = emojiDuRole(role) || "🎭";
-    if (roleEl)  roleEl.innerText  = (ROLE_DISPLAY && ROLE_DISPLAY[role]) || role || "—";
+    if (roleEl)  roleEl.innerText  = role ? nomDuRole(role) : "—";
     screen.style.display = "flex";
   } else {
     screen.style.display = "none";
@@ -1727,7 +1743,7 @@ function bindDayDebateRoleReveal() {
   if (!btn || !reveal) return;
   if (!btn.dataset.bound) {
     const show = () => {
-      reveal.innerText = ["🎭 " + (ROLE_DISPLAY[role] || role || "—"), ...secretsDuRole()].join("\n");
+      reveal.innerText = [ROLE_DISPLAY[role] || role || "—", ...secretsDuRole()].join("\n");
       reveal.style.display = "block";
       btn.dataset.tenu = "1";
       btn.style.background = "rgba(var(--or-clair),0.16)";
@@ -1950,7 +1966,7 @@ function showRoleCard(r) {
   }
   document.getElementById("rcEmoji").innerText   = emojiDuRole(r) || "🎭";
   document.getElementById("rcTitle").innerText   = "Ton rôle :";
-  document.getElementById("rcRole").innerText    = ROLE_DISPLAY[r] || r;
+  document.getElementById("rcRole").innerText    = nomDuRole(r);   // le pictogramme est déjà en grand au-dessus
   document.getElementById("rcText").innerText    = info.desc    || "";
   document.getElementById("rcMission").innerText = info.mission ? "🎯 " + info.mission : "";
   document.getElementById("rcWin").innerText     = info.win     ? "🏆 " + info.win    : "";
@@ -1979,7 +1995,7 @@ function showRoleReveal(r) {
   const info = ROLE_EXPLAIN[r] || {};
   document.getElementById("rfRoleEmoji").innerText = emojiDuRole(r) || "🎭";
   const nameEl = document.getElementById("rfRoleName");
-  nameEl.innerText  = ROLE_DISPLAY[r] || r;
+  nameEl.innerText  = nomDuRole(r);
   nameEl.style.color = info.color || "rgb(var(--voyance-clair))";
   afficherSecrets(document.getElementById("rfSecrets"));
   document.getElementById("roleFlipFront").style.background = info.bg || "radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--lune-nuit)) 100%)";
@@ -2207,11 +2223,11 @@ socket.on("deadVision", data=>{
 });
 
 socket.on("seerResult", data=>{
-  const rd = ROLE_DISPLAY[data.role] || data.role;
   const isWolf = data.role === "Loup";
-  // En pleine nuit : la nightFallCard a déjà été affichée, nightCardShownThisNight reste tel quel
-  carteAnnonce(isWolf ? "🐺" : "✨", "Vision de la Voyante",
-    `${data.name} est… ${rd}.${isWolf ? " Danger !" : " Cette personne est inoffensive."}`,
+  // En pleine nuit : la nightFallCard a déjà été affichée, nightCardShownThisNight reste tel quel.
+  // Le pictogramme du rôle en grand ; le texte ne le répète pas.
+  carteAnnonce(emojiDuRole(data.role) || "✨", "Vision de la Voyante",
+    `${data.name} est… ${nomDuRole(data.role)}.${isWolf ? " Danger !" : " Cette personne est inoffensive."}`,
     isWolf ? "radial-gradient(ellipse at center,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 100%)" : "radial-gradient(ellipse at center,rgb(var(--lune-nuit)) 0%,rgb(var(--lune-nuit)) 100%)",
     [data.name]);
   // La nuit attend que la Voyante confirme : son bouton ferme tout de suite, sinon la
@@ -2230,7 +2246,7 @@ function showPetiteFillePanel(){
   if(role !== "PetiteFille" || iAmDead || gameIsOver) return;
   petiteFilleSelection = [];
   document.getElementById("petiteFillePanel").style.display = "block";
-  majPetiteFille = choisirTroisJoueurs(document.getElementById("petiteFilleBtns"),
+  majPetiteFille = choisirDesJoueurs(document.getElementById("petiteFilleBtns"),
     players.filter(p => !deadPlayers.includes(p.id) && p.id !== socket.id), "rgb(var(--voyance-vif))",
     "petiteFilleSelectedNames", "petiteFilleConfirmBtn", () => petiteFilleSelection);
 }
@@ -2412,7 +2428,7 @@ socket.on("missionSelectTeam", data=>{
   missionSelectedByMe = [];
   const panel = document.getElementById("missionPanel");
   panel.style.display = "block";
-  choisirTroisJoueurs(document.getElementById("missionTeamBtns"), data.players, "rgb(var(--lune-vif))",
+  choisirDesJoueurs(document.getElementById("missionTeamBtns"), data.players, "rgb(var(--lune-vif))",
     "missionSelectedNames", "missionConfirmBtn", () => missionSelectedByMe);
 });
 
@@ -2711,7 +2727,7 @@ function showMissionBonusPanel(){
   const panel = document.getElementById("missionBonusPanel");
   panel.style.display = "block";
   // Le maire ne peut pas s'inspecter lui-même
-  choisirTroisJoueurs(document.getElementById("missionBonusBtns"), players.filter(p => !deadPlayers.includes(p.id) && p.id !== mayor),
+  choisirDesJoueurs(document.getElementById("missionBonusBtns"), players.filter(p => !deadPlayers.includes(p.id) && p.id !== mayor),
     "rgb(var(--vert-base))", "missionBonusSelectedNames", "missionBonusConfirmBtn", () => missionBonusSelectedByMe);
 }
 
@@ -3203,7 +3219,30 @@ function chasseurShoot(id){
   nightCardShownThisNight = false;
   setTimeout(() => closeDawnCard(), 5000);
 }
-function seerChoice(id){socket.emit("seerChoice",id);}
+function seerChoice(id){socket.emit("seerChoice",id);visionDemandee=true;scheduleRender();}
+
+// Choix personnels de la Voyante et de Cupidon : leur encadré suit la phase (reconnexion comprise),
+// et ses boutons sont refaits à chaque mise à jour de la liste (identifiants à jour)
+function majChoixDeNuit(){
+  const vivants=players.filter(p=>!deadPlayers.includes(p.id));
+  const voyante=phase==="seer"&&role==="Voyante"&&!iAmDead&&!gameIsOver&&!visionDemandee;
+  document.getElementById("seerPanel").style.display=voyante?"block":"none";
+  if(voyante) choisirUnJoueur(document.getElementById("seerTargets"),vivants.filter(p=>p.id!==socket.id),seerChoice,"rgb(var(--voyance-base))");
+  const cupidon=phase==="cupid"&&role==="Cupidon"&&!iAmDead&&!gameIsOver&&!amoureuxEnvoyes;
+  document.getElementById("cupidPanel").style.display=cupidon?"block":"none";
+  if(cupidon) choisirDesJoueurs(document.getElementById("cupidTargets"),vivants,"rgb(var(--amour-vif))","cupidNoms","cupidValider",()=>amoureuxSelection,2);
+  if(phase!=="seer") visionDemandee=false;
+  if(phase!=="cupid"){ amoureuxEnvoyes=false; amoureuxSelection=[]; }
+}
+
+// 3. Pendant un choix personnel, la liste des joueurs se cache : ses prénoms et ses photos sont
+// déjà dans l'encadré. Une seule règle, quel que soit le chemin qui ouvre ou ferme l'encadré.
+const PANNEAUX_DE_CHOIX=["seerPanel","cupidPanel","salvateurPanel","corbeauPanel","petiteFillePanel","missionPanel","missionBonusPanel"];
+function majListeJoueurs(){
+  const choixOuvert=PANNEAUX_DE_CHOIX.some(id=>document.getElementById(id).style.display!=="none");
+  if(!gameIsOver) document.getElementById("playersSection").style.display=choixOuvert?"none":"";
+}
+PANNEAUX_DE_CHOIX.forEach(id=>new MutationObserver(majListeJoueurs).observe(document.getElementById(id),{attributes:true,attributeFilter:["style"]}));
 
 function voteDay(id){
   if(gameIsOver||!voteActive||iAmDead)return;
@@ -3216,12 +3255,11 @@ function voteDay(id){
   scheduleRender();
 }
 
-function selectLover(id){
-  window.selected=window.selected||[];
-  if(window.selected.includes(id))return;
-  window.selected.push(id);
-  if(window.selected.length===2){socket.emit("cupidChoice",window.selected);window.selected=[];document.getElementById("status").innerText="💘 Amoureux choisis !";}
-  else document.getElementById("status").innerText="💘 Choisissez un second amoureux…";
+function confirmerAmoureux(){
+  if(amoureuxSelection.length!==2)return;
+  socket.emit("cupidChoice",amoureuxSelection.slice());
+  amoureuxEnvoyes=true;
+  document.getElementById("status").innerText="💘 Amoureux choisis !";
   scheduleRender();
 }
 
@@ -3239,6 +3277,7 @@ function renderChasseurTargets(){
 function render(){
   const div=document.getElementById("players");div.innerHTML="";
   iAmDead=deadPlayers.includes(socket.id);
+  majChoixDeNuit();
   const sorted=sortedPlayers();
   sorted.forEach((p,idx)=>{
     const isDead=deadPlayers.includes(p.id),isLover=lovers.includes(p.id),canSeeLove=role==="Cupidon"||lovers.includes(socket.id)||iAmDead;
@@ -3266,16 +3305,10 @@ function render(){
         if(myMayorVote===p.id){btn+=`<span class="voted-check">✅</span>`;hasActiveBtn=true;}
         else{btn+=`<button onclick="voteMayor('${p.id}')">🏛️ Voter</button>`;hasActiveBtn=true;}
       }
-      if(phase==="cupid"&&role==="Cupidon"&&!isDead){
-        const _sel=window.selected||[];
-        if(_sel.includes(p.id)){btn+=`<span class="voted-check">💘</span>`;hasActiveBtn=true;}
-        else{btn+=`<button onclick="selectLover('${p.id}')">💘 Choisir</button>`;hasActiveBtn=true;}
-      }
       if(phase==="wolves"&&role==="Loup"&&!isDead&&p.id!==socket.id&&!wolves.includes(p.id)){
         if(wolfVotes[socket.id]===p.id){btn+=`<span class="voted-check">✅</span>`;hasActiveBtn=true;}
         else{btn+=`<button onclick="voteWolf('${p.id}')">🐺 Attaquer</button>`;hasActiveBtn=true;}
       }
-      if(phase==="seer"&&role==="Voyante"&&!isDead&&p.id!==socket.id){btn+=`<button onclick="seerChoice('${p.id}')">🔮 Voir</button>`;hasActiveBtn=true;}
       // Jour piloté par le MJ : pas de bouton « Voter » tant que le MJ n'a pas lancé le vote
       // (currentVoteMode passe à 1, 2, 4 ou 5 à la réception de voteStarted).
       if(phase==="day"&&voteActive&&(!mjPilotedDay||currentVoteMode!==0)&&!isDead&&p.id!==socket.id&&!gameIsOver){

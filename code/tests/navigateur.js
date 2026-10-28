@@ -7,8 +7,9 @@
  * Partie 1 — 2 loups, 4 villageois, MJ qui pilote le jour, sans Conseil ni mission.
  *   Nuit 1 : les loups tuent V1. Jour 1 : le village élimine L1. Nuit 2 : L2 tue V2.
  *   Jour 2 : le village élimine L2 → victoire du village. Le maire (V4) n'est jamais visé.
- * Partie 2 — les rôles qui choisissent : Salvateur, Voyante, Petite Fille, Corbeau, Sorcière,
- *   Chasseur (+ 1 loup, 1 villageois maire). Le loup tue le Chasseur, qui l'emporte à l'aube.
+ * Partie 2 — les rôles qui choisissent : Cupidon, Salvateur, Voyante, Petite Fille, Corbeau,
+ *   Sorcière, Chasseur (+ 1 loup, 1 villageois maire). Cupidon unit le villageois et la Voyante ; le
+ *   loup tue le Chasseur, qui l'emporte à l'aube.
  *
  * Usage : npm run test:navigateur   (Chrome installé, puppeteer-core ; ~4 min, ports 3107 et 3112)
  */
@@ -51,7 +52,7 @@ const clic = async (page, sel, libelle = null) => {
   if (!ok) check(`bouton introuvable : ${sel}${libelle ? ` « ${libelle} »` : ""}`, false);
   return ok;
 };
-// Bouton d'un joueur dans la liste : vote du maire, attaque des loups, vote du jour, vision
+// Bouton d'un joueur dans la liste (votes collectifs) : vote du maire, attaque des loups, vote du jour
 const boutonJoueur = (action, id) => `#players button[onclick="${action}('${id}')"]`;
 
 // Serveur, navigateurs (un par téléphone), salon, lancement par le MJ et pilote du MJ
@@ -135,6 +136,7 @@ async function decouvrirRoles({ tel, pages }, [loup, compagnon] = []) {
   check("« Voir les détails » apparaît", await tous(pages, p => affiche(p, "#roleFlipContinue")));
   for (const p of pages) await clic(p, "#roleFlipContinue");
   check("la carte de rôle détaillée s'ouvre", await tous(pages, p => attendre(p, () => document.getElementById("roleCard").className === "show")));
+  check("le nom du rôle n'est pas précédé de son pictogramme (déjà en grand)", await tous(pages, p => p.evaluate(() => !/\p{Extended_Pictographic}/u.test(document.getElementById("rcRole").innerText + document.getElementById("rfRoleName").innerText))));
   if (compagnon) { const t = await texte(tel[loup], "roleCard"); check("la description du rôle ne cite pas les compagnons", !t.includes(compagnon), t.slice(0, 120)); }
   for (const p of pages) await clic(p, '#roleCard button[onclick="closeRoleCard()"]');
   check("la carte de rôle se referme", await tous(pages, p => attendre(p, () => document.getElementById("roleCard").className === "")));
@@ -217,13 +219,22 @@ async function partieVillage(P) {
 // ═══════════════════════════════════════════════════════════════════════════════════════
 async function partieRoles(P) {
   const { mj, tel, noms, roleDe, id, choisir, etapeMJ } = P;
-  const [loup, voy, salv, corb, sorc, chass, pf, vill] = ["Loup", "Voyante", "Salvateur", "Corbeau", "Sorcière", "Chasseur", "PetiteFille", "Villageois"].map(r => noms.find(n => roleDe[n] === r));
-  check("un joueur par rôle", [loup, voy, salv, corb, sorc, chass, pf, vill].every(Boolean), roleDe);
+  const [loup, voy, salv, corb, sorc, chass, pf, vill, cupi] = ["Loup", "Voyante", "Salvateur", "Corbeau", "Sorcière", "Chasseur", "PetiteFille", "Villageois", "Cupidon"].map(r => noms.find(n => roleDe[n] === r));
+  check("un joueur par rôle", [loup, voy, salv, corb, sorc, chass, pf, vill, cupi].every(Boolean), roleDe);
   await decouvrirRoles(P);
   await election(P, vill, voy);
 
+  console.log("\n▶ Nuit 1 — Cupidon");
+  check("Cupidon : la liste des 9 vivants, avec photos", await attendre(tel[cupi], LISTE, ["#cupidTargets", 9], 30000));
+  check("pendant son choix, la liste des joueurs est cachée", !(await tel[cupi].evaluate(AFFICHE, "#playersSection")));
+  await choisir(tel[cupi], "#cupidTargets", vill);
+  check("à 1 joueur, « Unir » reste grisé", await tel[cupi].evaluate(() => document.getElementById("cupidValider").disabled));
+  await choisir(tel[cupi], "#cupidTargets", voy);
+  await clic(tel[cupi], "#cupidValider");
+  check("les deux amoureux se voient au réveil", await tous([tel[vill], tel[voy]], p => affiche(p, "#amoureuxPanel", 30000)));
+
   console.log("\n▶ Nuit 1 — Salvateur");
-  check("Salvateur : la liste des 8 vivants, avec photos", await attendre(tel[salv], LISTE, ["#salvateurTargets", 8], 30000));
+  check("Salvateur : la liste des 9 vivants, avec photos", await attendre(tel[salv], LISTE, ["#salvateurTargets", 9], 30000));
   await choisir(tel[salv], "#salvateurTargets", vill);
 
   console.log("\n▶ Nuit 1 — Loup");
@@ -233,14 +244,14 @@ async function partieRoles(P) {
   await etapeMJ("MJ « Valider l'attaque des loups »", "Valider l'attaque");
 
   console.log("\n▶ Nuit 1 — Voyante");
-  const vision = boutonJoueur("seerChoice", await id(loup));
-  check("la Voyante a ses boutons « Voir »", await attendre(tel[voy], PRESENT, vision, 30000));
-  await clic(tel[voy], vision);
+  check("Voyante : la liste des 8 autres vivants, avec photos", await attendre(tel[voy], LISTE, ["#seerTargets", 8], 30000));
+  check("pendant son choix, la liste des joueurs est cachée", !(await tel[voy].evaluate(AFFICHE, "#playersSection")));
+  await choisir(tel[voy], "#seerTargets", loup);
   check("vision : la carte nomme le loup, avec sa photo", await attendre(tel[voy], CARTE, [loup + " est…", 1]));
   await clic(tel[voy], "#deathCardBtn");
 
   console.log("\n▶ Nuit 1 — Petite Fille");
-  check("Petite Fille : la liste des 7 autres vivants, avec photos", await attendre(tel[pf], LISTE, ["#petiteFilleBtns", 7], 30000));
+  check("Petite Fille : la liste des 8 autres vivants, avec photos", await attendre(tel[pf], LISTE, ["#petiteFilleBtns", 8], 30000));
   const choix = [loup, voy, corb];
   for (const n of choix.slice(0, 2)) await choisir(tel[pf], "#petiteFilleBtns", n);
   check("à 2 joueurs, « Découvrir » reste grisé", await tel[pf].evaluate(() => document.getElementById("petiteFilleConfirmBtn").disabled));
@@ -252,7 +263,7 @@ async function partieRoles(P) {
   await clic(tel[pf], "#deathCardBtn");
 
   console.log("\n▶ Nuit 1 — Corbeau");
-  check("Corbeau : la liste des 8 vivants, avec photos", await attendre(tel[corb], LISTE, ["#corbeauTargets", 8], 30000));
+  check("Corbeau : la liste des 9 vivants, avec photos", await attendre(tel[corb], LISTE, ["#corbeauTargets", 9], 30000));
   await choisir(tel[corb], "#corbeauTargets", salv);
 
   console.log("\n▶ Nuit 1 — Sorcière");
@@ -260,7 +271,7 @@ async function partieRoles(P) {
   await clic(tel[sorc], "#witchEtape button", "Non");
   check("Sorcière : « Utiliser la potion de mort ? »", await attendre(tel[sorc], () => document.getElementById("witchEtape").innerText.includes("potion de mort")));
   await clic(tel[sorc], "#witchEtape button", "Oui");
-  check("Sorcière : la liste « Qui empoisonner ? » (6, ni elle ni la victime), avec photos", await attendre(tel[sorc], LISTE, ["#witchCibles", 6]));
+  check("Sorcière : la liste « Qui empoisonner ? » (7, ni elle ni la victime), avec photos", await attendre(tel[sorc], LISTE, ["#witchCibles", 7]));
   await clic(tel[sorc], "#witchEtape button", "Passer");
 
   console.log("\n▶ Aube — le Chasseur");
@@ -271,7 +282,7 @@ async function partieRoles(P) {
     window.__tir = document.getElementById("dayDeathCard").innerText + "|" + document.getElementById("deathPhotos").children.length;
   }, 50)));
   await etapeMJ("MJ « Le Chasseur tire »", "Le Chasseur tire");
-  check("Chasseur : la liste des 7 vivants, avec photos", await attendre(tel[chass], LISTE, ["#chasseurTargets", 7]));
+  check("Chasseur : la liste des 8 vivants, avec photos", await attendre(tel[chass], LISTE, ["#chasseurTargets", 8]));
   await choisir(tel[chass], "#chasseurTargets", loup);
   check("tous voient « Le Chasseur a tiré » sur le loup, avec sa photo", await tous(temoins, p => attendre(p, l => (window.__tir || "").includes("Le Chasseur a tiré") && window.__tir.includes(l) && window.__tir.endsWith("|1"), loup)));
   await victoireDuVillage(P, vill);
@@ -287,8 +298,8 @@ async function main() {
     args: ["--no-sandbox", "--autoplay-policy=no-user-gesture-required", "--mute-audio"],
   });
   await partie(navigateur, "PARTIE 1 — 2 loups, 4 villageois", 3107, ["Ana", "Bob", "Cyd", "Dan", "Eve", "Fox"], { loup: 2 }, partieVillage);
-  await partie(navigateur, "PARTIE 2 — les rôles qui choisissent", 3112, ["Gil", "Hal", "Ivy", "Jon", "Kim", "Lou", "Max", "Ned"],
-    { loup: 1, voyante: 1, salvateur: 1, corbeau: 1, sorciere: 1, chasseur: 1, petiteFille: 1 }, partieRoles);
+  await partie(navigateur, "PARTIE 2 — les rôles qui choisissent", 3112, ["Gil", "Hal", "Ivy", "Jon", "Kim", "Lou", "Max", "Ned", "Oz"],
+    { loup: 1, voyante: 1, salvateur: 1, corbeau: 1, sorciere: 1, chasseur: 1, petiteFille: 1, cupidon: 1 }, partieRoles);
   check("aucune erreur JavaScript dans les pages", erreursJS.length === 0, erreursJS.slice(0, 5).join(" ‖ "));
   await navigateur.close();
   process.exit(bilan());
