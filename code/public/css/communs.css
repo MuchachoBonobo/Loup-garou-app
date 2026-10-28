@@ -3,6 +3,21 @@
    (un changement ici vaut pour les deux)
    ============================================================ */
 
+/* Palette du jeu (une couleur par sens, pour les deux écrans) : triplets « r,g,b »,
+   à écrire rgb(var(--or-vif)) ou rgba(var(--or-vif),0.3). Gris n0 (le plus sombre) à n8. */
+:root {
+  --n0:11,11,12; --n1:19,18,20; --n2:28,26,30; --n3:41,38,43; --n4:61,58,65; --n5:92,86,97; --n6:133,125,140; --n7:179,174,183; --n8:231,227,218; --blanc:255,255,255;
+  /* Loups, mort, danger */ --sang-nuit:12,6,5; --sang-fond:24,12,11; --sang-sombre:60,29,27; --sang-base:145,65,59; --sang-vif:218,106,98; --sang-clair:238,175,170;
+  /* Chasseur, crépuscule, avertissement */ --braise-nuit:12,8,5; --braise-fond:24,17,11; --braise-sombre:60,40,27; --braise-base:145,93,59; --braise-vif:218,146,98; --braise-clair:238,197,170;
+  /* Maire, jour, minuteur, actions du MJ */ --or-nuit:12,10,5; --or-fond:24,21,11; --or-sombre:60,50,27; --or-base:145,121,59; --or-vif:218,184,98; --or-clair:238,219,170;
+  /* Sorcière, réussite, connexion */ --vert-nuit:5,12,6; --vert-fond:11,24,13; --vert-sombre:27,60,31; --vert-base:59,145,71; --vert-vif:98,218,114; --vert-clair:170,238,179;
+  /* Nuit, Salvateur, information */ --lune-nuit:5,8,12; --lune-fond:11,17,24; --lune-sombre:27,41,60; --lune-base:59,96,145; --lune-vif:98,150,218; --lune-clair:170,200,238;
+  /* Voyante, Petite Fille, mission */ --voyance-nuit:8,5,12; --voyance-fond:16,11,24; --voyance-sombre:39,27,60; --voyance-base:91,59,145; --voyance-vif:142,98,218; --voyance-clair:195,170,238;
+  /* Morts, Conseil des Morts */ --ame-nuit:12,5,12; --ame-fond:24,11,24; --ame-sombre:60,27,60; --ame-base:145,59,145; --ame-vif:218,98,218; --ame-clair:238,170,238;
+  /* Cupidon, Amoureux, Sœurs */ --amour-nuit:12,5,9; --amour-fond:24,11,17; --amour-sombre:60,27,42; --amour-base:145,59,99; --amour-vif:218,98,154; --amour-clair:238,170,202;
+}
+
+
 /* Police : Arial pour le texte courant sur les deux écrans ; IM Fell English (Igino Marini,
    licence libre SIL OFL : fonts/OFL.txt) pour les titres des écrans et des cartes. Elle est
    dans le jeu, pas sur Internet : elle marche hors connexion. Ses chiffres sont à l'ancienne

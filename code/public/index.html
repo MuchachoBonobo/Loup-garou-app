@@ -2,7 +2,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#111111">
+<meta name="theme-color" content="#0b0b0c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Loup-Garou">
@@ -17,7 +17,7 @@
 <!-- Photo d'un joueur en grand : un toucher sur sa photo l'ouvre, un toucher la referme -->
 <div id="photoZoom" onclick="fermerPhotoZoom()" style="display:none;position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,0.93);align-items:center;justify-content:center;flex-direction:column;cursor:pointer;">
   <img id="photoZoomImg" src="" alt="" style="max-width:92vw;max-height:78vh;border-radius:18px;object-fit:contain;box-shadow:0 0 40px rgba(0,0,0,0.6);">
-  <div id="photoZoomNom" style="color:#fff;font-size:24px;font-weight:bold;margin-top:16px;"></div>
+  <div id="photoZoomNom" style="color:rgb(var(--blanc));font-size:24px;font-weight:bold;margin-top:16px;"></div>
 </div>
 <div id="introScreen" onclick="dismissIntro()">
   <div class="intro-moon"></div>
@@ -30,12 +30,12 @@
 
 <div id="endCard" class="plein-ecran" style="display:none;z-index:10000;">
   <div id="endEmoji" style="font-size:90px;margin-bottom:20px;animation:cardPop 0.6s ease 0.1s both;"></div>
-  <div id="endTitle" style="font-size:30px;font-weight:bold;color:#fff;margin-bottom:14px;animation:cardSlide 0.5s ease 0.3s both;"></div>
-  <div id="endMaMedaille" style="display:none;font-size:20px;color:#ffe08a;margin-bottom:22px;animation:cardSlide 0.5s ease 0.5s both;"></div>
-  <button onclick="document.getElementById('endCard').style.display='none'" style="padding:12px 28px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.6s both;">Fermer</button>
+  <div id="endTitle" style="font-size:30px;font-weight:bold;color:rgb(var(--blanc));margin-bottom:14px;animation:cardSlide 0.5s ease 0.3s both;"></div>
+  <div id="endMaMedaille" style="display:none;font-size:20px;color:rgb(var(--or-vif));margin-bottom:22px;animation:cardSlide 0.5s ease 0.5s both;"></div>
+  <button onclick="document.getElementById('endCard').style.display='none'" style="padding:12px 28px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgb(var(--blanc));font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.6s both;">Fermer</button>
 </div>
 
-<div id="mayorCard" class="plein-ecran" style="display:none;z-index:9997;background:radial-gradient(ellipse at center,#1a1400 0%,#080700 100%);">
+<div id="mayorCard" class="plein-ecran" style="display:none;z-index:9997;background:radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%);">
   <div id="mayorCardPhoto"></div>
   <div class="card-title" id="mayorCardNom"></div>
   <div class="card-text">Nouveau Maire</div>
@@ -50,30 +50,30 @@
 <!-- Overlay pause -->
 <div id="pauseOverlay" class="plein-ecran" style="display:none;z-index:99998;background:rgba(0,0,0,0.85);backdrop-filter:blur(4px);">
   <div style="font-size:80px;margin-bottom:20px;animation:pulse 1.5s infinite alternate;">⏸️</div>
-  <div style="font-size:24px;color:#ffcc00;margin-bottom:12px;font-weight:bold;">Partie en pause</div>
+  <div style="font-size:24px;color:rgb(var(--or-vif));margin-bottom:12px;font-weight:bold;">Partie en pause</div>
   <div style="font-size:14px;color:rgba(255,255,255,0.6);max-width:320px;line-height:1.6;">Le MJ a mis le jeu en pause.<br>Reprise dans quelques instants…</div>
 </div>
 
 <!-- Carte à retourner : « Découvre ton rôle » se retourne au toucher (flip 3D), puis
      « Voir les détails » ouvre la carte de rôle complète. -->
-<div id="roleRevealCover" style="display:none;position:fixed;inset:0;z-index:10000;background:radial-gradient(ellipse at center,#0a0a1a 0%,#000000 100%);align-items:center;justify-content:center;flex-direction:column;padding:30px;">
-  <div style="font-size:13px;color:#8878bb;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;">La partie commence</div>
+<div id="roleRevealCover" style="display:none;position:fixed;inset:0;z-index:10000;background:radial-gradient(ellipse at center,rgb(var(--lune-nuit)) 0%,rgb(var(--n0)) 100%);align-items:center;justify-content:center;flex-direction:column;padding:30px;">
+  <div style="font-size:13px;color:rgb(var(--voyance-vif));letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;">La partie commence</div>
   <div id="roleFlip" style="width:240px;height:336px;perspective:1200px;cursor:pointer;">
     <div id="roleFlipInner" style="position:relative;width:100%;height:100%;transition:transform 0.85s cubic-bezier(.2,.8,.25,1);transform-style:preserve-3d;">
-      <div id="roleFlipBack" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;background:linear-gradient(160deg,#2a2150 0%,#14102e 100%);border:2px solid #4a3f8a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;box-shadow:0 14px 44px rgba(0,0,0,0.65);">
+      <div id="roleFlipBack" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;background:linear-gradient(160deg,rgb(var(--voyance-sombre)) 0%,rgb(var(--voyance-fond)) 100%);border:2px solid rgb(var(--voyance-base));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;box-shadow:0 14px 44px rgba(0,0,0,0.65);">
         <div style="font-size:74px;animation:emojiHover 3s ease-in-out infinite;">🎴</div>
-        <div class="titre" style="font-size:19px;font-weight:bold;color:#cdb8ff;">Découvre ton rôle</div>
-        <div style="font-size:12px;color:#8878bb;">👆 Touche la carte</div>
+        <div class="titre" style="font-size:19px;font-weight:bold;color:rgb(var(--voyance-clair));">Découvre ton rôle</div>
+        <div style="font-size:12px;color:rgb(var(--voyance-vif));">👆 Touche la carte</div>
       </div>
-      <div id="roleFlipFront" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);border-radius:18px;background:radial-gradient(ellipse at center,#1a1030 0%,#0a0818 100%);border:2px solid rgba(255,255,255,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;box-shadow:0 14px 44px rgba(0,0,0,0.65);">
+      <div id="roleFlipFront" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);border-radius:18px;background:radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--lune-nuit)) 100%);border:2px solid rgba(255,255,255,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;box-shadow:0 14px 44px rgba(0,0,0,0.65);">
         <div style="font-size:11px;color:rgba(255,255,255,0.5);letter-spacing:2px;text-transform:uppercase;">Ton rôle</div>
         <div id="rfRoleEmoji" style="font-size:76px;">🎭</div>
         <div id="rfRoleName" style="font-size:23px;font-weight:bold;text-align:center;"></div>
-        <div id="rfSecrets" style="display:none;font-size:14px;color:#f0d49a;text-align:center;line-height:1.5;"></div>
+        <div id="rfSecrets" style="display:none;font-size:14px;color:rgb(var(--or-clair));text-align:center;line-height:1.5;"></div>
       </div>
     </div>
   </div>
-  <button id="roleFlipContinue" onclick="closeRoleReveal()" style="display:none;margin-top:28px;padding:12px 34px;border-radius:8px;border:1px solid rgba(205,184,255,0.45);background:rgba(205,184,255,0.12);color:#cdb8ff;font-size:14px;cursor:pointer;">
+  <button id="roleFlipContinue" onclick="closeRoleReveal()" style="display:none;margin-top:28px;padding:12px 34px;border-radius:8px;border:1px solid rgba(var(--voyance-clair),0.45);background:rgba(var(--voyance-clair),0.12);color:rgb(var(--voyance-clair));font-size:14px;cursor:pointer;">
     Voir les détails →
   </button>
 </div>
@@ -86,7 +86,7 @@
   <div class="rc-text"  id="rcText"></div>
   <div class="rc-mission" id="rcMission"></div>
   <div class="rc-win"     id="rcWin"></div>
-  <button onclick="closeRoleCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:#fff;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.7s both;">
+  <button onclick="closeRoleCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(255,255,255,0.3);background:rgba(255,255,255,0.1);color:rgb(var(--blanc));font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.7s both;">
     ✅ J'ai lu mon rôle
   </button>
 </div>
@@ -112,29 +112,29 @@
 
 <!-- Écran de débat (jour), entre la carte de l'aube et le vote : recentrer les joueurs sur
      la table — message court, soleil discret, pas d'interface. -->
-<div id="dayDebateScreen" class="plein-ecran" style="display:none;z-index:9000;background:radial-gradient(ellipse at 50% 30%,#3a2810 0%,#1a1408 60%,#0a0805 100%);">
-  <div id="ddSun" style="font-size:88px;margin-bottom:18px;filter:drop-shadow(0 0 28px rgba(255,200,90,0.5));animation:ddSunBreathe 6s ease-in-out infinite;">☀️</div>
-  <div id="ddTitre" style="font-size:24px;font-weight:bold;color:#f0d49a;margin-bottom:18px;line-height:1.3;max-width:360px;">🗣️ Discutez,<br>cherchez les loups.</div>
-  <div id="ddTexte" style="font-size:14px;color:rgba(240,212,154,0.78);line-height:1.6;max-width:340px;margin-bottom:14px;">Échangez autour de la table, observez les réactions, démasquez les loups-garous.</div>
+<div id="dayDebateScreen" class="plein-ecran" style="display:none;z-index:9000;background:radial-gradient(ellipse at 50% 30%,rgb(var(--braise-sombre)) 0%,rgb(var(--or-fond)) 60%,rgb(var(--n0)) 100%);">
+  <div id="ddSun" style="font-size:88px;margin-bottom:18px;filter:drop-shadow(0 0 28px rgba(var(--or-vif),0.5));animation:ddSunBreathe 6s ease-in-out infinite;">☀️</div>
+  <div id="ddTitre" style="font-size:24px;font-weight:bold;color:rgb(var(--or-clair));margin-bottom:18px;line-height:1.3;max-width:360px;">🗣️ Discutez,<br>cherchez les loups.</div>
+  <div id="ddTexte" style="font-size:14px;color:rgba(var(--or-clair),0.78);line-height:1.6;max-width:340px;margin-bottom:14px;">Échangez autour de la table, observez les réactions, démasquez les loups-garous.</div>
   <!-- Hold-to-reveal du rôle, directement sur l'écran de débat (l'écran couvre l'UI normale) -->
-  <button id="ddRoleRevealBtn" style="margin-top:40px;padding:8px 16px;border-radius:10px;border:1px solid rgba(240,212,154,0.15);background:transparent;color:rgba(240,212,154,0.45);font-size:12px;cursor:pointer;-webkit-user-select:none;user-select:none;">🎴 Mon rôle</button>
-  <div id="ddRoleReveal" style="display:none;margin-top:10px;font-size:15px;color:#f0d49a;font-weight:bold;"></div>
+  <button id="ddRoleRevealBtn" style="margin-top:40px;padding:8px 16px;border-radius:10px;border:1px solid rgba(var(--or-clair),0.15);background:transparent;color:rgba(var(--or-clair),0.45);font-size:12px;cursor:pointer;-webkit-user-select:none;user-select:none;">🎴 Mon rôle</button>
+  <div id="ddRoleReveal" style="display:none;margin-top:10px;font-size:15px;color:rgb(var(--or-clair));font-weight:bold;"></div>
 </div>
 
 <!-- Écran du joueur mort : plein écran, défilant, rôle en grand ; le salon des morts et le
      Conseil des Morts y sont déplacés (appendChild). -->
-<div id="deadFullScreen" style="display:none;position:fixed;inset:0;z-index:9100;background:radial-gradient(ellipse at 50% 22%,#2a0a0a 0%,#140505 55%,#080303 100%);flex-direction:column;align-items:center;text-align:center;padding:36px 20px 28px;overflow-y:auto;">
-  <div id="dfsSkull" style="font-size:80px;margin-bottom:14px;filter:drop-shadow(0 0 26px rgba(200,60,60,0.5));">☠️</div>
-  <div style="font-size:13px;color:#aa6666;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Ton destin s'achève</div>
-  <div class="titre" style="font-size:28px;font-weight:bold;color:#e8a0a0;margin-bottom:20px;">Tu es mort</div>
-  <img id="dfsPhoto" src="" alt="" style="display:none;width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid rgba(232,160,160,0.4);filter:grayscale(0.6);margin-bottom:14px;">
-  <div style="font-size:12px;color:#996666;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Tu étais</div>
+<div id="deadFullScreen" style="display:none;position:fixed;inset:0;z-index:9100;background:radial-gradient(ellipse at 50% 22%,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 55%,rgb(var(--n0)) 100%);flex-direction:column;align-items:center;text-align:center;padding:36px 20px 28px;overflow-y:auto;">
+  <div id="dfsSkull" style="font-size:80px;margin-bottom:14px;filter:drop-shadow(0 0 26px rgba(var(--sang-base),0.5));">☠️</div>
+  <div style="font-size:13px;color:rgb(var(--sang-vif));letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Ton destin s'achève</div>
+  <div class="titre" style="font-size:28px;font-weight:bold;color:rgb(var(--sang-clair));margin-bottom:20px;">Tu es mort</div>
+  <img id="dfsPhoto" src="" alt="" style="display:none;width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid rgba(var(--sang-clair),0.4);filter:grayscale(0.6);margin-bottom:14px;">
+  <div style="font-size:12px;color:rgb(var(--sang-vif));letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Tu étais</div>
   <div id="dfsRoleEmoji" style="font-size:64px;margin-bottom:4px;">🎭</div>
-  <div id="dfsRole" style="font-size:26px;font-weight:bold;color:#f0c0c0;margin-bottom:18px;"></div>
-  <div style="font-size:13px;color:rgba(240,192,192,0.6);line-height:1.6;max-width:320px;font-style:italic;margin-bottom:22px;">Observe la partie sans rien révéler. Tu peux encore chuchoter avec les autres âmes perdues.</div>
+  <div id="dfsRole" style="font-size:26px;font-weight:bold;color:rgb(var(--sang-clair));margin-bottom:18px;"></div>
+  <div style="font-size:13px;color:rgba(var(--sang-clair),0.6);line-height:1.6;max-width:320px;font-style:italic;margin-bottom:22px;">Observe la partie sans rien révéler. Tu peux encore chuchoter avec les autres âmes perdues.</div>
   <!-- Vue du vote du jour (visible par les morts pendant qu'un vote est en cours) -->
-  <div id="deadVoteView" style="display:none;width:100%;max-width:520px;background:#1a0808;border:1px solid #553333;border-radius:10px;padding:12px 16px;margin-bottom:10px;text-align:left;">
-    <div style="text-align:center;font-size:12px;color:#cc6666;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">🗳️ Vote du village en cours</div>
+  <div id="deadVoteView" style="display:none;width:100%;max-width:520px;background:rgb(var(--sang-fond));border:1px solid rgb(var(--sang-base));border-radius:10px;padding:12px 16px;margin-bottom:10px;text-align:left;">
+    <div style="text-align:center;font-size:12px;color:rgb(var(--sang-vif));letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">🗳️ Vote du village en cours</div>
     <div id="deadVoteViewContent"></div>
   </div>
   <!-- Conteneur où le Conseil des Morts et le salon des morts sont déplacés au chargement -->
@@ -143,86 +143,86 @@
 
 <!-- Carte plein écran : évènement actif du Conseil des Morts. Les joueurs n'en voient que
      l'icône et le titre ; le MJ explique la règle à voix haute (récit masqué). -->
-<div id="councilEventCard" class="plein-ecran" style="display:none;z-index:9998;background:radial-gradient(ellipse at center,#1a0a1a 0%,#0a000a 100%);">
+<div id="councilEventCard" class="plein-ecran" style="display:none;z-index:9998;background:radial-gradient(ellipse at center,rgb(var(--ame-fond)) 0%,rgb(var(--ame-nuit)) 100%);">
   <div style="font-size:72px;margin-bottom:14px;">🪦</div>
-  <div style="font-size:14px;color:#996699;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
-  <div id="councilEventTitle" style="font-size:30px;font-weight:bold;color:#cc99cc;margin-bottom:18px;animation:cardSlide 0.5s ease 0.3s both;"></div>
+  <div style="font-size:14px;color:rgb(var(--ame-vif));letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
+  <div id="councilEventTitle" style="font-size:30px;font-weight:bold;color:rgb(var(--ame-clair));margin-bottom:18px;animation:cardSlide 0.5s ease 0.3s both;"></div>
   <div id="councilEventNarrative" style="display:none;"></div>
-  <div style="max-width:340px;color:rgba(204,153,204,0.65);line-height:1.6;font-size:13px;font-style:italic;animation:cardSlide 0.5s ease 0.5s both;margin-bottom:16px;">Le Maître du Jeu t'en expliquera la règle.</div>
-  <button onclick="closeCouncilEventCard()" style="margin-top:12px;padding:12px 32px;border-radius:8px;border:1px solid rgba(204,153,204,0.4);background:rgba(204,153,204,0.1);color:#cc99cc;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.7s both;">
+  <div style="max-width:340px;color:rgba(var(--ame-clair),0.65);line-height:1.6;font-size:13px;font-style:italic;animation:cardSlide 0.5s ease 0.5s both;margin-bottom:16px;">Le Maître du Jeu t'en expliquera la règle.</div>
+  <button onclick="closeCouncilEventCard()" style="margin-top:12px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--ame-clair),0.4);background:rgba(var(--ame-clair),0.1);color:rgb(var(--ame-clair));font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.7s both;">
     🪦 J'ai compris
   </button>
 </div>
 
 <!-- Carte explicative au lancement de la mission (tous joueurs) -->
-<div id="missionExplainCard" class="plein-ecran" style="display:none;z-index:9998;background:radial-gradient(ellipse at center,#0a0a25 0%,#000010 100%);">
+<div id="missionExplainCard" class="plein-ecran" style="display:none;z-index:9998;background:radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--lune-nuit)) 100%);">
   <div class="card-emoji">🕵️</div>
-  <div class="card-title" style="color:#aaaaff;">Mission Secrète</div>
+  <div class="card-title" style="color:rgb(var(--lune-clair));">Mission Secrète</div>
   <div style="max-width:380px;color:rgba(255,255,255,0.85);line-height:1.7;font-size:14px;animation:cardSlide 0.5s ease 0.3s both;">
     <div style="margin-bottom:14px;">
-      Le <strong style="color:#ffee44;">Maire</strong> désigne <strong>3 joueurs</strong> pour partir en mission.
+      Le <strong style="color:rgb(var(--or-vif));">Maire</strong> désigne <strong>3 joueurs</strong> pour partir en mission.
     </div>
     <div style="margin-bottom:14px;">
       Chaque joueur sélectionné choisit secrètement :
     </div>
     <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;margin-bottom:14px;text-align:left;">
-      <div style="margin:4px 0;"><span style="color:#44ff88;">✅ Réussite</span></div>
-      <div style="margin:4px 0;"><span style="color:#ff4444;">❌ Échec</span></div>
+      <div style="margin:4px 0;"><span style="color:rgb(var(--vert-vif));">✅ Réussite</span></div>
+      <div style="margin:4px 0;"><span style="color:rgb(var(--sang-vif));">❌ Échec</span></div>
     </div>
-    <div style="background:#2a1500;border:1px solid #aa6600;border-radius:8px;padding:8px 12px;margin-bottom:14px;color:#ffaa44;font-size:13px;">
+    <div style="background:rgb(var(--braise-fond));border:1px solid rgb(var(--or-base));border-radius:8px;padding:8px 12px;margin-bottom:14px;color:rgb(var(--braise-vif));font-size:13px;">
       ⚠️ La mission échoue s'il y a au moins un Échec.
     </div>
     <div style="margin-bottom:14px;font-style:italic;color:rgba(255,255,255,0.6);">
       Le résultat sera révélé demain matin…
     </div>
-    <div style="background:#0d1a0d;border:1px solid #22aa44;border-radius:8px;padding:10px 14px;color:#88ffaa;font-size:13px;">
+    <div style="background:rgb(var(--vert-fond));border:1px solid rgb(var(--vert-base));border-radius:8px;padding:10px 14px;color:rgb(var(--vert-vif));font-size:13px;">
       🎁 Si la mission réussit, le Maire obtiendra une information secrète sur 3 joueurs de son choix.
     </div>
   </div>
-  <button onclick="closeMissionExplainCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(170,170,255,0.4);background:rgba(170,170,255,0.1);color:#aaaaff;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.6s both;">
+  <button onclick="closeMissionExplainCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--lune-clair),0.4);background:rgba(var(--lune-clair),0.1);color:rgb(var(--lune-clair));font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.6s both;">
     🕵️ J'ai compris
   </button>
 </div>
 
 <div id="lobby" style="margin:20px auto;">
-  <input id="name" placeholder="Ton prénom" style="padding:8px;border-radius:6px;border:1px solid #555;background:#222;color:#eee;font-size:15px;">
+  <input id="name" placeholder="Ton prénom" style="padding:8px;border-radius:6px;border:1px solid rgb(var(--n5));background:rgb(var(--n3));color:rgb(var(--n8));font-size:15px;">
   <button onclick="join()">Rejoindre</button>
 
   <!-- Selfie : optionnel, simple input file qui ouvre la caméra frontale sur mobile -->
   <div id="photoSection" style="display:none;margin-top:16px;text-align:center;">
     <div id="photoPreviewWrap" style="display:flex;justify-content:center;margin-bottom:10px;">
-      <div id="photoPlaceholder" style="width:96px;height:96px;border-radius:50%;background:#1a1a1a;border:2px dashed #444;display:flex;align-items:center;justify-content:center;color:#555;font-size:36px;">📷</div>
-      <img id="photoPreview" style="display:none;width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid #4488cc;">
+      <div id="photoPlaceholder" style="width:96px;height:96px;border-radius:50%;background:rgb(var(--n2));border:2px dashed rgb(var(--n4));display:flex;align-items:center;justify-content:center;color:rgb(var(--n5));font-size:36px;">📷</div>
+      <img id="photoPreview" style="display:none;width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid rgb(var(--lune-vif));">
     </div>
-    <label for="photoInput" style="display:inline-block;padding:8px 16px;background:#0a1a2a;border:1px solid #335588;border-radius:6px;color:#88aacc;font-size:13px;cursor:pointer;">
+    <label for="photoInput" style="display:inline-block;padding:8px 16px;background:rgb(var(--lune-fond));border:1px solid rgb(var(--lune-base));border-radius:6px;color:rgb(var(--lune-vif));font-size:13px;cursor:pointer;">
       📸 <span id="photoBtnLabel">Ajouter ma photo (optionnel)</span>
     </label>
     <input id="photoInput" type="file" accept="image/*" capture="user" style="display:none;" onchange="handlePhotoSelected(event)">
-    <div style="font-size:11px;color:#555;margin-top:6px;">Apparaîtra sur ta carte de rôle et à ta mort.</div>
+    <div style="font-size:11px;color:rgb(var(--n5));margin-top:6px;">Apparaîtra sur ta carte de rôle et à ta mort.</div>
   </div>
 
   <div style="margin-top:12px;">
-    <button id="fullscreenBtn" onclick="toggleFullscreen()" style="font-size:12px;padding:6px 12px;background:#1a1a1a;border:1px solid #444;color:#888;">
+    <button id="fullscreenBtn" onclick="toggleFullscreen()" style="font-size:12px;padding:6px 12px;background:rgb(var(--n2));border:1px solid rgb(var(--n4));color:rgb(var(--n6));">
       🖥️ Plein écran
     </button>
   </div>
 </div>
 
-<div id="autoResolveBanner" style="display:none;background:#0a1a0a;border:1px solid #2a4a2a;border-radius:8px;margin:0 auto 8px;max-width:480px;padding:7px 14px;font-size:12px;color:#66aa66;text-align:center;"></div>
+<div id="autoResolveBanner" style="display:none;background:rgb(var(--vert-fond));border:1px solid rgb(var(--vert-sombre));border-radius:8px;margin:0 auto 8px;max-width:480px;padding:7px 14px;font-size:12px;color:rgb(var(--vert-base));text-align:center;"></div>
 <div id="status"></div>
 
 <div id="tiebreakPanel" class="panneau">
-  <div id="tiebreakMsg" style="font-size:18px;font-weight:bold;color:#ffcc66;margin-bottom:16px;"></div>
+  <div id="tiebreakMsg" style="font-size:18px;font-weight:bold;color:rgb(var(--or-vif));margin-bottom:16px;"></div>
   <div id="tiebreakBtns"></div>
 </div>
 
 <!-- VOILE DE NUIT : masque l'écran des joueurs non-actifs pendant les phases nocturnes -->
-<div id="nightCoverScreen" style="display:none;position:fixed;inset:0;z-index:99990;background:radial-gradient(ellipse at center,#020816 0%,#000004 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:40px;">
+<div id="nightCoverScreen" style="display:none;position:fixed;inset:0;z-index:99990;background:radial-gradient(ellipse at center,rgb(var(--lune-nuit)) 0%,rgb(var(--lune-nuit)) 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:40px;">
   <!-- petit nuage d'étoiles via box-shadows -->
-  <div style="position:absolute;inset:0;background-image:radial-gradient(2px 2px at 12% 18%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 24% 70%,#ffeebb,transparent 60%),radial-gradient(1px 1px at 70% 30%,#fff,transparent 60%),radial-gradient(2px 2px at 55% 80%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 88% 60%,#cce6ff,transparent 60%),radial-gradient(1px 1px at 40% 40%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 80% 12%,#ffeebb,transparent 60%),radial-gradient(1px 1px at 14% 92%,#fff,transparent 60%);opacity:0.85;pointer-events:none;"></div>
+  <div style="position:absolute;inset:0;background-image:radial-gradient(2px 2px at 12% 18%,rgb(var(--blanc)),transparent 60%),radial-gradient(1.5px 1.5px at 24% 70%,rgb(var(--or-clair)),transparent 60%),radial-gradient(1px 1px at 70% 30%,rgb(var(--blanc)),transparent 60%),radial-gradient(2px 2px at 55% 80%,rgb(var(--blanc)),transparent 60%),radial-gradient(1.5px 1.5px at 88% 60%,rgb(var(--lune-clair)),transparent 60%),radial-gradient(1px 1px at 40% 40%,rgb(var(--blanc)),transparent 60%),radial-gradient(1.5px 1.5px at 80% 12%,rgb(var(--or-clair)),transparent 60%),radial-gradient(1px 1px at 14% 92%,rgb(var(--blanc)),transparent 60%);opacity:0.85;pointer-events:none;"></div>
   <div style="position:relative;z-index:2;">
     <div style="font-size:80px;margin-bottom:18px;">🌙</div>
-    <div class="titre" style="font-size:22px;color:#aabfd9;font-weight:bold;letter-spacing:1px;">Yeux fermés.</div>
+    <div class="titre" style="font-size:22px;color:rgb(var(--lune-clair));font-weight:bold;letter-spacing:1px;">Yeux fermés.</div>
   </div>
 </div>
 
@@ -235,14 +235,14 @@
 </div>
 
 <!-- ===== CONSEIL DES MORTS — panneau de vote (visible uniquement par les morts) ===== -->
-<div id="councilPanel" class="panneau" style="display:none;background:#1a0a1a;border:2px solid #884488;">
-  <h3 style="color:#cc88cc;margin:0 0 8px;font-size:14px;text-align:center;">🪦 Conseil des Morts</h3>
-  <p style="font-size:12px;color:#998099;margin-bottom:12px;text-align:center;line-height:1.5;">
+<div id="councilPanel" class="panneau" style="display:none;background:rgb(var(--ame-fond));border:2px solid rgb(var(--ame-base));">
+  <h3 style="color:rgb(var(--ame-vif));margin:0 0 8px;font-size:14px;text-align:center;">🪦 Conseil des Morts</h3>
+  <p style="font-size:12px;color:rgb(var(--n6));margin-bottom:12px;text-align:center;line-height:1.5;">
     Le village ne compte plus que quelques vivants…<br>
-    Choisis un évènement à infliger demain. <em style="color:#664466;">Tu ne sais pas ce qu'il fait — laisse-toi guider par ton instinct.</em>
+    Choisis un évènement à infliger demain. <em style="color:rgb(var(--ame-base));">Tu ne sais pas ce qu'il fait — laisse-toi guider par ton instinct.</em>
   </p>
   <div id="councilOptions" style="display:flex;flex-direction:column;gap:8px;"></div>
-  <div id="councilVoteStatus" style="margin-top:10px;font-size:12px;color:#664466;text-align:center;"></div>
+  <div id="councilVoteStatus" style="margin-top:10px;font-size:12px;color:rgb(var(--ame-base));text-align:center;"></div>
 </div>
 
 <div id="deadChatPanel" class="panneau">
@@ -250,20 +250,20 @@
   <div id="deadChatMessages"></div>
   <div id="deadChatInput">
     <input id="deadChatText" placeholder="Message…" onkeydown="if(event.key==='Enter')sendDeadChat()">
-    <button onclick="sendDeadChat()" style="padding:6px 12px;background:#2a0a0a;border:1px solid #662222;border-radius:6px;color:#cc6666;font-size:12px;">Envoyer</button>
+    <button onclick="sendDeadChat()" style="padding:6px 12px;background:rgb(var(--sang-fond));border:1px solid rgb(var(--sang-sombre));border-radius:6px;color:rgb(var(--sang-vif));font-size:12px;">Envoyer</button>
   </div>
 </div>
 
 <!-- CONSEIL DES MORTS — 💬 Les Voix Étouffées : chat écrit du jour visible de tous. -->
-<div id="silentDayChatPanel" style="display:none;background:#1a0f2e;border:2px solid #aa66cc;border-radius:10px;margin:10px auto;max-width:520px;padding:14px;">
-  <h3 style="margin:0 0 8px;color:#cc99ff;font-size:16px;text-align:center;">💬 La Place du Parchemin</h3>
-  <div id="silentDayChatHint" style="font-size:12px;color:#9988aa;text-align:center;margin-bottom:8px;">Les voix sont étouffées. Écris tes pensées.</div>
-  <div id="silentDayChatMessages" style="height:200px;overflow-y:auto;background:#0a0518;border:1px solid #443366;border-radius:6px;padding:8px;margin-bottom:8px;font-size:13px;line-height:1.4;"></div>
+<div id="silentDayChatPanel" style="display:none;background:rgb(var(--voyance-fond));border:2px solid rgb(var(--voyance-vif));border-radius:10px;margin:10px auto;max-width:520px;padding:14px;">
+  <h3 style="margin:0 0 8px;color:rgb(var(--voyance-vif));font-size:16px;text-align:center;">💬 La Place du Parchemin</h3>
+  <div id="silentDayChatHint" style="font-size:12px;color:rgb(var(--voyance-vif));text-align:center;margin-bottom:8px;">Les voix sont étouffées. Écris tes pensées.</div>
+  <div id="silentDayChatMessages" style="height:200px;overflow-y:auto;background:rgb(var(--voyance-nuit));border:1px solid rgb(var(--voyance-base));border-radius:6px;padding:8px;margin-bottom:8px;font-size:13px;line-height:1.4;"></div>
   <div id="silentDayChatInput" style="display:flex;gap:6px;">
-    <input id="silentDayChatText" placeholder="Ton message…" maxlength="200" onkeydown="if(event.key==='Enter')sendSilentDayChat()" style="flex:1;background:#0a0518;border:1px solid #443366;border-radius:6px;color:#ddccff;padding:8px;font-size:13px;">
-    <button onclick="sendSilentDayChat()" style="padding:8px 14px;background:#2a1644;border:1px solid #6644aa;border-radius:6px;color:#cc99ff;font-size:12px;cursor:pointer;">Inscrire</button>
+    <input id="silentDayChatText" placeholder="Ton message…" maxlength="200" onkeydown="if(event.key==='Enter')sendSilentDayChat()" style="flex:1;background:rgb(var(--voyance-nuit));border:1px solid rgb(var(--voyance-base));border-radius:6px;color:rgb(var(--voyance-clair));padding:8px;font-size:13px;">
+    <button onclick="sendSilentDayChat()" style="padding:8px 14px;background:rgb(var(--voyance-sombre));border:1px solid rgb(var(--voyance-base));border-radius:6px;color:rgb(var(--voyance-vif));font-size:12px;cursor:pointer;">Inscrire</button>
   </div>
-  <div id="silentDayChatDeadHint" style="display:none;font-size:11px;color:#776688;text-align:center;margin-top:6px;font-style:italic;">⚰️ Tu es mort — tu peux lire mais pas écrire.</div>
+  <div id="silentDayChatDeadHint" style="display:none;font-size:11px;color:rgb(var(--n6));text-align:center;margin-top:6px;font-style:italic;">⚰️ Tu es mort — tu peux lire mais pas écrire.</div>
 </div>
 
 <div id="votesPanel" class="panneau"><h3 id="votesPanelTitle">Votes</h3><div id="votesContent"></div></div>
@@ -276,128 +276,128 @@
 </div>
 <div id="voteWaitBox" class="panneau">🗳️ Tu peux déjà voter — le MJ choisira le mode et lancera le minuteur.</div>
 
-<div id="corbeauPanel" class="panneau" style="display:none;background:#0a0a0a;border:2px solid #666;">
-  <h3 style="color:#aaa;margin:0 0 8px;font-size:14px;">🪶 Le Corbeau désigne sa cible</h3>
-  <p style="font-size:12px;color:#666;margin-bottom:10px;">Choisis un joueur qui recevra 2 votes supplémentaires demain, ou passe ton tour.</p>
+<div id="corbeauPanel" class="panneau" style="display:none;background:rgb(var(--n0));border:2px solid rgb(var(--n5));">
+  <h3 style="color:rgb(var(--n7));margin:0 0 8px;font-size:14px;">🪶 Le Corbeau désigne sa cible</h3>
+  <p style="font-size:12px;color:rgb(var(--n5));margin-bottom:10px;">Choisis un joueur qui recevra 2 votes supplémentaires demain, ou passe ton tour.</p>
   <div id="corbeauTargets"></div>
-  <button onclick="corbeauSkip()" style="margin-top:8px;width:100%;padding:9px;background:#111;border:1px solid #333;border-radius:6px;color:#555;font-size:13px;cursor:pointer;">⏭️ Passer mon tour</button>
+  <button onclick="corbeauSkip()" style="margin-top:8px;width:100%;padding:9px;background:rgb(var(--n1));border:1px solid rgb(var(--n4));border-radius:6px;color:rgb(var(--n5));font-size:13px;cursor:pointer;">⏭️ Passer mon tour</button>
 </div>
 
 <!-- Petite Fille : désigne 3 joueurs, apprend s'il y a au moins un loup parmi eux -->
-<div id="petiteFillePanel" class="panneau" style="display:none;background:#140a1e;border:2px solid #7a4fa8;">
+<div id="petiteFillePanel" class="panneau" style="display:none;background:rgb(var(--voyance-fond));border:2px solid rgb(var(--voyance-vif));">
   <div style="font-size:24px;text-align:center;margin-bottom:8px;">👧</div>
-  <div style="font-weight:bold;color:#cc88ff;font-size:15px;text-align:center;margin-bottom:6px;">La Petite Fille enquête</div>
-  <div style="font-size:12px;color:#8a6aa8;margin-bottom:12px;text-align:center;line-height:1.6;">
+  <div style="font-weight:bold;color:rgb(var(--voyance-vif));font-size:15px;text-align:center;margin-bottom:6px;">La Petite Fille enquête</div>
+  <div style="font-size:12px;color:rgb(var(--voyance-vif));margin-bottom:12px;text-align:center;line-height:1.6;">
     Désigne 3 joueurs. Tu sauras s'il y a au moins un Loup parmi eux — mais pas lequel.
   </div>
   <div id="petiteFilleBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
-  <div id="petiteFilleSelectedNames" style="margin-top:10px;font-size:12px;color:#cc88ff;text-align:center;min-height:18px;"></div>
+  <div id="petiteFilleSelectedNames" style="margin-top:10px;font-size:12px;color:rgb(var(--voyance-vif));text-align:center;min-height:18px;"></div>
   <button id="petiteFilleConfirmBtn" onclick="confirmPetiteFille()" disabled
-    style="width:100%;margin-top:12px;padding:12px;background:#1e0f2a;border:2px solid #7a4fa8;border-radius:8px;color:#cc88ff;font-size:14px;cursor:pointer;opacity:0.4;">
+    style="width:100%;margin-top:12px;padding:12px;background:rgb(var(--voyance-fond));border:2px solid rgb(var(--voyance-vif));border-radius:8px;color:rgb(var(--voyance-vif));font-size:14px;cursor:pointer;opacity:0.4;">
     👧 Découvrir
   </button>
 </div>
 
-<div id="salvateurPanel" class="panneau" style="display:none;background:#08121a;border:2px solid #335a7a;">
-  <h3 style="color:#88ccff;margin:0 0 8px;font-size:14px;">🛡️ Le Salvateur protège un villageois</h3>
-  <p style="font-size:12px;color:#5a8aa8;margin-bottom:6px;">Choisis la personne que tu protèges cette nuit. Si les Loups l'attaquent, elle survit.</p>
-  <p id="salvateurLastInfo" style="font-size:11px;color:#88aacc;margin-bottom:10px;display:none;"></p>
+<div id="salvateurPanel" class="panneau" style="display:none;background:rgb(var(--lune-fond));border:2px solid rgb(var(--lune-base));">
+  <h3 style="color:rgb(var(--lune-vif));margin:0 0 8px;font-size:14px;">🛡️ Le Salvateur protège un villageois</h3>
+  <p style="font-size:12px;color:rgb(var(--lune-vif));margin-bottom:6px;">Choisis la personne que tu protèges cette nuit. Si les Loups l'attaquent, elle survit.</p>
+  <p id="salvateurLastInfo" style="font-size:11px;color:rgb(var(--lune-vif));margin-bottom:10px;display:none;"></p>
   <div id="salvateurTargets"></div>
 </div>
 
 <!-- ===== AMOUREUX : réveil après Cupidon, ils se regardent ===== -->
-<div id="amoureuxPanel" class="plein-ecran" style="display:none;z-index:9700;background:radial-gradient(ellipse at center,#3a0f22 0%,#160610 100%);">
+<div id="amoureuxPanel" class="plein-ecran" style="display:none;z-index:9700;background:radial-gradient(ellipse at center,rgb(var(--amour-sombre)) 0%,rgb(var(--amour-fond)) 100%);">
   <div style="font-size:64px;margin-bottom:14px;line-height:1;">💘</div>
-  <img id="amoureuxPhoto" src="" alt="" style="display:none;width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid #ff88bb;margin-bottom:12px;">
-  <div id="amoureuxNom" style="font-size:24px;font-weight:bold;color:#ffe0ee;margin-bottom:22px;"></div>
-  <div id="amoureuxTimer" style="font-size:48px;font-weight:bold;color:#ffe0ee;font-variant-numeric:tabular-nums;">00:15</div>
+  <img id="amoureuxPhoto" src="" alt="" style="display:none;width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid rgb(var(--amour-vif));margin-bottom:12px;">
+  <div id="amoureuxNom" style="font-size:24px;font-weight:bold;color:rgb(var(--amour-clair));margin-bottom:22px;"></div>
+  <div id="amoureuxTimer" style="font-size:48px;font-weight:bold;color:rgb(var(--amour-clair));font-variant-numeric:tabular-nums;">00:15</div>
 </div>
 
 <!-- ===== SŒURS JUMELLES (Option B : signal seul + timer 20s) ===== -->
-<div id="sistersPanel" class="plein-ecran" style="display:none;z-index:9700;background:radial-gradient(ellipse at center,#3a1428 0%,#1a0814 100%);">
-  <div style="font-size:11px;color:#c97aa0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:18px;">La nuit</div>
+<div id="sistersPanel" class="plein-ecran" style="display:none;z-index:9700;background:radial-gradient(ellipse at center,rgb(var(--amour-sombre)) 0%,rgb(var(--amour-fond)) 100%);">
+  <div style="font-size:11px;color:rgb(var(--amour-vif));letter-spacing:1.5px;text-transform:uppercase;margin-bottom:18px;">La nuit</div>
   <div style="font-size:72px;margin-bottom:18px;line-height:1;">👯‍♀️</div>
-  <div style="font-size:22px;font-weight:bold;color:#fbeaf0;margin-bottom:10px;">Réveille-toi</div>
-  <div style="font-size:14px;color:#ed93b1;margin-bottom:32px;line-height:1.5;max-width:320px;">Cherche ta sœur du regard.<br><span style="font-size:12px;color:#c97aa0;">En silence. Fais-lui signe.</span></div>
-  <div id="sistersTimer" style="font-size:54px;font-weight:bold;color:#fbeaf0;font-variant-numeric:tabular-nums;letter-spacing:2px;">00:20</div>
-  <div id="sistersAliveCount" style="font-size:12px;color:#c97aa0;margin-top:12px;"></div>
+  <div style="font-size:22px;font-weight:bold;color:rgb(var(--amour-clair));margin-bottom:10px;">Réveille-toi</div>
+  <div style="font-size:14px;color:rgb(var(--amour-clair));margin-bottom:32px;line-height:1.5;max-width:320px;">Cherche ta sœur du regard.<br><span style="font-size:12px;color:rgb(var(--amour-vif));">En silence. Fais-lui signe.</span></div>
+  <div id="sistersTimer" style="font-size:54px;font-weight:bold;color:rgb(var(--amour-clair));font-variant-numeric:tabular-nums;letter-spacing:2px;">00:20</div>
+  <div id="sistersAliveCount" style="font-size:12px;color:rgb(var(--amour-vif));margin-top:12px;"></div>
 </div>
 
 <div id="chasseurPanel"></div>
 
 <!-- Sorcière : une question à la fois (potion de vie, puis potion de mort, puis la cible) -->
 <!-- Sorcière : plein écran, seulement l'encadré de la question (le moins d'information possible) -->
-<div id="witchPanel" style="display:none;position:fixed;inset:0;z-index:9600;background:radial-gradient(ellipse at center,#0a1a05 0%,#020800 100%);flex-direction:column;padding:24px 16px;overflow-y:auto;">
-  <div id="witchEtape" style="margin:auto;width:100%;max-width:420px;background:#0a1608;border:2px solid #3f9a4a;border-radius:14px;padding:22px 16px;text-align:center;"></div>
+<div id="witchPanel" style="display:none;position:fixed;inset:0;z-index:9600;background:radial-gradient(ellipse at center,rgb(var(--vert-fond)) 0%,rgb(var(--vert-nuit)) 100%);flex-direction:column;padding:24px 16px;overflow-y:auto;">
+  <div id="witchEtape" style="margin:auto;width:100%;max-width:420px;background:rgb(var(--vert-fond));border:2px solid rgb(var(--vert-base));border-radius:14px;padding:22px 16px;text-align:center;"></div>
 </div>
 
 <!-- ===== MISSION ===== -->
 
 <!-- Statut mission visible par tous (team sélectionnée, nb cartes jouées) -->
-<div id="missionStatusPanel" class="panneau" style="display:none;background:#0a0a18;border:1px solid #333366;text-align:center;">
-  <div style="font-size:11px;color:#5555aa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">🎭 Mission secrète</div>
-  <div id="missionStatusText" style="font-size:13px;color:#aaaacc;"></div>
-  <div id="missionCardCounter" style="display:none;margin-top:8px;font-size:12px;color:#666;"></div>
+<div id="missionStatusPanel" class="panneau" style="display:none;background:rgb(var(--lune-nuit));border:1px solid rgb(var(--lune-sombre));text-align:center;">
+  <div style="font-size:11px;color:rgb(var(--lune-base));text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">🎭 Mission secrète</div>
+  <div id="missionStatusText" style="font-size:13px;color:rgb(var(--lune-clair));"></div>
+  <div id="missionCardCounter" style="display:none;margin-top:8px;font-size:12px;color:rgb(var(--n5));"></div>
 </div>
 
 <!-- Maire : sélection des 3 joueurs pour la mission -->
-<div id="missionPanel" class="panneau" style="display:none;background:#0d0d20;border:2px solid #4444aa;">
+<div id="missionPanel" class="panneau" style="display:none;background:rgb(var(--lune-fond));border:2px solid rgb(var(--lune-base));">
   <div style="font-size:24px;text-align:center;margin-bottom:8px;">🎭</div>
-  <div style="font-weight:bold;color:#8888ff;font-size:15px;text-align:center;margin-bottom:6px;">Tu es le Maire — choisis ton équipe</div>
-  <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;">Sélectionne 3 joueurs (pas toi-même). Ils choisiront secrètement une carte.</div>
+  <div style="font-weight:bold;color:rgb(var(--lune-vif));font-size:15px;text-align:center;margin-bottom:6px;">Tu es le Maire — choisis ton équipe</div>
+  <div style="font-size:12px;color:rgb(var(--n5));margin-bottom:12px;text-align:center;">Sélectionne 3 joueurs (pas toi-même). Ils choisiront secrètement une carte.</div>
   <div id="missionTeamBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
-  <div id="missionSelectedNames" style="margin-top:10px;font-size:12px;color:#8888ff;text-align:center;min-height:18px;"></div>
+  <div id="missionSelectedNames" style="margin-top:10px;font-size:12px;color:rgb(var(--lune-vif));text-align:center;min-height:18px;"></div>
   <button id="missionConfirmBtn" onclick="confirmMissionTeam()" disabled
-    style="width:100%;margin-top:12px;padding:12px;background:#1a1a3a;border:2px solid #4444aa;border-radius:8px;color:#8888ff;font-size:14px;cursor:pointer;opacity:0.4;">
+    style="width:100%;margin-top:12px;padding:12px;background:rgb(var(--lune-sombre));border:2px solid rgb(var(--lune-base));border-radius:8px;color:rgb(var(--lune-vif));font-size:14px;cursor:pointer;opacity:0.4;">
     ✅ Confirmer l'équipe
   </button>
 </div>
 
 <!-- Joueur sélectionné : choix de carte -->
-<div id="missionVotePanel" class="panneau" style="display:none;background:#0d0d20;border:2px solid #4444aa;text-align:center;">
+<div id="missionVotePanel" class="panneau" style="display:none;background:rgb(var(--lune-fond));border:2px solid rgb(var(--lune-base));text-align:center;">
   <div style="font-size:24px;margin-bottom:8px;">🎭</div>
-  <div style="font-weight:bold;color:#8888ff;font-size:15px;margin-bottom:6px;">Mission — Choisis ta carte</div>
-  <div style="font-size:12px;color:#666;margin-bottom:14px;line-height:1.6;">
-    Choisis <strong style="color:#aaa;">secrètement</strong> une carte.<br>
+  <div style="font-weight:bold;color:rgb(var(--lune-vif));font-size:15px;margin-bottom:6px;">Mission — Choisis ta carte</div>
+  <div style="font-size:12px;color:rgb(var(--n5));margin-bottom:14px;line-height:1.6;">
+    Choisis <strong style="color:rgb(var(--n7));">secrètement</strong> une carte.<br>
     Ton choix n'est pas visible par les autres.
   </div>
   <div style="display:flex;gap:12px;justify-content:center;">
     <button onclick="playMissionCard('success')"
-      style="flex:1;padding:18px 8px;background:#0a2a0a;border:2px solid #22aa44;border-radius:10px;color:#44ff88;font-size:22px;cursor:pointer;">
-      ✅<div style="font-size:11px;margin-top:4px;color:#22aa44;">Réussite</div>
+      style="flex:1;padding:18px 8px;background:rgb(var(--vert-sombre));border:2px solid rgb(var(--vert-base));border-radius:10px;color:rgb(var(--vert-vif));font-size:22px;cursor:pointer;">
+      ✅<div style="font-size:11px;margin-top:4px;color:rgb(var(--vert-base));">Réussite</div>
     </button>
     <button onclick="playMissionCard('fail')"
-      style="flex:1;padding:18px 8px;background:#2a0a0a;border:2px solid #aa2222;border-radius:10px;color:#ff4444;font-size:22px;cursor:pointer;">
-      ❌<div style="font-size:11px;margin-top:4px;color:#aa2222;">Échec</div>
+      style="flex:1;padding:18px 8px;background:rgb(var(--sang-fond));border:2px solid rgb(var(--sang-base));border-radius:10px;color:rgb(var(--sang-vif));font-size:22px;cursor:pointer;">
+      ❌<div style="font-size:11px;margin-top:4px;color:rgb(var(--sang-base));">Échec</div>
     </button>
   </div>
-  <div id="missionCardDone" style="display:none;margin-top:12px;font-size:13px;color:#44ff88;">✅ Carte jouée — en attente des autres joueurs…</div>
+  <div id="missionCardDone" style="display:none;margin-top:12px;font-size:13px;color:rgb(var(--vert-vif));">✅ Carte jouée — en attente des autres joueurs…</div>
 </div>
 
 <!-- Maire : bonus (si mission réussie) -->
-<div id="missionBonusPanel" class="panneau" style="display:none;background:#0d1a0d;border:2px solid #22aa44;">
+<div id="missionBonusPanel" class="panneau" style="display:none;background:rgb(var(--vert-fond));border:2px solid rgb(var(--vert-base));">
   <div style="font-size:24px;text-align:center;margin-bottom:8px;">🔍</div>
-  <div style="font-weight:bold;color:#44ff88;font-size:15px;text-align:center;margin-bottom:6px;">Mission réussie — Bonus d'information</div>
-  <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;line-height:1.6;">
+  <div style="font-weight:bold;color:rgb(var(--vert-vif));font-size:15px;text-align:center;margin-bottom:6px;">Mission réussie — Bonus d'information</div>
+  <div style="font-size:12px;color:rgb(var(--n5));margin-bottom:12px;text-align:center;line-height:1.6;">
     Choisis 3 joueurs. Tu sauras en privé si au moins un d'eux est un Loup.
   </div>
   <div id="missionBonusBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
-  <div id="missionBonusSelectedNames" style="margin-top:10px;font-size:12px;color:#44ff88;text-align:center;min-height:18px;"></div>
+  <div id="missionBonusSelectedNames" style="margin-top:10px;font-size:12px;color:rgb(var(--vert-vif));text-align:center;min-height:18px;"></div>
   <button id="missionBonusConfirmBtn" onclick="confirmMissionBonus()" disabled
-    style="width:100%;margin-top:12px;padding:12px;background:#0a2a0a;border:2px solid #22aa44;border-radius:8px;color:#44ff88;font-size:14px;cursor:pointer;opacity:0.4;">
+    style="width:100%;margin-top:12px;padding:12px;background:rgb(var(--vert-sombre));border:2px solid rgb(var(--vert-base));border-radius:8px;color:rgb(var(--vert-vif));font-size:14px;cursor:pointer;opacity:0.4;">
     🔍 Révéler
   </button>
 </div>
 
 <!-- Résultat bonus (privé, visible uniquement par le maire) -->
-<div id="missionBonusResult" class="panneau" style="display:none;background:#0d1a0d;border:2px solid #22aa44;text-align:center;">
+<div id="missionBonusResult" class="panneau" style="display:none;background:rgb(var(--vert-fond));border:2px solid rgb(var(--vert-base));text-align:center;">
   <div id="missionBonusResultText" style="font-size:16px;font-weight:bold;margin-bottom:6px;"></div>
-  <div id="missionBonusResultSub" style="font-size:12px;color:#666;"></div>
+  <div id="missionBonusResultSub" style="font-size:12px;color:rgb(var(--n5));"></div>
 </div>
 
-<div id="deathLogPanel" class="panneau" style="display:none;background:#111;border:1px solid #2a2a2a;text-align:left;">
-  <h3 style="margin:0 0 8px;font-size:11px;color:#555;text-transform:uppercase;letter-spacing:1px;">📜 Chronique des morts</h3>
-  <div id="deathLogList" style="font-size:12px;line-height:1.9;color:#888;"></div>
+<div id="deathLogPanel" class="panneau" style="display:none;background:rgb(var(--n1));border:1px solid rgb(var(--n3));text-align:left;">
+  <h3 style="margin:0 0 8px;font-size:11px;color:rgb(var(--n5));text-transform:uppercase;letter-spacing:1px;">📜 Chronique des morts</h3>
+  <div id="deathLogList" style="font-size:12px;line-height:1.9;color:rgb(var(--n6));"></div>
 </div>
 
 <div id="endScreen">
@@ -406,8 +406,8 @@
     <h3>👁️ Les rôles</h3>
     <div id="endRolesList"></div>
   </div>
-  <div id="endClassementPanel" style="display:none;background:#111;border:1px solid #222;border-radius:12px;padding:14px 16px;margin-bottom:12px;">
-    <div style="font-size:11px;color:#777;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">🏆 Classement de la soirée</div>
+  <div id="endClassementPanel" style="display:none;background:rgb(var(--n1));border:1px solid rgb(var(--n3));border-radius:12px;padding:14px 16px;margin-bottom:12px;">
+    <div style="font-size:11px;color:rgb(var(--n6));letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">🏆 Classement de la soirée</div>
     <div id="endClassementList"></div>
   </div>
 </div>
@@ -420,7 +420,7 @@
 <div id="infoPanel" class="panneau">
   <h3>Ton identité</h3>
   <!-- Bouton anti-triche jour : maintenir pour révéler -->
-  <button id="infoRevealBtn" style="display:none;width:100%;margin-bottom:10px;padding:14px;background:#0a0a1a;border:1px solid #334466;border-radius:8px;color:#88aacc;font-size:14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;">
+  <button id="infoRevealBtn" style="display:none;width:100%;margin-bottom:10px;padding:14px;background:rgb(var(--lune-nuit));border:1px solid rgb(var(--lune-base));border-radius:8px;color:rgb(var(--lune-vif));font-size:14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;">
     🎴 <strong>Maintenir pour voir mon rôle</strong>
   </button>
   <div id="infoPanelContent">
@@ -629,79 +629,79 @@ const ROLE_EXPLAIN = {
     desc:    "Chaque nuit, concerte-toi en silence avec tes complices pour désigner une victime. Le jour, bluffe, sème le doute, accuse les autres.",
     mission: "Élimine suffisamment de villageois pour que la meute soit aussi nombreuse qu'eux.",
     win:     "Tu gagnes avec les Loups-Garous.",
-    bg: "radial-gradient(ellipse at center,#1a0505 0%,#080000 100%)", color: "#ff6666"
+    bg: "radial-gradient(ellipse at center,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 100%)", color: "rgb(var(--sang-vif))"
   },
   "Voyante": {
     desc:    "Chaque nuit, désigne secrètement un joueur : son vrai rôle t'est révélé. Utilise cette connaissance pour guider le village… sans te démasquer.",
     mission: "Identifie les loups et aide le village à les éliminer.",
     win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#0a0520 0%,#020010 100%)", color: "#aa88ff"
+    bg: "radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--voyance-nuit)) 100%)", color: "rgb(var(--voyance-vif))"
   },
   "Sorcière": {
     desc:    "Tu possèdes deux potions uniques : une de VIE pour sauver la victime des loups cette nuit, une de MORT pour éliminer n'importe qui. Chacune ne peut être utilisée qu'une seule fois.",
     mission: "Sers-toi de tes potions au bon moment pour renverser le cours du jeu.",
     win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#0a1a05 0%,#020800 100%)", color: "#88ff88"
+    bg: "radial-gradient(ellipse at center,rgb(var(--vert-fond)) 0%,rgb(var(--vert-nuit)) 100%)", color: "rgb(var(--vert-vif))"
   },
   "Chasseur": {
     desc:    "Tu n'as aucun pouvoir la nuit. Mais si tu meurs — que ce soit par les loups, la Sorcière ou le vote — tu peux emporter un joueur avec toi.",
     mission: "Observe attentivement. Ta mort doit coûter cher à tes ennemis.",
     win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#1a0f00 0%,#080500 100%)", color: "#ffaa44"
+    bg: "radial-gradient(ellipse at center,rgb(var(--braise-fond)) 0%,rgb(var(--braise-nuit)) 100%)", color: "rgb(var(--braise-vif))"
   },
   "Cupidon": {
     desc:    "Lors de la première nuit, tu lies deux joueurs par un amour irrésistible. S'ils survivent seuls jusqu'à la fin, ils gagnent ensemble. Mais si l'un meurt, l'autre mourant de chagrin le suivra immédiatement.",
     mission: "Choisis tes amoureux avec sagesse — ce lien peut sauver ou perdre le village.",
     win:     "Tu gagnes avec les Villageois (sauf si tu es un Amoureux survivant).",
-    bg: "radial-gradient(ellipse at center,#1a0510 0%,#080005 100%)", color: "#ff88cc"
+    bg: "radial-gradient(ellipse at center,rgb(var(--amour-fond)) 0%,rgb(var(--amour-nuit)) 100%)", color: "rgb(var(--amour-vif))"
   },
   "Villageois": {
     desc:    "Tu n'as aucun pouvoir particulier. Ta force est collective : observe les comportements, détecte les incohérences, et vote avec conviction.",
     mission: "Débusque les loups cachés dans le village avant qu'il ne soit trop tard.",
     win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#0a1000 0%,#030500 100%)", color: "#aaffaa"
+    bg: "radial-gradient(ellipse at center,rgb(var(--n2)) 0%,rgb(var(--n0)) 100%)", color: "rgb(var(--n8))"
   },
   "Maire": {
     desc:    "Le village t'a élu. Ta voix est décisive : en cas d'égalité lors d'un vote, c'est toi qui tranches. Si tu meurs, tu choisis ton successeur.",
     mission: "Guide le village avec sagesse. Ta décision peut tout changer.",
     win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee44"
+    bg: "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%)", color: "rgb(var(--or-vif))"
   },
   "PetiteFille": {
     desc:    "Chaque nuit, après la Voyante, tu désignes 3 joueurs (jamais toi-même). Tu apprends s'il y a au moins un Loup parmi eux, ou aucun — mais pas lequel. Pendant le tour des Loups, garde les yeux fermés comme tout le monde.",
     mission: "Recoupe tes réponses nuit après nuit pour isoler les loups. Partage-les intelligemment pour aider le village.",
     win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#10051a 0%,#050008 100%)", color: "#cc88ff"
+    bg: "radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--voyance-nuit)) 100%)", color: "rgb(var(--voyance-vif))"
   },
   "Idiot": {
     desc:    "Si le village vote pour t'éliminer, ton rôle est révélé à tous — mais tu restes en vie ! Tu perds cependant le droit de voter pour le reste de la partie. Ce pouvoir ne peut être utilisé qu'une seule fois.",
     mission: "Survis en jouant la carte de l'innocent. Si tu es découvert, ton immunité te sauve une fois.",
     win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee00"
+    bg: "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%)", color: "rgb(var(--or-vif))"
   },
   "Ange": {
     desc:    "Tu n'as qu'un seul but : te faire éliminer par le village lors du tout premier vote, au lendemain de la première nuit. Si le village te désigne à ce moment-là, tu gagnes seul ! Sinon, tu deviens un simple villageois.",
     mission: "Attire les soupçons dès le premier jour… sans que le village devine ton jeu.",
     win:     "Tu gagnes seul si le village t'élimine au 1er vote, sinon avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#1f1a0a 0%,#0a0804 100%)", color: "#ffe9a8"
+    bg: "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--n0)) 100%)", color: "rgb(var(--or-clair))"
   },
   "Corbeau": {
     desc:    "Chaque nuit après la Voyante, tu peux désigner un joueur qui commencera le vote du jour suivant avec 2 votes contre lui. Tu peux aussi te cibler toi-même ou passer ton tour.",
     mission: "Dirige les soupçons du village vers les loups — ou sème la confusion pour mieux te protéger.",
     win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#0a0a0a 0%,#050505 100%)", color: "#aaaaaa"
+    bg: "radial-gradient(ellipse at center,rgb(var(--n0)) 0%,rgb(var(--n0)) 100%)", color: "rgb(var(--n7))"
   },
   "Salvateur": {
     desc:    "Chaque nuit avant les Loups, tu désignes secrètement un joueur que tu protèges : si les Loups attaquent cette personne, elle survit. Tu peux te protéger toi-même, mais jamais la même personne deux nuits de suite.",
     mission: "Devine qui les Loups voudront frapper et protège le bon villageois — ton choix peut sauver le village.",
     win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#0a1820 0%,#020810 100%)", color: "#88ccff"
+    bg: "radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--lune-nuit)) 100%)", color: "rgb(var(--lune-vif))"
   },
   "Sœurs": {
     desc:    "Tu es une Sœur jumelle. Chaque nuit, tu te réveilles en silence avec ta sœur pendant 20 secondes. Tu ne peux pas parler — seulement la regarder et lui faire signe pour partager vos soupçons.",
     mission: "Aide ta sœur à survivre et à démasquer les Loups, en gardant votre lien secret pour le village.",
     win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,#3a1428 0%,#1a0814 100%)", color: "#ed93b1"
+    bg: "radial-gradient(ellipse at center,rgb(var(--amour-sombre)) 0%,rgb(var(--amour-fond)) 100%)", color: "rgb(var(--amour-vif))"
   }
 };
 
@@ -787,7 +787,7 @@ socket.on("idiotRevealed", data => {
   idiotRevealed = true; idiotId = data.id;
   carteAnnonce("🤡", data.name + " est… l'Idiot du village !",
     "Le village a voté — mais l'Idiot du village ne peut pas être éliminé ainsi ! Il reste en vie… mais perd son droit de vote.",
-    "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", [data.name]);
+    "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%)", [data.name]);
   fermerCarteAuRythme(fermerCarteMortSiOuverte, 6000, ["day", "crepuscule"]);
   scheduleRender();
 });
@@ -796,7 +796,7 @@ socket.on("idiotRevealed", data => {
 socket.on("angeRevele", data => {
   carteAnnonce("👼", data.name + " était l'Ange !",
     "Le village l'a désigné dès le premier vote… exactement ce qu'il voulait. Il s'envole et gagne seul !",
-    "radial-gradient(ellipse at center,#3a3014 0%,#0a0804 100%)", [data.name]);
+    "radial-gradient(ellipse at center,rgb(var(--or-sombre)) 0%,rgb(var(--n0)) 100%)", [data.name]);
   // Pas de fermeture automatique : l'écran de fin arrive ~5 s après et referme la carte
   // (sinon l'écran « Discutez » réapparaissait une demi-seconde entre les deux).
   if (data.id === socket.id) vibrateIfDay([300, 100, 300, 100, 500]);
@@ -813,7 +813,7 @@ socket.on("retireParMJ", () => {
 
 socket.on("registerError", msg=>{
   const inp=document.getElementById("name");
-  if(inp){ inp.style.borderColor="#ff4444"; inp.placeholder=msg; }
+  if(inp){ inp.style.borderColor="rgb(var(--sang-vif))"; inp.placeholder=msg; }
   document.getElementById("status").innerText="⚠️ "+msg;
 });
 socket.on("autoResolve", msg => {
@@ -955,7 +955,7 @@ socket.on("gameEnd", msg=>{
   if (lastGameSummary) populateEndScreen(lastGameSummary, key);
 
   const card = document.getElementById("endCard");
-  const cfgBg = { wolves:"radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)", lovers:"radial-gradient(ellipse at center,#1a0515 0%,#050005 100%)", ange:"radial-gradient(ellipse at center,#2a2410 0%,#080600 100%)", villagers:"radial-gradient(ellipse at center,#051a05 0%,#000500 100%)" };
+  const cfgBg = { wolves:"radial-gradient(ellipse at center,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 100%)", lovers:"radial-gradient(ellipse at center,rgb(var(--ame-fond)) 0%,rgb(var(--ame-nuit)) 100%)", ange:"radial-gradient(ellipse at center,rgb(var(--or-sombre)) 0%,rgb(var(--or-nuit)) 100%)", villagers:"radial-gradient(ellipse at center,rgb(var(--vert-fond)) 0%,rgb(var(--vert-nuit)) 100%)" };
   card.style.background = cfgBg[key];
   document.getElementById("endEmoji").innerText    = key==="wolves"?"🐺":key==="lovers"?"💘":key==="ange"?"👼":"🏆";
   // L'emoji est déjà affiché en grand au-dessus du titre
@@ -999,10 +999,10 @@ function populateEndScreen(data, winner) {
     const moi = (players.find(p => p.id === socket.id) || {}).name;
     const medailleRang = r => r === 1 ? "🥇" : r === 2 ? "🥈" : r === 3 ? "🥉" : `${r}.`;
     clList.innerHTML = data.classement.map(c =>
-      `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;${c.nom === moi ? "color:#ffd966;font-weight:bold;" : "color:#ccc;"}">
+      `<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:13px;${c.nom === moi ? "color:rgb(var(--or-vif));font-weight:bold;" : "color:rgb(var(--n8));"}">
         <span style="width:26px;text-align:center;">${medailleRang(c.rang)}</span>
         <span style="flex:1;">${c.nom}</span>
-        <span style="color:#888;font-size:12px;">${c.points} pt${c.points > 1 ? "s" : ""}</span>
+        <span style="color:rgb(var(--n6));font-size:12px;">${c.points} pt${c.points > 1 ? "s" : ""}</span>
       </div>`).join("");
     clPanel.style.display = "block";
   } else if (clPanel) {
@@ -1115,7 +1115,7 @@ function closeDawnCard() {
 
 // Avatar compact d'un joueur dans la liste (render). `size` en px.
 // Photo disponible → <img> ronde ; sinon → cercle initiale avec couleur déterministe.
-const AVATAR_PALETTE = ["#6a4fbf","#bf4f6a","#4f9fbf","#7abf4f","#bf9f4f","#bf6a4f","#4f6abf","#9f4fbf"];
+const AVATAR_PALETTE = ["rgb(var(--voyance-base))","rgb(var(--sang-base))","rgb(var(--lune-base))","rgb(var(--vert-base))","rgb(var(--or-base))","rgb(var(--braise-base))","rgb(var(--amour-base))","rgb(var(--ame-base))"];
 // zoom : faux dans une liste où toute la ligne est un bouton (sinon toucher la photo l'agrandit)
 function playerAvatar(p, size, zoom = true) {
   const s = size || 32;
@@ -1125,7 +1125,7 @@ function playerAvatar(p, size, zoom = true) {
   // Array.from : un prénom qui commence par un emoji (robots « 🤖 ») donnait « � »
   const initial = Array.from(p.name || "?")[0].toUpperCase();
   const color = AVATAR_PALETTE[(p.name || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_PALETTE.length];
-  return `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${color};flex-shrink:0;margin-right:8px;display:flex;align-items:center;justify-content:center;font-size:${Math.round(s*0.45)}px;font-weight:bold;color:#fff;opacity:0.88;">${initial}</div>`;
+  return `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${color};flex-shrink:0;margin-right:8px;display:flex;align-items:center;justify-content:center;font-size:${Math.round(s*0.45)}px;font-weight:bold;color:rgb(var(--blanc));opacity:0.88;">${initial}</div>`;
 }
 
 // Rendu d'un ou plusieurs avatars de victimes sur la dayDeathCard.
@@ -1167,7 +1167,7 @@ function choisirUnJoueur(conteneur, joueurs, action, couleur, interdit = () => n
     btn.onclick = () => action(p.id);
     btn.innerHTML = playerAvatar(p, 30, false);   // la photo fait partie du bouton (pas d'agrandissement)
     btn.append(p.name + (p.id === socket.id ? " (toi)" : "") + (raison ? " — " + raison : ""));
-    btn.style.cssText = `display:flex;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid ${couleur};color:#ddd;font-size:15px;text-align:left;cursor:${raison ? "not-allowed;opacity:0.4" : "pointer"};`;
+    btn.style.cssText = `display:flex;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid ${couleur};color:rgb(var(--n8));font-size:15px;text-align:left;cursor:${raison ? "not-allowed;opacity:0.4" : "pointer"};`;
     conteneur.appendChild(btn);
   });
 }
@@ -1180,8 +1180,8 @@ function choisirTroisJoueurs(conteneur, joueurs, couleur, idNoms, idValider, sel
     const choix = selection();
     conteneur.querySelectorAll("button").forEach(b => {
       const pris = choix.includes(b.dataset.id);
-      b.style.borderColor = pris ? couleur : "#333";
-      b.style.background  = pris ? couleur + "33" : "rgba(255,255,255,0.04)";
+      b.style.borderColor = pris ? couleur : "rgb(var(--n4))";
+      b.style.background  = pris ? couleur.replace(/^rgb\((.*)\)$/, "rgba($1,0.2)") : "rgba(255,255,255,0.04)";
     });
     const noms = choix.map(id => players.find(x => x.id === id)?.name || "?");
     document.getElementById(idNoms).innerText = noms.length
@@ -1194,7 +1194,7 @@ function choisirTroisJoueurs(conteneur, joueurs, couleur, idNoms, idValider, sel
     const choix = selection(), i = choix.indexOf(id);
     if (i >= 0) choix.splice(i, 1); else if (choix.length < 3) choix.push(id);
     maj();
-  }, "#333");
+  }, "rgb(var(--n4))");
   maj();
   return maj;
 }
@@ -1223,7 +1223,7 @@ function renderDeathPhotos(victims) {
     } else {
       // Placeholder : initiale sur fond gris foncé
       const ph = document.createElement("div");
-      ph.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:#2a2a2a;border:3px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;color:#999;font-weight:bold;filter:grayscale(0.5);animation:cardPop 0.5s ease 0.1s both;`;
+      ph.style.cssText = `width:${size}px;height:${size}px;border-radius:50%;background:rgb(var(--n3));border:3px solid rgba(255,255,255,0.35);display:flex;align-items:center;justify-content:center;font-size:${fontSize}px;color:rgb(var(--n7));font-weight:bold;filter:grayscale(0.5);animation:cardPop 0.5s ease 0.1s both;`;
       ph.innerText = Array.from(v.name || "?")[0].toUpperCase();
       ph.title = v.name || "";
       container.appendChild(ph);
@@ -1667,7 +1667,7 @@ function updateDeadVoteView() {
   content.innerHTML = "";
   // Mode 5 (Émeute) : vote anonyme — aucun détail public
   if (currentVoteMode === 5) {
-    content.innerHTML = '<div style="text-align:center;color:#996666;font-size:13px;font-style:italic;">🖤 Vote dans l\'ombre — les bulletins restent secrets.</div>';
+    content.innerHTML = '<div style="text-align:center;color:rgb(var(--sang-vif));font-size:13px;font-style:italic;">🖤 Vote dans l\'ombre — les bulletins restent secrets.</div>';
     return;
   }
   // Comptage (avec bonus corbeau éventuel)
@@ -1677,7 +1677,7 @@ function updateDeadVoteView() {
   }
   const entries = Object.entries(allCounts).sort((a,b)=>b[1]-a[1]);
   if (entries.length === 0) {
-    content.innerHTML = '<div style="text-align:center;color:#996666;font-size:13px;font-style:italic;">Personne n\'a encore voté…</div>';
+    content.innerHTML = '<div style="text-align:center;color:rgb(var(--sang-vif));font-size:13px;font-style:italic;">Personne n\'a encore voté…</div>';
   } else {
     const total = entries.reduce((s,[,c])=>s+c,0) || 1;
     entries.forEach(([pid,c])=>{
@@ -1685,9 +1685,9 @@ function updateDeadVoteView() {
       const pct = Math.round((c/total)*100);
       const row = document.createElement("div");
       row.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px;";
-      row.innerHTML = `<span style="flex:0 0 90px;color:#e8c0c0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span>`
-        + `<span style="flex:1;height:8px;background:#2a1010;border-radius:4px;overflow:hidden;"><span style="display:block;height:100%;width:${pct}%;background:#aa4444;"></span></span>`
-        + `<span style="flex:0 0 auto;color:#cc8888;font-weight:bold;">${c}</span>`;
+      row.innerHTML = `<span style="flex:0 0 90px;color:rgb(var(--sang-clair));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.name}</span>`
+        + `<span style="flex:1;height:8px;background:rgb(var(--sang-fond));border-radius:4px;overflow:hidden;"><span style="display:block;height:100%;width:${pct}%;background:rgb(var(--sang-base));"></span></span>`
+        + `<span style="flex:0 0 auto;color:rgb(var(--sang-vif));font-weight:bold;">${c}</span>`;
       content.appendChild(row);
     });
   }
@@ -1695,14 +1695,14 @@ function updateDeadVoteView() {
   const detail = Object.entries(votesDayDetail||{});
   if (detail.length > 0) {
     const list = document.createElement("div");
-    list.style.cssText = "margin-top:10px;padding-top:8px;border-top:1px solid #3a1a1a;";
+    list.style.cssText = "margin-top:10px;padding-top:8px;border-top:1px solid rgb(var(--sang-sombre));";
     detail.forEach(([voterId,targetId])=>{
       const voter  = players.find(x=>x.id===voterId);
       const target = players.find(x=>x.id===targetId);
       if(!voter||!target) return;
       const r = document.createElement("div");
-      r.style.cssText = "font-size:12px;color:#aa8888;padding:2px 0;";
-      r.innerHTML = `${voter.name} <span style="color:#664444;">→</span> ${target.name}`;
+      r.style.cssText = "font-size:12px;color:rgb(var(--sang-vif));padding:2px 0;";
+      r.innerHTML = `${voter.name} <span style="color:rgb(var(--sang-base));">→</span> ${target.name}`;
       list.appendChild(r);
     });
     content.appendChild(list);
@@ -1712,7 +1712,7 @@ function updateDeadVoteView() {
     const t = players.find(x=>x.id===corbeauVotesTarget);
     if (t) {
       const badge = document.createElement("div");
-      badge.style.cssText = "margin-top:8px;text-align:center;font-size:12px;color:#8888aa;";
+      badge.style.cssText = "margin-top:8px;text-align:center;font-size:12px;color:rgb(var(--lune-vif));";
       badge.innerHTML = `🪶 2 votes mystérieux sur <strong>${t.name}</strong>`;
       content.appendChild(badge);
     }
@@ -1730,7 +1730,7 @@ function bindDayDebateRoleReveal() {
       reveal.innerText = ["🎭 " + (ROLE_DISPLAY[role] || role || "—"), ...secretsDuRole()].join("\n");
       reveal.style.display = "block";
       btn.dataset.tenu = "1";
-      btn.style.background = "rgba(240,212,154,0.16)";
+      btn.style.background = "rgba(var(--or-clair),0.16)";
       btn.innerHTML = "👁️ Mon rôle";
     };
     const hide = () => {
@@ -1763,8 +1763,8 @@ function updateRoleRevealBtn() {
   if (dayLike && role && !iAmDead) {
     btn.style.display = "block";
     if (!btn.dataset.bound) {
-      const reveal = ()=>{ content.style.display = "block"; btn.style.background="#1a1a2e"; btn.style.color="#cce6ff"; btn.innerHTML="👁️ <strong>Relâche pour cacher</strong>"; };
-      const hide   = ()=>{ content.style.display = "none"; btn.style.background="#0a0a1a"; btn.style.color="#88aacc"; btn.innerHTML="🎴 <strong>Maintenir pour voir mon rôle</strong>"; };
+      const reveal = ()=>{ content.style.display = "block"; btn.style.background="rgb(var(--lune-sombre))"; btn.style.color="rgb(var(--lune-clair))"; btn.innerHTML="👁️ <strong>Relâche pour cacher</strong>"; };
+      const hide   = ()=>{ content.style.display = "none"; btn.style.background="rgb(var(--lune-nuit))"; btn.style.color="rgb(var(--lune-vif))"; btn.innerHTML="🎴 <strong>Maintenir pour voir mon rôle</strong>"; };
       // Souris
       btn.addEventListener("mousedown", reveal);
       btn.addEventListener("mouseup",   hide);
@@ -1954,8 +1954,8 @@ function showRoleCard(r) {
   document.getElementById("rcText").innerText    = info.desc    || "";
   document.getElementById("rcMission").innerText = info.mission ? "🎯 " + info.mission : "";
   document.getElementById("rcWin").innerText     = info.win     ? "🏆 " + info.win    : "";
-  card.style.background = info.bg || "radial-gradient(ellipse at center,#001030 0%,#000818 100%)";
-  document.getElementById("rcRole").style.color  = info.color  || "#aaddff";
+  card.style.background = info.bg || "radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--lune-nuit)) 100%)";
+  document.getElementById("rcRole").style.color  = info.color  || "rgb(var(--lune-clair))";
   card.className = "show";
 }
 
@@ -1980,9 +1980,9 @@ function showRoleReveal(r) {
   document.getElementById("rfRoleEmoji").innerText = emojiDuRole(r) || "🎭";
   const nameEl = document.getElementById("rfRoleName");
   nameEl.innerText  = ROLE_DISPLAY[r] || r;
-  nameEl.style.color = info.color || "#cdb8ff";
+  nameEl.style.color = info.color || "rgb(var(--voyance-clair))";
   afficherSecrets(document.getElementById("rfSecrets"));
-  document.getElementById("roleFlipFront").style.background = info.bg || "radial-gradient(ellipse at center,#1a1030 0%,#0a0818 100%)";
+  document.getElementById("roleFlipFront").style.background = info.bg || "radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--lune-nuit)) 100%)";
   // Reset : carte face cachée
   inner.style.transform = "";
   cont.style.display = "none";
@@ -2058,7 +2058,7 @@ socket.on("salvateurReject", data => {
 // Il peut se protéger lui-même, jamais la même personne deux nuits de suite
 function renderSalvateurTargets() {
   choisirUnJoueur(document.getElementById("salvateurTargets"), players.filter(p => !deadPlayers.includes(p.id)),
-    salvateurChoose, "#335a7a", id => id === salvateurLastProtectedId ? "hier" : null);
+    salvateurChoose, "rgb(var(--lune-base))", id => id === salvateurLastProtectedId ? "hier" : null);
 }
 
 function salvateurChoose(id) {
@@ -2155,7 +2155,7 @@ socket.on("corbeauConfirm", data=>{
 });
 
 function renderCorbeauTargets(){
-  choisirUnJoueur(document.getElementById("corbeauTargets"), players.filter(p => !deadPlayers.includes(p.id)), corbeauChoose, "#666");
+  choisirUnJoueur(document.getElementById("corbeauTargets"), players.filter(p => !deadPlayers.includes(p.id)), corbeauChoose, "rgb(var(--n5))");
 }
 
 function corbeauChoose(id){
@@ -2212,7 +2212,7 @@ socket.on("seerResult", data=>{
   // En pleine nuit : la nightFallCard a déjà été affichée, nightCardShownThisNight reste tel quel
   carteAnnonce(isWolf ? "🐺" : "✨", "Vision de la Voyante",
     `${data.name} est… ${rd}.${isWolf ? " Danger !" : " Cette personne est inoffensive."}`,
-    isWolf ? "radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)" : "radial-gradient(ellipse at center,#050520 0%,#000008 100%)",
+    isWolf ? "radial-gradient(ellipse at center,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 100%)" : "radial-gradient(ellipse at center,rgb(var(--lune-nuit)) 0%,rgb(var(--lune-nuit)) 100%)",
     [data.name]);
   // La nuit attend que la Voyante confirme : son bouton ferme tout de suite, sinon la
   // vision se ferme d'elle-même au bout de 10 s (demande d'Alexandre, 2026-10-26).
@@ -2231,7 +2231,7 @@ function showPetiteFillePanel(){
   petiteFilleSelection = [];
   document.getElementById("petiteFillePanel").style.display = "block";
   majPetiteFille = choisirTroisJoueurs(document.getElementById("petiteFilleBtns"),
-    players.filter(p => !deadPlayers.includes(p.id) && p.id !== socket.id), "#cc88ff",
+    players.filter(p => !deadPlayers.includes(p.id) && p.id !== socket.id), "rgb(var(--voyance-vif))",
     "petiteFilleSelectedNames", "petiteFilleConfirmBtn", () => petiteFilleSelection);
 }
 let majPetiteFille = () => {};
@@ -2255,7 +2255,7 @@ socket.on("petiteFilleResult", data=>{
   const noms = (data.names || []).join(", ");
   carteAnnonce(data.auMoinsUnLoup ? "🐺" : "✨", "Ce qu'a découvert la Petite Fille",
     data.auMoinsUnLoup ? `Parmi ${noms}, il y a au moins un Loup.` : `Parmi ${noms}, il n'y a aucun Loup.`,
-    data.auMoinsUnLoup ? "radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)" : "radial-gradient(ellipse at center,#10051a 0%,#050008 100%)",
+    data.auMoinsUnLoup ? "radial-gradient(ellipse at center,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 100%)" : "radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--voyance-nuit)) 100%)",
     data.names || []);
   // Comme la Voyante : en pleine nuit, pas de fermeture automatique — la nuit attend son « OK »
   _confirmationNuitEnAttente = "petiteFilleDone";
@@ -2282,8 +2282,8 @@ function commencerTourSorciere() {
 }
 function boutonSorciere(texte, action, fort) {
   return `<button onclick="${action}" style="flex:1;margin:4px;padding:14px 10px;border-radius:10px;font-size:15px;cursor:pointer;${fort
-    ? "background:#0f2a12;border:2px solid #5fc46a;color:#d6ffd9;"
-    : "background:#111;border:1px solid #444;color:#aaa;"}">${texte}</button>`;
+    ? "background:rgb(var(--vert-sombre));border:2px solid rgb(var(--vert-vif));color:rgb(var(--vert-clair));"
+    : "background:rgb(var(--n1));border:1px solid rgb(var(--n4));color:rgb(var(--n7));"}">${texte}</button>`;
 }
 function afficherEtapeSorciere(etape) {
   _etapeSorciere = etape;
@@ -2296,27 +2296,27 @@ function afficherEtapeSorciere(etape) {
     const v = players.find(x => x.id === nightVictimId);
     const question = !v ? "Sauver la victime ?" : v.id === socket.id ? "Te sauver ?" : `Sauver ${v.name} ?`;
     const photo = v && v.photo
-      ? `<img src="${v.photo}" ${attrZoom(v.name)} style="width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid #5fc46a;margin:0 auto 16px;display:block;cursor:zoom-in;">`
+      ? `<img src="${v.photo}" ${attrZoom(v.name)} style="width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid rgb(var(--vert-vif));margin:0 auto 16px;display:block;cursor:zoom-in;">`
       : (v ? `<div style="display:flex;justify-content:center;margin-bottom:16px;">${playerAvatar(v, 120)}</div>` : "");
-    zone.innerHTML = `${photo}<div class="titre" style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:18px;">${question}</div>
+    zone.innerHTML = `${photo}<div class="titre" style="font-size:22px;font-weight:bold;color:rgb(var(--blanc));margin-bottom:18px;">${question}</div>
       <div style="display:flex;">${boutonSorciere("Oui", "sorciereSauver()", true)}${boutonSorciere("Non", "afficherEtapeSorciere('mort')")}</div>`;
   } else if (etape === "mort") {
     if (witchKillUsed) { finirTourSorciere(); return; }
-    zone.innerHTML = `<div class="titre" style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:18px;">Utiliser la potion de mort ?</div>
+    zone.innerHTML = `<div class="titre" style="font-size:22px;font-weight:bold;color:rgb(var(--blanc));margin-bottom:18px;">Utiliser la potion de mort ?</div>
       <div style="display:flex;">${boutonSorciere("Oui", "afficherEtapeSorciere('cible')", true)}${boutonSorciere("Non", "finirTourSorciere()")}</div>`;
   } else if (etape === "cible") {
     // Comme pour le vote : les joueurs vivants, sauf elle-même et la victime des loups
     const cibles = players.filter(x => !deadPlayers.includes(x.id) && x.id !== socket.id && x.id !== nightVictimId);
-    zone.innerHTML = `<div class="titre" style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:14px;">Qui empoisonner ?</div>
+    zone.innerHTML = `<div class="titre" style="font-size:22px;font-weight:bold;color:rgb(var(--blanc));margin-bottom:14px;">Qui empoisonner ?</div>
       <div id="witchCibles"></div>
       <div style="display:flex;margin-top:10px;">${boutonSorciere("Passer", "finirTourSorciere()")}</div>`;
-    choisirUnJoueur(document.getElementById("witchCibles"), cibles, sorciereEmpoisonner, "#3a6a42");
+    choisirUnJoueur(document.getElementById("witchCibles"), cibles, sorciereEmpoisonner, "rgb(var(--vert-base))");
   }
 }
 function sorciereSauver() { socket.emit("witchSave"); }
 function sorciereEmpoisonner(id) {
   const p = players.find(x => x.id === id);
-  document.getElementById("witchEtape").innerHTML = `<div style="font-size:15px;color:#d6ffd9;">💀 ${p ? p.name : ""}…</div>`;
+  document.getElementById("witchEtape").innerHTML = `<div style="font-size:15px;color:rgb(var(--vert-clair));">💀 ${p ? p.name : ""}…</div>`;
   socket.emit("witchKill", id);
 }
 function finirTourSorciere() {
@@ -2327,7 +2327,7 @@ function finirTourSorciere() {
 }
 
 // Panneau d'action plein écran (Chasseur, égalité, transmission d'écharpe, abdication)
-const FOND_CHASSEUR = "radial-gradient(ellipse at center,#1a0800 0%,#060200 100%)";
+const FOND_CHASSEUR = "radial-gradient(ellipse at center,rgb(var(--braise-nuit)) 0%,rgb(var(--braise-nuit)) 100%)";
 function ouvrirPanneau(panneau, fond, zIndex = 9500) {
   panneau.style.cssText = `display:flex;flex-direction:column;align-items:center;justify-content:center;position:fixed;inset:0;z-index:${zIndex};background:${fond};padding:30px;text-align:center`;
 }
@@ -2349,8 +2349,8 @@ socket.on("chasseurMustShoot", hunterId=>{
   } else {
     panel.innerHTML = [
       "<div style='font-size:64px;margin-bottom:20px;'>🔫</div>",
-      "<div style='font-size:22px;font-weight:bold;color:#ff8833;margin-bottom:12px;'>Le Chasseur tire sa dernière balle…</div>",
-      "<div style='font-size:15px;color:#aaa;'>Avant de mourir, le Chasseur emporte quelqu'un avec lui.</div>"
+      "<div style='font-size:22px;font-weight:bold;color:rgb(var(--braise-vif));margin-bottom:12px;'>Le Chasseur tire sa dernière balle…</div>",
+      "<div style='font-size:15px;color:rgb(var(--n7));'>Avant de mourir, le Chasseur emporte quelqu'un avec lui.</div>"
     ].join("");
   }
   updateActionPendingBanner();
@@ -2361,7 +2361,7 @@ socket.on("chasseurMustShoot", hunterId=>{
 socket.on("chasseurATire", d => {
   if (!d || gameIsOver) return;
   carteAnnonce("🔫", "Le Chasseur a tiré", `${d.name} est emporté·e par le Chasseur.`,
-    "radial-gradient(ellipse at center,#1a0800 0%,#080300 100%)", [d.name]);
+    "radial-gradient(ellipse at center,rgb(var(--braise-nuit)) 0%,rgb(var(--braise-nuit)) 100%)", [d.name]);
   if (d.nuit) { _aubeAttendLeMJ = nuitParMJ && mjPilotedDay; if (!_aubeAttendLeMJ) setTimeout(fermerCarteMortSiOuverte, 7000); }
   else fermerCarteAuRythme(fermerCarteMortSiOuverte, 5000, ["chasseur", "day", "crepuscule"]);
 });
@@ -2412,7 +2412,7 @@ socket.on("missionSelectTeam", data=>{
   missionSelectedByMe = [];
   const panel = document.getElementById("missionPanel");
   panel.style.display = "block";
-  choisirTroisJoueurs(document.getElementById("missionTeamBtns"), data.players, "#8888ff",
+  choisirTroisJoueurs(document.getElementById("missionTeamBtns"), data.players, "rgb(var(--lune-vif))",
     "missionSelectedNames", "missionConfirmBtn", () => missionSelectedByMe);
 });
 
@@ -2473,9 +2473,9 @@ socket.on("councilStart", data => {
     btn.id = "councilOpt_" + opt.id;
     btn.textContent = opt.title;
     btn.onclick = () => voteCouncil(opt.id);
-    btn.style.cssText = "padding:14px 18px;background:#2a1a2a;border:2px solid #663366;border-radius:8px;color:#cc99cc;font-size:15px;cursor:pointer;width:100%;text-align:center;transition:all 0.15s;";
-    btn.addEventListener("mouseenter", () => { btn.style.background = "#3a2a3a"; btn.style.borderColor = "#884488"; });
-    btn.addEventListener("mouseleave", () => { if (!btn.classList.contains("voted")) { btn.style.background = "#2a1a2a"; btn.style.borderColor = "#663366"; } });
+    btn.style.cssText = "padding:14px 18px;background:rgb(var(--ame-sombre));border:2px solid rgb(var(--ame-base));border-radius:8px;color:rgb(var(--ame-clair));font-size:15px;cursor:pointer;width:100%;text-align:center;transition:all 0.15s;";
+    btn.addEventListener("mouseenter", () => { btn.style.background = "rgb(var(--ame-sombre))"; btn.style.borderColor = "rgb(var(--ame-base))"; });
+    btn.addEventListener("mouseleave", () => { if (!btn.classList.contains("voted")) { btn.style.background = "rgb(var(--ame-sombre))"; btn.style.borderColor = "rgb(var(--ame-base))"; } });
     optsDiv.appendChild(btn);
   });
   if (status) status.innerText = "🗳️ Choisis un évènement…";
@@ -2492,9 +2492,9 @@ function voteCouncil(eventId) {
     if (!btn) return;
     if (opt.id === eventId) {
       btn.classList.add("voted");
-      btn.style.background = "#3a1a3a";
-      btn.style.borderColor = "#aa66aa";
-      btn.style.color = "#ffccff";
+      btn.style.background = "rgb(var(--ame-sombre))";
+      btn.style.borderColor = "rgb(var(--ame-vif))";
+      btn.style.color = "rgb(var(--ame-clair))";
     } else {
       btn.style.opacity = "0.4";
     }
@@ -2623,10 +2623,10 @@ socket.on("missionBonusResult", data=>{
   const txt = document.getElementById("missionBonusResultText");
   const sub = document.getElementById("missionBonusResultSub");
   if(data.hasWolf){
-    txt.style.color = "#ff4444";
+    txt.style.color = "rgb(var(--sang-vif))";
     txt.innerText = "⚠️ OUI — au moins un Loup parmi eux !";
   } else {
-    txt.style.color = "#44ff88";
+    txt.style.color = "rgb(var(--vert-vif))";
     txt.innerText = "✅ NON — aucun Loup parmi eux.";
   }
   sub.innerText = `Joueurs inspectés : ${names}`;
@@ -2663,7 +2663,7 @@ socket.on("dawnResult", data=>{
   // Le résultat de mission n'est pas un rôle → on peut le montrer aux joueurs
   if (missionResult === "success")      text += "\n\n🎭 Mission réussie.";
   else if (missionResult === "fail")    text += "\n\n🎭 Mission échouée.";
-  carteAnnonce(emoji, title, text, "radial-gradient(ellipse at center,#1a1000 0%,#0a0800 100%)", deaths.map(d => d.name));
+  carteAnnonce(emoji, title, text, "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%)", deaths.map(d => d.name));
   const c = document.getElementById("dayDeathCard");
   // Réinitialise nightCardShownThisNight : la carte d'aube précède toujours la nuit suivante
   nightCardShownThisNight = false;
@@ -2681,7 +2681,7 @@ socket.on("dawnResult", data=>{
     if (socket.id === dyingMayorId) {
       _dawnOnClose = () => {
         const panel = document.getElementById("tiebreakPanel");
-        ouvrirPanneau(panel, "#0a0a0a", 10000);
+        ouvrirPanneau(panel, "rgb(var(--n0))", 10000);
       };
     } else {
       _dawnOnClose = null;
@@ -2712,7 +2712,7 @@ function showMissionBonusPanel(){
   panel.style.display = "block";
   // Le maire ne peut pas s'inspecter lui-même
   choisirTroisJoueurs(document.getElementById("missionBonusBtns"), players.filter(p => !deadPlayers.includes(p.id) && p.id !== mayor),
-    "#22aa44", "missionBonusSelectedNames", "missionBonusConfirmBtn", () => missionBonusSelectedByMe);
+    "rgb(var(--vert-base))", "missionBonusSelectedNames", "missionBonusConfirmBtn", () => missionBonusSelectedByMe);
 }
 
 function confirmMissionBonus(){
@@ -2738,9 +2738,9 @@ socket.on("tiebreakMayor", data=>{
   // Affiche le panel tiebreak en plein écran fixe pour le maire
   // (évite que le panel soit invisible si la page est scrollée)
   const panel=document.getElementById("tiebreakPanel");
-  ouvrirPanneau(panel, "#0a0800");
+  ouvrirPanneau(panel, "rgb(var(--or-nuit))");
   document.getElementById("tiebreakMsg").innerText="⚖️ Égalité ! En tant que Maire, tu dois trancher :";
-  choisirUnJoueur(document.getElementById("tiebreakBtns"), data.candidates, tiebreakVote, "#ffaa00");
+  choisirUnJoueur(document.getElementById("tiebreakBtns"), data.candidates, tiebreakVote, "rgb(var(--or-vif))");
   // Vibration : le Maire doit trancher (toujours de jour — vote du jour ou élection)
   vibrateIfDay([200, 100, 200, 100, 400]);
 });
@@ -2775,7 +2775,7 @@ socket.on("mayorMustTransfer", dyingId=>{
   // temps que le maire (ex : cible de la Sorcière) n'apparaît pas comme successeur.
   const buildMayorTransferButtons = () => {
     document.getElementById("tiebreakMsg").innerText = "⚰️ Tu es mort. Désigne ton successeur :";
-    choisirUnJoueur(document.getElementById("tiebreakBtns"), players.filter(p => !deadPlayers.includes(p.id)), mayorTransfer, "#8888ff");
+    choisirUnJoueur(document.getElementById("tiebreakBtns"), players.filter(p => !deadPlayers.includes(p.id)), mayorTransfer, "rgb(var(--lune-vif))");
   };
 
   // Pré-remplit dès maintenant (best-effort) — sera recalculé à l'ouverture.
@@ -2786,7 +2786,7 @@ socket.on("mayorMustTransfer", dyingId=>{
   const openTransferPanel = () => {
     buildMayorTransferButtons(); // ← recalcul avec deadPlayers fraîchement mis à jour
     const panel = document.getElementById("tiebreakPanel");
-    ouvrirPanneau(panel, "#0a0a0a", 10000);
+    ouvrirPanneau(panel, "rgb(var(--n0))", 10000);
   };
 
   const dayCard = document.getElementById("dayDeathCard");
@@ -2822,8 +2822,8 @@ socket.on("mayorMustAbdicate", data=>{
   // Vibration : le Maire doit choisir un successeur (évènement du Conseil, de jour)
   vibrateIfDay([200, 100, 200, 100, 400]);
   document.getElementById("tiebreakMsg").innerText = "👑 L'Abdication : désigne ton successeur.";
-  choisirUnJoueur(document.getElementById("tiebreakBtns"), data.candidates || [], id => socket.emit("mayorAbdicationChoice", id), "#ffcc44");
-  ouvrirPanneau(panel, "#0a0a0a");
+  choisirUnJoueur(document.getElementById("tiebreakBtns"), data.candidates || [], id => socket.emit("mayorAbdicationChoice", id), "rgb(var(--or-vif))");
+  ouvrirPanneau(panel, "rgb(var(--n0))");
 });
 
 socket.on("mayorAbdicated", data=>{
@@ -2870,7 +2870,7 @@ socket.on("silentDayChatMsg", msg => {
   const el = document.createElement("div"); el.className = "chat-msg";
   const nameSpan = document.createElement("span"); nameSpan.className = "chat-name";
   nameSpan.textContent = msg.name + " ";
-  nameSpan.style.color = "#cc99ff";
+  nameSpan.style.color = "rgb(var(--voyance-vif))";
   el.appendChild(nameSpan);
   el.appendChild(document.createTextNode(msg.text));
   div.appendChild(el); div.scrollTop = div.scrollHeight;
@@ -2885,7 +2885,7 @@ socket.on("silentDayChatHistory", msgs => {
     const el = document.createElement("div"); el.className = "chat-msg";
     const nameSpan = document.createElement("span"); nameSpan.className = "chat-name";
     nameSpan.textContent = m.name + " ";
-    nameSpan.style.color = "#cc99ff";
+    nameSpan.style.color = "rgb(var(--voyance-vif))";
     el.appendChild(nameSpan);
     el.appendChild(document.createTextNode(m.text));
     div.appendChild(el);
@@ -3041,7 +3041,7 @@ function startCountdown(){
     v.innerText=rem+"s";
     v.className = rem<=10 ? "heartbeat" : (rem<=5 ? "urgent" : "");
     document.body.classList.toggle("vote-urgent", rem<=10 && rem>0);
-    f.style.width=pct+"%"; f.style.background=rem<=5?"#ff3333":"#ffcc00";
+    f.style.width=pct+"%"; f.style.background=rem<=5?"rgb(var(--sang-vif))":"rgb(var(--or-vif))";
     if(rem<=10 && rem>0 && !_heartbeatVibrated){
       _heartbeatVibrated=true;
       vibrateIfDay([120,80,120,80,200]);
@@ -3087,19 +3087,19 @@ function renderInfoPanel(){
     const lifeBadge = document.createElement("span");
     lifeBadge.className = "info-badge";
     if (witchSaveUsed) {
-      lifeBadge.style.cssText = "background:#1a0a0a;color:#996666;text-decoration:line-through;border:1px solid #442222;";
+      lifeBadge.style.cssText = "background:rgb(var(--sang-fond));color:rgb(var(--sang-vif));text-decoration:line-through;border:1px solid rgb(var(--sang-sombre));";
       lifeBadge.innerText = "❌ Potion de vie utilisée";
     } else {
-      lifeBadge.style.cssText = "background:#0a1a0a;color:#88ff88;border:1px solid #224422;";
+      lifeBadge.style.cssText = "background:rgb(var(--vert-fond));color:rgb(var(--vert-vif));border:1px solid rgb(var(--vert-sombre));";
       lifeBadge.innerText = "✅ Potion de vie disponible";
     }
     const killBadge = document.createElement("span");
     killBadge.className = "info-badge";
     if (witchKillUsed) {
-      killBadge.style.cssText = "background:#1a0a0a;color:#996666;text-decoration:line-through;border:1px solid #442222;";
+      killBadge.style.cssText = "background:rgb(var(--sang-fond));color:rgb(var(--sang-vif));text-decoration:line-through;border:1px solid rgb(var(--sang-sombre));";
       killBadge.innerText = "❌ Potion de mort utilisée";
     } else {
-      killBadge.style.cssText = "background:#1a0a1a;color:#cc88ff;border:1px solid #442244;";
+      killBadge.style.cssText = "background:rgb(var(--ame-fond));color:rgb(var(--voyance-vif));border:1px solid rgb(var(--ame-sombre));";
       killBadge.innerText = "💀 Potion de mort disponible";
     }
     pl.appendChild(lifeBadge);
@@ -3114,7 +3114,7 @@ function renderInfoPanel(){
 function renderDeadVision(){
   if(!deadVisionData)return;
   document.getElementById("deadVisionPanel").style.display="block";
-  const rl=document.getElementById("deadRolesList"); rl.innerHTML="<strong style='font-size:12px;color:#cc6666;'>Rôles :</strong><br>";
+  const rl=document.getElementById("deadRolesList"); rl.innerHTML="<strong style='font-size:12px;color:rgb(var(--sang-vif));'>Rôles :</strong><br>";
   players.forEach(p=>{
     const r=deadVisionData.roles[p.id]||"?";
     const isDead=deadPlayers.includes(p.id),isMayor=deadVisionData.mayor===p.id,isLover=deadVisionData.lovers?.includes(p.id);
@@ -3199,7 +3199,7 @@ function chasseurShoot(id){
   // Carte narrative avant la vision spectateur
   carteAnnonce("🔫", "Ta dernière balle…",
     (target ? `Tu as tiré sur ${target.name}. ` : "") + "Ton devoir est accompli. Tu rejoins les rangs des morts.",
-    "radial-gradient(ellipse at center,#1a0800 0%,#080300 100%)", target ? [target.name] : []);
+    "radial-gradient(ellipse at center,rgb(var(--braise-nuit)) 0%,rgb(var(--braise-nuit)) 100%)", target ? [target.name] : []);
   nightCardShownThisNight = false;
   setTimeout(() => closeDawnCard(), 5000);
 }
@@ -3229,11 +3229,11 @@ function renderChasseurTargets(){
   const panel = document.getElementById("chasseurPanel");
   panel.innerHTML = [
     "<div style='font-size:64px;margin-bottom:20px;'>🔫</div>",
-    "<div class='titre' style='font-size:22px;font-weight:bold;color:#ff8833;margin-bottom:8px;'>Tu es mort…</div>",
-    "<div style='font-size:15px;color:#ccc;margin-bottom:24px;'>En tant que Chasseur, tu emportes un joueur avec toi.</div>",
+    "<div class='titre' style='font-size:22px;font-weight:bold;color:rgb(var(--braise-vif));margin-bottom:8px;'>Tu es mort…</div>",
+    "<div style='font-size:15px;color:rgb(var(--n8));margin-bottom:24px;'>En tant que Chasseur, tu emportes un joueur avec toi.</div>",
     "<div id='chasseurTargets'></div>"
   ].join("");
-  choisirUnJoueur(document.getElementById("chasseurTargets"), players.filter(p => !deadPlayers.includes(p.id)), chasseurShoot, "#ff6600");
+  choisirUnJoueur(document.getElementById("chasseurTargets"), players.filter(p => !deadPlayers.includes(p.id)), chasseurShoot, "rgb(var(--braise-vif))");
 }
 
 function render(){
@@ -3257,7 +3257,7 @@ function render(){
     if(idiotRevealed&&p.id===idiotId) tags+="🤡";
     let voteInfo="";
     if(phase==="mayorVote"){
-      if(mayorVotedSet.has(p.id)) voteInfo=` <span style="font-size:11px;color:#888;font-style:italic;">A voté</span>`;
+      if(mayorVotedSet.has(p.id)) voteInfo=` <span style="font-size:11px;color:rgb(var(--n6));font-style:italic;">A voté</span>`;
       if(iAmDead && mayorCounts[p.id]) voteInfo=` (${mayorCounts[p.id]}✉️)`;
     }
     let btn=""; let hasActiveBtn=false;
@@ -3294,12 +3294,12 @@ function render(){
     }
     let noirBadge="";
     if(phase==="day"&&currentVoteMode===5&&p.id===socket.id&&hasVotedLocked){
-      noirBadge=` <span style="font-size:11px;color:#888;font-style:italic;">A voté</span>`;
+      noirBadge=` <span style="font-size:11px;color:rgb(var(--n6));font-style:italic;">A voté</span>`;
     }
     // À côté du prénom d'un mort, un simple ☠️ (son rôle, révélé à sa mort, est à droite : `tags`)
     let deathInfo = "";
     if (isDead) {
-      deathInfo = ` <span style="color:#777;font-size:11px;margin-left:6px;">☠️</span>`;
+      deathInfo = ` <span style="color:rgb(var(--n6));font-size:11px;margin-left:6px;">☠️</span>`;
     }
     const row=document.createElement("div");row.className="player-row"+(isDead?" dead-row":"")+(hasActiveBtn?" actionable-row":"");
     row.innerHTML=`${playerAvatar(p,32)}<div class="player-name${isDead?" mort":""}">${p.name}${deathInfo}${voteInfo}${noirBadge}</div><div class="player-tags">${tags}</div><div class="player-btns">${btn}</div>`;
@@ -3307,7 +3307,7 @@ function render(){
     const prevP = idx > 0 ? sorted[idx-1] : null;
     if(isDead && prevP && !deadPlayers.includes(prevP.id)){
       const sep=document.createElement("div");
-      sep.style.cssText="text-align:center;font-size:10px;color:#333;padding:4px 0;letter-spacing:1px;text-transform:uppercase;";
+      sep.style.cssText="text-align:center;font-size:10px;color:rgb(var(--n4));padding:4px 0;letter-spacing:1px;text-transform:uppercase;";
       sep.innerText="— morts —";
       div.appendChild(sep);
     }
