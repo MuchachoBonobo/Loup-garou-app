@@ -1390,7 +1390,7 @@ socket.on("reconnected", state => {
   if(state.voteTimerEnd && (state.serverNow ? state.voteTimerEnd > state.serverNow : Date.now() < state.voteTimerEnd)){
     // Écart d'horloge téléphone ↔ PC compensé (comme pour voteStarted)
     voteEndsAt=state.voteTimerEnd + (state.serverNow ? Date.now() - state.serverNow : 0);
-    // Durées à jour (refonte mai 2026) : mode 1 = 60s, mode 2 = 60s, mode 4 = 30s, mode 5 = 60s
+    // Mêmes durées que le serveur (votes.js startDayVote) : mode 1 = 60s, mode 2 = 60s, mode 4 = 30s, mode 5 = 60s
     const modeDurations={1:60000,2:60000,4:30000,5:60000};
     voteTotalMs=modeDurations[state.voteMode]||60000;
     voteActive=true;
