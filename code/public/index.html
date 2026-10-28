@@ -25,7 +25,7 @@
   <div class="intro-village">🌲 🏚️ 🌲</div>
   <div class="intro-title">Loup-Garou</div>
   <div class="intro-sub">Le village dort…</div>
-  <div class="intro-hint">Touchez pour entrer</div>
+  <div class="intro-hint">Touche pour entrer</div>
 </div>
 
 <div id="endCard" class="plein-ecran" style="display:none;z-index:10000;">
@@ -44,7 +44,7 @@
 <div id="offlineBanner">
   <div class="ob-emoji">📡</div>
   <div class="ob-title">Connexion perdue…</div>
-  <div class="ob-sub">Reconnexion automatique en cours.<br>Gardez cette page ouverte.</div>
+  <div class="ob-sub">Reconnexion automatique en cours.<br>Garde cette page ouverte.</div>
 </div>
 
 <!-- Overlay pause -->
@@ -62,7 +62,7 @@
     <div id="roleFlipInner" style="position:relative;width:100%;height:100%;transition:transform 0.85s cubic-bezier(.2,.8,.25,1);transform-style:preserve-3d;">
       <div id="roleFlipBack" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;background:linear-gradient(160deg,#2a2150 0%,#14102e 100%);border:2px solid #4a3f8a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;box-shadow:0 14px 44px rgba(0,0,0,0.65);">
         <div style="font-size:74px;animation:emojiHover 3s ease-in-out infinite;">🎴</div>
-        <div style="font-size:19px;font-weight:bold;color:#cdb8ff;">Découvre ton rôle</div>
+        <div class="titre" style="font-size:19px;font-weight:bold;color:#cdb8ff;">Découvre ton rôle</div>
         <div style="font-size:12px;color:#8878bb;">👆 Touche la carte</div>
       </div>
       <div id="roleFlipFront" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);border-radius:18px;background:radial-gradient(ellipse at center,#1a1030 0%,#0a0818 100%);border:2px solid rgba(255,255,255,0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;box-shadow:0 14px 44px rgba(0,0,0,0.65);">
@@ -81,7 +81,7 @@
 <div id="roleCard">
   <img id="rcPhoto" style="display:none;width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.4);margin-bottom:14px;animation:cardPop 0.5s ease 0.1s both;">
   <div class="rc-emoji" id="rcEmoji"></div>
-  <div class="rc-title" id="rcTitle">Votre rôle</div>
+  <div class="rc-title" id="rcTitle">Ton rôle</div>
   <div class="rc-role"  id="rcRole"></div>
   <div class="rc-text"  id="rcText"></div>
   <div class="rc-mission" id="rcMission"></div>
@@ -125,13 +125,13 @@
      Conseil des Morts y sont déplacés (appendChild). -->
 <div id="deadFullScreen" style="display:none;position:fixed;inset:0;z-index:9100;background:radial-gradient(ellipse at 50% 22%,#2a0a0a 0%,#140505 55%,#080303 100%);flex-direction:column;align-items:center;text-align:center;padding:36px 20px 28px;overflow-y:auto;">
   <div id="dfsSkull" style="font-size:80px;margin-bottom:14px;filter:drop-shadow(0 0 26px rgba(200,60,60,0.5));">☠️</div>
-  <div style="font-size:13px;color:#aa6666;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Votre destin s'achève</div>
-  <div style="font-size:28px;font-weight:bold;color:#e8a0a0;margin-bottom:20px;">Vous êtes mort</div>
+  <div style="font-size:13px;color:#aa6666;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Ton destin s'achève</div>
+  <div class="titre" style="font-size:28px;font-weight:bold;color:#e8a0a0;margin-bottom:20px;">Tu es mort</div>
   <img id="dfsPhoto" src="" alt="" style="display:none;width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid rgba(232,160,160,0.4);filter:grayscale(0.6);margin-bottom:14px;">
-  <div style="font-size:12px;color:#996666;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Vous étiez</div>
+  <div style="font-size:12px;color:#996666;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Tu étais</div>
   <div id="dfsRoleEmoji" style="font-size:64px;margin-bottom:4px;">🎭</div>
   <div id="dfsRole" style="font-size:26px;font-weight:bold;color:#f0c0c0;margin-bottom:18px;"></div>
-  <div style="font-size:13px;color:rgba(240,192,192,0.6);line-height:1.6;max-width:320px;font-style:italic;margin-bottom:22px;">Observez la partie sans rien révéler. Vous pouvez encore chuchoter avec les autres âmes perdues.</div>
+  <div style="font-size:13px;color:rgba(240,192,192,0.6);line-height:1.6;max-width:320px;font-style:italic;margin-bottom:22px;">Observe la partie sans rien révéler. Tu peux encore chuchoter avec les autres âmes perdues.</div>
   <!-- Vue du vote du jour (visible par les morts pendant qu'un vote est en cours) -->
   <div id="deadVoteView" style="display:none;width:100%;max-width:520px;background:#1a0808;border:1px solid #553333;border-radius:10px;padding:12px 16px;margin-bottom:10px;text-align:left;">
     <div style="text-align:center;font-size:12px;color:#cc6666;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">🗳️ Vote du village en cours</div>
@@ -148,7 +148,7 @@
   <div style="font-size:14px;color:#996699;letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
   <div id="councilEventTitle" style="font-size:30px;font-weight:bold;color:#cc99cc;margin-bottom:18px;animation:cardSlide 0.5s ease 0.3s both;"></div>
   <div id="councilEventNarrative" style="display:none;"></div>
-  <div style="max-width:340px;color:rgba(204,153,204,0.65);line-height:1.6;font-size:13px;font-style:italic;animation:cardSlide 0.5s ease 0.5s both;margin-bottom:16px;">Le Maître du Jeu vous en expliquera la règle.</div>
+  <div style="max-width:340px;color:rgba(204,153,204,0.65);line-height:1.6;font-size:13px;font-style:italic;animation:cardSlide 0.5s ease 0.5s both;margin-bottom:16px;">Le Maître du Jeu t'en expliquera la règle.</div>
   <button onclick="closeCouncilEventCard()" style="margin-top:12px;padding:12px 32px;border-radius:8px;border:1px solid rgba(204,153,204,0.4);background:rgba(204,153,204,0.1);color:#cc99cc;font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.7s both;">
     🪦 J'ai compris
   </button>
@@ -185,7 +185,7 @@
 </div>
 
 <div id="lobby" style="margin:20px auto;">
-  <input id="name" placeholder="Votre prénom" style="padding:8px;border-radius:6px;border:1px solid #555;background:#222;color:#eee;font-size:15px;">
+  <input id="name" placeholder="Ton prénom" style="padding:8px;border-radius:6px;border:1px solid #555;background:#222;color:#eee;font-size:15px;">
   <button onclick="join()">Rejoindre</button>
 
   <!-- Selfie : optionnel, simple input file qui ouvre la caméra frontale sur mobile -->
@@ -222,7 +222,7 @@
   <div style="position:absolute;inset:0;background-image:radial-gradient(2px 2px at 12% 18%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 24% 70%,#ffeebb,transparent 60%),radial-gradient(1px 1px at 70% 30%,#fff,transparent 60%),radial-gradient(2px 2px at 55% 80%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 88% 60%,#cce6ff,transparent 60%),radial-gradient(1px 1px at 40% 40%,#fff,transparent 60%),radial-gradient(1.5px 1.5px at 80% 12%,#ffeebb,transparent 60%),radial-gradient(1px 1px at 14% 92%,#fff,transparent 60%);opacity:0.85;pointer-events:none;"></div>
   <div style="position:relative;z-index:2;">
     <div style="font-size:80px;margin-bottom:18px;">🌙</div>
-    <div style="font-size:22px;color:#aabfd9;font-weight:bold;letter-spacing:1px;">Yeux fermés.</div>
+    <div class="titre" style="font-size:22px;color:#aabfd9;font-weight:bold;letter-spacing:1px;">Yeux fermés.</div>
   </div>
 </div>
 
@@ -257,13 +257,13 @@
 <!-- CONSEIL DES MORTS — 💬 Les Voix Étouffées : chat écrit du jour visible de tous. -->
 <div id="silentDayChatPanel" style="display:none;background:#1a0f2e;border:2px solid #aa66cc;border-radius:10px;margin:10px auto;max-width:520px;padding:14px;">
   <h3 style="margin:0 0 8px;color:#cc99ff;font-size:16px;text-align:center;">💬 La Place du Parchemin</h3>
-  <div id="silentDayChatHint" style="font-size:12px;color:#9988aa;text-align:center;margin-bottom:8px;">Les voix sont étouffées. Inscrivez vos pensées.</div>
+  <div id="silentDayChatHint" style="font-size:12px;color:#9988aa;text-align:center;margin-bottom:8px;">Les voix sont étouffées. Écris tes pensées.</div>
   <div id="silentDayChatMessages" style="height:200px;overflow-y:auto;background:#0a0518;border:1px solid #443366;border-radius:6px;padding:8px;margin-bottom:8px;font-size:13px;line-height:1.4;"></div>
   <div id="silentDayChatInput" style="display:flex;gap:6px;">
-    <input id="silentDayChatText" placeholder="Votre message…" maxlength="200" onkeydown="if(event.key==='Enter')sendSilentDayChat()" style="flex:1;background:#0a0518;border:1px solid #443366;border-radius:6px;color:#ddccff;padding:8px;font-size:13px;">
+    <input id="silentDayChatText" placeholder="Ton message…" maxlength="200" onkeydown="if(event.key==='Enter')sendSilentDayChat()" style="flex:1;background:#0a0518;border:1px solid #443366;border-radius:6px;color:#ddccff;padding:8px;font-size:13px;">
     <button onclick="sendSilentDayChat()" style="padding:8px 14px;background:#2a1644;border:1px solid #6644aa;border-radius:6px;color:#cc99ff;font-size:12px;cursor:pointer;">Inscrire</button>
   </div>
-  <div id="silentDayChatDeadHint" style="display:none;font-size:11px;color:#776688;text-align:center;margin-top:6px;font-style:italic;">⚰ Vous êtes mort — vous pouvez lire mais pas écrire.</div>
+  <div id="silentDayChatDeadHint" style="display:none;font-size:11px;color:#776688;text-align:center;margin-top:6px;font-style:italic;">⚰️ Tu es mort — tu peux lire mais pas écrire.</div>
 </div>
 
 <div id="votesPanel" class="panneau"><h3 id="votesPanelTitle">Votes</h3><div id="votesContent"></div></div>
@@ -274,13 +274,13 @@
   <div id="timerBar"><div id="timerBarFill" style="width:100%"></div></div>
   <div class="timer-mode" id="timerMode"></div>
 </div>
-<div id="voteWaitBox" class="panneau">🗳️ Vous pouvez déjà voter — le MJ choisira le mode et lancera le timer.</div>
+<div id="voteWaitBox" class="panneau">🗳️ Tu peux déjà voter — le MJ choisira le mode et lancera le minuteur.</div>
 
 <div id="corbeauPanel" class="panneau" style="display:none;background:#0a0a0a;border:2px solid #666;">
   <h3 style="color:#aaa;margin:0 0 8px;font-size:14px;">🪶 Le Corbeau désigne sa cible</h3>
-  <p style="font-size:12px;color:#666;margin-bottom:10px;">Choisissez un joueur qui recevra 2 votes supplémentaires demain, ou passez votre tour.</p>
+  <p style="font-size:12px;color:#666;margin-bottom:10px;">Choisis un joueur qui recevra 2 votes supplémentaires demain, ou passe ton tour.</p>
   <div id="corbeauTargets"></div>
-  <button onclick="corbeauSkip()" style="margin-top:8px;width:100%;padding:9px;background:#111;border:1px solid #333;border-radius:6px;color:#555;font-size:13px;cursor:pointer;">⏭ Passer mon tour</button>
+  <button onclick="corbeauSkip()" style="margin-top:8px;width:100%;padding:9px;background:#111;border:1px solid #333;border-radius:6px;color:#555;font-size:13px;cursor:pointer;">⏭️ Passer mon tour</button>
 </div>
 
 <!-- Petite Fille : désigne 3 joueurs, apprend s'il y a au moins un loup parmi eux -->
@@ -288,7 +288,7 @@
   <div style="font-size:24px;text-align:center;margin-bottom:8px;">👧</div>
   <div style="font-weight:bold;color:#cc88ff;font-size:15px;text-align:center;margin-bottom:6px;">La Petite Fille enquête</div>
   <div style="font-size:12px;color:#8a6aa8;margin-bottom:12px;text-align:center;line-height:1.6;">
-    Désignez 3 joueurs. Vous saurez s'il y a au moins un Loup parmi eux — mais pas lequel.
+    Désigne 3 joueurs. Tu sauras s'il y a au moins un Loup parmi eux — mais pas lequel.
   </div>
   <div id="petiteFilleBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
   <div id="petiteFilleSelectedNames" style="margin-top:10px;font-size:12px;color:#cc88ff;text-align:center;min-height:18px;"></div>
@@ -299,8 +299,8 @@
 </div>
 
 <div id="salvateurPanel" class="panneau" style="display:none;background:#08121a;border:2px solid #335a7a;">
-  <h3 style="color:#88ccff;margin:0 0 8px;font-size:14px;">🛡 Le Salvateur protège un villageois</h3>
-  <p style="font-size:12px;color:#5a8aa8;margin-bottom:6px;">Choisissez la personne que vous protégez cette nuit. Si les Loups l'attaquent, elle survit.</p>
+  <h3 style="color:#88ccff;margin:0 0 8px;font-size:14px;">🛡️ Le Salvateur protège un villageois</h3>
+  <p style="font-size:12px;color:#5a8aa8;margin-bottom:6px;">Choisis la personne que tu protèges cette nuit. Si les Loups l'attaquent, elle survit.</p>
   <p id="salvateurLastInfo" style="font-size:11px;color:#88aacc;margin-bottom:10px;display:none;"></p>
   <div id="salvateurTargets"></div>
 </div>
@@ -327,8 +327,8 @@
 
 <!-- Sorcière : une question à la fois (potion de vie, puis potion de mort, puis la cible) -->
 <!-- Sorcière : plein écran, seulement l'encadré de la question (le moins d'information possible) -->
-<div id="witchPanel" style="display:none;position:fixed;inset:0;z-index:9600;background:radial-gradient(ellipse at center,#1e0f30 0%,#08040e 100%);flex-direction:column;padding:24px 16px;overflow-y:auto;">
-  <div id="witchEtape" style="margin:auto;width:100%;max-width:420px;background:#120a1e;border:2px solid #7a3fb0;border-radius:14px;padding:22px 16px;text-align:center;"></div>
+<div id="witchPanel" style="display:none;position:fixed;inset:0;z-index:9600;background:radial-gradient(ellipse at center,#0a1a05 0%,#020800 100%);flex-direction:column;padding:24px 16px;overflow-y:auto;">
+  <div id="witchEtape" style="margin:auto;width:100%;max-width:420px;background:#0a1608;border:2px solid #3f9a4a;border-radius:14px;padding:22px 16px;text-align:center;"></div>
 </div>
 
 <!-- ===== MISSION ===== -->
@@ -343,8 +343,8 @@
 <!-- Maire : sélection des 3 joueurs pour la mission -->
 <div id="missionPanel" class="panneau" style="display:none;background:#0d0d20;border:2px solid #4444aa;">
   <div style="font-size:24px;text-align:center;margin-bottom:8px;">🎭</div>
-  <div style="font-weight:bold;color:#8888ff;font-size:15px;text-align:center;margin-bottom:6px;">Vous êtes le Maire — choisissez votre équipe</div>
-  <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;">Sélectionnez 3 joueurs (pas vous-même). Ils choisiront secrètement une carte.</div>
+  <div style="font-weight:bold;color:#8888ff;font-size:15px;text-align:center;margin-bottom:6px;">Tu es le Maire — choisis ton équipe</div>
+  <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;">Sélectionne 3 joueurs (pas toi-même). Ils choisiront secrètement une carte.</div>
   <div id="missionTeamBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
   <div id="missionSelectedNames" style="margin-top:10px;font-size:12px;color:#8888ff;text-align:center;min-height:18px;"></div>
   <button id="missionConfirmBtn" onclick="confirmMissionTeam()" disabled
@@ -356,10 +356,10 @@
 <!-- Joueur sélectionné : choix de carte -->
 <div id="missionVotePanel" class="panneau" style="display:none;background:#0d0d20;border:2px solid #4444aa;text-align:center;">
   <div style="font-size:24px;margin-bottom:8px;">🎭</div>
-  <div style="font-weight:bold;color:#8888ff;font-size:15px;margin-bottom:6px;">Mission — Choisissez votre carte</div>
+  <div style="font-weight:bold;color:#8888ff;font-size:15px;margin-bottom:6px;">Mission — Choisis ta carte</div>
   <div style="font-size:12px;color:#666;margin-bottom:14px;line-height:1.6;">
-    Choisissez <strong style="color:#aaa;">secrètement</strong> une carte.<br>
-    Votre choix n'est pas visible par les autres.
+    Choisis <strong style="color:#aaa;">secrètement</strong> une carte.<br>
+    Ton choix n'est pas visible par les autres.
   </div>
   <div style="display:flex;gap:12px;justify-content:center;">
     <button onclick="playMissionCard('success')"
@@ -379,7 +379,7 @@
   <div style="font-size:24px;text-align:center;margin-bottom:8px;">🔍</div>
   <div style="font-weight:bold;color:#44ff88;font-size:15px;text-align:center;margin-bottom:6px;">Mission réussie — Bonus d'information</div>
   <div style="font-size:12px;color:#666;margin-bottom:12px;text-align:center;line-height:1.6;">
-    Choisissez 3 joueurs. Vous saurez en privé si au moins un d'eux est un Loup.
+    Choisis 3 joueurs. Tu sauras en privé si au moins un d'eux est un Loup.
   </div>
   <div id="missionBonusBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
   <div id="missionBonusSelectedNames" style="margin-top:10px;font-size:12px;color:#44ff88;text-align:center;min-height:18px;"></div>
@@ -418,7 +418,7 @@
 </div>
 
 <div id="infoPanel" class="panneau">
-  <h3>Votre identité</h3>
+  <h3>Ton identité</h3>
   <!-- Bouton anti-triche jour : maintenir pour révéler -->
   <button id="infoRevealBtn" style="display:none;width:100%;margin-bottom:10px;padding:14px;background:#0a0a1a;border:1px solid #334466;border-radius:8px;color:#88aacc;font-size:14px;cursor:pointer;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;">
     🎴 <strong>Maintenir pour voir mon rôle</strong>
@@ -426,8 +426,8 @@
   <div id="infoPanelContent">
     <div class="info-role" id="infoRole"></div>
     <div class="info-section" id="infoAllies" style="display:none"><strong id="infoAlliesTitle"></strong><div id="infoAlliesList"></div></div>
-    <div class="info-section" id="infoLovers" style="display:none"><strong id="infoLoversTitle">💘 Votre amoureux·se</strong><div id="infoLoversList"></div></div>
-    <div class="info-section" id="infoPotions" style="display:none"><strong>🧪 Vos potions</strong><div id="infoPotionsList"></div></div>
+    <div class="info-section" id="infoLovers" style="display:none"><strong id="infoLoversTitle">💘 Ton amoureux·se</strong><div id="infoLoversList"></div></div>
+    <div class="info-section" id="infoPotions" style="display:none"><strong>🧪 Tes potions</strong><div id="infoPotionsList"></div></div>
   </div>
 </div>
 
@@ -626,89 +626,89 @@ const ROLE_DISPLAY = Object.fromEntries(Object.keys(ROLES).map(k => [k, emojiDuR
 
 const ROLE_EXPLAIN = {
   "Loup": {
-    desc:    "Chaque nuit, concertez-vous en silence avec vos complices pour désigner une victime. Le jour, bluffez, semez le doute, accusez les autres.",
-    mission: "Éliminez suffisamment de villageois pour être aussi nombreux qu'eux.",
+    desc:    "Chaque nuit, concerte-toi en silence avec tes complices pour désigner une victime. Le jour, bluffe, sème le doute, accuse les autres.",
+    mission: "Élimine suffisamment de villageois pour que la meute soit aussi nombreuse qu'eux.",
     win:     "Tu gagnes avec les Loups-Garous.",
     bg: "radial-gradient(ellipse at center,#1a0505 0%,#080000 100%)", color: "#ff6666"
   },
   "Voyante": {
-    desc:    "Chaque nuit, désignez secrètement un joueur : son vrai rôle vous est révélé. Utilisez cette connaissance pour guider le village… sans vous démasquer.",
-    mission: "Identifiez les loups et aidez le village à les éliminer.",
+    desc:    "Chaque nuit, désigne secrètement un joueur : son vrai rôle t'est révélé. Utilise cette connaissance pour guider le village… sans te démasquer.",
+    mission: "Identifie les loups et aide le village à les éliminer.",
     win:     "Tu gagnes avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#0a0520 0%,#020010 100%)", color: "#aa88ff"
   },
   "Sorcière": {
-    desc:    "Vous possédez deux potions uniques : une de VIE pour sauver la victime des loups cette nuit, une de MORT pour éliminer n'importe qui. Chacune ne peut être utilisée qu'une seule fois.",
-    mission: "Servez-vous de vos potions au bon moment pour renverser le cours du jeu.",
+    desc:    "Tu possèdes deux potions uniques : une de VIE pour sauver la victime des loups cette nuit, une de MORT pour éliminer n'importe qui. Chacune ne peut être utilisée qu'une seule fois.",
+    mission: "Sers-toi de tes potions au bon moment pour renverser le cours du jeu.",
     win:     "Tu gagnes avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#0a1a05 0%,#020800 100%)", color: "#88ff88"
   },
   "Chasseur": {
-    desc:    "Vous n'avez aucun pouvoir la nuit. Mais si vous mourez — que ce soit par les loups, la Sorcière ou le vote — vous pouvez emporter un joueur avec vous.",
-    mission: "Observez attentivement. Votre mort doit coûter cher à vos ennemis.",
+    desc:    "Tu n'as aucun pouvoir la nuit. Mais si tu meurs — que ce soit par les loups, la Sorcière ou le vote — tu peux emporter un joueur avec toi.",
+    mission: "Observe attentivement. Ta mort doit coûter cher à tes ennemis.",
     win:     "Tu gagnes avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#1a0f00 0%,#080500 100%)", color: "#ffaa44"
   },
   "Cupidon": {
-    desc:    "Lors de la première nuit, vous liez deux joueurs par un amour irrésistible. S'ils survivent seuls jusqu'à la fin, ils gagnent ensemble. Mais si l'un meurt, l'autre mourant de chagrin le suivra immédiatement.",
-    mission: "Choisissez vos amoureux avec sagesse — ce lien peut sauver ou perdre le village.",
+    desc:    "Lors de la première nuit, tu lies deux joueurs par un amour irrésistible. S'ils survivent seuls jusqu'à la fin, ils gagnent ensemble. Mais si l'un meurt, l'autre mourant de chagrin le suivra immédiatement.",
+    mission: "Choisis tes amoureux avec sagesse — ce lien peut sauver ou perdre le village.",
     win:     "Tu gagnes avec les Villageois (sauf si tu es un Amoureux survivant).",
     bg: "radial-gradient(ellipse at center,#1a0510 0%,#080005 100%)", color: "#ff88cc"
   },
   "Villageois": {
-    desc:    "Vous n'avez aucun pouvoir particulier. Votre force est collective : observez les comportements, détectez les incohérences, et votez avec conviction.",
-    mission: "Débusquez les loups cachés parmi vous avant qu'il ne soit trop tard.",
+    desc:    "Tu n'as aucun pouvoir particulier. Ta force est collective : observe les comportements, détecte les incohérences, et vote avec conviction.",
+    mission: "Débusque les loups cachés dans le village avant qu'il ne soit trop tard.",
     win:     "Tu gagnes avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#0a1000 0%,#030500 100%)", color: "#aaffaa"
   },
   "Maire": {
-    desc:    "Le village vous a élu. Votre voix est décisive : en cas d'égalité lors d'un vote, c'est vous qui tranchez. Si vous mourez, vous choisissez votre successeur.",
-    mission: "Guidez le village avec sagesse. Votre décision peut tout changer.",
+    desc:    "Le village t'a élu. Ta voix est décisive : en cas d'égalité lors d'un vote, c'est toi qui tranches. Si tu meurs, tu choisis ton successeur.",
+    mission: "Guide le village avec sagesse. Ta décision peut tout changer.",
     win:     "Tu gagnes avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee44"
   },
   "PetiteFille": {
-    desc:    "Chaque nuit, après la Voyante, vous désignez 3 joueurs (jamais vous-même). Vous apprenez s'il y a au moins un Loup parmi eux, ou aucun — mais pas lequel. Pendant le tour des Loups, gardez les yeux fermés comme tout le monde.",
-    mission: "Recoupez vos réponses nuit après nuit pour isoler les loups. Partagez-les intelligemment pour aider le village.",
+    desc:    "Chaque nuit, après la Voyante, tu désignes 3 joueurs (jamais toi-même). Tu apprends s'il y a au moins un Loup parmi eux, ou aucun — mais pas lequel. Pendant le tour des Loups, garde les yeux fermés comme tout le monde.",
+    mission: "Recoupe tes réponses nuit après nuit pour isoler les loups. Partage-les intelligemment pour aider le village.",
     win:     "Tu gagnes avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#10051a 0%,#050008 100%)", color: "#cc88ff"
   },
   "Idiot": {
-    desc:    "Si le village vote pour vous éliminer, votre rôle est révélé à tous — mais vous restez en vie ! Vous perdez cependant le droit de voter pour le reste de la partie. Ce pouvoir ne peut être utilisé qu'une seule fois.",
-    mission: "Survivez en jouant la carte de l'innocent. Si vous êtes découvert, votre immunité vous sauve une fois.",
+    desc:    "Si le village vote pour t'éliminer, ton rôle est révélé à tous — mais tu restes en vie ! Tu perds cependant le droit de voter pour le reste de la partie. Ce pouvoir ne peut être utilisé qu'une seule fois.",
+    mission: "Survis en jouant la carte de l'innocent. Si tu es découvert, ton immunité te sauve une fois.",
     win:     "Tu gagnes avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", color: "#ffee00"
   },
   "Ange": {
-    desc:    "Vous n'avez qu'un seul but : vous faire éliminer par le village lors du tout premier vote, au lendemain de la première nuit. Si le village vous désigne à ce moment-là, vous gagnez seul ! Sinon, vous devenez un simple villageois.",
-    mission: "Attirez les soupçons dès le premier jour… sans que le village devine votre jeu.",
+    desc:    "Tu n'as qu'un seul but : te faire éliminer par le village lors du tout premier vote, au lendemain de la première nuit. Si le village te désigne à ce moment-là, tu gagnes seul ! Sinon, tu deviens un simple villageois.",
+    mission: "Attire les soupçons dès le premier jour… sans que le village devine ton jeu.",
     win:     "Tu gagnes seul si le village t'élimine au 1er vote, sinon avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#1f1a0a 0%,#0a0804 100%)", color: "#ffe9a8"
   },
   "Corbeau": {
-    desc:    "Chaque nuit après la Voyante, vous pouvez désigner un joueur qui commencera le vote du jour suivant avec 2 votes contre lui. Vous pouvez aussi vous cibler vous-même ou passer votre tour.",
-    mission: "Dirigez les soupçons du village vers les loups — ou semez la confusion pour mieux vous protéger.",
+    desc:    "Chaque nuit après la Voyante, tu peux désigner un joueur qui commencera le vote du jour suivant avec 2 votes contre lui. Tu peux aussi te cibler toi-même ou passer ton tour.",
+    mission: "Dirige les soupçons du village vers les loups — ou sème la confusion pour mieux te protéger.",
     win:     "Tu gagnes avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#0a0a0a 0%,#050505 100%)", color: "#aaaaaa"
   },
   "Salvateur": {
-    desc:    "Chaque nuit avant les Loups, vous désignez secrètement un joueur que vous protégez : si les Loups attaquent cette personne, elle survit. Vous pouvez vous protéger vous-même, mais jamais la même personne deux nuits de suite.",
-    mission: "Devinez qui les Loups voudront frapper et protégez le bon villageois — votre choix peut sauver le village.",
+    desc:    "Chaque nuit avant les Loups, tu désignes secrètement un joueur que tu protèges : si les Loups attaquent cette personne, elle survit. Tu peux te protéger toi-même, mais jamais la même personne deux nuits de suite.",
+    mission: "Devine qui les Loups voudront frapper et protège le bon villageois — ton choix peut sauver le village.",
     win:     "Tu gagnes avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#0a1820 0%,#020810 100%)", color: "#88ccff"
   },
   "Sœurs": {
-    desc:    "Vous êtes une Sœur jumelle. Chaque nuit, vous vous réveillez en silence avec votre sœur pendant 20 secondes. Vous ne pouvez pas parler — seulement vous regarder et vous faire signe pour partager vos soupçons.",
-    mission: "Aidez-vous mutuellement à survivre et démasquer les Loups, tout en gardant votre lien secret pour le village.",
+    desc:    "Tu es une Sœur jumelle. Chaque nuit, tu te réveilles en silence avec ta sœur pendant 20 secondes. Tu ne peux pas parler — seulement la regarder et lui faire signe pour partager vos soupçons.",
+    mission: "Aide ta sœur à survivre et à démasquer les Loups, en gardant votre lien secret pour le village.",
     win:     "Tu gagnes avec les Villageois.",
     bg: "radial-gradient(ellipse at center,#3a1428 0%,#1a0814 100%)", color: "#ed93b1"
   }
 };
 
 const VOTE_MODE_CARDS = {
-  1:"⏱ Mode Libre — vous pouvez changer votre vote",
-  2:"⚖ Le Jugement — premier vote définitif",
-  4:"⚡ La Panique — votez vite !",
+  1:"⏱️ Mode Libre — tu peux changer ton vote",
+  2:"⚖️ Le Jugement — premier vote définitif",
+  4:"⚡ La Panique — vote vite !",
   5:"🖤 Émeute — vote anonyme"
 };
 
@@ -785,8 +785,8 @@ let _idiotCardShown = false;
 
 socket.on("idiotRevealed", data => {
   idiotRevealed = true; idiotId = data.id;
-  carteAnnonce("🤡", data.name + " est… l'Idiot du Village !",
-    "Le village a voté — mais l'Idiot du Village ne peut pas être éliminé ainsi ! Il reste en vie… mais perd son droit de vote.",
+  carteAnnonce("🤡", data.name + " est… l'Idiot du village !",
+    "Le village a voté — mais l'Idiot du village ne peut pas être éliminé ainsi ! Il reste en vie… mais perd son droit de vote.",
     "radial-gradient(ellipse at center,#1a1500 0%,#080600 100%)", [data.name]);
   fermerCarteAuRythme(fermerCarteMortSiOuverte, 6000, ["day", "crepuscule"]);
   scheduleRender();
@@ -794,7 +794,7 @@ socket.on("idiotRevealed", data => {
 
 // L'Ange désigné au premier vote : il gagne seul (l'écran de fin suit ~5 s après)
 socket.on("angeRevele", data => {
-  carteAnnonce("😇", data.name + " était l'Ange !",
+  carteAnnonce("👼", data.name + " était l'Ange !",
     "Le village l'a désigné dès le premier vote… exactement ce qu'il voulait. Il s'envole et gagne seul !",
     "radial-gradient(ellipse at center,#3a3014 0%,#0a0804 100%)", [data.name]);
   // Pas de fermeture automatique : l'écran de fin arrive ~5 s après et referme la carte
@@ -807,7 +807,7 @@ socket.on("angeRevele", data => {
 // tout seul à la prochaine reconnexion) et retrouve l'écran pour rejoindre.
 socket.on("retireParMJ", () => {
   try { sessionStorage.removeItem("lgName"); sessionStorage.removeItem("lgPhoto"); } catch (_) {}
-  document.getElementById("status").innerText = "Le Maître du Jeu vous a retiré de la partie.";
+  document.getElementById("status").innerText = "Le Maître du Jeu t'a retiré de la partie.";
   setTimeout(() => location.reload(), 1500);
 });
 
@@ -830,7 +830,7 @@ socket.on("gamePaused", data => {
   // Indique le temps gelé
   if (data && data.voteRemainingMs) {
     const v = document.getElementById("timerVal");
-    if (v) v.innerText = Math.ceil(data.voteRemainingMs/1000) + "s ⏸";
+    if (v) v.innerText = Math.ceil(data.voteRemainingMs/1000) + "s ⏸️";
   }
 });
 socket.on("gameResumed", data => {
@@ -947,7 +947,7 @@ socket.on("gameEnd", msg=>{
   const titleMap = {
     wolves:    "🐺 Les Loups ont gagné !",
     lovers:    "💘 Les Amoureux ont gagné !",
-    ange:      "😇 L'Ange a gagné !",
+    ange:      "👼 L'Ange a gagné !",
     villagers: "🏆 Les Villageois ont gagné !"
   };
   document.getElementById("endScreenTitle").innerText   = titleMap[key];
@@ -957,7 +957,7 @@ socket.on("gameEnd", msg=>{
   const card = document.getElementById("endCard");
   const cfgBg = { wolves:"radial-gradient(ellipse at center,#1a0505 0%,#050000 100%)", lovers:"radial-gradient(ellipse at center,#1a0515 0%,#050005 100%)", ange:"radial-gradient(ellipse at center,#2a2410 0%,#080600 100%)", villagers:"radial-gradient(ellipse at center,#051a05 0%,#000500 100%)" };
   card.style.background = cfgBg[key];
-  document.getElementById("endEmoji").innerText    = key==="wolves"?"🐺":key==="lovers"?"💘":key==="ange"?"😇":"🏆";
+  document.getElementById("endEmoji").innerText    = key==="wolves"?"🐺":key==="lovers"?"💘":key==="ange"?"👼":"🏆";
   // L'emoji est déjà affiché en grand au-dessus du titre
   document.getElementById("endTitle").innerText    = titleMap[key].replace(/^\S+\s+/, "");
   afficherMaMedaille(lastGameSummary);
@@ -1166,7 +1166,7 @@ function choisirUnJoueur(conteneur, joueurs, action, couleur, interdit = () => n
     btn.disabled = !!raison;
     btn.onclick = () => action(p.id);
     btn.innerHTML = playerAvatar(p, 30, false);   // la photo fait partie du bouton (pas d'agrandissement)
-    btn.append(p.name + (p.id === socket.id ? " (vous)" : "") + (raison ? " — " + raison : ""));
+    btn.append(p.name + (p.id === socket.id ? " (toi)" : "") + (raison ? " — " + raison : ""));
     btn.style.cssText = `display:flex;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,0.04);border:1px solid ${couleur};color:#ddd;font-size:15px;text-align:left;cursor:${raison ? "not-allowed;opacity:0.4" : "pointer"};`;
     conteneur.appendChild(btn);
   });
@@ -1185,7 +1185,7 @@ function choisirTroisJoueurs(conteneur, joueurs, couleur, idNoms, idValider, sel
     });
     const noms = choix.map(id => players.find(x => x.id === id)?.name || "?");
     document.getElementById(idNoms).innerText = noms.length
-      ? noms.join(", ") + (noms.length < 3 ? ` (${noms.length}/3)` : "") : "Sélectionnez 3 joueurs";
+      ? noms.join(", ") + (noms.length < 3 ? ` (${noms.length}/3)` : "") : "Sélectionne 3 joueurs";
     const v = document.getElementById(idValider);
     v.disabled = choix.length !== 3;
     v.style.opacity = choix.length === 3 ? "1" : "0.4";
@@ -1463,7 +1463,7 @@ socket.on("reconnected", state => {
     if (info) {
       if (state.pendingSalvateurTurn.lastProtectedName) {
         info.style.display = "block";
-        info.innerText = "⛔ Hier, vous avez protégé " + state.pendingSalvateurTurn.lastProtectedName + " — vous ne pouvez pas le/la choisir cette nuit.";
+        info.innerText = "⛔ Hier, tu as protégé " + state.pendingSalvateurTurn.lastProtectedName + " — tu ne peux pas le/la choisir cette nuit.";
       } else {
         info.style.display = "none";
       }
@@ -1731,7 +1731,7 @@ function bindDayDebateRoleReveal() {
       reveal.style.display = "block";
       btn.dataset.tenu = "1";
       btn.style.background = "rgba(240,212,154,0.16)";
-      btn.innerHTML = "👁 Mon rôle";
+      btn.innerHTML = "👁️ Mon rôle";
     };
     const hide = () => {
       reveal.style.display = "none";
@@ -1763,7 +1763,7 @@ function updateRoleRevealBtn() {
   if (dayLike && role && !iAmDead) {
     btn.style.display = "block";
     if (!btn.dataset.bound) {
-      const reveal = ()=>{ content.style.display = "block"; btn.style.background="#1a1a2e"; btn.style.color="#cce6ff"; btn.innerHTML="👁 <strong>Relâche pour cacher</strong>"; };
+      const reveal = ()=>{ content.style.display = "block"; btn.style.background="#1a1a2e"; btn.style.color="#cce6ff"; btn.innerHTML="👁️ <strong>Relâche pour cacher</strong>"; };
       const hide   = ()=>{ content.style.display = "none"; btn.style.background="#0a0a1a"; btn.style.color="#88aacc"; btn.innerHTML="🎴 <strong>Maintenir pour voir mon rôle</strong>"; };
       // Souris
       btn.addEventListener("mousedown", reveal);
@@ -1949,7 +1949,7 @@ function showRoleCard(r) {
     else         { photoEl.style.display = "none"; }
   }
   document.getElementById("rcEmoji").innerText   = emojiDuRole(r) || "🎭";
-  document.getElementById("rcTitle").innerText   = "Votre rôle :";
+  document.getElementById("rcTitle").innerText   = "Ton rôle :";
   document.getElementById("rcRole").innerText    = ROLE_DISPLAY[r] || r;
   document.getElementById("rcText").innerText    = info.desc    || "";
   document.getElementById("rcMission").innerText = info.mission ? "🎯 " + info.mission : "";
@@ -2035,7 +2035,7 @@ socket.on("salvateurTurn", data => {
   const info = document.getElementById("salvateurLastInfo");
   if (data && data.lastProtectedName) {
     info.style.display = "block";
-    info.innerText = "⛔ Hier, vous avez protégé " + data.lastProtectedName + " — vous ne pouvez pas le/la choisir cette nuit.";
+    info.innerText = "⛔ Hier, tu as protégé " + data.lastProtectedName + " — tu ne peux pas le/la choisir cette nuit.";
   } else {
     info.style.display = "none";
   }
@@ -2045,7 +2045,7 @@ socket.on("salvateurTurn", data => {
 socket.on("salvateurConfirm", data => {
   document.getElementById("salvateurPanel").style.display = "none";
   if (data && data.targetName) {
-    document.getElementById("status").innerText = "🛡 Vous protégez " + data.targetName + " cette nuit.";
+    document.getElementById("status").innerText = "🛡️ Tu protèges " + data.targetName + " cette nuit.";
   }
 });
 
@@ -2149,7 +2149,7 @@ socket.on("missionError", msg => {
 socket.on("corbeauConfirm", data=>{
   document.getElementById("corbeauPanel").style.display = "none";
   const msg = data.targetId === "skip"
-    ? "🪶 Vous avez passé votre tour."
+    ? "🪶 Tu as passé ton tour."
     : "🪶 Cible désignée — 2 votes supplémentaires demain.";
   document.getElementById("status").innerText = msg;
 });
@@ -2166,7 +2166,7 @@ function corbeauChoose(id){
 function corbeauSkip(){
   socket.emit("corbeauAction", "skip");
   document.getElementById("corbeauPanel").style.display = "none";
-  document.getElementById("status").innerText = "🪶 Vous avez passé votre tour.";
+  document.getElementById("status").innerText = "🪶 Tu as passé ton tour.";
 }
 
 socket.on("deadPlayers", dead=>{
@@ -2282,7 +2282,7 @@ function commencerTourSorciere() {
 }
 function boutonSorciere(texte, action, fort) {
   return `<button onclick="${action}" style="flex:1;margin:4px;padding:14px 10px;border-radius:10px;font-size:15px;cursor:pointer;${fort
-    ? "background:#2a0f3d;border:2px solid #b06ae0;color:#e6ccff;"
+    ? "background:#0f2a12;border:2px solid #5fc46a;color:#d6ffd9;"
     : "background:#111;border:1px solid #444;color:#aaa;"}">${texte}</button>`;
 }
 function afficherEtapeSorciere(etape) {
@@ -2296,27 +2296,27 @@ function afficherEtapeSorciere(etape) {
     const v = players.find(x => x.id === nightVictimId);
     const question = !v ? "Sauver la victime ?" : v.id === socket.id ? "Te sauver ?" : `Sauver ${v.name} ?`;
     const photo = v && v.photo
-      ? `<img src="${v.photo}" ${attrZoom(v.name)} style="width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid #b06ae0;margin:0 auto 16px;display:block;cursor:zoom-in;">`
+      ? `<img src="${v.photo}" ${attrZoom(v.name)} style="width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid #5fc46a;margin:0 auto 16px;display:block;cursor:zoom-in;">`
       : (v ? `<div style="display:flex;justify-content:center;margin-bottom:16px;">${playerAvatar(v, 120)}</div>` : "");
-    zone.innerHTML = `${photo}<div style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:18px;">${question}</div>
+    zone.innerHTML = `${photo}<div class="titre" style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:18px;">${question}</div>
       <div style="display:flex;">${boutonSorciere("Oui", "sorciereSauver()", true)}${boutonSorciere("Non", "afficherEtapeSorciere('mort')")}</div>`;
   } else if (etape === "mort") {
     if (witchKillUsed) { finirTourSorciere(); return; }
-    zone.innerHTML = `<div style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:18px;">Utiliser la potion de mort ?</div>
+    zone.innerHTML = `<div class="titre" style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:18px;">Utiliser la potion de mort ?</div>
       <div style="display:flex;">${boutonSorciere("Oui", "afficherEtapeSorciere('cible')", true)}${boutonSorciere("Non", "finirTourSorciere()")}</div>`;
   } else if (etape === "cible") {
     // Comme pour le vote : les joueurs vivants, sauf elle-même et la victime des loups
     const cibles = players.filter(x => !deadPlayers.includes(x.id) && x.id !== socket.id && x.id !== nightVictimId);
-    zone.innerHTML = `<div style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:14px;">Qui empoisonner ?</div>
+    zone.innerHTML = `<div class="titre" style="font-size:22px;font-weight:bold;color:#fff;margin-bottom:14px;">Qui empoisonner ?</div>
       <div id="witchCibles"></div>
       <div style="display:flex;margin-top:10px;">${boutonSorciere("Passer", "finirTourSorciere()")}</div>`;
-    choisirUnJoueur(document.getElementById("witchCibles"), cibles, sorciereEmpoisonner, "#5a3a7a");
+    choisirUnJoueur(document.getElementById("witchCibles"), cibles, sorciereEmpoisonner, "#3a6a42");
   }
 }
 function sorciereSauver() { socket.emit("witchSave"); }
 function sorciereEmpoisonner(id) {
   const p = players.find(x => x.id === id);
-  document.getElementById("witchEtape").innerHTML = `<div style="font-size:15px;color:#e6ccff;">💀 ${p ? p.name : ""}…</div>`;
+  document.getElementById("witchEtape").innerHTML = `<div style="font-size:15px;color:#d6ffd9;">💀 ${p ? p.name : ""}…</div>`;
   socket.emit("witchKill", id);
 }
 function finirTourSorciere() {
@@ -2727,7 +2727,7 @@ socket.on("tiebreakNeeded", data=>{
   // Seul le maire voit le panel de tiebreak — les autres joueurs voient un message de statut
   if(socket.id === mayor){
     // Géré par tiebreakMayor qui arrive juste après (panel plein écran)
-    document.getElementById("status").innerText="⚖️ Égalité — vous devez trancher !";
+    document.getElementById("status").innerText="⚖️ Égalité — tu dois trancher !";
   } else {
     document.getElementById("status").innerText=
       "⚖️ Égalité entre "+data.candidates.map(c=>c.name).join(" et ")+". Le Maire doit trancher.";
@@ -2739,7 +2739,7 @@ socket.on("tiebreakMayor", data=>{
   // (évite que le panel soit invisible si la page est scrollée)
   const panel=document.getElementById("tiebreakPanel");
   ouvrirPanneau(panel, "#0a0800");
-  document.getElementById("tiebreakMsg").innerText="⚖️ Égalité ! En tant que Maire, vous devez trancher :";
+  document.getElementById("tiebreakMsg").innerText="⚖️ Égalité ! En tant que Maire, tu dois trancher :";
   choisirUnJoueur(document.getElementById("tiebreakBtns"), data.candidates, tiebreakVote, "#ffaa00");
   // Vibration : le Maire doit trancher (toujours de jour — vote du jour ou élection)
   vibrateIfDay([200, 100, 200, 100, 400]);
@@ -2774,7 +2774,7 @@ socket.on("mayorMustTransfer", dyingId=>{
   // juste avant l'ouverture réelle du panneau — garantit qu'un joueur mort en même
   // temps que le maire (ex : cible de la Sorcière) n'apparaît pas comme successeur.
   const buildMayorTransferButtons = () => {
-    document.getElementById("tiebreakMsg").innerText = "⚰️ Vous êtes mort. Désignez votre successeur :";
+    document.getElementById("tiebreakMsg").innerText = "⚰️ Tu es mort. Désigne ton successeur :";
     choisirUnJoueur(document.getElementById("tiebreakBtns"), players.filter(p => !deadPlayers.includes(p.id)), mayorTransfer, "#8888ff");
   };
 
@@ -2821,7 +2821,7 @@ socket.on("mayorMustAbdicate", data=>{
   const panel = document.getElementById("tiebreakPanel");
   // Vibration : le Maire doit choisir un successeur (évènement du Conseil, de jour)
   vibrateIfDay([200, 100, 200, 100, 400]);
-  document.getElementById("tiebreakMsg").innerText = "👑 L'Abdication : désignez votre successeur.";
+  document.getElementById("tiebreakMsg").innerText = "👑 L'Abdication : désigne ton successeur.";
   choisirUnJoueur(document.getElementById("tiebreakBtns"), data.candidates || [], id => socket.emit("mayorAbdicationChoice", id), "#ffcc44");
   ouvrirPanneau(panel, "#0a0a0a");
 });
@@ -3063,14 +3063,14 @@ function renderInfoPanel(){
   document.getElementById("infoRole").innerText=ROLE_DISPLAY[role]||role;
   const ad=document.getElementById("infoAllies"),al=document.getElementById("infoAlliesList"),at=document.getElementById("infoAlliesTitle");
   if(role==="Loup"&&wolves.length>1){
-    at.innerText="🐺 Vos compagnons :"; al.innerHTML="";
+    at.innerText="🐺 Tes compagnons :"; al.innerHTML="";
     wolves.filter(w=>w!==socket.id).forEach(wid=>{const p=players.find(x=>x.id===wid);if(!p)return;const dead=deadPlayers.includes(wid),s=document.createElement("span");s.className="info-badge badge-wolf"+(dead?" badge-dead":"");s.innerText=(dead?"☠️ ":"🐺 ")+p.name;al.appendChild(s);});
     ad.style.display="block";
   } else ad.style.display="none";
   const ld=document.getElementById("infoLovers"),ll=document.getElementById("infoLoversList"),lt=document.getElementById("infoLoversTitle");
   const myLover=lovers.find(l=>l!==socket.id);
   if(lovers.includes(socket.id)&&myLover){
-    lt.innerText="💘 Votre amoureux·se :"; ll.innerHTML="";
+    lt.innerText="💘 Ton amoureux·se :"; ll.innerHTML="";
     const p=players.find(x=>x.id===myLover);if(p){const dead=deadPlayers.includes(myLover),s=document.createElement("span");s.className="info-badge badge-lover"+(dead?" badge-dead":"");s.innerText=(dead?"☠️ ":"❤️ ")+p.name;ll.appendChild(s);}
     ld.style.display="block";
   } else if(role==="Cupidon"&&lovers.length===2){
@@ -3163,7 +3163,7 @@ function renderVotesPanel(){
         if(!voter||!target) return;
         const row=document.createElement("div"); row.className="vote-detail-row";
         const isMe=voterId===socket.id, votedForMe=targetId===socket.id, votedSelf=voterId===targetId;
-        row.innerHTML=`<span class="vdr-voter${isMe?" is-me":""}">${isMe?"👤 Vous":voter.name}</span><span class="vdr-arrow">→</span><span class="vdr-target${votedForMe?" voted-me":votedSelf?" voted-self":""}">${target.name}${votedForMe?" ⚠️":""}</span>`;
+        row.innerHTML=`<span class="vdr-voter${isMe?" is-me":""}">${isMe?"👤 Toi":voter.name}</span><span class="vdr-arrow">→</span><span class="vdr-target${votedForMe?" voted-me":votedSelf?" voted-self":""}">${target.name}${votedForMe?" ⚠️":""}</span>`;
         list.appendChild(row);
       });
       content.appendChild(list);
@@ -3195,10 +3195,10 @@ function chasseurShoot(id){
   // Ferme le panel plein écran
   const panel = document.getElementById("chasseurPanel");
   panel.style.cssText = "display:none;";
-  document.getElementById("status").innerText="🔫 Vous avez tiré !";
+  document.getElementById("status").innerText="🔫 Tu as tiré !";
   // Carte narrative avant la vision spectateur
-  carteAnnonce("🔫", "Votre dernière balle…",
-    (target ? `Vous avez tiré sur ${target.name}. ` : "") + "Votre devoir est accompli. Vous rejoignez les rangs des morts.",
+  carteAnnonce("🔫", "Ta dernière balle…",
+    (target ? `Tu as tiré sur ${target.name}. ` : "") + "Ton devoir est accompli. Tu rejoins les rangs des morts.",
     "radial-gradient(ellipse at center,#1a0800 0%,#080300 100%)", target ? [target.name] : []);
   nightCardShownThisNight = false;
   setTimeout(() => closeDawnCard(), 5000);
@@ -3229,8 +3229,8 @@ function renderChasseurTargets(){
   const panel = document.getElementById("chasseurPanel");
   panel.innerHTML = [
     "<div style='font-size:64px;margin-bottom:20px;'>🔫</div>",
-    "<div style='font-size:22px;font-weight:bold;color:#ff8833;margin-bottom:8px;'>Vous êtes mort…</div>",
-    "<div style='font-size:15px;color:#ccc;margin-bottom:24px;'>En tant que Chasseur, vous emportez un joueur avec vous.</div>",
+    "<div class='titre' style='font-size:22px;font-weight:bold;color:#ff8833;margin-bottom:8px;'>Tu es mort…</div>",
+    "<div style='font-size:15px;color:#ccc;margin-bottom:24px;'>En tant que Chasseur, tu emportes un joueur avec toi.</div>",
     "<div id='chasseurTargets'></div>"
   ].join("");
   choisirUnJoueur(document.getElementById("chasseurTargets"), players.filter(p => !deadPlayers.includes(p.id)), chasseurShoot, "#ff6600");

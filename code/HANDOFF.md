@@ -12,9 +12,9 @@ C:\LoupGarouVoteApp\
 ├─ LISEZMOI.md        page d'accueil : explique les deux dossiers
 ├─ code\              LE CODE — zone de Claude (Alexandre n'y va pas)
 │  ├─ server.js + modules *.js, lights-scenes.json
-│  ├─ public\         interfaces joueur (index.html) et MJ (mj.html), css\, js\ (communs aux deux), sounds\
+│  ├─ public\         interfaces joueur (index.html) et MJ (mj.html), css\, js\ (communs aux deux), fonts\ (police des titres), sounds\
 │  ├─ tests\          outils.js (outils communs), scenarios.js (intégration), rythme-mj.js, annonces-mj.js, navigateur.js (partie dans Chrome)
-│  ├─ outils\         test-hue.js (diagnostic lumières), banc-robots.js (parties de robots)
+│  ├─ outils\         test-hue.js (diagnostic lumières), banc-robots.js (parties de robots), serveur-site-vitrine.js (relire le site vitrine)
 │  ├─ HANDOFF.md, CONTEXT.md, JOURNAL-ARCHIVE.md (journal d'avant octobre 2026)
 │  ├─ start.ps1, .env (secrets Hue, non versionné), .env.example
 │  └─ logs\, snapshots\, node_modules\  (générés, non versionnés)
@@ -110,8 +110,8 @@ Dépendances : `state` (feuille) ← `narration`, `council` (+`lights`) ← `rol
 |---------|---------|
 | `index.html` (joueur) | `render()` (liste des joueurs, avatars, boutons), `updateNightCover()`/`isAnyNarrativeCardOpen()`, `updateDayDebateScreen()`, `updateDeadFullScreen()`, cartes (`showRoleReveal`, `carteAnnonce` pour toutes les annonces), listes de choix (`choisirUnJoueur`, `choisirTroisJoueurs`), panneaux (`ouvrirPanneau`), `#introScreen`. JS inline — à lire par `Grep` + `offset`/`limit`. |
 | `mj.html` (MJ) | Barre du haut `#mjActionSuivante` (prochaine action du MJ, votes des loups ; `actionSuivanteMJ`). Sections `mjSectionStart` (lobby, `lireComposition`), `mjSectionUrgency`, `mjSectionRoles`, `mjSectionMayor`, `mjSectionDay`, `mjSectionDeadChat`, `mjSectionQR` ; `updateMJLayout(phase)` les affiche selon la phase. TTS (`speakNarration`), sons (`playAmbiance`, `playEffect`), `MJ_CHEATSHEET`, `MJ_EVENT_RULES`, cartes MJ (`showMjDeathCard`, `#dayRecapCard`, `#councilEventCard`, `#sistersLauncherCard`, `#crashRecoveryCard`, `#qrFullscreen`). |
-| `js/communs.js` | Chargé par les DEUX pages : noms et pictogrammes des rôles (`ROLES`, `emojiDuRole`, `nomDuRole`) et causes de mort (`CAUSES`, `causeEnTexte`). Un changement ici vaut pour l'écran des joueurs et celui du MJ. |
-| `css/communs.css` | Chargé par les DEUX pages : mise en page des cartes plein écran (`.plein-ecran`, plus `#roleCard`, `#dayDeathCard`, `#nightFallCard` désignées par leur identifiant car le code remplace leur classe). |
+| `js/communs.js` | Chargé par les DEUX pages : noms et pictogrammes des rôles (`ROLES`, `emojiDuRole`, `nomDuRole`) et causes de mort (`CAUSES`, `causeEnTexte`). Un changement ici vaut pour l'écran des joueurs et celui du MJ. Les pictogrammes qui s'affichent en noir et blanc par défaut (🛡️ ⚖️ ⏱️ ⏸️ ⏹️ 👁️ 🕯️ ⚰️) s'écrivent avec le sélecteur invisible U+FE0F, sinon ils sortent en contour blanc à côté des autres en couleur. |
+| `css/communs.css` | Chargé par les DEUX pages : polices (Arial pour le texte, IM Fell English de `fonts/` pour les titres : la liste des titres est ici, classe `.titre` pour en ajouter un), mise en page des cartes plein écran (`.plein-ecran`, plus `#roleCard`, `#dayDeathCard`, `#nightFallCard` désignées par leur identifiant car le code remplace leur classe). |
 | `css/player.css`, `css/mj.css` | Styles propres à chaque écran (`.panneau` : les encadrés de la page joueur). Les réglages d'un seul élément restent dans son HTML. |
 | `sounds/` | 22 mp3. `day.mp3` et `night.mp3` pèsent ~85 Mo chacun (sous la limite GitHub de 100 Mo). `endgame_ange.mp3` (victoire de l'Ange, 3 min 21) : « Alléluia » du Messie de Haendel, London Symphony Orchestra et London Philharmonic Choir dir. Hermann Scherchen (1953), domaine public, version MP3 de Wikimedia Commons (`File:Handel - Messiah, Part 2 (Scherchen) - 45. Hallelujah.ogg`). S'il venait à manquer, `playAmbiance` joue `endgame_village` à la place. |
 
@@ -126,9 +126,11 @@ npm run test:rythme             # rythme du MJ : crépuscule, réveil, évèneme
 npm run test:hue                # diagnostic de la connexion Hue (lit .env)
 npm run test:navigateur         # 2 parties dans de vrais navigateurs (Chrome invisible), téléphones + tablette du MJ qui cliquent sur les vrais boutons : partie 1 (2 loups, 4 villageois : cartes, voile, débat, votes, fin) puis partie 2 (Salvateur, Voyante, Petite Fille, Corbeau, Sorcière, Chasseur et leurs listes de choix) ; tablette du MJ rechargée en plein jour ; 75 vérifications, aucune erreur JavaScript — ~4 min, ports 3107 et 3112
 npm run lint                    # ESLint (informationnel)
+
+node outils/serveur-site-vitrine.js   # relire le site vitrine (gestion/prive/site) comme le servira Netlify : http://localhost:4321
 ```
 
-Tous les tests (et le banc) passent par **`tests/outils.js`** : serveur jetable (`demarrerServeur`, `arreterServeur`), faux téléphone (`connecter`), attentes (`attendre`, `attendrePhase`), MJ automatique (`piloterMJ`), compte des vérifications (`compteur` → `check`, `bilan`). Chaque test finit par « BILAN : x/y vérifications passées » et la liste des échecs.
+Tous les tests (et le banc) passent par **`tests/outils.js`** : serveur jetable (`demarrerServeur`, `arreterServeur` ; ses erreurs JavaScript restent dans `srv.erreurs`), faux téléphone (`connecter`), attentes (`attendre`, `attendrePhase`), MJ automatique (`piloterMJ`), compte des vérifications (`compteur` → `check`, `bilan`). Chaque test finit par « BILAN : x/y vérifications passées » et la liste des échecs.
 
 Après toute modification serveur : **arrêter et relancer** le serveur (Node garde les anciens modules en mémoire) et rafraîchir les navigateurs.
 
@@ -173,6 +175,32 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ## Journal (du plus récent au plus ancien)
 
 Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOURNAL-ARCHIVE.md`.
+
+### 2026-10-28 (suite 4) — Revue du site vitrine et de son référencement
+Demande d'Alexandre : où en est-on en visibilité, et que peut-on améliorer côté technique (pas côté communication).
+- **Constat** : le site est indexé par Google (une seule page), mais **absent du top 20 sur toutes les requêtes utiles, y compris son propre nom** — domaine neuf, aucun lien entrant. Sur Bing/DuckDuckGo il est 1er sur « animation loup-garou à domicile Lyon ». Le nom « La Nuit du Village » entre en collision avec l'appellation bourguignonne « Côte de Nuits-Villages ».
+- **Source de vérité retrouvée** : la copie de travail est `Bureau/site-loupgarou` (c'est elle qu'Alexandre dépose sur Netlify) ; la sauvegarde du dépôt avait divergé. Le dossier a été reconstruit **depuis la version en ligne**, puis recopié aux deux endroits (`gestion/prive/site` et le Bureau), désormais identiques.
+- **Fait, côté contenu** : 4 pages dédiées (`evjf-lyon`, `anniversaire-adulte-lyon`, `evg-lyon`, `loup-garou-villeurbanne`), section « Vos soirées » et navigation de pied de page qui les relient, page 404 maison, `BreadcrumbList` + `Service` sur chaque page, catalogue d'offres dans le JSON-LD de l'accueil.
+- **Fait, côté technique** : balisage d'avis (`aggregateRating` + 3 `review`) **retiré** — Google ignore les avis qu'une entreprise publie sur elle-même et peut sanctionner ; polices Google **auto-hébergées** (`fonts/`, 18 fichiers, aucune donnée visiteur envoyée à Google) ; CSS et JS sortis en fichiers partagés (`css/polices.css`, `css/site.css`, `js/site.js`) ; `_headers` (cache long) et `_redirects` (`.html` → URL courte) ; `robots.txt` ne bloque plus les pages légales (sinon leur `noindex` est illisible) ; `sitemap.xml` refait (5 pages, dates du jour) ; `canonical` sur les pages légales ; mot-clé dans le `h1` ; `prefers-reduced-motion` ; `aria-expanded` sur la FAQ et le menu ; repli `<noscript>` ; `title` et `description` ramenés sous les limites d'affichage.
+- **Défaut trouvé au passage dans le navigateur** : l'apparition progressive (`.reveal`, IntersectionObserver à 12 %) laissait le texte **invisible** sur un bloc plus haut que l'écran — c'était le cas du texte des pages intérieures sur téléphone. Le texte d'une page de contenu ne dépend plus du JavaScript (`.reveal` retiré des blocs `.prose`), le seuil passe à 0, et un filet de sécurité affiche tout au bout de 3 s.
+- **Nouvel outil** : `outils/serveur-site-vitrine.js` (+ preview `site-vitrine`, port 4321) pour relire le site comme le servira Netlify (URL sans extension, `_redirects`, 404).
+- **Reste à faire, par Alexandre** : déposer le dossier sur Netlify, puis Google Search Console (le site n'y est pas) et Google Business Profile. **Le `www` ne résout pas** — aucun enregistrement DNS. Les 3 témoignages affichés (Claire L., Thomas M., Sophie R.) sont de vrais retours de joueurs (confirmé par Alexandre le 28/10/2026) : ils restent sur la page. Leur balisage `aggregateRating`/`review` reste retiré quand même — Google ignore les avis qu'une entreprise publie sur elle-même, vrais ou non, et les signaler comme tels expose à une pénalité.
+- Fiche `gestion/5 - Site internet (deploiement).docx` mise à jour (contenu du dossier, formulaire = Formspree et non Netlify, étapes 6 et 7 devenues inutiles, renumérotation).
+
+### 2026-10-28 (suite 3) — Direction artistique, étape 1 : le tu partout, des pictogrammes en couleur, la Sorcière en vert
+Demande d'Alexandre : un même thème partout, sans incohérence. Inventaire d'abord : polices, couleurs, pictogrammes, ton des textes, et 48 écrans photographiés pendant une vraie partie (téléphones et tablette du MJ).
+- **Constats** : « tu » et « vous » mélangés, jusque sur une même carte (« Vous possédez deux potions… » puis « Tu gagnes avec les Villageois ») ; deux polices (Arial chez les joueurs, Segoe UI chez le MJ) ; **329 nuances de couleur** sans palette, dont plus de 400 écrites dans les pages ; le bouclier du Salvateur et quelques pictogrammes (⚖ ⏱ ⏸ ⏹ 👁 🕯 ⚰) en contour blanc ; le tour de la Sorcière en violet alors qu'elle est verte partout ailleurs (carte de rôle, lumière, teinte de son tour) ; quelques mots anglais chez le MJ (« lobby », « Reset », « timer »). Les pictogrammes de rôle, eux, sont les mêmes partout, et les lumières Hue suivent les couleurs des écrans.
+- **Décisions d'Alexandre** : le tu partout (règle dans `CONTEXT.md`, « Ton et style ») ; l'Ange passe de 😇 (un smiley) à 👼 ; le Chasseur 🔫, la Sorcière 🧪 et le Villageois 🏠 restent ; une palette unique, appliquée pas à pas ; la police de titre choisie sur de vrais écrans, à côté de l'actuelle (Arial, Cinzel, IM Fell English, Pirata One) : **IM Fell English**, style vieux livre de contes, lisible de loin.
+- **Fait** : 73 textes de la page joueur, 8 de la tablette et 5 du serveur passés au tu ; pictogrammes en couleur partout (sélecteur U+FE0F, 47 endroits) ; tour de la Sorcière en vert (même fond que sa carte de rôle) ; « Idiot du village » écrit de la même façon partout ; « Salon », « Remise à zéro », « minuteur » ; les libellés de phase du MJ prennent le pictogramme du rôle dans `communs.js` (`phaseLabel`) au lieu de le recopier. « bot » reste (il est dans le dictionnaire). **Police** : IM Fell English (`public/fonts/`, 58 Ko, licence libre SIL OFL jointe, téléchargée avec l'accord d'Alexandre) pour les titres des écrans et des cartes des deux pages (y compris les grandes questions de la Sorcière et du Chasseur), avec des chiffres ordinaires : les siens sont à l'ancienne, « Jour 1 » s'y lisait « Jour ı » ; le texte courant est en Arial sur les deux (le MJ était en Segoe UI) ; tout est déclaré une fois dans `css/communs.css`.
+- **Restent, signalés à Alexandre** : la Voyante et les Loups choisissent dans la liste des joueurs, les autres rôles dans un encadré à eux (deux façons pour le même geste) ; sous ces encadrés, la liste des joueurs reste affichée (les mêmes prénoms deux fois) ; sur la carte de rôle, le pictogramme apparaît deux fois (en grand, puis devant le nom) ; une soixantaine de pictogrammes de rôle restent recopiés dans les textes des deux pages au lieu de venir de `communs.js`.
+
+### 2026-10-28 (suite 2) — Revue du banc de robots : un outil commun de plus, et les autres tests en profitent
+Même revue que pour le reste du code (demande d'Alexandre), sur `outils/banc-robots.js`.
+- **Recopiés, remplacés par les outils communs** : la connexion de la tablette (`connecter`), le MJ automatique (`piloterMJ`, qui accepte maintenant un délai tiré au hasard à chaque clic : le MJ du banc met 0,3 à 3 s comme un humain), la liste des erreurs du serveur (`demarrerServeur` les garde désormais dans `srv.erreurs`). Noms plus clairs (`noter`, `anomalie` au lieu de `J`, `V`).
+- **Gardé exprès en double** : l'ordre attendu de la nuit. Le banc vérifie la règle du serveur, il ne doit pas la lui emprunter (sinon une erreur d'ordre dans le serveur passerait inaperçue).
+- **Constat** : les quatre autres tests affichent les erreurs du serveur sans échouer. `srv.erreurs` permet maintenant d'en faire un échec (pas encore branché).
+- **Vérifié** : banc 3 parties, 0 anomalie, 0 erreur ; deux pannes introduites exprès dans le serveur (la Voyante avant les Loups, une erreur JavaScript en fin de nuit) → « ordre de nuit incorrect : seer puis wolves », partie bloquée, erreur du serveur relevée, banc en échec ; serveur restauré. Les quatre tests qui passent par les outils communs passent (scénarios 48/48, rythme 25/25, annonces 13/13, navigateur 75/75).
+- Taille : 199 → 195 lignes.
 
 ### 2026-10-28 (suite) — Revue du test navigateur : un geste, une fonction
 Même revue que pour le reste du code (demande d'Alexandre), sur `tests/navigateur.js`.

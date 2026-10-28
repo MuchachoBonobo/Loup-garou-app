@@ -56,6 +56,7 @@ Quand un arbitrage est nécessaire, voici l'ordre :
 
 - Narrations TTS : **mystérieux, théâtral, légèrement gothique** — on raconte un village médiéval hanté, pas un tutoriel.
 - UI : **lisible à distance** (jeu en présentiel, l'écran est souvent posé au centre de la table ou tenu à bout de bras).
+- **Tu partout** (décision d'Alexandre, 2026-10-28) : le téléphone et la tablette du MJ tutoient, car ils parlent à une seule personne. Le pluriel reste quand on s'adresse à plusieurs : le village (« Parlez entre vous. », l'écran du QR code), les loups ou les sœurs, et la voix du narrateur (« Loups-garous, ouvrez les yeux »).
 - Évènements du Conseil des Morts : **noms évocateurs** (Émeute, Paranoïa, Éclipse…), descriptions courtes et imagées.
 
 ## Ce qui est hors-scope (pour l'instant)

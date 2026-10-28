@@ -17,13 +17,13 @@ const COUNCIL_TRIGGER_THRESHOLD = 1;
 const COUNCIL_EVENTS = {
   riot: {
     id: "riot",
-    title: "⚖ Émeute",
+    title: "⚖️ Émeute",
     narrative: "Un grondement traverse la place du village. La méfiance brouille les regards, les voix se confondent. Personne ne saura qui aura voté pour qui : ce vote sera entièrement anonyme.",
     technical: { forceVoteMode: 5 }
   },
   judgment: {
     id: "judgment",
-    title: "⚖ Le Jugement",
+    title: "⚖️ Le Jugement",
     narrative: "Une fois prononcé, un vote ne peut plus être changé. Que chacun pèse ses mots — la sentence est définitive dès qu'elle tombe.",
     technical: { forceVoteMode: 2 }
   },
@@ -79,7 +79,7 @@ const COUNCIL_EVENTS = {
   },
   tribunal: {
     id: "tribunal",
-    title: "⚖ Le Tribunal",
+    title: "⚖️ Le Tribunal",
     narrative: "Une vieille tradition refait surface. Les anciens insistent : pour parler, il faut se lever. Quiconque souhaite s'exprimer devra se mettre debout face à l'assemblée.",
     technical: null
   },
@@ -91,7 +91,7 @@ const COUNCIL_EVENTS = {
   },
   last_words: {
     id: "last_words",
-    title: "🕯 Les Dernières Volontés",
+    title: "🕯️ Les Dernières Volontés",
     narrative: "Une coutume oubliée resurgit : avant le vote, chaque villageois doit lever la main et déclarer ce qu'il souhaite, au cas où il mourrait aujourd'hui : « Si je meurs aujourd'hui… »",
     technical: null
   },

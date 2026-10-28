@@ -3,6 +3,16 @@
    (un changement ici vaut pour les deux)
    ============================================================ */
 
+/* Police : Arial pour le texte courant sur les deux écrans ; IM Fell English (Igino Marini,
+   licence libre SIL OFL : fonts/OFL.txt) pour les titres des écrans et des cartes. Elle est
+   dans le jeu, pas sur Internet : elle marche hors connexion. Ses chiffres sont à l'ancienne
+   (« Jour 1 » s'y lit « Jour ı ») : ils sont exclus (unicode-range) et pris dans la police suivante. */
+@font-face { font-family:"IM Fell English"; src:url("/fonts/im-fell-english.woff2") format("woff2"); font-display:swap;
+  unicode-range:U+0000-002F, U+003A-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122; }
+body { font-family:Arial, sans-serif; }
+.titre, .intro-title, .card-title, .rc-title, #rcRole, #rfRoleName, #endTitle, #endScreenTitle, #deathTitle, #ddTitre,
+#etapeSuivanteLibelle, #dayRecapTitle, #mjVoteDeathName, #councilEventTitle { font-family:"IM Fell English", "Times New Roman", serif; }
+
 /* Carte plein écran, contenu centré en colonne. Le fond, le z-index et « display:none »
    restent sur chaque carte. Les trois cartes de l'écran des joueurs que le code ouvre par
    leur classe (className = "show") sont désignées par leur identifiant : une classe en plus

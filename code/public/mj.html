@@ -13,7 +13,7 @@
   <h1>🎛️ MJ</h1>
   <div id="connRow">
     <span id="mjConnDot">🔴</span>
-    <span id="mjPhaseDisplay">lobby</span>
+    <span id="mjPhaseDisplay">Salon</span>
     <span id="mjMaireAffiche" title="Maire du village" style="display:none;font-size:12px;color:#ffe066;background:#1f1a05;border:1px solid #665500;border-radius:4px;padding:2px 8px;"></span>
     <div class="audio-dot" id="dotAmbiance"></div>
     <span id="audioLabel" style="font-size:11px;">Silence</span>
@@ -48,7 +48,7 @@
 
 <!-- Banderole état pause (MJ) -->
 <div id="pauseBanner" style="display:none;background:#1a1500;border:2px solid #ffcc00;border-radius:10px;padding:14px;margin-bottom:10px;text-align:center;color:#ffcc00;font-weight:bold;font-size:15px;">
-  ⏸️ Partie en pause — appuyez sur "Reprendre" pour continuer
+  ⏸️ Partie en pause — appuie sur "Reprendre" pour continuer
 </div>
 
 <!-- Cheat sheet MJ contextuelle (mise à jour à chaque changement de phase) -->
@@ -201,9 +201,9 @@
     <div class="config-item">🐺 <input id="rp_loup" type="number" value="2" min="1"></div>
     <div class="config-item">👧 <input id="rp_petiteFille" type="number" value="0" min="0"></div>
     <div class="config-item">🤡 <input id="rp_idiot" type="number" value="0" min="0"></div>
-    <div class="config-item">😇 <input id="rp_ange" type="number" value="0" min="0"></div>
+    <div class="config-item">👼 <input id="rp_ange" type="number" value="0" min="0"></div>
     <div class="config-item">🪶 <input id="rp_corbeau" type="number" value="0" min="0"></div>
-    <div class="config-item">🛡 <input id="rp_salvateur" type="number" value="0" min="0"></div>
+    <div class="config-item">🛡️ <input id="rp_salvateur" type="number" value="0" min="0"></div>
     <div class="config-item">👯‍♀️ <input id="rp_sisters" type="number" value="0" min="0" max="2" step="2" title="0 ou 2 sœurs"></div>
     <div class="config-item">🎭 <input id="rp_mission" type="checkbox"> Mission</div>
     <div class="config-item">🪦 <input id="rp_conseil" type="checkbox" checked> Conseil</div>
@@ -222,9 +222,9 @@
     <div class="config-item">🐺<input id="loup"       type="number" value="2" min="1"></div>
     <div class="config-item">👧<input id="petiteFille" type="number" value="0" min="0"></div>
     <div class="config-item">🤡<input id="idiot"      type="number" value="0" min="0"></div>
-    <div class="config-item">😇<input id="ange"       type="number" value="0" min="0" title="Ange : gagne seul s'il est éliminé au 1er vote"></div>
+    <div class="config-item">👼<input id="ange"       type="number" value="0" min="0" title="Ange : gagne seul s'il est éliminé au 1er vote"></div>
     <div class="config-item">🪶<input id="corbeau"    type="number" value="0" min="0"></div>
-    <div class="config-item">🛡<input id="salvateur"  type="number" value="0" min="0"></div>
+    <div class="config-item">🛡️<input id="salvateur"  type="number" value="0" min="0"></div>
     <div class="config-item">👯‍♀️<input id="sisters" type="number" value="0" min="0" max="2" step="2" title="0 ou 2 sœurs jumelles"></div>
     <div class="config-item">🎭<input id="mission" type="checkbox" title="Activer la phase de mission"> Mission</div>
     <div class="config-item">🪦<input id="conseil" type="checkbox" checked title="Conseil des Morts : chaque jour, les morts votent un évènement pour le lendemain"> Conseil</div>
@@ -246,7 +246,7 @@
       <label style="font-size:12px;color:#aaa;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span>🗳️ Mode du vote du jour (fixe pour toute la partie) :</span>
         <select id="autoVoteMode" style="background:#0e0e0e;border:1px solid #335533;color:#88cc88;padding:4px 8px;border-radius:5px;font-size:12px;">
-          <option value="1">⏱ Libre (60s)</option>
+          <option value="1">⏱️ Libre (60s)</option>
           <option value="2">🔒 Verrouillé (60s)</option>
           <option value="4">⚡ Express (30s)</option>
           <option value="5">🖤 Anonyme (60s)</option>
@@ -267,14 +267,14 @@
       <strong>🎭 Pilotage MJ du jour</strong> <span style="color:#666;font-size:11px;">(épuration, moins d'écran joueur)</span>
     </label>
     <div style="margin-top:6px;font-size:11px;color:#776644;line-height:1.5;">
-      Le vote ne démarre pas automatiquement — c'est vous qui le lancez. Les joueurs voient seulement une carte de jour puis un écran de débat épuré (pas d'interface de vote tant que vous n'avez pas cliqué « Lancer le vote »).<br>
-      <span style="color:#554433;">Décochez pour retrouver le comportement classique (vote lancé automatiquement 2 s après l'aube, durée 60 s).</span>
+      Le vote ne démarre pas automatiquement — c'est toi qui le lances. Les joueurs voient seulement une carte de jour puis un écran de débat épuré (pas d'interface de vote tant que tu n'as pas cliqué « Lancer le vote »).<br>
+      <span style="color:#554433;">Décoche pour retrouver le comportement classique (vote lancé automatiquement 2 s après l'aube, durée 60 s).</span>
     </div>
   </div>
 
   <div class="btn-group" style="margin-top:8px;">
     <button class="btn primary" onclick="startGame()">🚀 Lancer la partie</button>
-    <button class="btn danger"  onclick="resetGame()">🔄 Reset</button>
+    <button class="btn danger"  onclick="resetGame()">🔄 Remise à zéro</button>
   </div>
 
   <!-- Mode entraînement : bots pour tester seul -->
@@ -333,10 +333,10 @@
   <div class="section-title">Le Jour — Débat &amp; Vote</div>
   <!-- Indicateur du jour : débat ou vote -->
   <div id="dayStateBanner" style="display:none;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.5;text-align:center;"></div>
-  <div id="voteModeLabel" style="font-size:12px;color:#888;">Mode libre 60 s. En pilotage MJ, vous lancez le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).</div>
+  <div id="voteModeLabel" style="font-size:12px;color:#888;">Mode libre 60 s. En pilotage MJ, tu lances le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).</div>
   <div class="btn-group" style="margin-top:8px;">
     <button class="btn primary" id="mjBtnLancerVote" onclick="launchVote()" style="flex:1;">🚀 Lancer le vote (60s)</button>
-    <button class="btn"         id="mjBtnTerminerVote" onclick="lockDay()">⏹ Terminer</button>
+    <button class="btn"         id="mjBtnTerminerVote" onclick="lockDay()">⏹️ Terminer</button>
   </div>
   <div id="timerDisplay">--</div>
   <div id="mjTimerBar"><div id="mjTimerBarFill" style="width:100%"></div></div>
@@ -357,7 +357,7 @@
     <input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.6" oninput="setVolume(this.value)" style="width:90px;">
     <button class="btn" id="audioToggle" onclick="toggleAudio()" style="padding:5px 10px;">🔈</button>
   </div>
-  <div class="section-title">Effets — cliquez pour jouer</div>
+  <div class="section-title">Effets — clique pour jouer</div>
   <div style="display:flex;gap:8px;margin-top:6px;">
     <button class="sfx-btn" onclick="playEffect('crow')" style="flex:1;"><span class="sfx-emoji">🪶</span><span class="sfx-name">Corbeau</span></button>
     <button class="sfx-btn" onclick="playEffect('thunder')" style="flex:1;"><span class="sfx-emoji">⛈️</span><span class="sfx-name">Tonnerre</span></button>
@@ -405,7 +405,7 @@
 <!-- QR code seul, en plein écran, le temps que tout le monde scanne -->
 <div id="qrFullscreen" class="plein-ecran" style="display:none;z-index:10000;background:radial-gradient(ellipse at center,#10131c 0%,#04050a 100%);">
   <div style="font-size:15px;color:#8a93b0;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Rejoignez la partie</div>
-  <div style="font-size:26px;font-weight:bold;color:#e8ecff;margin-bottom:24px;">Scannez pour entrer dans le village</div>
+  <div class="titre" style="font-size:26px;font-weight:bold;color:#e8ecff;margin-bottom:24px;">Scannez pour entrer dans le village</div>
   <div id="qrFullscreenCode" style="background:#ffffff;padding:20px;border-radius:16px;box-shadow:0 16px 50px rgba(0,0,0,0.6);"></div>
   <div id="qrFullscreenUrl" style="font-size:14px;color:#6a7290;margin-top:18px;letter-spacing:1px;"></div>
   <div style="margin-top:30px;font-size:16px;color:#c8a24a;display:flex;align-items:center;gap:8px;">🔇 Pensez à mettre vos téléphones en silencieux</div>
@@ -666,7 +666,7 @@ socket.on("mjDayRecap", data => {
   let nightHtml = `<div style="color:#7aa3d8;font-size:13px;font-weight:bold;margin-bottom:6px;">🌙 Cette nuit…</div>`;
   const nd = data.nightDeaths || [];
   const saveLabel = data.savedBySalvateur
-    ? "🛡 Le Salvateur a protégé la victime des loups"
+    ? "🛡️ Le Salvateur a protégé la victime des loups"
     : data.savedByWitch
       ? "🧪 La Sorcière a sauvé une vie"
       : data.saved
@@ -724,7 +724,7 @@ const MJ_EVENT_RULES = {
   panic:          "Vote EXPRESS : durée réduite à 30 s — les joueurs doivent trancher très vite.",
   paranoia:       "Aucun joueur ne peut parler plus de 20 secondes d'affilée. Au-delà, il se tait. (À faire respecter à l'oral.)",
   madness:        "Toute phrase d'un joueur doit commencer par « Je pense que… » ou « Je jure que… ». (À faire respecter.)",
-  eclipse:        "Ambiance seulement : la musique de nuit joue en plein jour. Aucun effet de règle — annoncez l'atmosphère.",
+  eclipse:        "Ambiance seulement : la musique de nuit joue en plein jour. Aucun effet de règle — annonce l'atmosphère.",
   storm:          "Ambiance seulement : un orage gronde toute la journée. Aucun effet de règle.",
   fog:            "Interdit de bouger les bras pour s'exprimer : pas de gestes, pas de doigt pointé, les bras restent immobiles. (À faire respecter.)",
   fire:           "Le maire PERD son pouvoir d'arbitrage : en cas d'égalité au vote, c'est le hasard qui tranche (automatique).",
@@ -867,7 +867,7 @@ socket.on("gamePaused", data => {
   // Stoppe le countdown visuel du timer du jour
   stopCountdown();
   if (data && data.voteRemainingMs) {
-    document.getElementById("timerDisplay").innerText = Math.ceil(data.voteRemainingMs/1000) + "s ⏸";
+    document.getElementById("timerDisplay").innerText = Math.ceil(data.voteRemainingMs/1000) + "s ⏸️";
   }
 });
 socket.on("gameResumed", data => {
@@ -934,7 +934,7 @@ function playAmbiance(k){
   if(ambianceName===k && ambianceAudio && !ambianceAudio.paused)return;
   stopAmbiance();
   try{
-    const labels={lobby:"🎮 Phase 1…",night:"🌙 Nuit",day:"☀️ Jour",endgame_village:"🏆 Victoire Villageois",endgame_loups:"🐺 Victoire Loups",endgame_amoureux:"💘 Victoire Amoureux",endgame_ange:"😇 Victoire de l'Ange"};
+    const labels={lobby:"🎮 Phase 1…",night:"🌙 Nuit",day:"☀️ Jour",endgame_village:"🏆 Victoire Villageois",endgame_loups:"🐺 Victoire Loups",endgame_amoureux:"💘 Victoire Amoureux",endgame_ange:"👼 Victoire de l'Ange"};
     // Musique de secours si le fichier manque (endgame_ange.mp3 est à fournir)
     const secours={endgame_ange:"endgame_village"};
     ambianceAudio=new Audio(SOUNDS[k]||k);
@@ -1040,7 +1040,7 @@ function updateNightBar(currentPhase) {
     { key:'cupid',     label:'💘 Cupidon',    needed: Object.values(roles).includes('Cupidon') },
     { key:'amoureux',  label:'💞 Amoureux',   needed: Object.values(roles).includes('Cupidon') },
     { key:'sisters',   label:'👯‍♀️ Sœurs',     needed: Object.entries(roles).filter(([id,r])=>r==='Sœurs' && !deadIds.includes(id)).length >= 2 },
-    { key:'salvateur', label:'🛡 Salvateur',  needed: Object.values(roles).some(r=>r==='Salvateur') },
+    { key:'salvateur', label:'🛡️ Salvateur',  needed: Object.values(roles).some(r=>r==='Salvateur') },
     { key:'wolves',    label:'🐺 Loups',      needed: true },
     { key:'seer',      label:'🔮 Voyante',    needed: Object.values(roles).some(r=>r==='Voyante') },
     { key:'petiteFille', label:'👧 Petite Fille', needed: Object.values(roles).some(r=>r==='PetiteFille') },
@@ -1417,8 +1417,8 @@ function closeMjVoteDeathCard(){
 socket.on("daySkipped",    ()=>{ showAlert("⏭️ Vote du jour passé.", "info"); changerEtatVote("resultat"); });
 socket.on("randomElim",    ()=>showAlert("⚠️ Aucun vote — élimination aléatoire !", "warn"));
 socket.on("loversDeathInfo", data=>{ if(data.name) showAlert(`💔 ${data.name} meurt de chagrin.`,"warn"); });
-socket.on("idiotRevealed", data=>showAlert(`🤡 ${data.name} est l'Idiot du Village !`, "info"));
-socket.on("angeRevele", data=>showAlert(`😇 ${data.name} était l'Ange : il gagne seul !`, "success"));
+socket.on("idiotRevealed", data=>showAlert(`🤡 ${data.name} est l'Idiot du village !`, "info"));
+socket.on("angeRevele", data=>showAlert(`👼 ${data.name} était l'Ange : il gagne seul !`, "success"));
 socket.on("stuckGame", data=>{
   const label={wolves:"Les Loups",seer:"La Voyante",petiteFille:"La Petite Fille",corbeau:"Le Corbeau",witch:"La Sorcière",cupid:"Cupidon"};
   document.getElementById("stuckGameMsg").innerText=`"${label[data.phase]||data.phase}" inactive depuis ${data.idleMinutes} min.`;
@@ -1445,7 +1445,7 @@ socket.on("gameReset", data=>{
   updateMJLayout("lobby");
   document.getElementById("missionMJPanel").style.display="none";
   document.getElementById("missionBonusMJInfo").style.display="none";
-  document.getElementById("voteModeLabel").innerText="Mode libre 60 s. En pilotage MJ, vous lancez le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).";
+  document.getElementById("voteModeLabel").innerText="Mode libre 60 s. En pilotage MJ, tu lances le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).";
   closeDayRecapCard();
   closeMjVoteDeathCard();
   _mjPendingCouncilEvent = null;
@@ -1465,7 +1465,7 @@ socket.on("deadChatMsg", msg=>{
 let countdownInterval=null, mjEndsAt=null, mjTotalMs=null;
 socket.on("voteStarted", data=>{
   mjEndsAt=data.endsAt; mjTotalMs=data.duration;
-  const labels={1:"⏱ Mode Libre (60s)",2:"⚖ Le Jugement — verrouillé (60s)",4:"⚡ La Panique — express (30s)",5:"🖤 Émeute — vote anonyme (60s)"};
+  const labels={1:"⏱️ Mode Libre (60s)",2:"⚖️ Le Jugement — verrouillé (60s)",4:"⚡ La Panique — express (30s)",5:"🖤 Émeute — vote anonyme (60s)"};
   // Certains events du Conseil écrasent la durée par défaut : adapte le label.
   let label = labels[data.mode] || "Vote en cours";
   if (_mjActiveCouncilEvent === "voteMute") label = "🤐 Le Vote Muet — silence total (90s)";
@@ -1586,7 +1586,7 @@ function actionSuivanteMJ() {
     return attente > 0 ? { libelle: `🚀 Lancer le vote (dans ${attente} s)`, action: launchVote, inactif: true }
                        : { libelle: "🚀 Lancer le vote", action: launchVote };
   }
-  if (mjEtatVote === "vote") return { libelle: "⏹ Terminer le vote", action: lockDay };
+  if (mjEtatVote === "vote") return { libelle: "⏹️ Terminer le vote", action: lockDay };
   return null;
 }
 // Tir du Chasseur ou transmission d'écharpe en attente du clic du MJ : { type, nom } ou null
@@ -1693,7 +1693,7 @@ function lockDay()    { socket.emit("lockDayVotes"); }
 function launchVote() {
   if (Date.now() < _mjLaunchVoteUnlocksAt) {
     const s = Math.ceil((_mjLaunchVoteUnlocksAt - Date.now()) / 1000);
-    showAlert(`⏳ Attendez encore ${s}s — les joueurs voient encore la carte d'aube`, "warning");
+    showAlert(`⏳ Attends encore ${s}s — les joueurs voient encore la carte d'aube`, "warning");
     return;
   }
   socket.emit("startVote", 1);
@@ -1710,10 +1710,11 @@ function replayGame(){
 // les modes 2/4/5 sont déclenchés uniquement par un évènement du Conseil des Morts).
 
 function phaseLabel(p){
-  return{lobby:"lobby",mayorVote:"🏛️ Vote Maire",cupid:"💘 Cupidon",amoureux:"💞 Amoureux",sisters:"👯‍♀️ Sœurs jumelles",
-         salvateur:"🛡 Salvateur",wolves:"🐺 Loups",
-         seer:"🔮 Voyante",petiteFille:"👧 Petite Fille",corbeau:"🪶 Corbeau",witch:"🧪 Sorcière",nightPause:"🌙 Entre deux rôles",crepuscule:"🌆 Crépuscule",
-         chasseur:"🔫 Chasseur",day:"☀️ Jour",mayorTransfer:"🏛️ Transfert Maire",
+  const r = (role, nom) => emojiDuRole(role) + " " + (nom || nomDuRole(role));
+  return{lobby:"Salon",mayorVote:r("Maire", "Vote Maire"),cupid:r("Cupidon"),amoureux:"💞 Amoureux",sisters:r("Sœurs", "Sœurs jumelles"),
+         salvateur:r("Salvateur"),wolves:r("Loup", "Loups"),
+         seer:r("Voyante"),petiteFille:r("PetiteFille"),corbeau:r("Corbeau"),witch:r("Sorcière"),nightPause:"🌙 Entre deux rôles",crepuscule:"🌆 Crépuscule",
+         chasseur:r("Chasseur"),day:"☀️ Jour",mayorTransfer:r("Maire", "Transfert Maire"),
          mission:"🎭 Mission — Équipe",missionVote:"🎭 Mission — Vote",missionBonus:"🔍 Mission — Bonus"}[p]||p;
 }
 
@@ -1725,7 +1726,7 @@ const MJ_CHEATSHEET = {
   cupid:        { title:"💘 Cupidon",             lines:["« Cupidon, ouvre les yeux »", "Il désigne 2 amoureux (en silence)", "« Cupidon, ferme les yeux »"] },
   amoureux:     { title:"💞 Les Amoureux",         lines:["« Amoureux, ouvrez les yeux et regardez-vous »", "Chacun voit l'autre sur son téléphone — 15 s qui démarrent seules", "« Amoureux, fermez les yeux »"] },
   sisters:      { title:"👯‍♀️ Sœurs jumelles",  lines:["Vérifie que tout le monde dort", "« Sœurs jumelles, ouvrez les yeux »", "Les 20 s démarrent toutes seules à leur réveil", "À la fin, la nuit marque une pause comme pour les autres rôles"] },
-  salvateur:    { title:"🛡 Salvateur",            lines:["« Salvateur, ouvre les yeux »", "Il pointe qui il protège (≠ d'hier)", "« Salvateur, ferme les yeux »"] },
+  salvateur:    { title:"🛡️ Salvateur",            lines:["« Salvateur, ouvre les yeux »", "Il pointe qui il protège (≠ d'hier)", "« Salvateur, ferme les yeux »"] },
   wolves:       { title:"🐺 Loups-Garous",         lines:["« Loups-garous, ouvrez les yeux »", "Ils désignent une proie en silence", "Quand ils sont d'accord, clique « Valider l'attaque »", "« Loups-garous, fermez les yeux »"] },
   seer:         { title:"🔮 Voyante",              lines:["« Voyante, ouvre les yeux »", "Elle pointe un joueur — tu lui montres son rôle silencieusement", "« Voyante, ferme les yeux »"] },
   petiteFille:  { title:"👧 Petite Fille",         lines:["« Petite Fille, ouvre les yeux »", "Elle désigne 3 joueurs sur son téléphone (pas elle-même)", "Son écran lui dit s'il y a au moins un loup parmi eux — la réponse s'affiche aussi chez toi", "La nuit attend son « OK, j'ai vu »", "« Petite Fille, ferme les yeux »"] },

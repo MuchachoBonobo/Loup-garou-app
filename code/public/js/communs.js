@@ -12,10 +12,10 @@ const ROLES = {
   Villageois:  { emoji: "🏠", nom: "Villageois" },
   Maire:       { emoji: "🏛️", nom: "Maire" },
   PetiteFille: { emoji: "👧", nom: "Petite Fille" },
-  Idiot:       { emoji: "🤡", nom: "Idiot du Village" },
-  Ange:        { emoji: "😇", nom: "Ange" },
+  Idiot:       { emoji: "🤡", nom: "Idiot du village" },
+  Ange:        { emoji: "👼", nom: "Ange" },
   Corbeau:     { emoji: "🪶", nom: "Corbeau" },
-  Salvateur:   { emoji: "🛡", nom: "Salvateur" },
+  Salvateur:   { emoji: "🛡️", nom: "Salvateur" },
   Sœurs:       { emoji: "👯‍♀️", nom: "Sœur jumelle" },
 };
 // Un rôle inconnu garde son identifiant (ou « ? »), sans pictogramme

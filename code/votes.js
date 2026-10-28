@@ -86,7 +86,7 @@ function resolveVoteWithTiebreak(counts, context, onResolved) {
     const cands = state.tiebreakCandidates || [];
     if (!cands.length) { state.tiebreakPending = false; state.tiebreakContext = ""; return; }
     const choice = cands[Math.floor(Math.random() * cands.length)];
-    state.io.emit("autoResolve", "⏱ Le Maire n'a pas tranché — l'égalité est départagée au hasard.");
+    state.io.emit("autoResolve", "⏱️ Le Maire n'a pas tranché — l'égalité est départagée au hasard.");
     trancherEgalite(choice);
   }, TIEBREAK_TIMEOUT_MS);
 }

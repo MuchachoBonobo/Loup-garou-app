@@ -115,7 +115,7 @@ function startFirstNight() {
 // suivante ». Le rôle suivant ne se réveille (et son écran ne s'allume) qu'à ce clic :
 // un joueur qui tarde à fermer les yeux ne voit pas qui se réveille après lui.
 const LIBELLES_ETAPES_NUIT = {
-  cupid: "💘 Cupidon", amoureux: "💘 Les Amoureux", sisters: "👯‍♀️ Les Sœurs jumelles", salvateur: "🛡 Le Salvateur",
+  cupid: "💘 Cupidon", amoureux: "💘 Les Amoureux", sisters: "👯‍♀️ Les Sœurs jumelles", salvateur: "🛡️ Le Salvateur",
   wolves: "🐺 Les Loups-Garous", seer: "🔮 La Voyante", petiteFille: "👧 La Petite Fille",
   corbeau: "🪶 Le Corbeau", witch: "🧪 La Sorcière", aube: "☀️ Le lever du jour"
 };
@@ -767,7 +767,7 @@ function handleSalvateurAction(socket, targetId) {
   if (!targetId) return;
   if (state.deadPlayers.includes(targetId)) return;
   if (targetId === state.lastProtectedTarget) {
-    state.io.to(socket.id).emit("salvateurReject", { reason: "Vous ne pouvez pas protéger la même personne deux nuits de suite." });
+    state.io.to(socket.id).emit("salvateurReject", { reason: "Tu ne peux pas protéger la même personne deux nuits de suite." });
     return;
   }
   if (state.salvateurTimeout) { clearTimeout(state.salvateurTimeout); state.salvateurTimeout = null; }
@@ -793,7 +793,7 @@ function seerReveal(seerId, targetId) {
   versMJ("soundPlay", "seer");
   state.seerTimeout = setTimeout(() => {
     if (state.phase !== "seer") return;
-    versMJ("autoResolve", "⏱ La Voyante n'a pas confirmé sa vision — la nuit continue.");
+    versMJ("autoResolve", "⏱️ La Voyante n'a pas confirmé sa vision — la nuit continue.");
     advanceAfterSeer();
   }, SEER_ACK_TIMEOUT_MS);
 }
@@ -830,7 +830,7 @@ function petiteFilleReveal(pfId, ids) {
   const vivants = alivePlayers().map(p => p.id);
   if (!Array.isArray(ids) || ids.length !== 3 || new Set(ids).size !== 3
       || ids.some(id => id === pfId || !vivants.includes(id))) {
-    return "Désignez 3 joueurs vivants, autres que vous.";
+    return "Désigne 3 joueurs vivants, autres que toi.";
   }
   clearTimeout(state.petiteFilleTimeout); state.petiteFilleTimeout = null;
   const auMoinsUnLoup = ids.some(id => state.roles[id] === "Loup");
@@ -847,7 +847,7 @@ function petiteFilleReveal(pfId, ids) {
   }
   state.petiteFilleTimeout = setTimeout(() => {
     if (state.phase !== "petiteFille") return;
-    versMJ("autoResolve", "⏱ La Petite Fille n'a pas confirmé sa réponse — la nuit continue.");
+    versMJ("autoResolve", "⏱️ La Petite Fille n'a pas confirmé sa réponse — la nuit continue.");
     advanceAfterPetiteFille();
   }, PETITE_FILLE_ACK_TIMEOUT_MS);
   return null;
@@ -986,7 +986,7 @@ function inspecterBonus(teamIds) {
 function handleMissionTeamChoice(socket, teamIds) {
   if (state.phase !== "mission" || socket.id !== state.mayor) return;
   if (!Array.isArray(teamIds) || teamIds.length !== 3) return;
-  if (!equipeValide(teamIds)) return socket.emit("missionError", "Sélection invalide — 3 joueurs vivants autres que vous.");
+  if (!equipeValide(teamIds)) return socket.emit("missionError", "Sélection invalide — 3 joueurs vivants autres que toi.");
   envoyerEnMission(teamIds);
 }
 
@@ -1001,7 +1001,7 @@ function handleMissionCard(socket, card) {
 function handleMissionBonusChoice(socket, bonusTeamIds) {
   if (state.phase !== "missionBonus" || socket.id !== state.mayor) return;
   if (!Array.isArray(bonusTeamIds) || bonusTeamIds.length !== 3) return;
-  if (!equipeValide(bonusTeamIds)) return socket.emit("missionError", "Sélection bonus invalide — 3 joueurs vivants autres que vous.");
+  if (!equipeValide(bonusTeamIds)) return socket.emit("missionError", "Sélection bonus invalide — 3 joueurs vivants autres que toi.");
   inspecterBonus(bonusTeamIds);
 }
 

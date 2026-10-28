@@ -225,7 +225,7 @@ io.on("connection", socket => {
     // Diffuse l'état à tout le monde et invite les joueurs à se reconnecter par leur prénom
     io.emit("gameRestored", {
       phase: state.phase,
-      message: "Partie restaurée après redémarrage du serveur. Reconnectez-vous avec votre prénom."
+      message: "Partie restaurée après redémarrage du serveur. Reconnecte-toi avec ton prénom."
     });
     // Reprise en plein jour : setPhase("day") compte un jour de plus et repart de l'évènement
     // « pour demain » — sans ceci, le jour 2 devenait le jour 3 et l'évènement du jour était

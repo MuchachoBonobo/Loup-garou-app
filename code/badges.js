@@ -38,11 +38,11 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
     });
   }
 
-  // 😇 Ange gardien — l'Ange qui a gagné seul
+  // 👼 Ange gardien — l'Ange qui a gagné seul
   if (winner === "ange") {
     players.forEach(p => {
       if (roles[p.id] === "Ange") give(p.name, "ange", {
-        emoji: "😇",
+        emoji: "👼",
         label: "Ange gardien",
         desc: "S'est fait chasser dès le premier vote… exactement comme prévu."
       });
@@ -156,11 +156,11 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
     });
   }
 
-  // 🛡 Bouclier inébranlable — le Salvateur vivant en fin de partie (au moins une nuit jouée)
+  // 🛡️ Bouclier inébranlable — le Salvateur vivant en fin de partie (au moins une nuit jouée)
   players.forEach(p => {
     if (roles[p.id] === "Salvateur" && isAlive(p.id) && (gameStats?.nightCount || 0) > 0) {
       give(p.name, "bouclier", {
-        emoji: "🛡",
+        emoji: "🛡️",
         label: "Bouclier inébranlable",
         desc: "A protégé le village et survécu."
       });

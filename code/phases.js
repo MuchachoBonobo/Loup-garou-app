@@ -183,7 +183,7 @@ function armerMinuteriesAutomatiques(p) {
     if (p === "mayorVote") {
       state.mayorAutoLockTimer = setTimeout(() => {
         if (state.phase === "mayorVote") {
-          state.io.emit("autoResolve", "⏱ Délai dépassé — élection avec les votes en cours.");
+          state.io.emit("autoResolve", "⏱️ Délai dépassé — élection avec les votes en cours.");
           votes.performLockMayorVote();
         }
       }, MAYOR_AUTO_TIMEOUT_MS);
@@ -191,7 +191,7 @@ function armerMinuteriesAutomatiques(p) {
     if (p === "wolves") {
       state.wolvesAutoLockTimer = setTimeout(() => {
         if (state.phase === "wolves") {
-          state.io.emit("autoResolve", "⏱ Loups indécis — résolution par majorité.");
+          state.io.emit("autoResolve", "⏱️ Loups indécis — résolution par majorité.");
           votes.performLockWolfVotes();
         }
       }, WOLVES_AUTO_TIMEOUT_MS);
@@ -214,7 +214,7 @@ function installPhaseTimeouts(p) {
   if (p === "witch") {
     state.witchTimeout = setTimeout(() => {
       if (state.phase === "witch") {
-        versMJ("autoResolve", "⏱ La Sorcière a trop tardé — passage automatique à l'aube.");
+        versMJ("autoResolve", "⏱️ La Sorcière a trop tardé — passage automatique à l'aube.");
         roles.doResolveNight();
       }
     }, WITCH_TIMEOUT_MS);
@@ -223,7 +223,7 @@ function installPhaseTimeouts(p) {
   if (p === "seer") {
     state.seerTimeout = setTimeout(() => {
       if (state.phase !== "seer") return;
-      versMJ("autoResolve", "⏱ La Voyante a tardé — passage automatique.");
+      versMJ("autoResolve", "⏱️ La Voyante a tardé — passage automatique.");
       roles.advanceAfterSeer();
     }, SEER_TIMEOUT_MS);
   }
@@ -231,7 +231,7 @@ function installPhaseTimeouts(p) {
   if (p === "petiteFille") {
     state.petiteFilleTimeout = setTimeout(() => {
       if (state.phase !== "petiteFille") return;
-      versMJ("autoResolve", "⏱ La Petite Fille a tardé — passage automatique.");
+      versMJ("autoResolve", "⏱️ La Petite Fille a tardé — passage automatique.");
       roles.advanceAfterPetiteFille();
     }, PETITE_FILLE_TIMEOUT_MS);
   }
@@ -239,7 +239,7 @@ function installPhaseTimeouts(p) {
   if (p === "corbeau") {
     state.corbeauTimeout = setTimeout(() => {
       if (state.phase === "corbeau") {
-        versMJ("autoResolve", "⏱ Le Corbeau a tardé — passage automatique.");
+        versMJ("autoResolve", "⏱️ Le Corbeau a tardé — passage automatique.");
         state.corbeauTarget = "skip";
         roles.allerEtapeNuit(roles.etapeApres("corbeau"));
       }
@@ -249,7 +249,7 @@ function installPhaseTimeouts(p) {
   if (p === "cupid") {
     state.cupidTimeout = setTimeout(() => {
       if (state.phase === "cupid") {
-        versMJ("autoResolve", "⏱ Cupidon n'a pas choisi — passage automatique à la nuit.");
+        versMJ("autoResolve", "⏱️ Cupidon n'a pas choisi — passage automatique à la nuit.");
         roles.startNightSequence();
       }
     }, CUPID_TIMEOUT_MS);
@@ -258,7 +258,7 @@ function installPhaseTimeouts(p) {
   if (p === "salvateur") {
     state.salvateurTimeout = setTimeout(() => {
       if (state.phase === "salvateur") {
-        versMJ("autoResolve", "⏱ Le Salvateur a tardé — la nuit avance sans protection.");
+        versMJ("autoResolve", "⏱️ Le Salvateur a tardé — la nuit avance sans protection.");
         state.protectedTarget = null;
         roles.allerEtapeNuit("wolves");
       }
@@ -278,7 +278,7 @@ function installPhaseTimeouts(p) {
   if (p === "crepuscule") {
     state.nightPauseTimeout = setTimeout(() => {
       if (state.phase !== "crepuscule") return;
-      versMJ("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — la nuit commence.");
+      versMJ("autoResolve", "⏱️ Pas de clic du MJ depuis 3 min — la nuit commence.");
       roles.lancerNuitAttendue();
     }, NIGHT_PAUSE_TIMEOUT_MS);
   }
@@ -288,7 +288,7 @@ function installPhaseTimeouts(p) {
   if (p === "nightPause") {
     state.nightPauseTimeout = setTimeout(() => {
       if (state.phase !== "nightPause" || !state.etapeNuitSuivante) return;
-      versMJ("autoResolve", "⏱ Pas de clic du MJ depuis 3 min — la nuit continue.");
+      versMJ("autoResolve", "⏱️ Pas de clic du MJ depuis 3 min — la nuit continue.");
       const etape = state.etapeNuitSuivante;
       roles.allerEtapeNuit(etape, { sansPause: true });
     }, NIGHT_PAUSE_TIMEOUT_MS);
@@ -297,7 +297,7 @@ function installPhaseTimeouts(p) {
   if (p === "mission") {
     state.mission.teamTimeout = setTimeout(() => {
       if (state.phase === "mission") {
-        state.io.emit("autoResolve", "⏱ Le Maire n'a pas sélectionné son équipe — mission annulée.");
+        state.io.emit("autoResolve", "⏱️ Le Maire n'a pas sélectionné son équipe — mission annulée.");
         state.mission.active = false;
         roles.ouvrirNuit(true);
       }
@@ -310,7 +310,7 @@ function installPhaseTimeouts(p) {
         state.mission.team.forEach(id => {
           if (!state.mission.cards[id]) state.mission.cards[id] = "success";
         });
-        state.io.emit("autoResolve", "⏱ Temps écoulé — cartes manquantes comptées comme Réussite.");
+        state.io.emit("autoResolve", "⏱️ Temps écoulé — cartes manquantes comptées comme Réussite.");
         roles.resolveMissionCards();
       }
     }, MISSION_CARD_TIMEOUT_MS);
@@ -319,7 +319,7 @@ function installPhaseTimeouts(p) {
   if (p === "missionBonus") {
     state.mission.bonusTimeout = setTimeout(() => {
       if (state.phase === "missionBonus") {
-        state.io.emit("autoResolve", "⏱ Le Maire n'a pas utilisé son bonus — passage au jour.");
+        state.io.emit("autoResolve", "⏱️ Le Maire n'a pas utilisé son bonus — passage au jour.");
         state.mission.bonusDone = true;
         setPhase("day");
       }
@@ -336,7 +336,7 @@ function installPhaseTimeouts(p) {
       const aliveTargets = alivePlayers().filter(pl => pl.id !== shooterId);
       if (aliveTargets.length > 0) {
         const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
-        state.io.emit("autoResolve", `⏱ Le Chasseur a tardé — tir aléatoire sur ${target.name}.`);
+        state.io.emit("autoResolve", `⏱️ Le Chasseur a tardé — tir aléatoire sur ${target.name}.`);
         roles.performChasseurShot(shooterId, target.id);
       } else {
         state.currentChasseurShooter = null;
@@ -360,10 +360,10 @@ function installPhaseTimeouts(p) {
         !state.deadPlayers.includes(pl.id) && pl.id !== state.dyingMayorId);
       if (validTargets.length > 0) {
         const target = validTargets[Math.floor(Math.random() * validTargets.length)];
-        state.io.emit("autoResolve", `⏱ Maire mourant inactif — successeur aléatoire : ${target.name}.`);
+        state.io.emit("autoResolve", `⏱️ Maire mourant inactif — successeur aléatoire : ${target.name}.`);
         roles.performMayorTransfer(target.id);
       } else {
-        state.io.emit("autoResolve", `⏱ Aucun successeur disponible — transfert annulé.`);
+        state.io.emit("autoResolve", `⏱️ Aucun successeur disponible — transfert annulé.`);
         oublierTransfert();
         if (!checkVictory()) setPhase("day");
       }
@@ -650,7 +650,7 @@ function checkVictory() {
 
   // L'Ange désigné au premier vote du village gagne seul (votes.handleAngeVictoire)
   if (state.angeVainqueur) {
-    endGame("ange", "😇 L'Ange a gagné ! Désigné dès le premier vote, il s'envole seul vers la victoire."); return true;
+    endGame("ange", "👼 L'Ange a gagné ! Désigné dès le premier vote, il s'envole seul vers la victoire."); return true;
   }
   if (aliveWolves.length === 0) {
     if (state.lovers.length === 2 && alive.length === 2 && alive.every(p => state.lovers.includes(p.id))) {
