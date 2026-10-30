@@ -176,6 +176,15 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 
 Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOURNAL-ARCHIVE.md`.
 
+### 2026-10-30 (suite 3) — Revue du site internet
+Demande d'Alexandre. Le site vit hors du dépôt : `gestion/prive/site` (non versionné) et sa copie `site-loupgarou` sur le Bureau, celle qu'Alexandre dépose sur Netlify. Les deux ont été modifiées puis vérifiées identiques ; rien ne change en ligne tant que le dossier n'est pas redéposé.
+- **Polices** : Cinzel et Cormorant Garamond (polices variables) étaient déclarées graisse par graisse, avec le même fichier recopié trois fois : le navigateur téléchargeait jusqu'à trois fois les mêmes octets (~220 Ko de doublons). Une déclaration par sous-ensemble, avec la plage de graisses. Les 8 fichiers en double ne servent plus ; pas supprimés (fichiers non versionnés) : à supprimer par Alexandre.
+- **Une seule FAQ** : la FAQ pour Google (données structurées) recopiait celle de la page et ne disait plus la même chose ; Google ne l'affiche plus pour ce type de site depuis 2023. Retirée : la page reste la seule source.
+- **Alignés** : titres de partage de l'accueil = titre de la page (EVJF, anniversaire, EVG) ; pied de page de toutes les pages avec l'EVG ; champ anti-robots de l'accueil réglé comme ailleurs (plus atteignable au clavier) ; commentaire « favicon provisoire » retiré (c'est la vraie icône) ; styles écrits dans les pages → deux classes de la feuille de style.
+- **Vérifié** : aucun lien interne cassé (9 pages, plan du site, redirections) ; données structurées valides ; pages comparées au pixel près avant / après, sur ordinateur et téléphone : identiques, sauf la ligne du pied de page.
+- **Fiche 6** : les conditions d'annulation « à définir » renvoient aux CGV du site, qui les fixent déjà.
+- **Signalé à Alexandre, non modifié** (texte juridique ou décision) : les CGV prévoient des frais de déplacement « au-delà de Lyon/Villeurbanne » alors que la grille comprend 30 km ; elles disent que le tarif « tient compte du nombre de joueurs » alors que les plaquettes disent qu'il « ne dépend pas du nombre de présents » ; le site annonce 60 km sans dire que le déplacement n'est compris que jusqu'à 30 km ; deux exemplaires du site à tenir identiques à la main ; le site et les plaquettes utilisent Cinzel et Cormorant, le jeu IM Fell English.
+
 ### 2026-10-30 (suite 2) — Revue des fiches de gestion
 Demande d'Alexandre : la même revue sur `gestion/` (fiches Word, guide d'appel, plaquettes, lanceurs ; le dossier `prive` n'a pas été ouvert). Chaque libellé de bouton ou d'écran cité par les fiches a été cherché dans le code.
 - **Lanceur cassé** : `Tester les lumieres.bat` contenait une tabulation à la place de « \t » dans `outils\test-hue.js` depuis la réorganisation du 2026-10-16 : le double-clic ne trouvait pas l'outil. Réparé (pas lancé : il envoie une vraie commande aux lampes).
