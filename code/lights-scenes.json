@@ -25,8 +25,8 @@
   },
   "missionBonus": {
     "xy": [
-      0.48,
-      0.38
+      0.249,
+      0.493
     ],
     "bri": 200,
     "transition": 1000
@@ -41,16 +41,16 @@
   },
   "cupid": {
     "xy": [
-      0.35,
-      0.24
+      0.401,
+      0.276
     ],
     "bri": 230,
     "transition": 1200
   },
   "salvateur": {
     "xy": [
-      0.23,
-      0.37
+      0.215,
+      0.283
     ],
     "bri": 230,
     "transition": 1200
@@ -82,16 +82,16 @@
   },
   "petiteFille": {
     "xy": [
-      0.43,
-      0.34
+      0.34,
+      0.22
     ],
     "bri": 230,
     "transition": 1200
   },
   "corbeau": {
     "xy": [
-      0.24,
-      0.19
+      0.303,
+      0.309
     ],
     "bri": 220,
     "transition": 1200
@@ -106,8 +106,8 @@
   },
   "chasseur": {
     "xy": [
-      0.47,
-      0.41
+      0.523,
+      0.367
     ],
     "bri": 200,
     "transition": 400,
@@ -115,16 +115,16 @@
   },
   "mission": {
     "xy": [
-      0.5,
-      0.28
+      0.207,
+      0.233
     ],
     "bri": 150,
     "transition": 1000
   },
   "mayorTransfer": {
     "xy": [
-      0.45,
-      0.41
+      0.43,
+      0.43
     ],
     "bri": 220,
     "transition": 800
@@ -206,8 +206,8 @@
   },
   "council.bell": {
     "xy": [
-      0.36,
-      0.32
+      0.42,
+      0.4
     ],
     "bri": 130,
     "transition": 800
@@ -297,15 +297,6 @@
     "duration": 700,
     "repeat": 1
   },
-  "flash.victory": {
-    "xy": [
-      0.4,
-      0.5
-    ],
-    "bri": 254,
-    "duration": 400,
-    "repeat": 5
-  },
   "flash.lightning": {
     "xy": [
       0.32,
@@ -383,5 +374,58 @@
     "bri": 230,
     "transition": 1200,
     "effect": "slow_pulse"
+  },
+  "missionVote": {
+    "xy": [
+      0.207,
+      0.233
+    ],
+    "bri": 150,
+    "transition": 1000
+  },
+  "flash.victoire.village": {
+    "xy": [
+      0.465,
+      0.43
+    ],
+    "bri": 254,
+    "duration": 400,
+    "repeat": 5
+  },
+  "flash.victoire.loups": {
+    "xy": [
+      0.671,
+      0.307
+    ],
+    "bri": 254,
+    "duration": 400,
+    "repeat": 5
+  },
+  "flash.victoire.amoureux": {
+    "xy": [
+      0.464,
+      0.255
+    ],
+    "bri": 254,
+    "duration": 400,
+    "repeat": 5
+  },
+  "flash.victoire.ange": {
+    "xy": [
+      0.45,
+      0.41
+    ],
+    "bri": 254,
+    "duration": 400,
+    "repeat": 5
+  },
+  "flash.reussite": {
+    "xy": [
+      0.2,
+      0.622
+    ],
+    "bri": 254,
+    "duration": 400,
+    "repeat": 2
   }
 }

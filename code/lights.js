@@ -171,7 +171,7 @@ function startEffect(name, scene) {
       break;
     }
     case "slow_pulse": {
-      // Pulsation lente : Émeute, Chasseur
+      // Pulsation lente : Chasseur, Sœurs, Amoureux, et quelques évènements du Conseil
       let high = true;
       effectInterval = setInterval(() => {
         callHue(_sceneBody({ xy: scene.xy, bri: high ? scene.bri : Math.max(30, Math.floor(scene.bri*0.55)) }, { duration: 900 }));

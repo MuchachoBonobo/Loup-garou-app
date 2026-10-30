@@ -76,7 +76,7 @@ Le « sprint final » (raccourci à 30 s quand tout le monde a voté) n'existe q
 - **Jour non piloté** (case décochée) : ancien comportement, vote lancé automatiquement 2 s après l'aube et vision spectateur complète pour les morts.
 
 ### Mise en scène
-Narration vocale (synthèse vocale du navigateur, côté MJ, variantes par transition de phase dans `narration.js`), musique d'ambiance jour/nuit + effets sonores (`public/sounds/`, joués sur l'appareil MJ), lumières Hue (scènes par phase — la nuit : bleu sombre entre deux rôles, lumière teintée mais forte quand un rôle est réveillé —, 18 scènes d'évènements, flashs mort/aube/loups/cloche/victoire, scène « pause »), cartes narratives plein écran, cheat sheet MJ contextuelle, écran d'intro, teinte d'écran par phase, vibrations **uniquement de jour**.
+Narration vocale (synthèse vocale du navigateur, côté MJ, variantes par transition de phase dans `narration.js`), musique d'ambiance jour/nuit + effets sonores (`public/sounds/`, joués sur l'appareil MJ), lumières Hue (scènes par phase — la nuit : bleu sombre entre deux rôles, lumière teintée mais forte quand un rôle est réveillé —, 18 scènes d'évènements, flashs mort/aube/loups/cloche, victoire à la couleur du camp gagnant, mission réussie en vert, scène « pause »), cartes narratives plein écran, cheat sheet MJ contextuelle, écran d'intro, teinte d'écran par phase, vibrations **uniquement de jour**.
 
 ### Robustesse
 Reconnexion par prénom (registre `playerRegistry`, toutes les phases couvertes), sauvegarde de l'état toutes les 5 s (`snapshots/`) et proposition de reprise au MJ après un crash, timeouts sur chaque phase de nuit, bouton Pause, journaux quotidiens dans `logs/`, nettoyage des crash-snapshots de plus de 7 jours.
@@ -95,7 +95,7 @@ Tailles : `wc -l *.js` (une colonne « Lignes » se périmait à chaque changeme
 | `council.js` | Conseil des Morts : 18 évènements, tirage, vote, application des effets, Abdication, Voix Étouffées ; `evenementPublic(id)`, l'évènement tel que les écrans le reçoivent. |
 | `narration.js` | Dictionnaire des narrations TTS par transition (`"wolves_to_seer"`…). |
 | `lights.js` | Pilote Hue CLIP v2, fire-and-forget (timeout 1,5 s, jamais d'`await`, jamais de `throw`). `applyScene`, `flash`, `flashSequence`, `reset`, `status`. |
-| `lights-scenes.json` | 43 entrées : 16 scènes de phase (dont `petiteFille`, rose pêche), 18 `council.*`, 8 `flash.*` (dont `flash.ange`, blanc doré), `pause`. |
+| `lights-scenes.json` | 51 entrées : 20 scènes de phase (une par phase du jeu, `missionVote` comprise, plus `dayVote`), 18 `council.*` (une par évènement), 12 `flash.*` (dont `flash.victoire.village/loups/amoureux/ange` : la couleur du camp gagnant, et `flash.reussite`, vert, pour une mission réussie), `pause`. La couleur d'un rôle est celle de sa famille à l'écran (palette de `css/communs.css`) : la Petite Fille violette comme la Voyante, la mission bleue comme ses encadrés, le Chasseur braise, le Corbeau blanc froid. |
 | `badges.js` | 17 médailles de fin de partie, **une seule par joueur** (la plus prestigieuse, `RANGS`). |
 | `soiree.js` | Classement de la soirée (1 point par victoire), fichier `soiree.json` dans le dossier des sauvegardes (non versionné), remis à zéro par le bouton MJ « Nouvelle soirée ». |
 | `death-narratives.js` | Récits de mort par cause × rôle (libellés accordés, propres au serveur). |
@@ -175,6 +175,15 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ## Journal (du plus récent au plus ancien)
 
 Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOURNAL-ARCHIVE.md`.
+
+### 2026-10-30 (suite) — Revue des lumières : la couleur de l'écran jusque dans les lampes
+Même revue que pour les sons (demande d'Alexandre). Inventaire des 46 scènes, de chaque appel du serveur, et teinte de chaque scène comparée à la couleur de son rôle à l'écran (palette de la direction artistique). Pas de lampes ici : couleurs vérifiées par le calcul (xy Hue → teinte), planche avant / après montrée à Alexandre.
+- **Couleurs qui ne suivaient pas l'écran** : la Petite Fille en pêche (13°) alors qu'elle est violette ; la mission rose-rouge alors que ses encadrés sont bleus ; le bonus de mission orange alors que son encadré est vert ; le Chasseur à 37°, presque la lumière du jour, au lieu de la braise ; le Corbeau bleu-violet alors qu'il est gris ; le Salvateur vert d'eau au lieu du bleu de son tour ; Cupidon lilas (297°), proche de la Voyante, au lieu du rose des Amoureux ; la transmission d'écharpe autre que l'élection du Maire ; la cloche du Conseil rosée alors que son flash est chaud. Toutes recalées sur leur famille (teinte visée, xy calculé, aller-retour vérifié).
+- **La victoire** flashait en jaune-vert pour tous les camps, Loups compris : elle prend la couleur du camp gagnant (or, rouge, rose, blanc doré). Une mission réussie, qui utilisait le même flash, a son vert de réussite (`flash.reussite`).
+- **Une phase sans scène** : `missionVote` (les envoyés jouent leur carte) — la lumière restait sur la mission ; la scène existe maintenant, identique.
+- **Vérifié** : chaque scène citée par le code existe, chacune sert, chaque phase et chacun des 18 évènements du Conseil a la sienne ; le pilote (`lights.js`) reste « fire-and-forget », rien à reprendre hormis un commentaire. Scénarios 51/51, rythme 25/25, annonces 13/13.
+- **Fiche Word** `gestion/3 - Lumieres Philips Hue` tenue à jour (elle décrit les couleurs) : Petite Fille « Violet rosé » (était « Rose pêche »), Salvateur « Bleu ciel » (« Bleu turquoise »), victoire « aux couleurs du camp gagnant ». Modifiée dans le texte interne du document, mise en forme intacte.
+- **À voir en vrai** : ces couleurs sont calculées ; une lampe ne rend pas un écran. À la prochaine partie avec les lumières, regarder la Petite Fille, le Chasseur, le Corbeau et la mission.
 
 ### 2026-10-30 — Revue des sons et de la musique
 Même revue que pour les textes (demande d'Alexandre). Inventaire des 22 fichiers (durée, débit), de chaque son demandé par le serveur, et mesure du volume réel de chacun dans Chrome.

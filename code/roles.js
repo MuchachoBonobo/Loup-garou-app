@@ -376,7 +376,7 @@ function envoyerRecapMJ() {
 // Lumières de l'aube : un éclair par mort puis la couleur de la mission ; l'aube si personne n'est mort
 function lumieresAube(nbMorts, mission) {
   try {
-    const couleurMission = mission === "success" ? "flash.victory" : "flash.death";
+    const couleurMission = mission === "success" ? "flash.reussite" : "flash.death";
     if (nbMorts > 0) {
       lights.flashSequence("flash.death", nbMorts);
       if (mission !== null) setTimeout(() => { try { lights.flash(couleurMission); } catch (_) {} }, nbMorts * 750 + 300);

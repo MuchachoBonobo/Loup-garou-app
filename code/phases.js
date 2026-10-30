@@ -636,7 +636,8 @@ function checkVictory() {
       state.io.emit("gameSummary", buildSummary(winner));
       versMJ("soireeMJ", soiree.resume());
       state.io.emit("gameEnd", msg);
-      try { lights.flash("flash.victory"); } catch (_) {}
+      // La couleur du camp gagnant, comme sa musique et son écran de fin
+      try { lights.flash({ wolves: "flash.victoire.loups", lovers: "flash.victoire.amoureux", ange: "flash.victoire.ange" }[winner] || "flash.victoire.village"); } catch (_) {}
       setPhase("lobby");
     };
     // En pleine résolution de nuit, la fin de partie attend : doResolveNight la déclenche
