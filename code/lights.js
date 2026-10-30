@@ -6,19 +6,9 @@
  * (défaut), le module est totalement dormant — pratique tant que tu n'as pas
  * de Bridge / pas envie d'allumer les lumières.
  *
- * Configuration via variables d'environnement (cf. .env.example) :
- *   LIGHTS_ENABLED  = "true" pour activer (défaut: "false")
- *   HUE_BRIDGE_IP   = ip locale du Bridge (ex: 192.168.1.42)
- *   HUE_API_KEY     = clé d'application générée via le bouton du Bridge
- *   HUE_GROUP_ID    = UUID v2 du groupe "Loup-Garou" (grouped_light)
- *   LIGHTS_DEBUG    = "true" pour logguer les appels (sinon silencieux)
- *
- * Génération de la clé (à exécuter dans les 30s après pression du bouton physique du Bridge) :
- *   curl -k -X POST https://<bridge-ip>/api \
- *        -d '{"devicetype":"loupgarou#serveur","generateclientkey":true}'
- *
- * Récupération de l'UUID du groupe :
- *   curl -k -H "hue-application-key: <clé>" https://<bridge-ip>/clip/v2/resource/grouped_light
+ * Configuration : LIGHTS_ENABLED, HUE_BRIDGE_IP, HUE_API_KEY, HUE_GROUP_ID, LIGHTS_DEBUG,
+ * lues dans .env — chacune expliquée dans .env.example (avec la façon d'obtenir la clé
+ * et l'identifiant du groupe).
  */
 
 const https = require('https');

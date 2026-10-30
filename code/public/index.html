@@ -1868,7 +1868,7 @@ socket.on("phase", p=>{
   if(p!=="wolves") wolfVotes={};
   // Ne PAS remettre witchSaveUsed/witchKillUsed à false en phase wolves :
   // les potions sont à usage unique pour toute la partie (reset dans gameReset).
-  // Le voile « garde les yeux fermés » doit apparaître dès la PREMIÈRE phase de nuit.
+  // Le voile « Yeux fermés. » doit apparaître dès la PREMIÈRE phase de nuit.
   // Sur la 1ère nuit c'est la phase cupid (le garde nightCardShownThisNight limite à 1×/nuit).
   // Si la carte Maire est encore ouverte quand cupid démarre, showNightFallCard retourne
   // immédiatement (guard mayorCard) — c'est la callback de showMayorCard qui la rappellera
@@ -3359,7 +3359,7 @@ function render(){
   // Idem pour l'écran de débat : ré-affirmé à chaque rendu pour qu'il apparaisse
   // de façon fiable dès le jour, même si un changement de phase a été manqué.
   updateDayDebateScreen();
-  // Idem pour le voile « garde les yeux fermés » : ré-affirmé à chaque rendu
+  // Idem pour le voile « Yeux fermés. » : ré-affirmé à chaque rendu
   // pour qu'il apparaisse dès le début de la nuit.
   updateNightCover();
 }

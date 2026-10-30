@@ -14,22 +14,22 @@ L'immersion passe par :
 
 ## Principe directeur : l'app au service de la table
 
-En présentiel, chaque seconde passée les yeux sur le téléphone est une seconde volée au jeu social (regards, bluff, accusations). Depuis la refonte du jour (mai 2026), la règle est : **le téléphone ne s'allume que quand le joueur doit agir**. Le jour, les joueurs voient un écran « regardez-vous, débattez » ; le vote n'apparaît que quand le MJ le lance ; les morts ont un écran épuré. Toute nouvelle fonctionnalité doit être jugée aussi sur ce critère : est-ce qu'elle ramène les yeux vers l'écran sans nécessité ?
+En présentiel, chaque seconde passée les yeux sur le téléphone est une seconde volée au jeu social (regards, bluff, accusations). Depuis la refonte du jour (mai 2026), la règle est : **le téléphone ne s'allume que quand le joueur doit agir**. Le jour, les joueurs voient un écran « Parlez entre vous. » ; le vote n'apparaît que quand le MJ le lance ; les morts ont un écran épuré. Toute nouvelle fonctionnalité doit être jugée aussi sur ce critère : est-ce qu'elle ramène les yeux vers l'écran sans nécessité ?
 
 ## Public
 
-### Aujourd'hui — cercle d'amis
+### Au départ — cercle d'amis
 Le jeu est conçu pour être joué **en présentiel sur canapé** avec un groupe d'amis. Le rituel reste celui du Loup-Garou classique : **la nuit, tous les joueurs ferment les yeux**, et seuls ceux qui ont une action à faire les rouvrent quand le MJ (ou la narration vocale) les y invite. C'est le MJ — ou la voix narrative quand le mode autonome est activé — qui rythme l'ouverture et la fermeture des yeux.
 
-Les mécaniques type voile de nuit, hold-to-reveal du rôle et absence de vibrations nocturnes ne remplacent pas ce rituel : ce sont des **filets de sécurité** qui empêchent un joueur qui aurait jeté un œil furtif de glaner une information par-dessus l'épaule d'un voisin. L'app doit garantir que **même si quelqu'un triche en regardant**, il ne voit rien de compromettant.
+Les mécaniques type voile de nuit, bouton à maintenir pour revoir son rôle et absence de vibrations nocturnes ne remplacent pas ce rituel : ce sont des **filets de sécurité** qui empêchent un joueur qui aurait jeté un œil furtif de glaner une information par-dessus l'épaule d'un voisin. L'app doit garantir que **même si quelqu'un triche en regardant**, il ne voit rien de compromettant.
 
 Caractéristiques de ce public :
 - Connaît déjà les bases du Loup-Garou (la complexité des rôles est OK).
 - Tolère les imperfections (c'est de l'auto-hébergé sur le réseau local).
 - Joue pour rigoler ensemble, pas pour gagner à tout prix.
 
-### Demain — inconnus / clients
-L'objectif à moyen terme est d'**ouvrir l'expérience à des inconnus** : soirées organisées, animation d'évènements, location de la mise en scène complète (lumières Hue + tablette MJ + interface joueurs).
+### Depuis octobre 2026 — inconnus / clients
+L'expérience **s'ouvre à des inconnus** : une animation payante, menée sur place par un Maître du Jeu avec tout le matériel (site lanuitduvillage.fr, grille de prix et plaquettes dans `../gestion/`). Le site vise les particuliers (EVJF, EVG, anniversaires) ; les premières demandes sont venues d'entreprises, avec des groupes plus grands qu'une partie (30 et 90 personnes, pour 8 à 15 joueurs par partie).
 
 Implications pour les choix de design :
 - L'interface doit rester **compréhensible sans explication préalable** (un joueur qui n'a jamais joué doit pouvoir suivre).

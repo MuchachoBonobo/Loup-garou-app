@@ -110,7 +110,7 @@ function startFirstNight() {
 // ===== NUIT RYTHMÉE PAR LE MJ =====
 // Toute transition d'une étape de nuit à la suivante passe par allerEtapeNuit().
 // Hors mode autonome, on s'arrête d'abord en phase « nightPause » : aucun rôle actif,
-// tous les téléphones affichent le voile « garde les yeux fermés », la voix demande au
+// tous les téléphones affichent le voile « Yeux fermés. », la voix demande au
 // rôle précédent de fermer les yeux, et le MJ voit un grand bouton « Passer à l'étape
 // suivante ». Le rôle suivant ne se réveille (et son écran ne s'allume) qu'à ce clic :
 // un joueur qui tarde à fermer les yeux ne voit pas qui se réveille après lui.
