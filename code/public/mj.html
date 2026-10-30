@@ -601,22 +601,20 @@ socket.on("councilStormStart", () => {
   if (!audioEnabled) return;
   stopAmbiance();
   try {
-    stormAudio = new Audio(SOUNDS.rainynight || "sounds/rainynight.mp3");
+    stormAudio = sonAuNiveau("rainynight", "ambiance");
     stormAudio.loop = true;
-    stormAudio.volume = masterVolume * 0.5;
     stormAudio.play().then(()=>{ dotSet(true); lblSet("⛈️ La Tempête"); }).catch(()=>dotSet(false,true));
   } catch(e) {}
 });
 
 socket.on("councilMurmursStart", () => {
-  // Les Morts Murmurent : remplace la musique du jour par "Murmures.mp3" en boucle
+  // Les Morts Murmurent : remplace la musique du jour par « murmures.mp3 » en boucle
   if (!audioEnabled) return;
   stopAmbiance();
   try {
-    stormAudio = new Audio(SOUNDS.murmures || "sounds/Murmures.mp3");
+    stormAudio = sonAuNiveau("murmures", "ambiance");
     stormAudio.loop = true;
-    stormAudio.volume = masterVolume * 0.5;
-    stormAudio.play().then(()=>{ dotSet(true); lblSet("👻 Murmures"); }).catch(()=>dotSet(false,true));
+    stormAudio.play().then(()=>{ dotSet(true); lblSet("👻 Les Morts Murmurent"); }).catch(()=>dotSet(false,true));
   } catch(e) {}
 });
 
@@ -912,21 +910,62 @@ const SOUNDS = {
   endgame_ange:"sounds/endgame_ange.mp3",
   wolves:"sounds/wolves_attack.mp3", witch:"sounds/witch.mp3",
   seer:"sounds/seer.mp3", death:"sounds/death.mp3",
-  heartbeat:"sounds/heartbeat.mp3", applause:"sounds/applause.mp3",
-  drum_roll:"sounds/drum_roll.mp3", crowd_gasp:"sounds/crowd_gasp.mp3",
+  heartbeat:"sounds/heartbeat.mp3", gun:"sounds/gun.mp3",
   crow:"sounds/crow.mp3", thunder:"sounds/thunder.mp3", church_bell:"sounds/church_bell.mp3",
   cupid:"sounds/cupid.mp3",
   sisters:"sounds/sisters.mp3", shield:"sounds/shield.mp3",
   petite_fille:"sounds/petite_fille.mp3",
   // Conseil des Morts — ambiances qui remplacent la musique du jour
   rainynight:"sounds/rainynight.mp3",
-  murmures:"sounds/Murmures.mp3"
+  murmures:"sounds/murmures.mp3"
 };
+
+// Volumes : chaque son est ramené au niveau de sa catégorie. Mesures du 2026-10-28 (niveau moyen,
+// crête, en dB) : les effets allaient de −42 à −14 dB (le bouclier du Salvateur était inaudible
+// sous la musique de nuit, le Corbeau couvrait tout), la musique du jour était 11 dB sous celle de
+// la nuit. La crête borne l'amplification (jamais au-delà de −1 dB, pour ne pas saturer).
+const MESURES = {
+  lobby:[-16.3,-2.5], night:[-20.1,-3.7], day:[-31.1,-5.0], rainynight:[-20.8,-0.5], murmures:[-30.1,-6.3],
+  endgame_village:[-14.2,-3.6], endgame_loups:[-23.0,-3.7], endgame_amoureux:[-14.5,-0.2], endgame_ange:[-20.2,-3.2],
+  wolves:[-17.7,-2.7], witch:[-22.3,-0.4], seer:[-32.2,-12.4], death:[-24.0,-4.1], heartbeat:[-30.3,-8.0],
+  crow:[-13.8,-0.7], thunder:[-15.2,0.0], church_bell:[-20.5,-0.5], cupid:[-26.3,-0.3], gun:[-22.2,-0.3],
+  sisters:[-34.3,-13.3], shield:[-41.8,-14.8], petite_fille:[-29.9,-6.8]
+};
+// Niveau moyen visé : les effets 6 dB au-dessus des ambiances, la nuit sert de repère
+const CIBLES = { ambiance: -28, fin: -24, effet: -22 };
+function facteurDuSon(cle, categorie) {
+  const [moyen, crete] = MESURES[cle] || [CIBLES[categorie], -1];
+  return Math.min(Math.pow(10, (CIBLES[categorie] - moyen) / 20), Math.pow(10, (-1 - crete) / 20));
+}
+// Au-delà du volume 1, un amplificateur Web Audio. Le navigateur ne l'autorise qu'après un geste
+// sur la page : il est créé au premier clic du MJ, et sans lui le son joue simplement au volume 1.
+let _contexteAudio = null;
+document.addEventListener("click", () => {
+  try { _contexteAudio = _contexteAudio || new (window.AudioContext || window.webkitAudioContext)(); _contexteAudio.resume(); } catch (_) {}
+}, { once: true });
+// Un son prêt à jouer, à son niveau ; le volume général s'y applique (setVolume)
+function sonAuNiveau(cle, categorie) {
+  const a = new Audio(SOUNDS[cle] || `sounds/${cle}.mp3`);
+  const facteur = facteurDuSon(cle, categorie);
+  a._facteurVolume = Math.min(1, facteur);
+  if (facteur > 1 && _contexteAudio && _contexteAudio.state === "running") {
+    try {
+      const gain = _contexteAudio.createGain();
+      gain.gain.value = facteur;
+      _contexteAudio.createMediaElementSource(a).connect(gain).connect(_contexteAudio.destination);
+    } catch (_) {}
+  }
+  a.volume = Math.min(1, masterVolume * a._facteurVolume);
+  return a;
+}
 
 let audioEnabled=true, masterVolume=0.6, ambianceAudio=null, ambianceName="";
 let heartbeatAudio=null;
 
-function setVolume(v){ masterVolume=parseFloat(v); if(ambianceAudio) ambianceAudio.volume=masterVolume*0.4; }
+function setVolume(v){
+  masterVolume=parseFloat(v);
+  for (const a of [ambianceAudio, stormAudio, _sistersLoopAudio, heartbeatAudio]) if (a) a.volume = Math.min(1, masterVolume * a._facteurVolume);
+}
 function toggleAudio(){
   audioEnabled=!audioEnabled;
   document.getElementById("audioToggle").textContent = audioEnabled ? "🔈" : "🔇";
@@ -940,21 +979,16 @@ function playAmbiance(k){
   if(ambianceName===k && ambianceAudio && !ambianceAudio.paused)return;
   stopAmbiance();
   try{
-    const labels={lobby:"🎮 Phase 1…",night:"🌙 Nuit",day:"☀️ Jour",endgame_village:"🏆 Victoire Villageois",endgame_loups:"🐺 Victoire Loups",endgame_amoureux:"💘 Victoire Amoureux",endgame_ange:"👼 Victoire de l'Ange"};
-    // Musique de secours si le fichier manque (endgame_ange.mp3 est à fournir)
-    const secours={endgame_ange:"endgame_village"};
-    ambianceAudio=new Audio(SOUNDS[k]||k);
-    ambianceAudio.loop=true; ambianceAudio.volume=masterVolume*0.4; ambianceName=k;
-    ambianceAudio.play().then(()=>{dotSet(true);lblSet(labels[k]||("🔊 "+k));}).catch(err=>{
-      if(secours[k] && err && err.name!=="NotAllowedError" && ambianceName===k){ ambianceName=""; playAmbiance(secours[k]); }
-      else dotSet(false,true);
-    });
+    const labels={lobby:"⏳ Salon",night:"🌙 Nuit",day:"☀️ Jour",endgame_village:"🏆 Victoire du village",endgame_loups:"🐺 Victoire des Loups",endgame_amoureux:"💘 Victoire des Amoureux",endgame_ange:"👼 Victoire de l'Ange"};
+    ambianceAudio=sonAuNiveau(k, k.startsWith("endgame") ? "fin" : "ambiance");
+    ambianceAudio.loop=true; ambianceName=k;
+    ambianceAudio.play().then(()=>{dotSet(true);lblSet(labels[k]||("🔊 "+k));}).catch(()=>dotSet(false,true));
   }catch(e){}
 }
 function stopAmbiance(){ if(ambianceAudio){ambianceAudio.pause();ambianceAudio.currentTime=0;ambianceAudio=null;} ambianceName=""; dotSet(false); lblSet("Silence"); }
 function playEffect(k){
   if(!audioEnabled)return;
-  try{ const a=new Audio(SOUNDS[k]||`sounds/${k}.mp3`); a.volume=masterVolume; a.play().catch(()=>{}); }catch(e){}
+  try{ sonAuNiveau(k, "effet").play().catch(()=>{}); }catch(e){}
 }
 // ===== Sister music — canal audio dédié, en boucle, fondu à la sortie =====
 // Joue par-dessus l'ambiance night.mp3 pendant TOUTE la phase sisters et
@@ -964,9 +998,8 @@ function playSistersLoop() {
   if (!audioEnabled) return;
   if (_sistersLoopAudio) return; // déjà en cours
   try {
-    const a = new Audio(SOUNDS.sisters || "sounds/sisters.mp3");
+    const a = sonAuNiveau("sisters", "effet");
     a.loop = true;
-    a.volume = masterVolume * 0.7;
     a.play().catch(()=>{});
     _sistersLoopAudio = a;
   } catch (e) {}
@@ -994,12 +1027,13 @@ function stopSistersLoop() {
 }
 function startHeartbeat(){
   if(heartbeatAudio||!audioEnabled)return;
-  try{ heartbeatAudio=new Audio(SOUNDS.heartbeat); heartbeatAudio.loop=true; heartbeatAudio.volume=masterVolume; heartbeatAudio.play().catch(()=>{heartbeatAudio=null;}); }catch(e){heartbeatAudio=null;}
+  try{ heartbeatAudio=sonAuNiveau("heartbeat", "effet"); heartbeatAudio.loop=true; heartbeatAudio.play().catch(()=>{heartbeatAudio=null;}); }catch(e){heartbeatAudio=null;}
 }
 function stopHeartbeat(){ if(heartbeatAudio){heartbeatAudio.pause();heartbeatAudio.currentTime=0;heartbeatAudio=null;} }
 
 socket.on("soundPlay", k=>{
-  if(["wolves","witch","seer","petite_fille","death","drum_roll","crowd_gasp","applause","crow","cupid","thunder","church_bell","shield"].includes(k)) playEffect(k);
+  if (k === "heartbeat") startHeartbeat();
+  else if (SOUNDS[k]) playEffect(k);
 });
 // Petite Fille : ses 3 joueurs et la réponse (avec, pour le MJ seul, le nom des loups)
 socket.on("petiteFilleMJInfo", data=>{
@@ -1201,6 +1235,7 @@ socket.on("dawnResult", data=>{
   else if(mr==="fail") alertMsg += " | 🎭 Mission ÉCHOUÉE";
   showAlert(alertMsg, deaths.length?"info":"success");
   if(!isGameOver) { playAmbiance("day"); _mjDawnContext = true; }
+  if(deaths.length) playEffect("death");   // le glas de l'aube ; au vote, c'est le serveur qui le sonne
   // Verrou : les joueurs voient la carte d'aube 7 s + 0,6 s de fermeture → 9 s de sécurité.
   // Avec l'annonce du matin, c'est le MJ qui ferme la carte : pas de verrou.
   _mjLaunchVoteUnlocksAt = data.annonceParMJ ? 0 : Date.now() + 9000;
@@ -1282,7 +1317,7 @@ function traduireIdsMJ(nouveauxJoueurs) {
 }
 socket.on("players", p=>{ traduireIdsMJ(p); players=p; renderPlayers(); renderRoles(); });
 socket.on("loversInfo", list=>{ loversIds=list; renderRoles(); });
-socket.on("newMayor", id=>{ const wasNull=!mayorId; mayorId=id; renderRoles(); majActionSuivante(); if(id&&wasNull) playEffect("applause"); });
+socket.on("newMayor", id=>{ const wasNull=!mayorId; mayorId=id; renderRoles(); majActionSuivante(); });
 // Le maire, toujours visible dans l'en-tête du MJ (demande d'Alexandre, 2026-10-26)
 function afficherMaireMJ() {
   const el = document.getElementById("mjMaireAffiche");
@@ -1361,7 +1396,6 @@ function renderDayCounts(counts){
 socket.on("deadPlayers", dead=>{
   deadIds=dead; renderRoles();
   afficherMortsMJ(dead.map(id => players.find(x => x.id === id)).filter(Boolean).map(p => ({ name: p.name, role: roles[p.id] })));
-  playEffect("death");
 });
 
 socket.on("chasseurMustShoot", hunterId=>{
@@ -1411,6 +1445,7 @@ socket.on("dayVoteResult", data=>{
 socket.on("mjChasseurShot", data=>{
   if (!data) return;
   showAlert(`🔫 Le Chasseur ${data.shooterName} a tué ${data.targetName} — ${nomDuRole(data.targetRole)}`, "warn");
+  playEffect("gun");
   showMjDeathCard("🔫", "Le Chasseur a tiré", data.targetName, nomDuRole(data.targetRole),
     `${data.shooterName}, le Chasseur, a emporté ${data.targetName} dans sa chute.`);
   try { speakNarration(`Le Chasseur ${data.shooterName} a tiré sur ${data.targetName}, dont le rôle était ${nomDuRole(data.targetRole)}.`); } catch(_) {}

@@ -252,7 +252,7 @@ function applyCouncilEvent(eventId) {
       }, 45000);
     }
     if (ev.technical.murmurSound && state.mjSocketId) {
-      // Murmures : remplace la musique du jour par "Murmures.mp3" en boucle
+      // Murmures : remplace la musique du jour par « murmures.mp3 » en boucle
       versMJ("councilMurmursStart");
     }
     if (ev.technical.abdication) {

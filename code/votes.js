@@ -212,14 +212,10 @@ function trancherEgalite(choix) {
 }
 
 // ===== VERDICT DU VOTE DU JOUR =====
-// Suspense chez le MJ : battement de cœur, puis roulement de tambour
+// Suspense chez le MJ : un battement de cœur avant le verdict
 function suspenseVerdict() {
   versMJ("soundPlay", "heartbeat");
-  setTimeout(() => {
-    if (!state.mjSocketId) return;
-    versMJ("stopHeartbeat");
-    setTimeout(() => versMJ("soundPlay", "drum_roll"), 300);
-  }, 1200);
+  setTimeout(() => { if (state.mjSocketId) versMJ("stopHeartbeat"); }, 1200);
 }
 
 // Urne vidée et vote clos sur tous les écrans
@@ -479,7 +475,6 @@ function handleLockDayVotes(socket) {
   if (state.dayResolutionPending) return;
   state.dayResolutionPending = true;
   clearVoteTimer();
-  versMJ("soundPlay", "crowd_gasp");
   setTimeout(() => {
     state.dayResolutionPending = false;
     resolveDayVote();
