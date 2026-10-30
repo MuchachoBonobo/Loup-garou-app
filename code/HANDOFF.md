@@ -15,6 +15,7 @@ C:\LoupGarouVoteApp\
 │  ├─ public\         interfaces joueur (index.html) et MJ (mj.html), css\, js\ (communs aux deux), fonts\ (police des titres), sounds\
 │  ├─ tests\          outils.js (outils communs), scenarios.js (intégration), rythme-mj.js, annonces-mj.js, navigateur.js (partie dans Chrome)
 │  ├─ outils\         test-hue.js (diagnostic lumières), banc-robots.js (parties de robots), serveur-site-vitrine.js (relire le site vitrine)
+│  ├─ plaquettes\     sources HTML des plaquettes ; rendre-pdf.sh fabrique les PDF dans gestion\Plaquettes
 │  ├─ HANDOFF.md, CONTEXT.md, JOURNAL-ARCHIVE.md (journal d'avant octobre 2026)
 │  ├─ start.ps1, .env (secrets Hue, non versionné), .env.example
 │  └─ logs\, snapshots\, node_modules\  (générés, non versionnés)
@@ -176,6 +177,16 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 
 Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOURNAL-ARCHIVE.md`.
 
+### 2026-10-30 (suite 4) — Revue des plaquettes
+Demande d'Alexandre. Les trois plaquettes sont des pages HTML (`code/plaquettes`) ; `rendre-pdf.sh` en fabrique les PDF dans `gestion/Plaquettes` (Chrome, polices Google : il faut Internet). Leur contenu a été comparé au jeu (rôles, couleurs des lumières, Conseil des Morts, médailles, selfie : tout est juste), au site et à la fiche Prix.
+- **Deux PDF coupés en bas de page**, invisibles à l'écran parce que la page masque ce qui dépasse : la plaquette nocturne débordait de 48 px (l'adresse du site touchait le bord de la feuille, coupée à l'impression), la page 1 de la fiche activité de 17 px (bande noire du pied rognée, texte à 1 mm du bord). Nocturne : quatre espacements resserrés (titre, trois colonnes, citation, signature), marge du bas de 13 mm rendue. Fiche activité : réglé par le déroulé raccourci (ci-dessous), 5,6 mm de réserve.
+- **Témoignages** : ce sont de vrais retours de joueurs, mais ils étaient recopiés avec des mots changés (« Les lumières, le rythme… », « En fait, on complote… »). Désormais cités en entier, mot pour mot comme sur le site, dans les trois plaquettes.
+- **Durée** : la fiche activité disait « ~25 min » par partie, les autres documents « environ 30 minutes ». Les déroulés des deux plaquettes portent maintenant « Partie 1 / Partie 2 / Fin », sans minutes ; la durée n'est dite qu'une fois (pied de la plaquette 1, « 1 h, soit environ 2 parties » de la fiche activité).
+- **Contradictions corrigées** : la fiche activité disait « règles expliquées au fil du jeu » puis, dans sa FAQ, « en début de partie » (le site et la plaquette 1 : au début) ; sa FAQ limitait l'animation à « 30 km autour » alors que son tableau prévoit les kilomètres au-delà (« déplacement inclus jusqu'à 30 km ») ; la nocturne signait « 30 km autour » (→ « et environs », comme la plaquette 1) ; « nous contacter pour un devis adapté » → « sur devis », comme les deux autres.
+- **Au passage** : plaquette 1, les deux titres « Inclus » / « De votre côté » écrits en double dans la page → une règle de la feuille de style (style calculé identique, vérifié).
+- **Vérifié** : chaque page rendue comme à l'impression, avant / après : aucun débordement, polices chargées, comparaison au pixel ; PDF refaits (2, 2 et 1 pages), relus en image, textes extraits : les nouveaux présents, les anciens absents.
+- **Signalé à Alexandre, non modifié** : la nocturne promet « le narrateur au micro » et « la lumière éteinte » alors que le kit n'a pas de micro et que les lampes restent allumées en couleur ; « 0,50 € par km » sans dire « aller-retour » (la fiche 6 le dit) ; le « Déroulé d'une heure » enchaîne accueil, deux parties d'environ 30 min et la fin (plus d'une heure) — la durée réelle reste à mesurer sur de vraies soirées ; trois styles différents (journal, fiche d'entreprise, nuit) : seule la nocturne ressemble au site — s'il s'agissait de trois propositions, en garder une.
+
 ### 2026-10-30 (suite 3) — Revue du site internet
 Demande d'Alexandre. Le site vit hors du dépôt : `gestion/prive/site` (non versionné) et sa copie `site-loupgarou` sur le Bureau, celle qu'Alexandre dépose sur Netlify. Les deux ont été modifiées puis vérifiées identiques ; rien ne change en ligne tant que le dossier n'est pas redéposé.
 - **Polices** : Cinzel et Cormorant Garamond (polices variables) étaient déclarées graisse par graisse, avec le même fichier recopié trois fois : le navigateur téléchargeait jusqu'à trois fois les mêmes octets (~220 Ko de doublons). Une déclaration par sous-ensemble, avec la plage de graisses. Les 8 fichiers en double ne servent plus ; pas supprimés (fichiers non versionnés) : à supprimer par Alexandre.
@@ -192,7 +203,7 @@ Demande d'Alexandre : la même revue sur `gestion/` (fiches Word, guide d'appel,
 - **Pitch** : « Loup-Garou » ; la durée « à priori 30 minutes max » devient « environ 30 minutes, deux parties dans l'heure (à confirmer sur de vraies soirées) », comme les plaquettes et la grille de prix.
 - **Prospection** : « Prix : à définir » → renvoi à la fiche 6 ; même durée ; retirés de « ce qui manque » le nom et le site, les retours de joueurs et les prix (faits) ; la préparation de l'appel du séminaire, en double avec le guide d'appel (plus complet), devient un renvoi, avec la remarque sur les collectivités publiques qui n'était que là.
 - **Méthode** : texte interne du document modifié sur une copie (mise en forme intacte, archive vérifiée, texte avant / après comparé), puis remis en place.
-- **Signalé à Alexandre, non modifié** : la fiche 5 (site), retouchée par une autre session et pas encore envoyée, a ses chemins internes écrits avec « \ » au lieu de « / » — Word risque de ne pas l'ouvrir ; les plaquettes (PDF, sources absentes du dossier) citent les mêmes témoignages avec des mots différents d'une plaquette à l'autre, et donnent 25 ou 30 minutes par partie.
+- **Signalé à Alexandre, non modifié** : la fiche 5 (site), retouchée par une autre session et pas encore envoyée, a ses chemins internes écrits avec « \ » au lieu de « / » — Word risque de ne pas l'ouvrir ; les plaquettes (PDF ; sources HTML dans `code/plaquettes`) citent les mêmes témoignages avec des mots différents d'une plaquette à l'autre, et donnent 25 ou 30 minutes par partie.
 
 ### 2026-10-30 (suite) — Revue des lumières : la couleur de l'écran jusque dans les lampes
 Même revue que pour les sons (demande d'Alexandre). Inventaire des 46 scènes, de chaque appel du serveur, et teinte de chaque scène comparée à la couleur de son rôle à l'écran (palette de la direction artistique). Pas de lampes ici : couleurs vérifiées par le calcul (xy Hue → teinte), planche avant / après montrée à Alexandre.
