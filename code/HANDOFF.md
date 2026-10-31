@@ -122,7 +122,7 @@ Dépendances : `state` (feuille) ← `narration`, `council` (+`lights`) ← `rol
 ```bash
 node --check server.js          # syntaxe (à faire sur chaque .js modifié)
 npm start                       # démarrer le serveur
-npm test                        # 14 scénarios d'intégration (Ange ×2, Petite Fille, clics en trop du MJ ×2, pastilles de connexion, nouvelle partie + retrait d'un joueur, égalités tranchées par le maire puis par le hasard, Sœurs qui se connaissent dès le début), ~5 min, port 3099, lumières coupées
+npm test                        # 16 scénarios d'intégration (Ange ×2, Petite Fille, clics en trop du MJ ×2, pastilles de connexion, nouvelle partie + retrait d'un joueur, égalités tranchées par le maire puis par le hasard, Sœurs qui se connaissent dès le début, deux Chasseurs à la chaîne après un vote avec le journal des morts et les votes réservés au MJ, bouton d'urgence « Voyante » sans Voyante), ~6 min, port 3099, lumières coupées
 npm run test:banc               # banc d'essai : 3 parties complètes jouées par des bots, règles contrôlées à chaque évènement ; échoue s'il trouve une anomalie (~10 min ; voir outils/banc-robots.js pour lancer plusieurs bancs en parallèle)
 npm run test:rythme             # rythme du MJ : crépuscule, réveil, évènement, reconnexions, pause, double clic, reprise après plantage (tests/rythme-mj.js, 26 vérifications, port 3105) puis Chasseur et maire lancés par le MJ (tests/annonces-mj.js, 14 vérifications, partie sans robots, port 3106) — ~3 min
 npm run test:hue                # diagnostic de la connexion Hue (lit .env)
@@ -175,6 +175,12 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 ## Journal (du plus récent au plus ancien)
 
 Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOURNAL-ARCHIVE.md`.
+
+### 2026-10-31 (suite 2) — Les corrections de la revue du serveur protégées par deux scénarios
+Demande d'Alexandre : garder dans `npm test` les essais faits pendant la revue (ils n'étaient que dans un dossier temporaire).
+- **S15** — deux Chasseurs à la chaîne après un vote : le second tire à son tour, puis la nuit tombe ; le journal des morts reçu par un téléphone rechargé contient chaque mort avec sa cause (loups, vote, les deux tirs) ; le détail des votes des loups et du jour va au MJ et à aucun téléphone ; « Tireur d'élite » va au Chasseur qui a abattu le loup. `preparerPartie` accepte un maire choisi (ici un villageois, pour éviter une transmission d'écharpe).
+- **S16** — bouton d'urgence « 🔮 Voyante » sans Voyante : la nuit passe à la Sorcière, qui reçoit ses potions.
+- **Vérifié** : S15 et S16 passent sur le nouveau code (10/10) et échouent sur la version d'avant la revue (5/10 : second Chasseur, nuit, journal, votes sur les téléphones, potions) ; `npm test` complet : S1 à S4 passés, la suite tournait encore à l'envoi. Le banc de robots lancé pour la revue a fini : 3 parties, aucune anomalie de règle, aucune erreur du serveur.
 
 ### 2026-10-31 (suite) — Revue du code du serveur
 Demande d'Alexandre : la même revue sur les 14 fichiers du serveur (5 165 lignes) ; inventaire présenté d'abord, puis « vas-y ».

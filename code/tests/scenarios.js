@@ -2,7 +2,7 @@
  * tests/scenarios.js — Tests d'intégration du serveur
  *
  * Lance un serveur sur le port 3099, connecte de vrais sockets socket.io-client,
- * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S14) est décrit
+ * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S16) est décrit
  * au-dessus de sa fonction.
  *
  * Usage : npm test   (ou : node tests/scenarios.js)
@@ -10,6 +10,7 @@
 
 "use strict";
 const { sleep, demarrerServeur, arreterServeur, connecter, connecterMJ, attendre, attendrePhase, arrive, piloterMJ, compteur } = require("./outils");
+const { buildBadges } = require("../badges");
 
 const TEST_PORT = 3099;
 const { check, bilan, arret } = compteur();
@@ -37,10 +38,10 @@ async function scenario(code, titre, corps) {
 }
 
 // Mise en place commune : remise à zéro, inscription des joueurs, rôles (un rôle absent de la
-// composition vaut 0, comme pour le serveur), players[0] élu maire, puis droit au tour des Loups
-// (sans attendre le crépuscule ni les rôles de la première nuit). `avecRole("Loup")` : les
-// joueurs qui ont ce rôle.
-async function preparerPartie(all, names, composition) {
+// composition vaut 0, comme pour le serveur), players[0] élu maire (ou celui que désigne
+// `choisirMaire(players, roleOf)`), puis droit au tour des Loups (sans attendre le crépuscule ni
+// les rôles de la première nuit). `avecRole("Loup")` : les joueurs qui ont ce rôle.
+async function preparerPartie(all, names, composition, choisirMaire = players => players[0]) {
   const mj = await nouveauMJ(); all.push(mj);
   mj.emit("fullReset");   // vide la partie précédente
   await sleep(600);
@@ -63,8 +64,9 @@ async function preparerPartie(all, names, composition) {
   await Promise.all([...rolePs, mayorVoteP]);
   console.log("  Rôles:", JSON.stringify(roleOf));
 
-  // Tous votent pour players[0] ; le MJ valide aussitôt
-  players.forEach(p => { if (p !== players[0]) p.s.emit("voteMayor", players[0].s.id); });
+  // Tous votent pour le futur maire ; le MJ valide aussitôt
+  const maire = choisirMaire(players, roleOf);
+  players.forEach(p => { if (p !== maire) p.s.emit("voteMayor", maire.s.id); });
   await sleep(100);
   const newMayorP = attendre(players[0].s, "newMayor", 6000);
   mj.emit("lockMayorVote");
@@ -558,6 +560,69 @@ const s14 = () => scenario("S14", "Les Sœurs se connaissent dès le début", as
   check("S14-les autres ne reçoivent aucune Sœur", players.filter(p => roleOf[p.name] !== "Sœurs").every(p => (infos[p.name].soeurs || []).length === 0));
 });
 
+// S15 — Deux Chasseurs à la chaîne après un vote : le village élimine un Chasseur, qui abat
+// l'autre ; le second tire à son tour, puis la nuit tombe (comme après tout vote). Chaque mort
+// reste au journal avec sa cause, même pour un téléphone rechargé ; le détail des votes (loups,
+// jour) ne va qu'au MJ. Le maire est un villageois : pas de transmission d'écharpe.
+const s15 = () => scenario("S15", "Deux Chasseurs à la chaîne après un vote ; journal des morts", async all => {
+  const unVillageois = (players, roleOf) => players.find(p => roleOf[p.name] === "Villageois");
+  const { mj, players, roleOf, avecRole } = await preparerPartie(all, ["s15_A","s15_B","s15_C","s15_D","s15_E","s15_F","s15_G","s15_H"],
+    { loup: 1, chasseur: 2 }, unVillageois);
+  const [loupP] = avecRole("Loup"), [c1, c2] = avecRole("Chasseur");
+  const maire = unVillageois(players, roleOf), vills = avecRole("Villageois").filter(p => p !== maire);
+  // Le détail des votes : au MJ, jamais à un téléphone
+  const reserves = ["wolfVotesMJ", "votesDayMJ"], recusParMJ = new Set(), recusParTelephones = new Set();
+  reserves.forEach(e => { mj.on(e, () => recusParMJ.add(e)); players.forEach(p => p.s.on(e, () => recusParTelephones.add(e))); });
+
+  // Nuit : le loup dévore un villageois ; jour : le village élimine le premier Chasseur
+  await nuitLoupUnique(mj, players, loupP, vills[0]);
+  mj.emit("startVote");
+  await sleep(300);
+  const tir1 = attendre(c1.s, "chasseurMustShoot", 20000, id => id === c1.s.id);
+  players.filter(p => p !== vills[0]).forEach(p => p.s.emit("voteDay", (p === c1 ? maire : c1).s.id));
+  await sleep(300);
+  mj.emit("lockDayVotes");
+  check("S15-le premier Chasseur est appelé à tirer", await arrive(tir1));
+
+  // Il abat le second Chasseur, qui tire à son tour (le MJ automatique ouvre son tir)
+  const tir2 = attendre(c2.s, "chasseurMustShoot", 12000, id => id === c2.s.id);
+  c1.s.emit("chasseurAction", c2.s.id);
+  check("S15-le second Chasseur tire à son tour", await arrive(tir2));
+  const nuitP = attendrePhase(maire.s, "crepuscule", 12000);
+  c2.s.emit("chasseurAction", vills[1].s.id);
+  check("S15-après les tirs qui suivent un vote, la nuit tombe", await arrive(nuitP));
+
+  // Le journal des morts tel qu'un téléphone rechargé le reçoit
+  const s = await reconnecter(all, maire);
+  const etat = await attendre(s, "reconnected", 6000).catch(() => null);
+  const journal = ((etat && etat.deathLog) || []).map(d => `${d.name}:${d.cause}`).join(", ");
+  const attendu = [`${vills[0].name}:loups`, `${c1.name}:vote`, `${c2.name}:chasseur`, `${vills[1].name}:chasseur`].join(", ");
+  check("S15-journal des morts : loups, vote, puis les deux tirs", journal === attendu, journal);
+  check("S15-le MJ reçoit le détail des votes des loups et du jour", reserves.every(e => recusParMJ.has(e)), [...recusParMJ].join());
+  check("S15-aucun téléphone ne le reçoit", recusParTelephones.size === 0, [...recusParTelephones].join());
+
+  // « Tireur d'élite » : le Chasseur dont le tir emporte un loup (le dernier Chasseur mort avant lui)
+  const joueurs = ["C1", "C2", "L"].map(n => ({ id: n, name: n }));
+  const medailles = buildBadges({ players: joueurs, roles: { C1: "Chasseur", C2: "Chasseur", L: "Loup" }, deadPlayers: ["C1", "C2", "L"],
+    lovers: [], winner: "villagers", gameStats: { deathLog: [
+      { name: "C1", role: "Chasseur", cause: "vote" }, { name: "C2", role: "Chasseur", cause: "chasseur" }, { name: "L", role: "Loup", cause: "chasseur" }] } });
+  check("S15-« Tireur d'élite » au Chasseur qui a abattu le loup, pas à l'autre",
+    medailles.C2[0].label === "Tireur d'élite" && medailles.C1[0].label !== "Tireur d'élite", JSON.stringify(medailles));
+});
+
+// S16 — Bouton d'urgence « 🔮 Voyante » du MJ dans une partie sans Voyante : la nuit passe à
+// l'étape suivante qui a lieu (la Sorcière), qui reçoit ses potions comme dans la nuit normale
+const s16 = () => scenario("S16", "Bouton d'urgence « Voyante » sans Voyante", async all => {
+  const { mj, roleOf, avecRole } = await preparerPartie(all, ["s16_A","s16_B","s16_C","s16_D","s16_E"], { loup: 1, sorciere: 1 });
+  const [witchP] = avecRole("Sorcière");
+  if (!witchP) { ko("S16-setup", JSON.stringify(roleOf)); return; }
+  const potionsP = attendre(witchP.s, "etatPotions", 6000);
+  const sorciereP = attendrePhase(witchP.s, "witch", 6000);
+  mj.emit("setPhase", "seer");
+  check("S16-la nuit passe à la Sorcière", await arrive(sorciereP));
+  check("S16-la Sorcière reçoit ses potions", await arrive(potionsP));
+});
+
 // Démarrage du serveur et exécution des scénarios
 async function main() {
   console.log("═".repeat(62));
@@ -567,7 +632,7 @@ async function main() {
   const serveur = await demarrerServeur(TEST_PORT);
   console.log("  Serveur test prêt : http://localhost:" + TEST_PORT + "\n");
 
-  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14]) {
+  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16]) {
     await s();
     await sleep(800);
   }
