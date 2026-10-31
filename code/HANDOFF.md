@@ -180,7 +180,7 @@ Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOUR
 Demande d'Alexandre : garder dans `npm test` les essais faits pendant la revue (ils n'étaient que dans un dossier temporaire).
 - **S15** — deux Chasseurs à la chaîne après un vote : le second tire à son tour, puis la nuit tombe ; le journal des morts reçu par un téléphone rechargé contient chaque mort avec sa cause (loups, vote, les deux tirs) ; le détail des votes des loups et du jour va au MJ et à aucun téléphone ; « Tireur d'élite » va au Chasseur qui a abattu le loup. `preparerPartie` accepte un maire choisi (ici un villageois, pour éviter une transmission d'écharpe).
 - **S16** — bouton d'urgence « 🔮 Voyante » sans Voyante : la nuit passe à la Sorcière, qui reçoit ses potions.
-- **Vérifié** : S15 et S16 passent sur le nouveau code (10/10) et échouent sur la version d'avant la revue (5/10 : second Chasseur, nuit, journal, votes sur les téléphones, potions) ; `npm test` complet : S1 à S4 passés, la suite tournait encore à l'envoi. Le banc de robots lancé pour la revue a fini : 3 parties, aucune anomalie de règle, aucune erreur du serveur.
+- **Vérifié** : S15 et S16 passent sur le nouveau code (10/10) et échouent sur la version d'avant la revue (5/10 : second Chasseur, nuit, journal, votes sur les téléphones, potions) ; `npm test` complet : 61/61 (16 scénarios). Le banc de robots lancé pour la revue a fini : 3 parties, aucune anomalie de règle, aucune erreur du serveur.
 
 ### 2026-10-31 (suite) — Revue du code du serveur
 Demande d'Alexandre : la même revue sur les 14 fichiers du serveur (5 165 lignes) ; inventaire présenté d'abord, puis « vas-y ».
