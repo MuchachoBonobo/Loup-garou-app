@@ -1,27 +1,23 @@
 /**
- * server.js — LOUP-GAROU (bootstrap)
+ * server.js — LOUP-GAROU (démarrage et câblage)
  *
- * Tout l'état + la logique métier vivent dans les modules :
- *  - state.js     : état partagé, constantes, helpers
- *  - narration.js : variantes TTS par transition de phase
- *  - council.js   : Conseil des Morts (évènements + effets)
- *  - roles.js     : Salvateur, Voyante, Petite Fille, Sorcière, Cupidon, Chasseur, Corbeau, Idiot, mission
- *  - phases.js    : setPhase, transitions, timeouts, bots, pause, reset, victoire
- *  - votes.js     : maire / jour / loups / tiebreak / sprint final
- *
- * Ce fichier ne fait QUE le câblage : Express, Socket.io, lights, registre des handlers.
+ * Ce fichier ne fait QUE le câblage : lecture du .env, Express, Socket.io, registre des
+ * évènements reçus des écrans, reconnexion par prénom, reprise après plantage. Toute la
+ * logique de jeu vit dans les modules (voir la Carte du code de HANDOFF.md).
  */
 
-// === Chargement automatique du .env (loader minimal, sans dependance) ===
-// IMPORTANT : doit etre AVANT tout require de module metier — lights.js lit
+const path = require("path");
+
+// === Chargement automatique du .env (lecteur minimal, sans dépendance) ===
+// IMPORTANT : doit être AVANT tout require de module métier — lights.js lit
 // process.env au moment du require. Permet de lancer simplement `node server.js`.
 try {
-  require("fs").readFileSync(require("path").join(__dirname, ".env"), "utf8")
+  require("fs").readFileSync(path.join(__dirname, ".env"), "utf8")
     .split(/\r?\n/).forEach(line => {
       const m = line.match(/^\s*([^#=]+?)\s*=\s*(.*?)\s*$/);
       if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2];
     });
-} catch (_) { /* pas de .env : le jeu tourne simplement sans les lumieres */ }
+} catch { /* pas de .env : le jeu tourne simplement sans les lumières */ }
 
 const express = require("express");
 const os      = require("os");
@@ -35,7 +31,7 @@ const io   = require("socket.io")(http, { pingInterval: 25000, pingTimeout: 6000
 
 // Modules métier
 const S         = require("./state");
-const { state, isMJ, playerName, buildFullState, idActuel, computeCounts, joueursAvecRole, vivantsAvecRole } = S;
+const { state, isMJ, playerName, buildFullState, idActuel, joueursAvecRole, versMJ, entreeRegistre, remplacerIdentifiant } = S;
 // Choix reçus des téléphones : un identifiant de joueur périmé (écran construit avant une
 // reconnexion) est traduit vers le joueur actuel. Fonctionne aussi pour une liste.
 const actuel = x => Array.isArray(x) ? x.map(idActuel) : idActuel(x);
@@ -51,17 +47,17 @@ const soiree    = require("./soiree");
 // Injecte io dans l'état partagé (les modules utilisent state.io)
 state.io = io;
 
-// ===== PERSISTANCE & CRASH =====
-// Au boot : si un snapshot existe (partie en cours avant un crash), on le met en
-// attente. Le premier MJ qui se connecte reçoit `crashRecoveryAvailable` et peut
-// arbitrer (Reprendre / Ignorer).
+// ===== SAUVEGARDE & PLANTAGE =====
+// Au démarrage : si une sauvegarde existe (partie en cours avant un plantage), elle est mise
+// en attente. Le premier MJ qui se connecte reçoit `crashRecoveryAvailable` et choisit
+// (Reprendre / Ignorer).
 (function bootRestore() {
   const snap = snapshot.loadSnapshot();
   if (snap && snap.phase && snap.phase !== "lobby") {
     state.pendingRestore = snap;
-    log.warn('snapshot found at boot', `savedAt=${snap.savedAt}`, `phase=${snap.phase}`, `players=${(snap.players || []).length}`);
+    log.warn('sauvegarde trouvée au démarrage', `savedAt=${snap.savedAt}`, `phase=${snap.phase}`, `players=${(snap.players || []).length}`);
   } else if (snap) {
-    // Snapshot lobby zombie — on purge
+    // Sauvegarde prise au salon : rien à reprendre
     snapshot.clearSnapshot();
   }
 })();
@@ -69,25 +65,24 @@ state.io = io;
 // Sauvegarde périodique
 snapshot.startPeriodicSave(state);
 
-// Crash : dump l'état + arrêter proprement
+// Plantage : l'état est écrit dans un fichier, puis le serveur s'arrête
 process.on('uncaughtException', (err) => {
   const file = snapshot.dumpCrash(state, err);
-  log.error('UNCAUGHT EXCEPTION', err.message, 'dump=' + (file || 'failed'));
+  log.error('ERREUR NON RATTRAPÉE', err.message, 'dump=' + (file || 'échec'));
   log.error(err.stack);
-  // On laisse Node terminer (l'état est sauvé)
   process.exit(1);
 });
 process.on('unhandledRejection', (reason) => {
   const err = reason instanceof Error ? reason : new Error(String(reason));
   const file = snapshot.dumpCrash(state, err);
-  log.error('UNHANDLED REJECTION', err.message, 'dump=' + (file || 'failed'));
+  log.error('PROMESSE REJETÉE NON TRAITÉE', err.message, 'dump=' + (file || 'échec'));
 });
 
 const PORT = parseInt(process.env.PORT) || 3000;
-app.use(express.static(require("path").join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "public")));
 
 // Alias court pour l'URL du MJ : /mj → public/mj.html
-app.get("/mj", (req, res) => res.sendFile(__dirname + "/public/mj.html"));
+app.get("/mj", (req, res) => res.sendFile(path.join(__dirname, "public", "mj.html")));
 
 // Endpoint utilisé par le QR code de mj.html pour afficher l'URL de connexion joueur.
 // Renvoie la première IPv4 non-loopback détectée sur les interfaces réseau du serveur.
@@ -122,7 +117,7 @@ app.get("/api/qr.svg", async (req, res) => {
   }
 });
 
-// Events autorisés pendant la pause (chat post-game, MJ qui reprend, etc.)
+// Évènements acceptés pendant la pause (chat d'après-partie, MJ qui reprend, etc.)
 const ALLOWED_DURING_PAUSE = new Set([
   "registerMJ", "register",
   "pauseGame", "resumeGame", "reset",
@@ -145,16 +140,28 @@ function etatConnexions() {
   });
   return etats;
 }
-function envoyerConnexionsMJ() {
-  if (state.mjSocketId) io.to(state.mjSocketId).emit("connexionsMJ", etatConnexions());
+function envoyerConnexionsMJ() { versMJ("connexionsMJ", etatConnexions()); }
+
+// Le joueur retrouve sa place (liste des joueurs, registre des prénoms) sous sa nouvelle connexion
+function reprendrePlace(entree, p, id) {
+  if (p) { p.id = id; p.connecte = true; p.ecranVisible = true; }
+  entree.id = entree.oldId = id;
+}
+
+// Un joueur quitte le salon (retiré par le MJ, robot retiré, téléphone parti avant la partie)
+function retirerDuSalon(p) {
+  state.players = state.players.filter(x => x !== p);
+  delete state.playerRegistry[p.name.toLowerCase()];
+  io.emit("players", state.players);
+  envoyerConnexionsMJ();
 }
 
 io.on("connection", socket => {
-  log.debug('socket connected', socket.id);
-  // Middleware par socket : bloque les events pendant la pause sauf whitelist
+  log.debug('connexion', socket.id);
+  // Pendant la pause, seuls les évènements de la liste passent (les autres sont ignorés)
   socket.use((packet, next) => {
     const eventName = packet[0];
-    if (state.gamePaused && !ALLOWED_DURING_PAUSE.has(eventName)) return; // drop silencieux
+    if (state.gamePaused && !ALLOWED_DURING_PAUSE.has(eventName)) return;
     next();
   });
 
@@ -166,7 +173,7 @@ io.on("connection", socket => {
 
   // ===== ENREGISTREMENT MJ =====
   socket.on("registerMJ", () => {
-    log.info('MJ connected', socket.id);
+    log.info('MJ connecté', socket.id);
     state.mjSocketId = socket.id;
     socket.emit("rolesMJ", { roles: state.roles, players: state.players });
     socket.emit("connexionsMJ", etatConnexions());
@@ -191,14 +198,8 @@ io.on("connection", socket => {
         ? { evenement: state.evenementAnnonce ? null : council.evenementPublic(state.activeCouncilEvent) } : null,
       activeCouncilEvent: (state.phase === "day" && state.evenementAnnonce) ? council.evenementPublic(state.activeCouncilEvent) : null,
     });
-    if (state.tiebreakPending) {
-      socket.emit("tiebreakMJ", {
-        candidates: state.tiebreakCandidates.map(id => ({ id, name: playerName(id) })),
-        mayorName:  playerName(state.mayor),
-        context:    state.tiebreakContext
-      });
-    }
-    // Reprise après crash : propose au MJ si un snapshot est en attente
+    if (state.tiebreakPending) socket.emit("tiebreakMJ", votes.egaliteEnCours());
+    // Reprise après plantage : proposée au MJ si une sauvegarde est en attente
     if (state.pendingRestore) {
       socket.emit("crashRecoveryAvailable", {
         savedAt: state.pendingRestore.savedAt,
@@ -211,11 +212,11 @@ io.on("connection", socket => {
     }
   });
 
-  // Reprise après crash — accepté par le MJ
+  // Reprise après plantage — acceptée par le MJ
   socket.on("acceptCrashRecovery", () => {
     if (!isMJ(socket.id) || !state.pendingRestore) return;
     const snap = state.pendingRestore;
-    log.warn('crash recovery ACCEPTED by MJ', `phase=${snap.phase}`);
+    log.warn('reprise après plantage ACCEPTÉE par le MJ', `phase=${snap.phase}`);
     snapshot.applySnapshot(state, snap);
     state.pendingRestore = null;
     // Après un redémarrage, aucun téléphone n'est encore revenu : pastilles rouges
@@ -231,7 +232,7 @@ io.on("connection", socket => {
     // « pour demain » — sans ceci, le jour 2 devenait le jour 3 et l'évènement du jour était
     // perdu. On lui rend l'évènement, que le MJ réannonce.
     if (state.phase === "day") {
-      if (state.gameStats && state.gameStats.dayCount > 0) state.gameStats.dayCount--;
+      if (state.gameStats.dayCount > 0) state.gameStats.dayCount--;
       if (state.activeCouncilEvent && !state.pendingCouncilEvent) {
         state.pendingCouncilEvent = state.activeCouncilEvent;
         state.activeCouncilEvent = null;
@@ -241,10 +242,10 @@ io.on("connection", socket => {
     phases.setPhase(state.phase);
   });
 
-  // Reprise après crash — rejetée par le MJ
+  // Reprise après plantage — refusée par le MJ
   socket.on("discardCrashRecovery", () => {
     if (!isMJ(socket.id) || !state.pendingRestore) return;
-    log.info('crash recovery DISCARDED by MJ');
+    log.info('reprise après plantage ÉCARTÉE par le MJ');
     state.pendingRestore = null;
     snapshot.clearSnapshot();
   });
@@ -256,71 +257,26 @@ io.on("connection", socket => {
     const key = trimmed.toLowerCase();
     if (!trimmed) return;
 
+    // En partie : le joueur reprend sa place sous sa nouvelle connexion (page rechargée,
+    // téléphone sorti de veille, autre téléphone)
     if (state.playerRegistry[key] && state.phase !== "lobby") {
-      const old = state.playerRegistry[key];
-      const oldId = old.oldId || "";
-      const idx = state.players.findIndex(p => p.name.toLowerCase() === key);
+      const entree = state.playerRegistry[key];
+      const oldId = entree.oldId || "";
+      const p = state.players.find(x => x.name.toLowerCase() === key);
       // Le joueur était-il signalé comme déconnecté ? (pour prévenir le MJ de son retour)
-      const etaitPerdu = idx >= 0 && state.players[idx].connecte === false;
-      if (idx >= 0) {
-        state.players[idx].id = socket.id;
-        state.players[idx].connecte = true;
-        state.players[idx].ecranVisible = true;
-      }
+      const etaitPerdu = !!p && p.connecte === false;
+      reprendrePlace(entree, p, socket.id);
       if (alertesDeconnexion[key]) { clearTimeout(alertesDeconnexion[key]); delete alertesDeconnexion[key]; }
-      if (old.role) { state.roles[socket.id] = old.role; delete state.roles[oldId]; }
-      const lIdx = state.lovers.indexOf(oldId);
-      if (lIdx >= 0) state.lovers[lIdx] = socket.id;
-      const dIdx = state.deadPlayers.indexOf(oldId);
-      if (dIdx >= 0) state.deadPlayers[dIdx] = socket.id;
-      if (state.mayor === oldId) state.mayor = socket.id;
-      // Mission
-      const mIdx = state.mission.team.indexOf(oldId);
-      if (mIdx >= 0) state.mission.team[mIdx] = socket.id;
-      if (state.mission.cards[oldId]) {
-        state.mission.cards[socket.id] = state.mission.cards[oldId];
-        delete state.mission.cards[oldId];
-      }
-      // Migre les votes / locks / rate-limit / cibles liés à l'ancien socket
-      if (oldId) {
-        // Votes DIRIGÉS CONTRE ce joueur : ils pointaient sur son ancien identifiant et
-        // étaient comptés à part — un joueur pouvait échapper au vote en se reconnectant.
-        [state.votesDay, state.votesWolf, state.mayorVote].forEach(urne => {
-          Object.keys(urne).forEach(votant => { if (urne[votant] === oldId) urne[votant] = socket.id; });
-        });
-        // Ses propres bulletins
-        [state.votesDay, state.votesWolf, state.mayorVote, state.councilVotes].forEach(urne => {
-          if (urne[oldId] !== undefined) { urne[socket.id] = urne[oldId]; delete urne[oldId]; }
-        });
-        if (state.lockedVoters.has(oldId))            { state.lockedVoters.delete(oldId); state.lockedVoters.add(socket.id); }
-        if (state.voteRateLimit.has(oldId))           { state.voteRateLimit.set(socket.id, state.voteRateLimit.get(oldId)); state.voteRateLimit.delete(oldId); }
-        const tIdx = state.tiebreakCandidates.indexOf(oldId);
-        if (tIdx >= 0) state.tiebreakCandidates[tIdx] = socket.id;
-        // Tous les champs qui désignent un joueur
-        ["currentChasseurShooter", "dyingMayorId", "corbeauTarget", "nightTarget", "witchKillTarget", "protectedTarget",
-         "lastProtectedTarget", "pendingChasseurAfterTransfer", "angeVainqueur"].forEach(k => { if (state[k] === oldId) state[k] = socket.id; });
-      }
-      // Journal des morts : il garde l'identifiant de connexion du défunt ; on le met à
-      // jour pour que son rôle reste affiché à côté de son nom après une reconnexion.
-      if (oldId && oldId !== socket.id) {
-        (state.gameStats.deathLog || []).forEach(d => { if (d.id === oldId) d.id = socket.id; });
-        // Tous les anciens identifiants de ce joueur pointent désormais vers le nouveau
-        Object.keys(state.aliasIds).forEach(k => { if (state.aliasIds[k] === oldId) state.aliasIds[k] = socket.id; });
-        state.aliasIds[oldId] = socket.id;
-      }
-      state.playerRegistry[key].id = socket.id;
-      state.playerRegistry[key].oldId = socket.id;
+      if (oldId && oldId !== socket.id) remplacerIdentifiant(oldId, socket.id, entree.role);
       io.emit("players", state.players);
       io.emit("deadPlayers", state.deadPlayers);
       io.emit("newMayor", state.mayor, { reconnexion: true });
       // L'écran du MJ repère les rôles par identifiant de connexion : sans cette mise à
       // jour, il affichait « ? » pour un joueur qui s'était reconnecté.
-      if (state.mjSocketId) {
-        io.to(state.mjSocketId).emit("rolesMJUpdate", { roles: state.roles, players: state.players });
-        io.to(state.mjSocketId).emit("loversInfo", state.lovers);
-        envoyerConnexionsMJ();
-        if (etaitPerdu) io.to(state.mjSocketId).emit("joueurRevenu", { name: playerName(socket.id) });
-      }
+      versMJ("rolesMJUpdate", { roles: state.roles, players: state.players });
+      versMJ("loversInfo", state.lovers);
+      envoyerConnexionsMJ();
+      if (etaitPerdu) versMJ("joueurRevenu", { name: playerName(socket.id) });
       // Les téléphones des loups, des sœurs et des amoureux mémorisent leurs partenaires par
       // identifiant : on leur renvoie la liste à jour, sinon un loup ne reconnaissait
       // plus son coéquipier reconnecté (et pouvait cliquer pour le dévorer).
@@ -335,75 +291,30 @@ io.on("connection", socket => {
       }
       socket.emit("reconnected", buildFullState(socket.id));
       if (state.deadPlayers.includes(socket.id)) socket.emit("deadChatHistory", state.deadChatHistory);
-      // Reconnexion loup en phase wolves : ré-envoie les votes loups pour restaurer le checkmark
-      if (state.phase === "wolves" && state.roles[socket.id] === "Loup") {
-        socket.emit("wolfVotesUpdate", state.votesWolf);
-      }
-      // Reconnexion en phase de nuit : ré-envoie la demande d'action pour éviter blocage 45-90s
-      if (state.phase === "corbeau" && state.roles[socket.id] === "Corbeau" && !state.deadPlayers.includes(socket.id)) {
-        socket.emit("corbeauTurn");
-      }
-      if (state.phase === "witch" && state.roles[socket.id] === "Sorcière" && !state.deadPlayers.includes(socket.id)) {
-        socket.emit("etatPotions", { vie: !state.witchSaveUsed, mort: !state.witchKillUsed });
-        socket.emit("nightVictim", state.nightTarget);
-      }
-      if (state.phase === "chasseur" && state.currentChasseurShooter === socket.id && !state.actionMJ) {
-        socket.emit("chasseurMustShoot", socket.id);
-      }
-      // Voyante reconnectée avant d'avoir confirmé sa vision : on la lui remontre
-      if (state.phase === "seer" && state.roles[socket.id] === "Voyante" && state.seerPendingResult) {
-        socket.emit("seerResult", state.seerPendingResult);
-      }
-      // Amoureux reconnecté pendant leur réveil : on lui remontre l'autre, avec le temps restant
-      if (state.phase === "amoureux" && state.lovers.includes(socket.id) && state.amoureuxFin) {
-        const autre = state.lovers.find(l => l !== socket.id);
-        socket.emit("amoureuxTurn", { partenaireId: autre, partenaire: playerName(autre), dureeMs: Math.max(0, state.amoureuxFin - Date.now()) });
-      }
-      // Petite Fille reconnectée avant d'avoir confirmé : on lui remontre la réponse
-      // (sans réponse en attente, sa page rouvre seule le choix des 3 joueurs : phase connue)
-      if (state.phase === "petiteFille" && state.roles[socket.id] === "PetiteFille" && state.petiteFillePendingResult) {
-        socket.emit("petiteFilleResult", state.petiteFillePendingResult);
-      }
       resynchroniserApresReconnexion(socket);
-      // Reconnexion en plein vote de mission : ré-envoie la demande de carte si non jouée
-      if (state.phase === "missionVote" && state.mission.team.includes(socket.id) && !state.mission.cards[socket.id]) {
-        socket.emit("missionCardChoice", {
-          mayorName: playerName(state.mayor),
-          teamNames: state.mission.team.map(id => playerName(id))
-        });
-      }
       return;
     }
     if (state.phase === "lobby" && state.playerRegistry[key]) {
-      // Si le socket précédent est encore connecté, refuser
       const existing = state.players.find(p => p.name.toLowerCase() === key);
-      const previousSocketStillConnected = existing
-        ? !!io.sockets.sockets.get(existing.id)
-        : false;
-      if (existing && previousSocketStillConnected && existing.id !== socket.id) {
+      // Prénom déjà pris par un téléphone encore connecté
+      if (existing && existing.id !== socket.id && io.sockets.sockets.get(existing.id)) {
         socket.emit("registerError", "Ce prénom est déjà pris.");
         return;
       }
-      // Reconnexion en lobby
+      // Reconnexion au salon : le nouveau socket apprend qu'il est reconnu
       if (existing) {
-        existing.id = socket.id;
-        existing.connecte = true;
-        existing.ecranVisible = true;
-        state.playerRegistry[key].id = socket.id;
-        state.playerRegistry[key].oldId = socket.id;
+        reprendrePlace(state.playerRegistry[key], existing, socket.id);
         io.emit("players", state.players);
-        // Le nouveau socket apprend qu'il est reconnu
         socket.emit("reconnected", buildFullState(socket.id));
         return;
       }
       // Entrée orpheline
       delete state.playerRegistry[key];
     }
-    // Restaure la photo si on en a une mémorisée pour ce prénom
-    const prevPhoto = state.playerRegistry[key]?.photo || null;
-    state.players.push({ id: socket.id, name: trimmed, photo: prevPhoto, connecte: true, ecranVisible: true });
-    state.playerRegistry[key] = { id: socket.id, oldId: socket.id, name: trimmed, role: null, isDead: false, photo: prevPhoto };
-    log.info('player registered', trimmed, 'total=' + state.players.length);
+    const joueur = { id: socket.id, name: trimmed, photo: null, connecte: true, ecranVisible: true };
+    state.players.push(joueur);
+    state.playerRegistry[key] = entreeRegistre(joueur);
+    log.info('joueur inscrit', trimmed, 'total=' + state.players.length);
     io.emit("players", state.players);
     envoyerConnexionsMJ();
   });
@@ -423,7 +334,7 @@ io.on("connection", socket => {
     if (typeof photo !== "string") return;
     if (!photo.startsWith("data:image/")) return;
     if (photo.length > 35000) {
-      log.warn('setPhoto rejected (too large)', socket.id, 'bytes=' + photo.length);
+      log.warn('photo refusée (trop lourde)', socket.id, 'octets=' + photo.length);
       return;
     }
     const me = state.players.find(p => p.id === socket.id);
@@ -434,16 +345,9 @@ io.on("connection", socket => {
     io.emit("players", state.players);
   });
 
-  // ===== ATTRIBUTION DES RÔLES =====
-  socket.on("assignRoles", config => {
-    if (!isMJ(socket.id)) return;
-    // « 🚀 Lancer la partie » remet tout à zéro, comme « Relancer » : sinon, lancé après
-    // une partie terminée, il gardait les morts, les amoureux et le maire de la précédente,
-    // et les téléphones réaffichaient l'ancien écran de victoire (corrigé le 2026-10-25).
-    phases.resetGameState(true);
-    io.emit("gameReset", { players: state.players });
-    roles.assignAndStart(config, state.players);
-  });
+  // ===== LANCEMENT DE LA PARTIE (« 🚀 Lancer la partie », « Relancer ») =====
+  socket.on("assignRoles", config => phases.handleLancerPartie(socket, config));
+  socket.on("replayGame",  config => phases.handleLancerPartie(socket, config));
 
   // ===== BOTS (mode entraînement) =====
   socket.on("addBot", () => {
@@ -453,8 +357,9 @@ io.on("connection", socket => {
     const id   = `bot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const key  = name.toLowerCase();
     if (state.playerRegistry[key]) return;
-    state.players.push({ id, name, isBot: true });
-    state.playerRegistry[key] = { id, oldId: id, name, role: null, isDead: false, isBot: true };
+    const bot = { id, name, isBot: true };
+    state.players.push(bot);
+    state.playerRegistry[key] = entreeRegistre(bot);
     io.emit("players", state.players);
   });
 
@@ -464,25 +369,16 @@ io.on("connection", socket => {
     if (!isMJ(socket.id) || state.phase !== "lobby") return;
     const p = state.players.find(x => x.id === id);
     if (!p) return;
-    state.players = state.players.filter(x => x.id !== id);
-    delete state.playerRegistry[p.name.toLowerCase()];
-    log.info('player removed by MJ', p.name);
+    log.info('joueur retiré par le MJ', p.name);
     if (!p.isBot) io.to(id).emit("retireParMJ");
-    io.emit("players", state.players);
-    envoyerConnexionsMJ();
+    retirerDuSalon(p);
   });
 
+  // Le dernier robot ajouté quitte le salon
   socket.on("removeBot", () => {
     if (!isMJ(socket.id) || state.phase !== "lobby") return;
-    for (let i = state.players.length - 1; i >= 0; i--) {
-      if (state.players[i].isBot) {
-        const bot = state.players[i];
-        state.players.splice(i, 1);
-        delete state.playerRegistry[bot.name.toLowerCase()];
-        io.emit("players", state.players);
-        return;
-      }
-    }
+    const bot = [...state.players].reverse().find(p => p.isBot);
+    if (bot) retirerDuSalon(bot);
   });
 
   // ===== MAIRE =====
@@ -494,10 +390,10 @@ io.on("connection", socket => {
   socket.on("missionCard",        card         => roles.handleMissionCard(socket, card));
   socket.on("missionBonusChoice", bonusTeamIds => roles.handleMissionBonusChoice(socket, actuel(bonusTeamIds)));
 
-  // ===== TIEBREAK =====
+  // ===== ÉGALITÉ TRANCHÉE PAR LE MAIRE =====
   socket.on("tiebreakChoice", targetId => votes.handleTiebreakChoice(socket, actuel(targetId)));
 
-  // ===== TRANSFERT MAIRE =====
+  // ===== TRANSMISSION D'ÉCHARPE =====
   socket.on("mayorTransferChoice", targetId => roles.handleMayorTransferChoice(socket, actuel(targetId)));
 
   // ===== RÔLES — ACTIONS DE NUIT =====
@@ -541,6 +437,7 @@ io.on("connection", socket => {
   socket.on("silentDayChatHistory", ()      => council.handleSilentDayChatHistory(socket));
 
   // ===== CHAT DES MORTS =====
+  // Les morts et le MJ pendant la partie ; tout le monde au salon, une fois la partie finie
   socket.on("deadChat", ({ text }) => {
     const isDeadPlayer = state.deadPlayers.includes(socket.id);
     const isMJSocket   = isMJ(socket.id);
@@ -553,11 +450,11 @@ io.on("connection", socket => {
     if (!msg.text) return;
     state.deadChatHistory.push(msg);
     if (state.deadChatHistory.length > 100) state.deadChatHistory.shift();
-    if (state.phase === "lobby" && Object.keys(state.roles).length > 0) {
+    if (isPostGame) {
       io.emit("deadChatMsg", msg);
     } else {
       state.deadPlayers.forEach(id => io.to(id).emit("deadChatMsg", msg));
-      if (state.mjSocketId) io.to(state.mjSocketId).emit("deadChatMsg", msg);
+      versMJ("deadChatMsg", msg);
     }
   });
 
@@ -566,11 +463,11 @@ io.on("connection", socket => {
       socket.emit("deadChatHistory", state.deadChatHistory);
   });
 
+  // Première carte de nuit affichée sur un téléphone : la musique de nuit démarre chez le MJ
   socket.on("nightCardShown", () => {
-    if (state.mjSocketId && ['cupid','wolves','nightPause'].includes(state.phase) && !state.nightMusicPlayed) {
-      state.nightMusicPlayed = true;
-      io.to(state.mjSocketId).emit("playNightMusic");
-    }
+    if (!state.mjSocketId || state.nightMusicPlayed || !['cupid', 'wolves', 'nightPause'].includes(state.phase)) return;
+    state.nightMusicPlayed = true;
+    versMJ("playNightMusic");
   });
 
   // ===== CLASSEMENT DE LA SOIRÉE =====
@@ -581,99 +478,76 @@ io.on("connection", socket => {
     socket.emit("soireeMJ", soiree.resume());
   });
 
-  // ===== REJOUER / RESET =====
-  socket.on("replayGame", config => phases.handleReplayGame(socket, config));
-  socket.on("reset",      ()     => phases.handleReset(socket));
+  // ===== RETOUR AU SALON =====
+  socket.on("reset",      () => phases.handleReset(socket));
   // Reset complet (tests automatisés uniquement) : efface aussi la liste des joueurs
-  socket.on("fullReset",  ()     => {
-    if (!isMJ(socket.id)) return;
-    phases.resetGameState(false);
-    state.io.emit("gameReset", { players: [] });
-    phases.setPhase("lobby");
-  });
+  socket.on("fullReset",  () => phases.handleReset(socket, false));
 
   // ===== DÉCONNEXION =====
   socket.on("disconnect", () => {
     state.voteRateLimit.delete(socket.id);
     const p = state.players.find(x => x.id === socket.id);
     if (p) {
-      log.info('player disconnected', p.name, 'phase=' + state.phase);
+      log.info('joueur déconnecté', p.name, 'phase=' + state.phase);
       const key = p.name.toLowerCase();
-      if (state.playerRegistry[key]) state.playerRegistry[key].oldId = socket.id;
       if (state.phase === "lobby") {
-        state.players = state.players.filter(x => x.id !== socket.id);
-        delete state.playerRegistry[key];
-        io.emit("players", state.players);
+        retirerDuSalon(p);
       } else {
         // En partie, le joueur garde sa place : pastille rouge chez le MJ, alerte si la
         // coupure dure (un rechargement de page revient avant)
+        if (state.playerRegistry[key]) state.playerRegistry[key].oldId = socket.id;
         p.connecte = false;
         envoyerConnexionsMJ();
         if (alertesDeconnexion[key]) clearTimeout(alertesDeconnexion[key]);
         alertesDeconnexion[key] = setTimeout(() => {
           delete alertesDeconnexion[key];
           const q = state.players.find(x => x.name.toLowerCase() === key);
-          if (q && q.connecte === false && state.phase !== "lobby" && state.mjSocketId) {
-            io.to(state.mjSocketId).emit("joueurPerdu", { name: q.name });
-          }
+          if (q && q.connecte === false && state.phase !== "lobby") versMJ("joueurPerdu", { name: q.name });
         }, DELAI_ALERTE_DECONNEXION_MS);
       }
     }
-    if (state.mjSocketId === socket.id) { log.warn('MJ disconnected'); state.mjSocketId = null; }
+    if (state.mjSocketId === socket.id) { log.warn('MJ déconnecté'); state.mjSocketId = null; }
   });
 });
 
 // ===== RECONNEXION : REMISE À JOUR DES ÉCRANS =====
-// Un joueur vient de changer d'identifiant. Les pages joueurs corrigent elles-mêmes leurs
-// identifiants en mémoire (à la réception de la liste « players ») ; ici on renvoie ce qui
-// dépend d'un écran déjà ouvert : votes affichés chez le MJ, panneau d'égalité du maire,
-// transmission d'écharpe, victime montrée à la Sorcière, vote du Conseil des Morts.
+// Un joueur vient de changer d'identifiant (il a déjà reçu « reconnected »). S'il doit agir
+// à l'étape en cours, il retrouve sa demande ; les autres écrans reçoivent ce qui dépend de
+// son identifiant (votes, égalité, transmission d'écharpe, victime montrée à la Sorcière…).
+// Les pages joueurs corrigent elles-mêmes leurs identifiants en mémoire (liste « players »).
 function resynchroniserApresReconnexion(socket) {
-  const id = socket.id;
-  const mj = state.mjSocketId;
-  // Votes en cours (MJ : votes détaillés ; joueurs : décomptes)
-  if (state.phase === "mayorVote") {
-    io.emit("mayorVotesMJ", state.mayorVote);
-    io.emit("mayorCountsPublic", computeCounts(state.mayorVote));
-  }
-  if (state.phase === "wolves") {
-    if (mj) io.to(mj).emit("wolfVotesMJ", state.votesWolf);
-    joueursAvecRole("Loup").forEach(w => io.to(w).emit("wolfVotesUpdate", state.votesWolf));
-  }
-  if (state.phase === "day" && Object.keys(state.votesDay).length) {
-    io.emit("votesDayMJ", state.votesDay);
-    if (state.voteMode !== 5) {
-      io.emit("dayCountsPublic", computeCounts(state.votesDay));
-      const detail = {};
-      Object.entries(state.votesDay).forEach(([v, t]) => { if (!v.startsWith("__corbeau")) detail[v] = t; });
-      io.emit("votesDayPublic", detail);
-    }
-  }
-  if (state.phase === "day" && state.corbeauTarget && state.corbeauTarget !== "skip") {
-    io.emit("corbeauVotesPublic", { targetId: state.corbeauTarget, targetName: playerName(state.corbeauTarget) });
-  }
-  // Égalité en attente d'arbitrage : panneau du maire et du MJ reconstruits
+  const id = socket.id, role = state.roles[id], vivant = !state.deadPlayers.includes(id);
+  // Votes en cours
+  if (state.phase === "mayorVote") votes.publierVotesDuMaire();
+  if (state.phase === "wolves") votes.publierVotesDesLoups();
+  if (state.phase === "day" && Object.keys(state.votesDay).length) votes.publierVotesDuJour();
+  if (state.phase === "day") roles.annoncerCorbeau();
+  // Égalité en attente d'arbitrage : panneaux du maire et du MJ reconstruits
   if (state.tiebreakPending && state.mayor && state.tiebreakCandidates.length) {
-    const candidates = state.tiebreakCandidates.map(c => ({ id: c, name: playerName(c) }));
-    io.to(state.mayor).emit("tiebreakMayor", { candidates, context: state.tiebreakContext });
-    if (mj) io.to(mj).emit("tiebreakMJ", { candidates, mayorName: playerName(state.mayor), context: state.tiebreakContext });
+    const egalite = votes.egaliteEnCours();
+    io.to(state.mayor).emit("tiebreakMayor", egalite);
+    versMJ("tiebreakMJ", egalite);
   }
-  // Transmission d'écharpe : le maire mourant s'est reconnecté → tout le monde le sait
-  if (state.phase === "mayorTransfer" && state.dyingMayorId === id && !state.actionMJ) {
-    io.emit("mayorMustTransfer", id);
+  // Étape de nuit en cours : le joueur qui doit agir retrouve sa demande (sinon la nuit
+  // attendait jusqu'au filet de son étape)
+  if (vivant && state.phase === "corbeau" && role === "Corbeau") socket.emit("corbeauTurn");
+  // La Sorcière s'est reconnectée, ou la victime des loups (la Sorcière reçoit son nouvel identifiant)
+  if (state.phase === "witch" && ((vivant && role === "Sorcière") || state.nightTarget === id)) roles.informerSorciere();
+  // Voyante ou Petite Fille reconnectée avant d'avoir confirmé : on lui remontre la réponse
+  // (sans réponse en attente, la page de la Petite Fille rouvre seule le choix des 3 joueurs)
+  if (state.phase === "seer" && role === "Voyante" && state.seerPendingResult) socket.emit("seerResult", state.seerPendingResult);
+  if (state.phase === "petiteFille" && role === "PetiteFille" && state.petiteFillePendingResult) {
+    socket.emit("petiteFilleResult", state.petiteFillePendingResult);
   }
-  // Sorcière : la victime des loups s'est reconnectée → la Sorcière reçoit le bon identifiant
-  if (state.phase === "witch" && state.nightTarget === id) {
-    const witchId = vivantsAvecRole("Sorcière")[0];
-    if (witchId) {
-      io.to(witchId).emit("etatPotions", { vie: !state.witchSaveUsed, mort: !state.witchKillUsed });
-      io.to(witchId).emit("nightVictim", state.nightTarget);
-    }
-  }
+  // Amoureux reconnecté pendant leur réveil : il revoit l'autre, avec le temps restant
+  if (state.phase === "amoureux" && state.lovers.includes(id) && state.amoureuxFin) roles.montrerPartenaire(id);
+  // Chasseur ou maire mourant dont l'action est ouverte (tout le monde sait qui transmet l'écharpe)
+  if (state.phase === "chasseur" && state.currentChasseurShooter === id && !state.actionMJ) socket.emit("chasseurMustShoot", id);
+  if (state.phase === "mayorTransfer" && state.dyingMayorId === id && !state.actionMJ) io.emit("mayorMustTransfer", id);
+  // Vote de mission : la demande de carte, si elle n'est pas encore jouée
+  if (state.phase === "missionVote" && state.mission.team.includes(id) && !state.mission.cards[id]) roles.demanderCarteMission(id);
   // Conseil des Morts en cours : le mort reconnecté retrouve son vote
-  if (state.councilOptions && state.deadPlayers.includes(id)) {
-    socket.emit("councilStart", { options: state.councilOptions.map(c => ({ id: c, title: council.COUNCIL_EVENTS[c].title })) });
-  }
+  if (state.councilOptions && !vivant) socket.emit("councilStart", council.optionsDuConseil());
 }
 
 // ===== DÉMARRAGE =====

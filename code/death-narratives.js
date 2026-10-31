@@ -4,7 +4,7 @@
 // Toutes les variantes utilisent les placeholders {name} et {role} ({role} : le nom du rôle avec
 // son article, « la Voyante »). Le MJ les lit à voix haute : tournures neutres, sans « il/elle »
 // ni « (e) », pour qu'elles conviennent à tout le monde.
-// Le module exporte pickDeathNarrative(role, cause) → string ou null.
+// Le module exporte buildDeathNarrative({ role, cause, name }) → le récit, ou null.
 
 const LOUPS = {
   default: [
@@ -118,14 +118,13 @@ function renderNarrative(tpl, name, roleLabel) {
   return tpl.replace(/\{name\}/g, name || "?").replace(/\{role\}/g, roleLabel || "?");
 }
 
-// Helper combiné : pick + render
-function buildDeathNarrative({ role, cause, name, roleLabel }) {
+// Récit d'une mort (une variante au hasard), le rôle nommé avec son article
+function buildDeathNarrative({ role, cause, name }) {
   const tpl = pickDeathNarrative(role, cause);
-  return tpl ? renderNarrative(tpl, name, roleLabel) : null;
+  return tpl ? renderNarrative(tpl, name, ROLE_LABEL[role] || role) : null;
 }
 
 // Nom du rôle tel qu'il apparaît dans les récits de mort, avec son article (« c'était la Voyante »).
-// Partagé par roles.js et votes.js.
 const ROLE_LABEL = {
   Loup: "un Loup-Garou", Voyante: "la Voyante", Sorcière: "la Sorcière",
   Chasseur: "le Chasseur", Cupidon: "Cupidon", Villageois: "un Villageois",
@@ -133,4 +132,4 @@ const ROLE_LABEL = {
   Corbeau: "le Corbeau", Salvateur: "le Salvateur", Sœurs: "une des Sœurs jumelles",
 };
 
-module.exports = { pickDeathNarrative, renderNarrative, buildDeathNarrative, ROLE_LABEL };
+module.exports = { buildDeathNarrative };

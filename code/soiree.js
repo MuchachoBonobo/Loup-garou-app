@@ -12,6 +12,7 @@ const fs   = require('fs');
 const path = require('path');
 const log  = require('./logger');
 const { SNAP_DIR } = require('./snapshot');
+const { aGagne } = require('./badges');
 
 const FICHIER = path.join(SNAP_DIR, 'soiree.json');
 
@@ -48,14 +49,6 @@ function classement() {
 
 // Enregistre une partie terminée et renvoie le classement à jour
 function enregistrerPartie({ players, roles, lovers, winner }) {
-  const gagne = p => {
-    const r = roles[p.id];
-    if (winner === 'wolves')    return r === 'Loup';
-    if (winner === 'villagers') return !!r && r !== 'Loup';
-    if (winner === 'lovers')    return (lovers || []).includes(p.id);
-    if (winner === 'ange')      return r === 'Ange';
-    return false;
-  };
   const humains = (players || []).filter(p => !p.isBot && roles[p.id]);
   if (!humains.length) return classement();   // partie d'entraînement entre bots : rien à compter
   humains.forEach(p => {
@@ -63,7 +56,7 @@ function enregistrerPartie({ players, roles, lovers, winner }) {
     if (!soiree.scores[cle]) soiree.scores[cle] = { nom: p.name, points: 0, parties: 0 };
     soiree.scores[cle].nom = p.name;
     soiree.scores[cle].parties++;
-    if (gagne(p)) soiree.scores[cle].points++;
+    if (aGagne({ roles, lovers, winner }, p.id)) soiree.scores[cle].points++;
   });
   soiree.parties = (soiree.parties || 0) + 1;
   sauver();

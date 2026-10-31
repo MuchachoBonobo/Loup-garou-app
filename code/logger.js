@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const LOG_DIR = path.join(__dirname, 'logs');
-try { if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true }); } catch (_) {}
+try { if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true }); } catch { /* journal en console seulement */ }
 
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
 function timestamp() {
@@ -23,11 +23,11 @@ let streamPath = null;
 function getStream() {
   const p = logFilePath();
   if (!stream || streamPath !== p) {
-    if (stream) { try { stream.end(); } catch (_) {} }
+    if (stream) { try { stream.end(); } catch { /* flux déjà fermé */ } }
     try {
       stream = fs.createWriteStream(p, { flags: 'a' });
       streamPath = p;
-    } catch (_) { stream = null; streamPath = null; }
+    } catch { stream = null; streamPath = null; }
   }
   return stream;
 }
@@ -35,7 +35,7 @@ function getStream() {
 function stringify(arg) {
   if (typeof arg === 'string') return arg;
   if (arg instanceof Error) return arg.stack || arg.message;
-  try { return JSON.stringify(arg); } catch (_) { return String(arg); }
+  try { return JSON.stringify(arg); } catch { return String(arg); }
 }
 
 function log(level, args) {
@@ -45,7 +45,7 @@ function log(level, args) {
   else console.log(line);
   // Fichier (best effort, n'échoue jamais)
   const s = getStream();
-  if (s) { try { s.write(line + '\n'); } catch (_) {} }
+  if (s) { try { s.write(line + '\n'); } catch { /* journal indisponible */ } }
 }
 
 module.exports = {

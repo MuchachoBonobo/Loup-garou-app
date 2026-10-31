@@ -177,19 +177,16 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
     });
   }
 
-  // 🔫 Tireur d'élite — Chasseur qui a tué un loup en mourant
-  // Détection : le chasseur est mort, et la victime suivante dans deathLog avec cause=chasseur est un Loup.
+  // 🔫 Tireur d'élite — Chasseur qui a tué un loup en mourant : un loup abattu par le Chasseur
+  // (cause « chasseur »), le tireur étant le dernier Chasseur mort avant lui
   deathLog.forEach((d, i) => {
-    if (d.role === "Chasseur") {
-      const next = deathLog[i + 1];
-      if (next && next.cause === "chasseur" && next.role === "Loup") {
-        give(d.name, "tireur", {
-          emoji: "🔫",
-          label: "Tireur d'élite",
-          desc: "A descendu un loup en mourant."
-        });
-      }
-    }
+    if (d.cause !== "chasseur" || d.role !== "Loup") return;
+    const tireur = deathLog.slice(0, i).reverse().find(x => x.role === "Chasseur");
+    if (tireur) give(tireur.name, "tireur", {
+      emoji: "🔫",
+      label: "Tireur d'élite",
+      desc: "A descendu un loup en mourant."
+    });
   });
 
   // 👯‍♀️ Sœurs inséparables — les deux Sœurs ont survécu
@@ -242,25 +239,32 @@ function buildBadges({ players, roles, deadPlayers, lovers, gameStats, winner, i
   const badges = {};
   Object.entries(candidats).forEach(([name, liste]) => {
     const meilleure = liste.slice().sort((a, b) => a.rang - b.rang)[0];
-    const { rang, ...badge } = meilleure;
+    const { rang: _rang, ...badge } = meilleure;
     badges[name] = [badge];
   });
 
   // Chacun repart avec une médaille (demande d'Alexandre, 2026-10-26) : qui n'a pas d'exploit
   // reçoit une médaille simple selon sa fin de partie. Les exploits restent rares.
-  const aGagne = id => winner === "wolves" ? roles[id] === "Loup"
-    : winner === "villagers" ? roles[id] !== "Loup"
-    : winner === "lovers" ? (lovers || []).includes(id)
-    : winner === "ange" ? roles[id] === "Ange" : false;
   players.forEach(p => {
     if (!p.name || badges[p.name]) return;
     badges[p.name] = [isDead(p.id)
       ? { emoji: "🕯️", label: "Au champ d'honneur", desc: "N'a pas vu la fin, mais a joué jusqu'au bout." }
-      : aGagne(p.id)
+      : aGagne({ roles, lovers, winner }, p.id)
         ? { emoji: "🏆", label: "Victoire", desc: "Debout à la fin, dans le camp gagnant." }
         : { emoji: "🛡️", label: "Survie", desc: "A survécu jusqu'au bout de la partie." }];
   });
   return badges;
 }
 
-module.exports = { buildBadges, RANGS };
+// Le joueur est-il dans le camp gagnant, mort ou vivant ? Tous les loups, tout le village
+// (tous les non-loups), les deux amoureux, ou l'Ange seul. Aussi utilisé par soiree.js.
+function aGagne({ roles, lovers, winner }, id) {
+  const r = roles[id];
+  if (winner === "wolves")    return r === "Loup";
+  if (winner === "villagers") return !!r && r !== "Loup";
+  if (winner === "lovers")    return (lovers || []).includes(id);
+  if (winner === "ange")      return r === "Ange";
+  return false;
+}
+
+module.exports = { buildBadges, aGagne };

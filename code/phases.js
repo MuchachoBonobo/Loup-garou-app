@@ -2,7 +2,8 @@
 // Dépendances circulaires (roles, votes) résolues via require('./module').fn() à l'usage.
 
 const {
-  state, alivePlayers, playerName, fisherYates, isMJ, resetActivity, versMJ, joueursAvecRole, vivantsAvecRole, oublierTransfert,
+  state, partieNeuve, alivePlayers, vivantsSauf, playerName, fisherYates, auHasard, isMJ, resetActivity, versMJ,
+  vivantsAvecRole, oublierTransfert, visionComplete, entreeRegistre,
   WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS,
   PETITE_FILLE_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS,
@@ -21,12 +22,14 @@ const log       = require('./logger');
 const badges    = require('./badges');
 const soiree    = require('./soiree');
 
-// ===== STUCK TIMER =====
+// ===== PARTIE BLOQUÉE =====
+// Étapes où l'on attend un joueur : sans activité pendant STUCK_TIMEOUT_MS, le MJ est prévenu
+const PHASES_SURVEILLEES = ['wolves', 'seer', 'petiteFille', 'corbeau', 'witch', 'cupid'];
 function startStuckTimer() {
   resetActivity();
   function scheduleAlert() {
     state.stuckGameTimer = setTimeout(() => {
-      if (state.mjSocketId && ['wolves','seer','petiteFille','witch','cupid'].includes(state.phase)) {
+      if (PHASES_SURVEILLEES.includes(state.phase)) {
         versMJ('stuckGame', {
           phase: state.phase,
           idleMinutes: Math.round((Date.now() - state.lastActivityTime) / 60000)
@@ -43,7 +46,7 @@ function scheduleBot(callback) {
   const delay = BOT_MIN_DELAY_MS + Math.random() * (BOT_MAX_DELAY_MS - BOT_MIN_DELAY_MS);
   setTimeout(() => {
     if (state.gamePaused) return;  // les bots se taisent en pause
-    try { callback(); } catch (e) { console.error("[bot] action error:", e); }
+    try { callback(); } catch (e) { log.error("action de robot impossible", e); }
   }, delay);
 }
 
@@ -59,22 +62,12 @@ function setPhase(p) {
   narration.narrate(previousPhase, p);
 
   if (p === "day") {
+    // Récap de la nuit pour le MJ, s'il n'est pas déjà parti à l'aube
+    roles.envoyerRecapMJ();
     state.gameStats.dayCount++;
     state.nightMusicPlayed = false;
-
-    // === Carte narrative MJ ===
-    if (state.mjSocketId && state.pendingDayRecap) {
-      versMJ("mjDayRecap", {
-        dayNum: state.gameStats.dayCount,
-        ...state.pendingDayRecap
-      });
-      state.pendingDayRecap = null;
-    }
-
-    // Réémet la cible corbeau dès le début du jour
-    if (state.corbeauTarget && state.corbeauTarget !== "skip" && !state.deadPlayers.includes(state.corbeauTarget)) {
-      state.io.emit("corbeauVotesPublic", { targetId: state.corbeauTarget, targetName: playerName(state.corbeauTarget) });
-    }
+    // La désignation du Corbeau est rappelée dès le début du jour
+    roles.annoncerCorbeau();
 
     // ===== CONSEIL DES MORTS =====
     council.clearCouncilEffects();
@@ -91,9 +84,7 @@ function setPhase(p) {
     }
     // Annonce du matin menée par le MJ : il voit l'évènement à lire et les boutons pour enchaîner
     state.annonceMatinEnCours = council.annonceMatinParMJ();
-    if (state.annonceMatinEnCours && state.mjSocketId) {
-      versMJ("matinEnAttente", { evenement: council.evenementPublic(state.activeCouncilEvent) });
-    }
+    if (state.annonceMatinEnCours) versMJ("matinEnAttente", { evenement: council.evenementPublic(state.activeCouncilEvent) });
     // Conseil des morts : se déclenche chaque début de journée dès qu'il y a au moins
     // COUNCIL_TRIGGER_THRESHOLD mort(s) (1 aujourd'hui). Un nouveau vote est proposé à chaque
     // jour suivant. Les événements déjà proposés (choisis ou non) ne réapparaissent pas.
@@ -112,18 +103,12 @@ function setPhase(p) {
     state.io.emit("councilEventEnd");
   }
 
-  if (p === "mayorVote" && !state.gameStats.startTime) state.gameStats.startTime = Date.now();
-  if (p === "wolves") {
-    if (!state.skipWolvesSoundOnce) {
-      versMJ("soundPlay", "wolves");
-    }
-    state.skipWolvesSoundOnce = false;
-  }
+  if (p === "wolves") versMJ("soundPlay", "wolves");
 
   // Chasseur, transmission d'écharpe : avec un MJ, l'action attend son clic (ouvrirActionMJ) —
   // l'annonce du mort reste sur les téléphones pendant qu'il raconte (demande d'Alexandre, 2026-10-26)
   state.actionMJ = (["chasseur", "mayorTransfer"].includes(p) && !state.autoMode) ? p : null;
-  if (state.actionMJ && state.mjSocketId) {
+  if (state.actionMJ) {
     versMJ("actionMJEnAttente", { type: p, nom: playerName(p === "chasseur" ? state.currentChasseurShooter : state.dyingMayorId) });
   }
 
@@ -131,12 +116,8 @@ function setPhase(p) {
   clearPhaseTimeouts();
   installPhaseTimeouts(p);
 
-  if (['wolves','seer','petiteFille','corbeau','witch','cupid'].includes(p)) {
-    startStuckTimer();
-  } else {
-    resetActivity();
-    if (state.stuckGameTimer) { clearTimeout(state.stuckGameTimer); state.stuckGameTimer = null; }
-  }
+  if (PHASES_SURVEILLEES.includes(p)) startStuckTimer();
+  else resetActivity();
 
   armerMinuteriesAutomatiques(p);
 
@@ -144,7 +125,7 @@ function setPhase(p) {
   runBotsForPhase(p);
 
   // === Lumières connectées ===
-  try { lights.applyScene(p); } catch (_) {}
+  lights.applyScene(p);
 }
 
 // ===== ACTION LANCÉE PAR LE MJ (Chasseur, transmission d'écharpe) =====
@@ -289,8 +270,7 @@ function installPhaseTimeouts(p) {
     state.nightPauseTimeout = setTimeout(() => {
       if (state.phase !== "nightPause" || !state.etapeNuitSuivante) return;
       versMJ("autoResolve", "⏱️ Pas de clic du MJ depuis 3 min — la nuit continue.");
-      const etape = state.etapeNuitSuivante;
-      roles.allerEtapeNuit(etape, { sansPause: true });
+      roles.allerEtapeNuit(state.etapeNuitSuivante, { sansPause: true });
     }, NIGHT_PAUSE_TIMEOUT_MS);
   }
 
@@ -332,20 +312,16 @@ function installPhaseTimeouts(p) {
   } else if (p === "chasseur") {
     state.chasseurTimeout = setTimeout(() => {
       if (state.phase !== "chasseur" || !state.currentChasseurShooter) return;
-      const shooterId = state.currentChasseurShooter;
-      const aliveTargets = alivePlayers().filter(pl => pl.id !== shooterId);
-      if (aliveTargets.length > 0) {
-        const target = aliveTargets[Math.floor(Math.random() * aliveTargets.length)];
-        state.io.emit("autoResolve", `⏱️ Le Chasseur a tardé — tir aléatoire sur ${target.name}.`);
-        roles.performChasseurShot(shooterId, target.id);
+      const cible = roles.cibleAuHasard();
+      if (cible) {
+        state.io.emit("autoResolve", `⏱️ Le Chasseur a tardé — tir aléatoire sur ${cible.name}.`);
+        roles.performChasseurShot(state.currentChasseurShooter, cible.id);
       } else {
-        state.currentChasseurShooter = null;
+        // Personne à abattre : la partie reprend comme après un tir
         const postCtx = state.chasseurPostContext;
+        state.currentChasseurShooter = null;
         state.chasseurPostContext = null;
-        if (checkVictory()) return;
-        if (state.mayorTransferPending && state.dyingMayorId) setPhase("mayorTransfer");
-        else if (postCtx === "day") roles.ouvrirNuit(false);
-        else setPhase("day");
+        roles.apresLeTir(postCtx);
       }
     }, CHASSEUR_TIMEOUT_MS);
   }
@@ -356,12 +332,10 @@ function installPhaseTimeouts(p) {
   } else if (p === "mayorTransfer") {
     state.mayorTransferTimeout = setTimeout(() => {
       if (state.phase !== "mayorTransfer" || !state.dyingMayorId) return;
-      const validTargets = state.players.filter(pl =>
-        !state.deadPlayers.includes(pl.id) && pl.id !== state.dyingMayorId);
-      if (validTargets.length > 0) {
-        const target = validTargets[Math.floor(Math.random() * validTargets.length)];
-        state.io.emit("autoResolve", `⏱️ Maire mourant inactif — successeur aléatoire : ${target.name}.`);
-        roles.performMayorTransfer(target.id);
+      const successeur = roles.successeurAuHasard();
+      if (successeur) {
+        state.io.emit("autoResolve", `⏱️ Maire mourant inactif — successeur aléatoire : ${successeur.name}.`);
+        roles.performMayorTransfer(successeur.id);
       } else {
         state.io.emit("autoResolve", `⏱️ Aucun successeur disponible — transfert annulé.`);
         oublierTransfert();
@@ -390,26 +364,26 @@ function clearPhaseTimeouts() {
 // ===== ACTIONS DES BOTS PAR PHASE =====
 // Un robot agit par les mêmes portes qu'un joueur : un faux socket qui porte son identifiant
 const commeJoueur = bot => ({ id: bot.id, emit: (evt, data) => state.io.to(bot.id).emit(evt, data) });
-const auHasard = liste => liste[Math.floor(Math.random() * liste.length)];
 
 function runBotsForPhase(p) {
   const aliveBots = state.players.filter(pl => pl.isBot && !state.deadPlayers.includes(pl.id));
   if (aliveBots.length === 0) return;
+  const robotAvecRole = r => aliveBots.find(b => state.roles[b.id] === r);
 
   // Vote du Maire
   if (p === "mayorVote") {
     aliveBots.forEach(bot => {
       scheduleBot(() => {
         if (state.phase !== "mayorVote" || state.deadPlayers.includes(bot.id) || state.mayorVote[bot.id]) return;
-        const targets = alivePlayers().filter(pl => pl.id !== bot.id);
-        if (targets.length) votes.handleVoteMayor(commeJoueur(bot), auHasard(targets).id);
+        const cible = auHasard(vivantsSauf(bot.id));
+        if (cible) votes.handleVoteMayor(commeJoueur(bot), cible.id);
       });
     });
   }
 
   // Cupidon
   if (p === "cupid") {
-    const cupidBot = aliveBots.find(bot => state.roles[bot.id] === "Cupidon");
+    const cupidBot = robotAvecRole("Cupidon");
     if (cupidBot && !state.cupidDone) {
       scheduleBot(() => {
         const candidates = fisherYates(alivePlayers());
@@ -423,59 +397,54 @@ function runBotsForPhase(p) {
     aliveBots.filter(b => state.roles[b.id] === "Loup").forEach(bot => {
       scheduleBot(() => {
         if (state.phase !== "wolves" || state.votesWolf[bot.id]) return;
-        const targets = alivePlayers().filter(pl => state.roles[pl.id] !== "Loup");
-        if (targets.length) votes.handleVoteWolf(commeJoueur(bot), auHasard(targets).id);
+        const cible = auHasard(alivePlayers().filter(pl => state.roles[pl.id] !== "Loup"));
+        if (cible) votes.handleVoteWolf(commeJoueur(bot), cible.id);
       });
     });
   }
 
   // Salvateur (jamais la même personne deux nuits de suite)
   if (p === "salvateur") {
-    const salvateurBot = aliveBots.find(b => state.roles[b.id] === "Salvateur");
+    const salvateurBot = robotAvecRole("Salvateur");
     if (salvateurBot) {
       scheduleBot(() => {
-        if (state.phase !== "salvateur") return;
-        const candidates = alivePlayers().filter(pl => pl.id !== state.lastProtectedTarget);
-        if (candidates.length) roles.handleSalvateurAction(commeJoueur(salvateurBot), auHasard(candidates).id);
+        const cible = auHasard(vivantsSauf(state.lastProtectedTarget));
+        if (cible) roles.handleSalvateurAction(commeJoueur(salvateurBot), cible.id);
       });
     }
   }
 
-  // Voyante
+  // Voyante : elle « lit » sa vision quelques secondes puis confirme, comme un humain
   if (p === "seer") {
-    const seerBot = aliveBots.find(b => state.roles[b.id] === "Voyante");
+    const seerBot = robotAvecRole("Voyante");
     if (seerBot) {
       scheduleBot(() => {
-        if (state.phase !== "seer") return;
-        const targets = alivePlayers().filter(pl => pl.id !== seerBot.id);
-        if (targets.length === 0) return;
-        roles.seerReveal(seerBot.id, auHasard(targets).id);
-        // Le bot « lit » sa vision quelques secondes puis confirme, comme un humain.
-        scheduleBot(() => roles.advanceAfterSeer());
+        const cible = auHasard(vivantsSauf(seerBot.id));
+        if (!cible) return;
+        roles.handleSeerChoice(commeJoueur(seerBot), cible.id);
+        scheduleBot(() => roles.handleSeerDone(commeJoueur(seerBot)));
       });
     }
   }
 
   // Petite Fille : 3 joueurs vivants au hasard (jamais elle-même), puis « OK » comme un humain
   if (p === "petiteFille") {
-    const pfBot = aliveBots.find(b => state.roles[b.id] === "PetiteFille");
+    const pfBot = robotAvecRole("PetiteFille");
     if (pfBot) {
       scheduleBot(() => {
-        if (state.phase !== "petiteFille") return;
-        const candidats = fisherYates(alivePlayers().filter(pl => pl.id !== pfBot.id));
+        const candidats = fisherYates(vivantsSauf(pfBot.id));
         if (candidats.length < 3) return;
-        roles.petiteFilleReveal(pfBot.id, candidats.slice(0, 3).map(pl => pl.id));
-        scheduleBot(() => roles.advanceAfterPetiteFille());
+        roles.handlePetiteFilleChoice(commeJoueur(pfBot), candidats.slice(0, 3).map(pl => pl.id));
+        scheduleBot(() => roles.handlePetiteFilleDone(commeJoueur(pfBot)));
       });
     }
   }
 
   // Corbeau : une fois sur deux, il passe son tour
   if (p === "corbeau") {
-    const corbeauBot = aliveBots.find(b => state.roles[b.id] === "Corbeau");
+    const corbeauBot = robotAvecRole("Corbeau");
     if (corbeauBot) {
       scheduleBot(() => {
-        if (state.phase !== "corbeau") return;
         roles.handleCorbeauAction(commeJoueur(corbeauBot), Math.random() < 0.5 ? "skip" : auHasard(alivePlayers()).id);
       });
     }
@@ -483,15 +452,15 @@ function runBotsForPhase(p) {
 
   // Sorcière : 30 % sauver, 30 % empoisonner, sinon rien ; puis elle termine son tour
   if (p === "witch") {
-    const witchBot = aliveBots.find(b => state.roles[b.id] === "Sorcière");
+    const witchBot = robotAvecRole("Sorcière");
     if (witchBot) {
       scheduleBot(() => {
         if (state.phase !== "witch") return;
         const sorciere = commeJoueur(witchBot), r = Math.random();
         if (r < 0.3 && !state.witchSaveUsed && state.nightTarget) roles.handleWitchSave(sorciere);
         else if (r < 0.6 && !state.witchKillUsed) {
-          const targets = alivePlayers().filter(pl => pl.id !== witchBot.id && pl.id !== state.nightTarget);
-          if (targets.length) roles.handleWitchKill(sorciere, auHasard(targets).id);
+          const cible = auHasard(vivantsSauf(witchBot.id).filter(pl => pl.id !== state.nightTarget));
+          if (cible) roles.handleWitchKill(sorciere, cible.id);
         }
         roles.handleWitchDone(sorciere);
       });
@@ -505,41 +474,31 @@ function runBotsForPhase(p) {
       if (state.idiotRevealed && state.roles[bot.id] === "Idiot") return;
       scheduleBot(() => {
         if (state.votesDay[bot.id] && state.voteMode !== 1) return;
-        const targets = alivePlayers().filter(pl => pl.id !== bot.id);
-        if (targets.length) votes.handleVoteDay(commeJoueur(bot), auHasard(targets).id);
+        const cible = auHasard(vivantsSauf(bot.id));
+        if (cible) votes.handleVoteDay(commeJoueur(bot), cible.id);
       });
     });
   }
 
-  // Chasseur
-  if (p === "chasseur") {
-    if (state.currentChasseurShooter && !state.actionMJ) {
-      const shooter = state.players.find(pl => pl.id === state.currentChasseurShooter);
-      if (shooter && shooter.isBot) {
-        scheduleBot(() => {
-          if (state.phase !== "chasseur" || state.currentChasseurShooter !== shooter.id) return;
-          const targets = alivePlayers().filter(pl => pl.id !== shooter.id);
-          if (targets.length === 0) return;
-          const target = targets[Math.floor(Math.random() * targets.length)];
-          roles.performChasseurShot(shooter.id, target.id);
-        });
-      }
+  // Chasseur (une fois l'action ouverte par le MJ, ou tout de suite en mode autonome)
+  if (p === "chasseur" && state.currentChasseurShooter && !state.actionMJ) {
+    const tireur = state.players.find(pl => pl.id === state.currentChasseurShooter);
+    if (tireur && tireur.isBot) {
+      scheduleBot(() => {
+        const cible = roles.cibleAuHasard();
+        if (cible && state.currentChasseurShooter === tireur.id) roles.handleChasseurAction(commeJoueur(tireur), cible.id);
+      });
     }
   }
 
-  // Transfert maire
-  if (p === "mayorTransfer") {
-    if (state.dyingMayorId && !state.actionMJ) {
-      const dyingPlayer = state.players.find(pl => pl.id === state.dyingMayorId);
-      if (dyingPlayer && dyingPlayer.isBot) {
-        scheduleBot(() => {
-          if (state.phase !== "mayorTransfer" || state.dyingMayorId !== dyingPlayer.id) return;
-          const candidates = state.players.filter(pl => !state.deadPlayers.includes(pl.id) && pl.id !== state.dyingMayorId);
-          if (candidates.length === 0) return;
-          const target = candidates[Math.floor(Math.random() * candidates.length)];
-          roles.performMayorTransfer(target.id);
-        });
-      }
+  // Transfert maire (même chose)
+  if (p === "mayorTransfer" && state.dyingMayorId && !state.actionMJ) {
+    const mourant = state.players.find(pl => pl.id === state.dyingMayorId);
+    if (mourant && mourant.isBot) {
+      scheduleBot(() => {
+        const successeur = roles.successeurAuHasard();
+        if (successeur) roles.handleMayorTransferChoice(commeJoueur(mourant), successeur.id);
+      });
     }
   }
 
@@ -547,7 +506,7 @@ function runBotsForPhase(p) {
   if (p === "mission" && mayorBot()) {
     scheduleBot(() => {
       if (state.phase !== "mission") return;
-      const candidates = alivePlayers().filter(pl => pl.id !== state.mayor);
+      const candidates = vivantsSauf(state.mayor);
       if (candidates.length >= 3) roles.envoyerEnMission(fisherYates(candidates).slice(0, 3).map(pl => pl.id));
     });
   }
@@ -570,7 +529,7 @@ function runBotsForPhase(p) {
   if (p === "missionBonus" && mayorBot()) {
     scheduleBot(() => {
       if (state.phase !== "missionBonus") return;
-      const candidates = alivePlayers().filter(pl => pl.id !== state.mayor);
+      const candidates = vivantsSauf(state.mayor);
       if (candidates.length >= 3) roles.inspecterBonus(fisherYates(candidates).slice(0, 3).map(pl => pl.id));
     });
   }
@@ -587,26 +546,19 @@ function checkVictory() {
   const alive          = alivePlayers();
   const aliveWolves    = alive.filter(p => state.roles[p.id] === "Loup");
   const aliveVillagers = alive.filter(p => state.roles[p.id] !== "Loup");
+  // Les deux amoureux sont les derniers survivants (quel que soit leur camp)
+  const amoureuxSeuls  = state.lovers.length === 2 && alive.length === 2 && alive.every(p => state.lovers.includes(p.id));
   // log uniquement quand on est sur le point de gagner (sinon trop verbeux)
-  if (aliveWolves.length === 0 || aliveWolves.length >= aliveVillagers.length || (state.lovers.length === 2 && alive.length === 2)) {
+  if (aliveWolves.length === 0 || aliveWolves.length >= aliveVillagers.length || amoureuxSeuls) {
     log.info('checkVictory', { alive: alive.length, wolves: aliveWolves.length, villagers: aliveVillagers.length });
   }
 
+  // Résumé de fin : journal des morts, survivants, médailles et classement de la soirée.
+  // Appelé une seule fois par partie (doEnd) : la partie n'est comptée qu'une fois au classement.
   const buildSummary = (winner) => ({
     winner,
-    dayCount: state.gameStats.dayCount,
-    nightCount: state.gameStats.nightCount,
-    firstDead: state.gameStats.firstDead,
-    mayorName: state.gameStats.mayorName,
-    witchSaved: state.gameStats.witchSaved,
-    witchKilled: state.gameStats.witchKilled,
     deathLog: state.gameStats.deathLog,
-    seerLog: state.gameStats.seerLog,
-    petiteFilleLog: state.gameStats.petiteFilleLog || [],
-    durationMs: state.gameStats.startTime ? Date.now() - state.gameStats.startTime : null,
     survivors: alive.map(p => ({ name: p.name, role: state.roles[p.id] })),
-    totalPlayers: state.players.length,
-    // Médailles ludiques distribuées aux joueurs (par nom)
     badges: badges.buildBadges({
       players: state.players,
       roles: state.roles,
@@ -616,28 +568,18 @@ function checkVictory() {
       winner,
       idiotRevealed: state.idiotRevealed,
     }),
-    // Classement de la soirée (1 point par victoire), mis à jour avec cette partie.
-    // buildSummary n'est appelé qu'une fois par partie (doEnd) : la partie n'est comptée qu'une fois.
     classement: soiree.enregistrerPartie({ players: state.players, roles: state.roles, lovers: state.lovers, winner }),
   });
 
   const endGame = (winner, msg) => {
-    const fullVision = {
-      roles: state.roles,
-      wolves: joueursAvecRole("Loup"),
-      lovers: state.lovers,
-      mayor: state.mayor,
-      votesDay: state.votesDay,
-      votesWolf: state.votesWolf,
-      mayorVote: state.mayorVote,
-    };
+    const fullVision = visionComplete();
     const doEnd = () => {
       state.players.forEach(p => state.io.to(p.id).emit("deadVision", fullVision));
       state.io.emit("gameSummary", buildSummary(winner));
       versMJ("soireeMJ", soiree.resume());
       state.io.emit("gameEnd", msg);
       // La couleur du camp gagnant, comme sa musique et son écran de fin
-      try { lights.flash({ wolves: "flash.victoire.loups", lovers: "flash.victoire.amoureux", ange: "flash.victoire.ange" }[winner] || "flash.victoire.village"); } catch (_) {}
+      lights.flash({ wolves: "flash.victoire.loups", lovers: "flash.victoire.amoureux", ange: "flash.victoire.ange" }[winner] || "flash.victoire.village");
       setPhase("lobby");
     };
     // En pleine résolution de nuit, la fin de partie attend : doResolveNight la déclenche
@@ -653,14 +595,11 @@ function checkVictory() {
   if (state.angeVainqueur) {
     endGame("ange", "👼 L'Ange a gagné ! Désigné dès le premier vote, il s'envole seul vers la victoire."); return true;
   }
-  if (aliveWolves.length === 0) {
-    if (state.lovers.length === 2 && alive.length === 2 && alive.every(p => state.lovers.includes(p.id))) {
-      endGame("lovers", "💘 Les Amoureux ont gagné ! Ils sont les derniers survivants."); return true;
-    }
-    endGame("villagers", "🏆 Les Villageois ont gagné ! Tous les loups sont morts."); return true;
+  if (amoureuxSeuls) {
+    endGame("lovers", "💘 Les Amoureux ont gagné ! Ils sont les derniers survivants."); return true;
   }
-  if (state.lovers.length === 2 && alive.length === 2 && alive.every(p => state.lovers.includes(p.id))) {
-    endGame("lovers", "💘 Les Amoureux ont gagné !"); return true;
+  if (aliveWolves.length === 0) {
+    endGame("villagers", "🏆 Les Villageois ont gagné ! Tous les loups sont morts."); return true;
   }
   if (aliveWolves.length >= aliveVillagers.length) {
     endGame("wolves", "🐺 Les Loups ont gagné ! Ils dominent le village."); return true;
@@ -690,7 +629,7 @@ function pauseGame() {
   if (state.stuckGameTimer) { clearTimeout(state.stuckGameTimer); state.stuckGameTimer = null; }
 
   state.io.emit("gamePaused", { phase: state.phase, voteRemainingMs: state.pausedVoteRemainingMs });
-  try { lights.applyScene("pause"); } catch (_) {}
+  lights.applyScene("pause");
 }
 
 function resumeGame() {
@@ -718,135 +657,43 @@ function resumeGame() {
     state.io.to(vivantAvecRole("PetiteFille")).emit("petiteFilleResult", state.petiteFillePendingResult);
   }
 
-  if (['wolves','seer','petiteFille','corbeau','witch','cupid'].includes(state.phase)) {
-    startStuckTimer();
-  }
+  if (PHASES_SURVEILLEES.includes(state.phase)) startStuckTimer();
 
   state.io.emit("gameResumed", { phase: state.phase });
-  try { lights.applyScene(state.phase); } catch (_) {}
+  lights.applyScene(state.phase);
 }
 
 // ===== RESET =====
+// Nouvelle partie : toutes les minuteries sont arrêtées, puis chaque champ de la partie reprend
+// sa valeur neuve (state.partieNeuve). Les joueurs restent (keepPlayers) ou le salon est vidé.
 function resetGameState(keepPlayers) {
-  state.roles = {};
-  state.deadPlayers = [];
-  state.lovers = [];
-  state.mayor = null;
-  state.votesDay = {};
-  state.votesWolf = {};
-  state.mayorVote = {};
-  state.cupidDone = false;
-  state.witchSaveUsed = false;
-  state.witchKillUsed = false;
-  state.witchSaveActive = false;
-  state.witchKillTarget = null;
-  state.nightTarget = null;
-  state.idiotRevealed = false;
-  state.nbVotesJour = 0;
-  state.angeVainqueur = null;
-  state.nightMusicPlayed = false;
-  state.corbeauTarget = null;
+  clearPhaseTimeouts();
   votes.clearVoteTimer();
-  state.lockedVoters.clear();
-  state.voteMode = 1;
-  state.dayResolutionPending = false;
-  state.resolutionJourEnCours = false;
-  state.fastResolveTriggered = false;
-  state.pendingDayRecap = null;
-  state.inNightResolution = false;
-  state.pendingEndGame = null;
-  if (state.pendingEndGameTimer) { clearTimeout(state.pendingEndGameTimer); state.pendingEndGameTimer = null; }
-  // Salvateur
-  state.protectedTarget = null;
-  state.lastProtectedTarget = null;
-  if (state.salvateurTimeout) { clearTimeout(state.salvateurTimeout); state.salvateurTimeout = null; }
-  // Sœurs jumelles
-  if (state.sistersTimeout)   { clearTimeout(state.sistersTimeout);   state.sistersTimeout   = null; }
-  state.sistersTimerEnd = null;
-  // Lumières : retour en scène lobby
-  try { lights.reset(); } catch (_) {}
-  clearTimeout(state.seerTimeout); state.seerTimeout = null;
-  state.seerPendingResult = null;
-  clearTimeout(state.petiteFilleTimeout); state.petiteFilleTimeout = null;
-  state.petiteFillePendingResult = null;
-  clearTimeout(state.nightPauseTimeout); state.nightPauseTimeout = null;
-  state.etapeNuitSuivante = null;
-  state.nuitEnAttente = null;
-  state.annonceMatinEnCours = false;
-  state.evenementAnnonce = false;
-  state.actionMJ = null;
-  state.aliasIds = {};
-  clearTimeout(state.witchTimeout); state.witchTimeout = null;
-  clearTimeout(state.cupidTimeout); state.cupidTimeout = null;
-  clearTimeout(state.corbeauTimeout); state.corbeauTimeout = null;
-  clearTimeout(state.chasseurTimeout); state.chasseurTimeout = null;
-  clearTimeout(state.mayorTransferTimeout); state.mayorTransferTimeout = null;
-  state.currentChasseurShooter = null;
-  // Pause
-  state.gamePaused = false;
-  state.pausedVoteRemainingMs = null;
-  // Reset du compteur de bots si on vide les joueurs
-  if (!keepPlayers) state.botCounter = 0;
-  // Mode autonome
-  state.autoMode = false;
-  state.autoVoteMode = 1;
-  // Conseil des morts
-  state.councilOptions = null;
-  state.councilVotes = {};
-  state.pendingCouncilEvent = null;
-  state.activeCouncilEvent = null;
-  state.councilUsedEvents = [];
-  state.silentDayChatHistory = [];
+  votes.oublierEgalite();
   council.clearCouncilEffects();
-  arreterFiletsAutonomes();
-  votes.clearTiebreakTimeout();
-  oublierTransfert();
-  state.chasseurPostContext = null;
-  state.pendingChasseurAfterTransfer = null;
-  state.skipWolvesSoundOnce = false;
-  state.deadChatHistory = [];
-  state.voteRateLimit.clear();
+  clearTimeout(state.pendingEndGameTimer);
+  Object.assign(state, partieNeuve());
   resetActivity();
-  if (state.stuckGameTimer) { clearTimeout(state.stuckGameTimer); state.stuckGameTimer = null; }
-  roles.resetMissionState();
-  state.gameStats = {
-    dayCount: 0, nightCount: 0,
-    firstDead: null, mayorName: null,
-    witchSaved: false, witchKilled: false,
-    deathLog: [], survivors: [], seerLog: [], petiteFilleLog: [], voteLog: [],
-    startTime: null
-  };
-
+  // Lumières : retour en scène lobby
+  lights.reset();
   if (keepPlayers) {
-    const survivingRegistry = {};
-    state.players.forEach(p => {
-      const key = p.name.toLowerCase();
-      survivingRegistry[key] = { id: p.id, oldId: p.id, name: p.name, role: null, isDead: false, photo: p.photo || null, isBot: !!p.isBot };
-    });
-    state.playerRegistry = survivingRegistry;
+    state.playerRegistry = Object.fromEntries(state.players.map(p => [p.name.toLowerCase(), entreeRegistre(p)]));
   } else {
     state.players = [];
     state.playerRegistry = {};
+    state.botCounter = 0;
   }
 }
 
 // ===== HANDLERS SOCKETS =====
+// Contrôles manuels d'urgence du MJ. Une étape de nuit démarre comme dans la nuit normale
+// (messages du rôle compris) ; si elle n'a pas lieu (rôle mort, Sorcière sans potion), c'est
+// l'étape suivante dans l'ordre de la nuit (roles.ETAPES_NUIT).
 function handleSetPhase(socket, p) {
   if (!isMJ(socket.id)) return;
-  if (p === "salvateur" && !vivantsAvecRole("Salvateur").length > 0) {
-    setPhase("wolves"); return;
-  }
-  if (p === "seer" && !vivantsAvecRole("Voyante").length > 0) {
-    setPhase("witch"); return;
-  }
-  if (p === "witch") {
-    // On saute la Sorcière si elle est morte ou n'a plus de potion
-    const witchAlive = vivantsAvecRole("Sorcière").length > 0;
-    if (!witchAlive || (state.witchSaveUsed && state.witchKillUsed)) {
-      roles.doResolveNight({ sansPause: true }); return;
-    }
-  }
-  setPhase(p);
+  const etape = roles.ETAPES_NUIT.find(([e]) => e === p);
+  if (etape) roles.lancerEtapeNuit(etape[1]() ? p : roles.etapeApres(p));
+  else setPhase(p);
 }
 
 function handlePauseGame(socket) {
@@ -857,15 +704,20 @@ function handleResumeGame(socket) {
   if (isMJ(socket.id)) resumeGame();
 }
 
-function handleReset(socket) {
+// « Reset » du MJ : retour au salon avec les mêmes joueurs (garderJoueurs = false : salon vidé,
+// pour les tests automatisés)
+function handleReset(socket, garderJoueurs = true) {
   if (!isMJ(socket.id)) return;
-  resetGameState(true);
+  resetGameState(garderJoueurs);
   state.io.emit("gameReset", { players: state.players });
   setPhase("lobby");
   state.io.emit("players", state.players);
 }
 
-function handleReplayGame(socket, config) {
+// « 🚀 Lancer la partie » et « Relancer » : tout est remis à zéro (sinon, lancée après une partie
+// terminée, elle gardait les morts, les amoureux et le maire de la précédente), puis les rôles
+// sont distribués
+function handleLancerPartie(socket, config) {
   if (!isMJ(socket.id)) return;
   resetGameState(true);
   state.io.emit("gameReset", { players: state.players });
@@ -878,12 +730,7 @@ function handleReplayGame(socket, config) {
 // de chargement circulaire (chacun a fait `const phases = require('./phases')`
 // avant que ce fichier n'ait fini d'exécuter).
 Object.assign(module.exports, {
-  ouvrirActionMJ,
-  setPhase, installPhaseTimeouts, clearPhaseTimeouts,
-  runBotsForPhase, scheduleBot,
-  checkVictory,
-  pauseGame, resumeGame, resetGameState,
-  startStuckTimer,
+  setPhase, ouvrirActionMJ, runBotsForPhase, scheduleBot, checkVictory,
   // Handlers
-  handleSetPhase, handlePauseGame, handleResumeGame, handleReset, handleReplayGame,
+  handleSetPhase, handlePauseGame, handleResumeGame, handleReset, handleLancerPartie,
 });

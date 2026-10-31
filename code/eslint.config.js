@@ -1,6 +1,6 @@
-// eslint.config.js — config plate ESLint 9 minimale.
-// Rules très conservatrices : surtout informationnelles (warn), pour faciliter
-// l'adoption sans bloquer le build sur des cosmétiques. Lance `npm run lint`.
+// eslint.config.js — configuration ESLint 9 minimale (`npm run lint`).
+// Règles prudentes, surtout informatives (avertissements). Les pages HTML ne sont pas
+// analysées : ESLint ne lit pas le JavaScript écrit dans une page.
 
 module.exports = [
   {
@@ -10,7 +10,7 @@ module.exports = [
       ecmaVersion: 2022,
       sourceType: "commonjs",
       globals: {
-        // Node globals essentiels
+        // Globales de Node utilisées par le serveur
         require: "readonly",
         module: "readonly",
         exports: "readonly",
@@ -34,8 +34,8 @@ module.exports = [
     }
   },
   {
-    // Fichiers front (HTML inline + JS dans public/)
-    files: ["public/**/*.js", "public/**/*.html"],
+    // Fichiers JS du front (public/js)
+    files: ["public/**/*.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "script",
@@ -65,8 +65,8 @@ module.exports = [
       }
     },
     rules: {
-      "no-unused-vars": "off",   // beaucoup de helpers utilisés inline dans HTML, faux positifs
-      "no-undef": "off",          // pareil — globals partagés entre les <script> du HTML
+      "no-unused-vars": "off",   // fonctions appelées depuis les pages : faux positifs
+      "no-undef": "off",          // pareil — globales partagées entre les <script> des pages
       "eqeqeq": ["warn", "smart"],
     }
   },

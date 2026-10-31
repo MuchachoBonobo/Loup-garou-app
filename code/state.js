@@ -25,7 +25,6 @@ const AMOUREUX_TIMEOUT_MS       = 15000;
 const CHASSEUR_TIMEOUT_MS       = 60000;
 const MAYOR_TRANSFER_TIMEOUT_MS = 60000;
 const VOTE_RATE_MS              = 1000;
-const CUPID_SOUND_MS            = 4000;
 const STUCK_TIMEOUT_MS          = 10 * 60 * 1000;
 const FAST_RESOLVE_MS           = 30000;
 const MISSION_TEAM_TIMEOUT_MS   = 120000;
@@ -38,183 +37,120 @@ const DAY_AUTO_START_DELAY_MS   = 2000;
 const BOT_MIN_DELAY_MS          = 2000;
 const BOT_MAX_DELAY_MS          = 8000;
 
+// ===== UNE PARTIE NEUVE =====
+// La valeur de chaque champ propre à une partie. L'état au démarrage du serveur, la remise à
+// zéro entre deux parties (phases.resetGameState) et la valeur d'un champ absent d'une
+// sauvegarde (snapshot.js) viennent toutes d'ici : un champ ajouté ici est remis à zéro partout.
+function partieNeuve() {
+  return {
+    // Rôles, morts, amoureux, maire
+    roles: {}, deadPlayers: [], lovers: [], mayor: null, deadChatHistory: [],
+
+    // Votes
+    votesDay: {}, votesWolf: {}, mayorVote: {}, voteMode: 1,
+    voteTimer: null, voteTimerEnd: null, lockedVoters: new Set(), voteRateLimit: new Map(),
+    dayResolutionPending: false,
+    // Vote du jour clos, résultat en cours d'annonce (suspense, égalité à trancher) : les
+    // boutons du vote sont ignorés jusqu'au changement de phase (remis à false par setPhase).
+    resolutionJourEnCours: false,
+    fastResolveTriggered: false,
+    nbVotesJour: 0,      // votes du jour résolus ou passés (l'Ange gagne au 1er)
+    angeVainqueur: null, // id de l'Ange désigné au 1er vote, le temps de la révélation
+
+    // Nuit
+    nightTarget: null, witchSaveUsed: false, witchKillUsed: false, witchSaveActive: false, witchKillTarget: null,
+    cupidDone: false, corbeauTarget: null, idiotRevealed: false, nightMusicPlayed: false,
+    protectedTarget: null, lastProtectedTarget: null,   // Salvateur : cette nuit, la nuit d'avant
+    amoureuxFin: null,               // fin des 15 s des amoureux (reconnexion)
+    sistersTimerEnd: null,           // fin des 20 s des Sœurs, posée à leur réveil (reconnexion, sauvegarde)
+    seerPendingResult: null,         // vision affichée, en attente du « OK » de la Voyante
+    petiteFillePendingResult: null,  // réponse affichée, en attente du « OK » de la Petite Fille
+    // Résolution de nuit en cours : endGame range sa fin de partie dans pendingEndGame,
+    // déclenchée après l'annonce de l'aube
+    inNightResolution: false, pendingEndGame: null,
+    pendingEndGameTimer: null,  // les 7 s avant l'écran de fin : annulées par un reset
+    pendingDayRecap: null,      // récap de la nuit pour le MJ, envoyé au plus tard au début du jour
+
+    // Rythme du MJ. Nuit : étape qui démarrera au clic « Passer à l'étape suivante » ("cupid",
+    // "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch" ou "aube") ;
+    // nuit en attente de son « 🌙 Lancer la nuit » ("premiere" ou "suivante") ; annonce du matin
+    // en cours (carte des morts sur les téléphones) ; évènement du jour annoncé ; tir du Chasseur
+    // ou transmission d'écharpe en attente de son clic ("chasseur" | "mayorTransfer").
+    etapeNuitSuivante: null, nuitEnAttente: null, annonceMatinEnCours: false, evenementAnnonce: false,
+    actionMJ: null,
+    // Reconnexions : ancien identifiant de connexion → identifiant actuel du même joueur.
+    // Permet d'accepter un choix envoyé depuis un écran construit avant la reconnexion.
+    aliasIds: {},
+
+    // Minuteries des phases (arrêtées par phases.clearPhaseTimeouts)
+    seerTimeout: null, petiteFilleTimeout: null, nightPauseTimeout: null, witchTimeout: null, cupidTimeout: null,
+    salvateurTimeout: null, sistersTimeout: null, amoureuxTimeout: null, corbeauTimeout: null,
+    chasseurTimeout: null, mayorTransferTimeout: null,
+
+    // Égalité à trancher par le maire
+    tiebreakPending: false, tiebreakCandidates: [], tiebreakContext: "",
+
+    // Transmission d'écharpe, tir du Chasseur
+    mayorTransferPending: false, dyingMayorId: null, dyingMayorWasChasseur: false, mayorTransferContext: "",
+    chasseurPostContext: null, currentChasseurShooter: null,
+    // Chasseur amoureux qui tirera après la transmission de l'écharpe (maire et Chasseur,
+    // deux amoureux distincts)
+    pendingChasseurAfterTransfer: null,
+
+    // Pause
+    gamePaused: false, pausedVoteRemainingMs: null,
+
+    // Mode autonome (réglé au lancement de la partie) et ses filets
+    autoMode: false, autoVoteMode: 1,
+    mayorAutoLockTimer: null, wolfConsensusTimer: null, wolvesAutoLockTimer: null, dayAutoStartTimer: null,
+    mayorAllVotedNotified: false,  // le MJ a déjà été prévenu que tout le monde a voté pour le maire
+
+    // Conseil des Morts (les minuteries d'ambiance restent dans council.js). Les évènements
+    // déjà proposés au vote (choisis ou non) ne réapparaissent pas ; Les Voix Étouffées :
+    // le chat écrit du jour (les vivants seuls écrivent).
+    councilOptions: null, councilVotes: {}, pendingCouncilEvent: null, activeCouncilEvent: null,
+    councilUsedEvents: [], silentDayChatHistory: [],
+
+    // Mission
+    mission: {
+      active: false, team: [], cards: {}, result: null, resultRevealed: false, bonusDone: false,
+      teamTimeout: null, cardTimeout: null, bonusTimeout: null,
+    },
+
+    // Journal de la partie : médailles et écrans de fin
+    gameStats: {
+      dayCount: 0, nightCount: 0,
+      firstDead: null, mayorName: null, witchSaved: false, witchKilled: false,
+      deathLog: [],        // chaque mort : { id, name, role, cause } (marquerMort)
+      seerLog: [],
+      petiteFilleLog: [],  // { names: [3 prénoms], auMoinsUnLoup } par nuit
+      voteLog: [],         // par vote du jour : [{ votant, cible, cibleRole }] (prénoms) — médailles
+    },
+  };
+}
+
 // ===== ÉTAT MUTABLE =====
 const state = {
-  // Connectivité (injectés au boot par server.js)
-  io: null,
-
-  // Joueurs / rôles / lobby
-  players:        [],
-  roles:          {},
-  deadPlayers:    [],
-  lovers:         [],
-  mayor:          null,
-  phase:          "lobby",
-  playerRegistry: {},
-  deadChatHistory: [],
-  mjSocketId:     null,
-
-  // Votes
-  votesDay:             {},
-  votesWolf:            {},
-  mayorVote:            {},
-  voteMode:             1,
-  voteTimer:            null,
-  voteTimerEnd:         null,
-  lockedVoters:         new Set(),
-  dayResolutionPending: false,
-  // Vote du jour clos, résultat en cours d'annonce (suspense, égalité à trancher) : les
-  // boutons du vote sont ignorés jusqu'au changement de phase (remis à false par setPhase).
-  resolutionJourEnCours: false,
-  fastResolveTriggered: false,
-  voteRateLimit:        new Map(),
-
-  // Nuit
-  nightTarget:      null,
-  witchSaveUsed:    false,
-  witchKillUsed:    false,
-  witchSaveActive:  false,
-  witchKillTarget:  null,
-  cupidDone:        false,
-  corbeauTarget:    null,
-  corbeauTimeout:   null,
-  idiotRevealed:    false,
-  nbVotesJour:      0,     // votes du jour résolus ou passés (l'Ange gagne au 1er)
-  angeVainqueur:    null,  // id de l'Ange désigné au 1er vote, le temps de la révélation
-  nightMusicPlayed: false,
-
-  // Salvateur
-  protectedTarget:     null,
-  lastProtectedTarget: null,
-  salvateurTimeout:    null,
-
-  // Sœurs jumelles
-  sistersTimeout:      null,
-  amoureuxTimeout:     null,
-  amoureuxFin:         null,  // fin des 15 s des amoureux (reconnexion)
-  sistersTimerEnd:     null,  // Date d'expiration du 20s (null si pas démarré) — utilisé pour reconnexion + persistance
-
-  // Timeouts divers
-  seerTimeout:          null,
-  seerPendingResult:    null,   // vision affichée, en attente du « OK » de la Voyante
-  petiteFilleTimeout:       null,
-  petiteFillePendingResult: null,  // réponse affichée, en attente du « OK » de la Petite Fille
-  // Nuit rythmée par le MJ : étape qui démarrera au clic « Passer à l'étape suivante »
-  // ("cupid", "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch" ou "aube").
-  etapeNuitSuivante:    null,
-  // Rythme du MJ : nuit en attente de son « 🌙 Lancer la nuit » ("premiere" ou "suivante"),
-  // annonce du matin en cours (carte des morts sur les téléphones), évènement du jour annoncé
-  nuitEnAttente:        null,
-  annonceMatinEnCours:  false,
-  evenementAnnonce:     false,
-  // Tir du Chasseur ou transmission d'écharpe en attente du clic du MJ ("chasseur" | "mayorTransfer")
-  actionMJ:             null,
-  // Reconnexions : ancien identifiant de connexion → identifiant actuel du même joueur.
-  // Permet d'accepter un choix envoyé depuis un écran construit avant la reconnexion.
-  aliasIds:             {},
-  nightPauseTimeout:    null,
-  witchTimeout:         null,
-  cupidTimeout:         null,
-  chasseurTimeout:      null,
-  mayorTransferTimeout: null,
-  stuckGameTimer:       null,
-  lastActivityTime:     Date.now(),
-
-  // Tiebreak
-  tiebreakPending:    false,
-  tiebreakCandidates: [],
-  tiebreakContext:    "",
-
-  // Transfert maire / chasseur
-  mayorTransferPending:  false,
-  dyingMayorId:          null,
-  dyingMayorWasChasseur: false,
-  mayorTransferContext:  "",
-  chasseurPostContext:   null,
-  currentChasseurShooter: null,
-  // Chasseur amoureux qui tirera après la transmission de l'écharpe (maire et Chasseur,
-  // deux amoureux distincts)
-  pendingChasseurAfterTransfer: null,
-
-  // Pause
-  gamePaused:            false,
-  pausedVoteRemainingMs: null,
-
-  // Mode autonome
-  autoMode:            false,
-  autoVoteMode:        1,
-  mayorAutoLockTimer:  null,
-  mayorAllVotedNotified: false,  // le MJ a déjà été prévenu que tout le monde a voté pour le maire
-  wolfConsensusTimer:  null,
-  wolvesAutoLockTimer: null,
-  dayAutoStartTimer:   null,
-
+  io: null,                 // injecté au démarrage par server.js
+  players: [], playerRegistry: {}, mjSocketId: null,
+  phase: "lobby",
   // true : jour piloté par le MJ — le vote ne démarre et ne s'affiche qu'à son signal ;
   // les joueurs voient « le jour se lève » puis l'écran de débat. Case de la préparation du MJ.
-  mjPilotedDay:        true,
-
-  // Conseil des Morts activé pour cette partie (case du MJ avant la partie, 2026-10-26)
-  conseilActif:        true,
-
-  // Bots
+  mjPilotedDay: true,
+  conseilActif: true,       // Conseil des Morts (case du MJ avant la partie)
   botCounter: 0,
-
-  // Reprise après crash : snapshot chargé au boot en attente d'arbitrage MJ
-  pendingRestore: null,
-
-  // Récap narratif jour
-  pendingDayRecap:     null,
-  skipWolvesSoundOnce: false,
-  // Résolution de nuit en cours : endGame range sa fin de partie dans pendingEndGame,
-  // déclenchée après l'annonce de l'aube
-  inNightResolution:   false,
-  pendingEndGame:      null,
-  pendingEndGameTimer: null,  // les 7 s avant l'écran de fin : annulées par un reset
-
-  // Conseil des morts (état partagé — les timers privés restent dans council.js)
-  councilOptions:        null,
-  councilVotes:          {},
-  pendingCouncilEvent:   null,
-  activeCouncilEvent:    null,
-  // Évènements déjà proposés au vote (qu'ils aient été choisis ou non) — ne réapparaissent pas
-  councilUsedEvents:     [],
-  // Les Voix Étouffées : historique du chat écrit du jour (vivants seuls écrivent)
-  silentDayChatHistory:  [],
-
-  // Mission
-  mission: {
-    active:        false,
-    team:          [],
-    cards:         {},
-    result:        null,
-    resultRevealed: false,
-    bonusDone:     false,
-    teamTimeout:   null,
-    cardTimeout:   null,
-    bonusTimeout:  null,
-  },
-
-  // Stats partie
-  gameStats: {
-    dayCount:    0,
-    nightCount:  0,
-    firstDead:   null,
-    mayorName:   null,
-    witchSaved:  false,
-    witchKilled: false,
-    deathLog:    [],
-    survivors:   [],
-    seerLog:     [],
-    petiteFilleLog: [],  // { names: [3 prénoms], auMoinsUnLoup } par nuit
-    voteLog:     [],     // par vote du jour : [{ votant, cible, cibleRole }] (prénoms) — médailles
-    startTime:   null,
-  },
+  pendingRestore: null,     // sauvegarde trouvée au démarrage, en attente de l'avis du MJ
+  // Alerte « partie bloquée »
+  stuckGameTimer: null, lastActivityTime: Date.now(),
+  ...partieNeuve(),
 };
 
 // ===== HELPERS =====
 function alivePlayers() {
   return state.players.filter(p => !state.deadPlayers.includes(p.id));
 }
+// Les vivants, sauf un (celui qui désigne : Chasseur, maire, robot…)
+function vivantsSauf(id) { return alivePlayers().filter(p => p.id !== id); }
 function computeCounts(votes) {
   let c = {};
   Object.values(votes).forEach(id => { c[id] = (c[id] || 0) + 1; });
@@ -234,6 +170,22 @@ function oublierTransfert() {
 function infosSalvateur() {
   return { lastProtectedId: state.lastProtectedTarget || null, lastProtectedName: state.lastProtectedTarget ? playerName(state.lastProtectedTarget) : null };
 }
+// Désignation du Corbeau (+2 voix au prochain vote du jour), tant que sa cible est en vie
+function infosCorbeau() {
+  const c = state.corbeauTarget;
+  return c && c !== "skip" && !state.deadPlayers.includes(c) ? { targetId: c, targetName: playerName(c) } : null;
+}
+// Tout ce que voit un mort quand il voit tout (jour non piloté) et chacun en fin de partie
+function visionComplete() {
+  return {
+    roles: state.roles, wolves: joueursAvecRole("Loup"), lovers: state.lovers, mayor: state.mayor,
+    votesDay: state.votesDay, votesWolf: state.votesWolf, mayorVote: state.mayorVote,
+  };
+}
+// Fiche d'un joueur dans le registre des prénoms (reconnexion, photo mémorisée)
+function entreeRegistre(p) {
+  return { id: p.id, oldId: p.id, name: p.name, role: null, photo: p.photo || null };
+}
 function hasRole(socketId, r) {
   return state.roles[socketId] === r && !state.deadPlayers.includes(socketId);
 }
@@ -252,6 +204,8 @@ function fisherYates(arr) {
   }
   return a;
 }
+// Un élément au hasard (undefined pour une liste vide)
+function auHasard(liste) { return liste[Math.floor(Math.random() * liste.length)]; }
 
 // Envoi à la tablette du MJ, s'il est connecté
 function versMJ(...args) {
@@ -301,28 +255,16 @@ function buildFullState(socketId) {
   // pas la vision spectateur complète
   snapshot.mjPilotedDay = !!state.mjPilotedDay;
   snapshot.nuitParMJ = !state.autoMode;
-  if (isDead && !state.mjPilotedDay) {
-    snapshot.deadVision = {
-      roles:     state.roles,
-      wolves:    joueursAvecRole("Loup"),
-      lovers:    state.lovers,
-      mayor:     state.mayor,
-      votesDay:  state.votesDay,
-      votesWolf: state.votesWolf,
-      mayorVote: state.mayorVote,
-    };
-  }
+  if (isDead && !state.mjPilotedDay) snapshot.deadVision = visionComplete();
 
-  // Reconnexion en plein milieu d'une phase nocturne : on indique au client qu'il
-  // doit ré-ouvrir le panneau correspondant (avec le timer restant le cas échéant).
-  // Aujourd'hui couvert : Sœurs et Salvateur. À étendre si besoin pour Voyante, Sorcière, Corbeau, Cupidon.
+  // Reconnexion pendant le tour des Sœurs ou du Salvateur : le téléphone rouvre son panneau
+  // (avec le temps restant). Les autres rôles reçoivent leur demande à part
+  // (server.js, resynchroniserApresReconnexion).
   if (!isDead) {
     const myRole = state.roles[socketId];
     if (state.phase === "sisters" && myRole === "Sœurs") {
-      const aliveSisters = vivantsAvecRole("Sœurs");
       snapshot.pendingSistersTurn = {
-        count: aliveSisters.length,
-        // sistersTimerEnd est non-null uniquement si le MJ a déjà lancé le 20s
+        count: vivantsAvecRole("Sœurs").length,
         timerEndsAt: state.sistersTimerEnd || null,
         // Temps restant calculé ici : le téléphone n'a pas forcément la même heure que le PC.
         timerRemainingMs: state.sistersTimerEnd ? Math.max(0, state.sistersTimerEnd - Date.now()) : null,
@@ -343,18 +285,48 @@ function idActuel(id) {
   return courant;
 }
 
+// Reconnexion : partout où l'ancien identifiant de connexion du joueur le désigne, le nouveau
+// le remplace (rôle, listes, votes, champs, journal des morts, anciens identifiants)
+const CHAMPS_JOUEUR = ["mayor", "currentChasseurShooter", "dyingMayorId", "corbeauTarget", "nightTarget", "witchKillTarget",
+  "protectedTarget", "lastProtectedTarget", "pendingChasseurAfterTransfer", "angeVainqueur"];
+function remplacerIdentifiant(ancien, nouveau, role) {
+  if (role) { state.roles[nouveau] = role; delete state.roles[ancien]; }
+  [state.lovers, state.deadPlayers, state.mission.team, state.tiebreakCandidates].forEach(liste => {
+    const i = liste.indexOf(ancien);
+    if (i >= 0) liste[i] = nouveau;
+  });
+  CHAMPS_JOUEUR.forEach(k => { if (state[k] === ancien) state[k] = nouveau; });
+  // Votes dirigés contre lui : ils pointaient sur l'ancien identifiant et étaient comptés à
+  // part — un joueur pouvait échapper au vote en se reconnectant
+  [state.votesDay, state.votesWolf, state.mayorVote].forEach(urne => {
+    Object.keys(urne).forEach(votant => { if (urne[votant] === ancien) urne[votant] = nouveau; });
+  });
+  // Ses propres bulletins, et sa carte de mission
+  [state.votesDay, state.votesWolf, state.mayorVote, state.councilVotes, state.mission.cards].forEach(urne => {
+    if (urne[ancien] !== undefined) { urne[nouveau] = urne[ancien]; delete urne[ancien]; }
+  });
+  if (state.lockedVoters.delete(ancien)) state.lockedVoters.add(nouveau);
+  if (state.voteRateLimit.has(ancien)) { state.voteRateLimit.set(nouveau, state.voteRateLimit.get(ancien)); state.voteRateLimit.delete(ancien); }
+  // Journal des morts : son rôle reste affiché à côté de son nom
+  state.gameStats.deathLog.forEach(d => { if (d.id === ancien) d.id = nouveau; });
+  // Tous ses anciens identifiants pointent désormais vers le nouveau
+  Object.keys(state.aliasIds).forEach(k => { if (state.aliasIds[k] === ancien) state.aliasIds[k] = nouveau; });
+  state.aliasIds[ancien] = nouveau;
+}
+
 module.exports = {
-  state, idActuel,
+  state, partieNeuve, idActuel, remplacerIdentifiant,
   // Constantes
   CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS,
   PETITE_FILLE_TIMEOUT_MS, PETITE_FILLE_ACK_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS, WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS,
   SISTERS_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS,
-  CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS, VOTE_RATE_MS, CUPID_SOUND_MS,
+  CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS, VOTE_RATE_MS,
   STUCK_TIMEOUT_MS, FAST_RESOLVE_MS,
   MISSION_TEAM_TIMEOUT_MS, MISSION_CARD_TIMEOUT_MS, MISSION_BONUS_TIMEOUT_MS,
   MAYOR_AUTO_TIMEOUT_MS, WOLVES_AUTO_TIMEOUT_MS, WOLF_CONSENSUS_GRACE_MS,
   DAY_AUTO_START_DELAY_MS, BOT_MIN_DELAY_MS, BOT_MAX_DELAY_MS,
   // Helpers
-  alivePlayers, computeCounts, hasRole, isMJ, playerName, fisherYates, versMJ, joueursAvecRole, vivantsAvecRole, oublierTransfert, infosSalvateur,
+  alivePlayers, vivantsSauf, computeCounts, hasRole, isMJ, playerName, fisherYates, auHasard, versMJ,
+  joueursAvecRole, vivantsAvecRole, oublierTransfert, infosSalvateur, infosCorbeau, visionComplete, entreeRegistre,
   resetActivity, buildFullState,
 };

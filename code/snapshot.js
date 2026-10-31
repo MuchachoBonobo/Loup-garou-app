@@ -16,41 +16,44 @@
 const fs   = require('fs');
 const path = require('path');
 const log  = require('./logger');
+const { partieNeuve } = require('./state');
 
 // SNAPSHOT_DIR permet aux tests d'utiliser un dossier jetable (sinon une partie
 // de test serait proposée en « reprise » au prochain vrai lancement).
 const SNAP_DIR  = process.env.SNAPSHOT_DIR || path.join(__dirname, 'snapshots');
-try { if (!fs.existsSync(SNAP_DIR)) fs.mkdirSync(SNAP_DIR, { recursive: true }); } catch (_) {}
+try { if (!fs.existsSync(SNAP_DIR)) fs.mkdirSync(SNAP_DIR, { recursive: true }); } catch { /* écrit plus tard, ou journalisé */ }
 
 const SNAP_FILE = path.join(SNAP_DIR, 'state-snapshot.json');
 const SAVE_INTERVAL_MS = 5000;
 
 let saveTimer = null;
 
-// Champs sauvegardés, avec la valeur qu'ils prennent quand ils manquent à la relecture :
-// chaque champ n'est écrit qu'ici (deux listes parallèles, une pour écrire et une pour relire,
-// avaient laissé des champs oubliés à la reprise). Relu selon sa valeur par défaut : un booléen
-// en vrai/faux, un nombre en nombre, le reste tel quel ou la valeur par défaut.
-const CHAMPS = {
+// Champs sauvegardés : cette liste sert à écrire ET à relire (deux listes parallèles avaient
+// laissé des champs oubliés à la reprise). Un champ absent d'une sauvegarde reprend sa valeur
+// d'une partie neuve (state.partieNeuve). Relu selon cette valeur : un booléen en vrai/faux,
+// un nombre en nombre, le reste tel quel ou la valeur par défaut.
+const CHAMPS = [
   // Phase et infos partie
-  phase: undefined, players: [], roles: {}, deadPlayers: [], lovers: [], mayor: null, playerRegistry: {}, deadChatHistory: [],
+  "phase", "players", "roles", "deadPlayers", "lovers", "mayor", "playerRegistry", "deadChatHistory",
   // Votes
-  votesDay: {}, votesWolf: {}, mayorVote: {}, voteMode: 1, voteTimerEnd: null, fastResolveTriggered: false,
+  "votesDay", "votesWolf", "mayorVote", "voteMode", "voteTimerEnd", "fastResolveTriggered",
   // Nuit
-  nightTarget: null, witchSaveUsed: false, witchKillUsed: false, witchSaveActive: false, witchKillTarget: null,
-  cupidDone: false, corbeauTarget: null, idiotRevealed: false, nbVotesJour: 0, angeVainqueur: null,
+  "nightTarget", "witchSaveUsed", "witchKillUsed", "witchSaveActive", "witchKillTarget",
+  "cupidDone", "corbeauTarget", "idiotRevealed", "nbVotesJour", "angeVainqueur",
   // Salvateur, Sœurs, rythme du MJ
-  protectedTarget: null, lastProtectedTarget: null, sistersTimerEnd: null, etapeNuitSuivante: null,
-  nuitEnAttente: null, evenementAnnonce: false, aliasIds: {},
+  "protectedTarget", "lastProtectedTarget", "sistersTimerEnd", "etapeNuitSuivante",
+  "nuitEnAttente", "evenementAnnonce", "aliasIds",
   // Conseil des morts, récap, égalité
-  activeCouncilEvent: null, pendingCouncilEvent: null, silentDayChatHistory: [], pendingDayRecap: null,
-  tiebreakPending: false, tiebreakCandidates: [], tiebreakContext: "",
+  "activeCouncilEvent", "pendingCouncilEvent", "silentDayChatHistory", "pendingDayRecap",
+  "tiebreakPending", "tiebreakCandidates", "tiebreakContext",
   // Mode autonome, pause
-  autoMode: false, autoVoteMode: 1, gamePaused: false,
+  "autoMode", "autoVoteMode", "gamePaused",
   // Chasseur, transmission d'écharpe
-  currentChasseurShooter: null, chasseurPostContext: null,
-  dyingMayorId: null, mayorTransferPending: false, dyingMayorWasChasseur: false, mayorTransferContext: "",
-};
+  "currentChasseurShooter", "chasseurPostContext",
+  "dyingMayorId", "mayorTransferPending", "dyingMayorWasChasseur", "mayorTransferContext",
+];
+// Valeur par défaut : celle d'une partie neuve ; la phase est reprise telle quelle
+const defauts = () => ({ ...partieNeuve(), phase: undefined, players: [], playerRegistry: {} });
 const relire = (v, defaut) => typeof defaut === "boolean" ? !!v
   : typeof defaut === "number" ? (+v || defaut)
   : defaut === undefined ? v
@@ -61,7 +64,7 @@ const relire = (v, defaut) => typeof defaut === "boolean" ? !!v
 function serializeState(state) {
   return {
     savedAt: new Date().toISOString(),
-    ...Object.fromEntries(Object.keys(CHAMPS).map(k => [k, state[k]])),
+    ...Object.fromEntries(CHAMPS.map(k => [k, state[k]])),
     lockedVoters: Array.from(state.lockedVoters || []),
     mission: state.mission ? {
       active: state.mission.active,
@@ -80,14 +83,12 @@ function serializeState(state) {
 // Repose les champs du snapshot dans state. Les Sets/Maps sont reconstitués.
 // Ne touche PAS aux timers ni à state.io.
 function applySnapshot(state, snap) {
-  for (const [k, defaut] of Object.entries(CHAMPS)) state[k] = relire(snap[k], defaut);
+  const d = defauts();
+  for (const k of CHAMPS) state[k] = relire(snap[k], d[k]);
   state.lockedVoters = new Set(snap.lockedVoters || []);
   if (snap.mission) Object.assign(state.mission, snap.mission);
-  if (snap.gameStats) {
-    state.gameStats = snap.gameStats;
-    // Sauvegarde antérieure à la Petite Fille enquêtrice : journal absent
-    if (!Array.isArray(state.gameStats.petiteFilleLog)) state.gameStats.petiteFilleLog = [];
-  }
+  // Journal de la partie : une sauvegarde plus ancienne garde les rubriques apparues depuis
+  if (snap.gameStats) state.gameStats = { ...d.gameStats, ...snap.gameStats };
   // Absents des anciennes sauvegardes : on garde alors la valeur en place
   if (typeof snap.mjPilotedDay === 'boolean') state.mjPilotedDay = snap.mjPilotedDay;
   if (typeof snap.conseilActif === 'boolean') state.conseilActif = snap.conseilActif;
@@ -106,7 +107,7 @@ function saveSnapshot(state) {
     fs.writeFileSync(tmp, JSON.stringify(data));
     fs.renameSync(tmp, SNAP_FILE);  // atomique
   } catch (e) {
-    log.error('snapshot save failed', e.message);
+    log.error('sauvegarde impossible', e.message);
   }
 }
 
@@ -115,13 +116,13 @@ function loadSnapshot() {
     if (!fs.existsSync(SNAP_FILE)) return null;
     return JSON.parse(fs.readFileSync(SNAP_FILE, 'utf8'));
   } catch (e) {
-    log.error('snapshot load failed', e.message);
+    log.error('sauvegarde illisible', e.message);
     return null;
   }
 }
 
 function clearSnapshot() {
-  try { if (fs.existsSync(SNAP_FILE)) fs.unlinkSync(SNAP_FILE); } catch (_) {}
+  try { if (fs.existsSync(SNAP_FILE)) fs.unlinkSync(SNAP_FILE); } catch { /* déjà absente */ }
 }
 
 function dumpCrash(state, err) {
@@ -136,7 +137,7 @@ function dumpCrash(state, err) {
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
     return file;
   } catch (e) {
-    log.error('crash dump failed', e.message);
+    log.error('dump du plantage impossible', e.message);
     return null;
   }
 }
@@ -152,11 +153,11 @@ function cleanOldCrashes(maxAgeDays) {
       try {
         const { mtimeMs } = fs.statSync(fp);
         if (mtimeMs < cutoff) { fs.unlinkSync(fp); removed++; }
-      } catch (_) {}
+      } catch { /* fichier déjà parti */ }
     }
-    if (removed > 0) log.info('crash cleanup', `removed ${removed} crash snapshot(s) older than ${days}d`);
+    if (removed > 0) log.info('ménage des plantages', `${removed} dump(s) de plus de ${days} jours supprimé(s)`);
   } catch (e) {
-    log.error('crash cleanup failed', e.message);
+    log.error('ménage des plantages impossible', e.message);
   }
 }
 
@@ -164,7 +165,7 @@ function startPeriodicSave(state) {
   stopPeriodicSave();
   cleanOldCrashes();
   saveTimer = setInterval(() => saveSnapshot(state), SAVE_INTERVAL_MS);
-  log.info('snapshot periodic save started', `interval=${SAVE_INTERVAL_MS}ms`);
+  log.info('sauvegarde périodique lancée', `intervalle=${SAVE_INTERVAL_MS}ms`);
 }
 
 function stopPeriodicSave() {
@@ -173,7 +174,5 @@ function stopPeriodicSave() {
 
 module.exports = {
   SNAP_DIR,   // dossier des sauvegardes (aussi utilisé par soiree.js)
-  serializeState, applySnapshot,
-  saveSnapshot, loadSnapshot, clearSnapshot, dumpCrash,
-  startPeriodicSave, stopPeriodicSave, cleanOldCrashes,
+  applySnapshot, loadSnapshot, clearSnapshot, dumpCrash, startPeriodicSave,
 };

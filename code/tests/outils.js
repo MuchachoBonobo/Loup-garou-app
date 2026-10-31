@@ -30,7 +30,7 @@ function demarrerServeur(port, { viderDossier = true, surLigne } = {}) {
     const lire = d => {
       const t = String(d);
       if (surLigne) surLigne(t);
-      if (/TypeError|ReferenceError|RangeError|UNCAUGHT|UNHANDLED|Cannot read|is not a function|is not defined/.test(t)) {
+      if (/TypeError|ReferenceError|RangeError|NON RATTRAPÉE|NON TRAITÉE|Cannot read|is not a function|is not defined/.test(t)) {
         const e = t.trim().slice(0, 400);
         erreurs.push(e); erreursServeur.push(e); console.log("[serveur] " + e);
       }

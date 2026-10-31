@@ -1,6 +1,6 @@
 // narration.js — Dictionnaire de variantes par transition de phase + narrate()
 // La narration est jouée en TTS côté MJ.
-const { state, versMJ } = require('./state');
+const { state, versMJ, auHasard } = require('./state');
 
 let narrationEnabled = false;  // OFF par défaut — peut être activé via socket "setNarration"
 
@@ -246,11 +246,11 @@ function narrate(fromPhase, toPhase) {
   if (fromPhase === toPhase) return;
   const variants = pickNarrationVariant(fromPhase, toPhase);
   if (!variants || !variants.length) return;
-  const text = variants[Math.floor(Math.random() * variants.length)];
+  const text = auHasard(variants);
   // Petit délai pour laisser les sons de rôle (loup, voyante, etc.) finir ; rien si la
   // phase a changé entre-temps (ex. victoire → lobby)
   setTimeout(() => {
-    if (state.mjSocketId && state.phase === toPhase) {
+    if (state.phase === toPhase) {
       versMJ("narrate", { text });
     }
   }, 900);
@@ -260,4 +260,4 @@ function setNarrationEnabled(enabled) {
   narrationEnabled = !!enabled;
 }
 
-module.exports = { narrate, setNarrationEnabled, NARRATIONS };
+module.exports = { narrate, setNarrationEnabled };

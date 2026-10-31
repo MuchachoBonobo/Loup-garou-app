@@ -1,9 +1,11 @@
 // council.js — Conseil des Morts : événements, vote, résolution, effets sonores.
 // L'état partagé (councilOptions, councilVotes, pendingCouncilEvent, activeCouncilEvent,
-// councilEverTriggered) vit dans state.js pour que votes.js puisse lire activeCouncilEvent.
+// councilUsedEvents) vit dans state.js pour que votes.js puisse lire activeCouncilEvent.
 // Seuls les timers d'ambiance (cloche, murmures, tonnerre) restent privés ici.
+// Chaque évènement porte ses effets (`technical`) : votes.js lit le mode et la durée du vote
+// et le pouvoir du maire par effetDuJour().
 
-const { state, isMJ, alivePlayers, playerName, fisherYates, versMJ } = require('./state');
+const { state, isMJ, vivantsSauf, playerName, fisherYates, auHasard, versMJ } = require('./state');
 const lights = require('./lights');
 const log    = require('./logger');
 
@@ -156,13 +158,13 @@ function startCouncil() {
   });
   state.councilOptions = options;
   state.councilVotes = {};
-  const optionPayload = state.councilOptions.map(id => ({
-    id, title: COUNCIL_EVENTS[id].title
-  }));
-  state.deadPlayers.forEach(did => {
-    state.io.to(did).emit("councilStart", { options: optionPayload });
-  });
-  versMJ("councilStartMJ", { options: optionPayload });
+  state.deadPlayers.forEach(did => state.io.to(did).emit("councilStart", optionsDuConseil()));
+  versMJ("councilStartMJ", optionsDuConseil());
+}
+
+// Les évènements soumis au vote des morts, tels que les écrans les reçoivent (ouverture, reconnexion)
+function optionsDuConseil() {
+  return { options: state.councilOptions.map(id => ({ id, title: COUNCIL_EVENTS[id].title })) };
 }
 
 function resolveCouncil() {
@@ -175,11 +177,10 @@ function resolveCouncil() {
   const totalVotes = Object.values(counts).reduce((a, b) => a + b, 0);
   let winner = null;
   if (totalVotes === 0) {
-    winner = state.councilOptions[Math.floor(Math.random() * state.councilOptions.length)];
+    winner = auHasard(state.councilOptions);
   } else {
     const max = Math.max(...Object.values(counts));
-    const tied = Object.entries(counts).filter(([, v]) => v === max).map(([k]) => k);
-    winner = tied[Math.floor(Math.random() * tied.length)];
+    winner = auHasard(Object.entries(counts).filter(([, v]) => v === max).map(([k]) => k));
   }
   state.pendingCouncilEvent = winner;
   // Le MJ reçoit le récit complet de ce qui se passera demain, pas seulement le titre
@@ -200,6 +201,12 @@ function evenementPublic(id) {
   return ev ? { id: ev.id, title: ev.title, narrative: ev.narrative } : null;
 }
 
+// Effets de l'évènement du jour (`technical`), ou aucun
+function effetDuJour() {
+  const ev = state.activeCouncilEvent && COUNCIL_EVENTS[state.activeCouncilEvent];
+  return (ev && ev.technical) || {};
+}
+
 function clearCouncilEffects() {
   if (councilBellTimer)    { clearInterval(councilBellTimer);    councilBellTimer    = null; }
   if (councilMurmursTimer) { clearTimeout(councilMurmursTimer);  councilMurmursTimer = null; }
@@ -217,53 +224,44 @@ function applyCouncilEvent(eventId) {
     parMJ: annonceMatinParMJ()
   });
   // Scène lumineuse spécifique à l'évènement (recouvre la scène "day")
-  try { lights.applyScene("council." + ev.id); } catch (_) {}
-  if (ev.technical) {
-    if (ev.technical.dayMusic === "night" && state.mjSocketId) {
-      versMJ("councilMusicOverride", "night");
-    }
-    if (ev.technical.stormSound && state.mjSocketId) {
-      versMJ("councilStormStart");
-      // Tonnerre toutes les 30 secondes pendant le jour
-      const tickThunder = () => {
-        councilThunderTimer = setTimeout(() => {
-          if (state.mjSocketId && state.phase === "day") {
-            versMJ("soundPlay", "thunder");
-            try { lights.flash("flash.lightning"); } catch (_) {}
-            tickThunder();
-          } else {
-            councilThunderTimer = null;
-          }
-        }, 30000);
-      };
-      tickThunder();
-    }
-    if (ev.technical.bellInterval && state.mjSocketId) {
-      // La cloche sonne immédiatement à l'apparition de l'événement
-      versMJ("soundPlay", "church_bell");
-      try { lights.flash("flash.bell"); } catch (_) {}
-      councilBellTimer = setInterval(() => {
-        if (state.mjSocketId && state.phase === "day") {
-          versMJ("soundPlay", "church_bell");
-          try { lights.flash("flash.bell"); } catch (_) {}
+  lights.applyScene("council." + ev.id);
+  // Effets d'ambiance. La cloche et le tonnerre continuent toute la journée, même si la
+  // tablette du MJ se recharge entre-temps (les lumières, elles, ne dépendent pas d'elle).
+  const effet = ev.technical || {};
+  if (effet.dayMusic === "night") versMJ("councilMusicOverride", "night");
+  if (effet.stormSound) {
+    versMJ("councilStormStart");
+    // Tonnerre toutes les 30 secondes pendant le jour
+    const tickThunder = () => {
+      councilThunderTimer = setTimeout(() => {
+        if (state.phase === "day") {
+          versMJ("soundPlay", "thunder");
+          lights.flash("flash.lightning");
+          tickThunder();
         } else {
-          clearInterval(councilBellTimer); councilBellTimer = null;
+          councilThunderTimer = null;
         }
-      }, 45000);
-    }
-    if (ev.technical.murmurSound && state.mjSocketId) {
-      // Murmures : remplace la musique du jour par « murmures.mp3 » en boucle
-      versMJ("councilMurmursStart");
-    }
-    if (ev.technical.abdication) {
-      triggerAbdicationPrompt();
-    }
-    if (ev.technical.dayChat) {
-      // Les Voix Étouffées : on (re)initialise l'historique pour la séance et
-      // on notifie tous les clients qu'ils doivent afficher le panneau de chat.
-      state.silentDayChatHistory = [];
-      state.io.emit("silentDayChatStart");
-    }
+      }, 30000);
+    };
+    tickThunder();
+  }
+  if (effet.bellInterval) {
+    // La cloche sonne immédiatement à l'apparition de l'événement, puis toutes les 45 s
+    const sonner = () => { versMJ("soundPlay", "church_bell"); lights.flash("flash.bell"); };
+    sonner();
+    councilBellTimer = setInterval(() => {
+      if (state.phase === "day") sonner();
+      else { clearInterval(councilBellTimer); councilBellTimer = null; }
+    }, 45000);
+  }
+  // Murmures : remplace la musique du jour par « murmures.mp3 » en boucle
+  if (effet.murmurSound) versMJ("councilMurmursStart");
+  if (effet.abdication) triggerAbdicationPrompt();
+  if (effet.dayChat) {
+    // Les Voix Étouffées : on (re)initialise l'historique pour la séance et
+    // on notifie tous les clients qu'ils doivent afficher le panneau de chat.
+    state.silentDayChatHistory = [];
+    state.io.emit("silentDayChatStart");
   }
 }
 
@@ -293,9 +291,7 @@ function finAnnonceMatin(fermerEvenement) {
 // pick dans le délai imparti, on tire au hasard pour ne pas bloquer la partie.
 function triggerAbdicationPrompt() {
   if (!state.mayor || state.deadPlayers.includes(state.mayor)) return;
-  const candidates = alivePlayers()
-    .filter(p => p.id !== state.mayor)
-    .map(p => ({ id: p.id, name: p.name }));
+  const candidates = vivantsSauf(state.mayor).map(p => ({ id: p.id, name: p.name }));
   if (candidates.length === 0) return;
 
   state.io.to(state.mayor).emit("mayorMustAbdicate", { candidates });
@@ -308,10 +304,8 @@ function triggerAbdicationPrompt() {
     // Filet : si toujours pas tranché et l'event est encore actif, choix random.
     if (state.activeCouncilEvent !== "abdication") return;
     if (!state.mayor || state.deadPlayers.includes(state.mayor)) return;
-    const stillAlive = alivePlayers().filter(p => p.id !== state.mayor);
-    if (stillAlive.length === 0) return;
-    const pick = stillAlive[Math.floor(Math.random() * stillAlive.length)];
-    applyAbdication(pick.id, /*forced=*/true);
+    const pick = auHasard(vivantsSauf(state.mayor));
+    if (pick) applyAbdication(pick.id, /*forced=*/true);
   }, ABDICATION_TIMEOUT_MS);
 }
 
@@ -327,11 +321,8 @@ function applyAbdication(newMayorId, forced) {
   state.mayor = newMayorId;
   state.gameStats.mayorName = playerName(newMayorId);
 
-  // Empêche un nouveau prompt (l'abdication est consommée pour cette journée)
-  // en désactivant le flag technique : on garde activeCouncilEvent="abdication"
-  // pour la cohérence visuelle, mais on marque la consommation.
   state.io.emit("newMayor", state.mayor);
-  try { lights.flash("flash.bell"); } catch (_) {}
+  lights.flash("flash.bell");
   state.io.emit("mayorAbdicated", {
     oldMayorId: oldMayor, oldMayorName: playerName(oldMayor),
     newMayorId: newMayorId, newMayorName: playerName(newMayorId),
@@ -372,7 +363,6 @@ function handleSilentDayChat(socket, payload) {
   const clean = text.trim().slice(0, 200).replace(/[<>]/g, '');
   if (!clean) return;
   const msg = { name: playerName(socket.id), text: clean, ts: Date.now() };
-  if (!state.silentDayChatHistory) state.silentDayChatHistory = [];
   state.silentDayChatHistory.push(msg);
   if (state.silentDayChatHistory.length > 200) state.silentDayChatHistory.shift();
   state.io.emit("silentDayChatMsg", msg);
@@ -380,16 +370,15 @@ function handleSilentDayChat(socket, payload) {
 
 function handleSilentDayChatHistory(socket) {
   if (state.activeCouncilEvent !== "silencedVoices") return;
-  socket.emit("silentDayChatHistory", state.silentDayChatHistory || []);
+  socket.emit("silentDayChatHistory", state.silentDayChatHistory);
 }
 
 module.exports = {
-  COUNCIL_EVENTS, evenementPublic,
+  evenementPublic, effetDuJour, optionsDuConseil,
   COUNCIL_TRIGGER_THRESHOLD,
   startCouncil,
   resolveCouncil,
   clearCouncilEffects,
-  applyCouncilEvent,
   annonceMatinParMJ, annoncerEvenement, finAnnonceMatin,
   handleCouncilVote,
   handleAbdicationChoice,

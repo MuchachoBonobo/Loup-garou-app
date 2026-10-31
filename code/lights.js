@@ -2,7 +2,8 @@
  * lights.js — Pilote Philips Hue pour Loup-Garou.
  *
  * Mode "fire-and-forget" : aucun appel ne bloque le moteur de jeu, aucune
- * erreur réseau ne fait crasher quoi que ce soit. Si LIGHTS_ENABLED != "true"
+ * erreur ne remonte au jeu (les fonctions publiques et l'appel réseau l'arrêtent ici :
+ * les modules du jeu appellent les lumières sans précaution). Si LIGHTS_ENABLED != "true"
  * (défaut), le module est totalement dormant — pratique tant que tu n'as pas
  * de Bridge / pas envie d'allumer les lumières.
  *
@@ -62,6 +63,12 @@ function callHue(payload) {
   }
   lastCallAt = now;
 
+  // Souvent appelé depuis un minuteur : une erreur (réglage du .env illisible…) y
+  // arrêterait le serveur
+  try { envoyerAuBridge(payload); } catch (e) { _log("err:", e.message); }
+}
+
+function envoyerAuBridge(payload) {
   const body = JSON.stringify(payload);
   const req = https.request({
     hostname: CONFIG.bridgeIp,
@@ -282,4 +289,9 @@ if (_ready()) {
   console.warn("[lights] LIGHTS_ENABLED=true mais HUE_BRIDGE_IP/HUE_API_KEY/HUE_GROUP_ID manquant — dormant.");
 }
 
-module.exports = { applyScene, flash, flashSequence, reset, status, SCENES };
+// Une erreur des lumières ne doit jamais interrompre le jeu : elle s'arrête ici
+const sansErreur = f => (...args) => { try { return f(...args); } catch (e) { _log("err:", e.message); } };
+module.exports = {
+  applyScene: sansErreur(applyScene), flash: sansErreur(flash), flashSequence: sansErreur(flashSequence),
+  reset: sansErreur(reset), status,
+};
