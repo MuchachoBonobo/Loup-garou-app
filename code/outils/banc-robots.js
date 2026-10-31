@@ -7,7 +7,7 @@
 //   Plusieurs bancs en parallèle : un port et une graine différents par banc.
 //   CFG_FIXE='{"N":9,"cfg":{...}}' impose une composition (pour reproduire une anomalie).
 // Chaque anomalie est imprimée avec le déroulé des derniers évènements et lignes du serveur.
-const { sleep, demarrerServeur, arreterServeur, connecter, piloterMJ } = require("../tests/outils");
+const { sleep, demarrerServeur, arreterServeur, connecterMJ, piloterMJ } = require("../tests/outils");
 
 const PORT = +process.argv[2] || 3111;
 const NB = +process.argv[3] || 3;
@@ -32,9 +32,7 @@ async function partie(num) {
   // Le déroulé horodaté ; une anomalie l'emporte avec elle, avec les dernières lignes du serveur
   const noter = l => { journal.push(((Date.now() - t0) / 1000).toFixed(1) + "s " + l); };
   const anomalie = m => { viol.push(m + "\n      déroulé : " + journal.slice(-18).join(" | ") + "\n      serveur : " + lignesServeur.slice(-30).join(" || ")); };
-  const mj = await connecter(PORT);
-  mj.emit("registerMJ"); mj.emit("discardCrashRecovery");
-  await sleep(300);
+  const { mj } = await connecterMJ(PORT);
   mj.emit("fullReset");
   await sleep(600);
 

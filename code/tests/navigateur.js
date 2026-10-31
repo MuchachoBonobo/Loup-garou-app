@@ -21,7 +21,7 @@ const puppeteer = require("puppeteer-core");
 const { sleep, demarrerServeur, arreterServeur, compteur } = require("./outils");
 
 const CHROME = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
-const { check, bilan } = compteur();
+const { check, bilan, arret } = compteur();
 const erreursJS = [];
 
 // Un élément est-il affiché (ni display:none, ni caché, ni transparent) ?
@@ -307,4 +307,4 @@ async function main() {
   await navigateur.close();
   process.exit(bilan());
 }
-main().catch(e => { console.error("Erreur fatale :", e.message); process.exit(2); });
+main().catch(arret);

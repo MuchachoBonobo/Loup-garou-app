@@ -1,12 +1,17 @@
 // tests/outils.js — outils communs à tous les tests (et au banc de robots) : serveur jetable,
-// faux téléphones, attentes, MJ automatique, compte des vérifications. Un changement ici vaut
-// pour tous les tests.
+// faux téléphones, tablette du MJ, attentes, MJ automatique, compte des vérifications, arrêt
+// imprévu. Un changement ici vaut pour tous les tests.
 "use strict";
 const { spawn } = require("child_process");
 const path = require("path"), os = require("os"), fs = require("fs");
 const { io: ioc } = require("socket.io-client");
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Tous les serveurs jetables du test : ceux encore allumés (à éteindre si le test s'arrête net)
+// et leurs erreurs JavaScript (qui font échouer le bilan)
+const serveursAllumes = new Set();
+const erreursServeur = [];
 
 // Serveur jetable : lumières coupées, sauvegardes dans un dossier temporaire (vidé au départ,
 // sauf `viderDossier: false` pour une reprise après plantage). `surLigne(texte)` reçoit tout ce
@@ -25,8 +30,11 @@ function demarrerServeur(port, { viderDossier = true, surLigne } = {}) {
     const lire = d => {
       const t = String(d);
       if (surLigne) surLigne(t);
-      if (/TypeError|ReferenceError|RangeError|UNCAUGHT|UNHANDLED|Cannot read|is not a function|is not defined/.test(t)) { erreurs.push(t.trim().slice(0, 400)); console.log("[serveur] " + t.trim().slice(0, 400)); }
-      if (!pret && t.includes("démarré")) { pret = true; res(Object.assign(srv, { dossier, erreurs })); }
+      if (/TypeError|ReferenceError|RangeError|UNCAUGHT|UNHANDLED|Cannot read|is not a function|is not defined/.test(t)) {
+        const e = t.trim().slice(0, 400);
+        erreurs.push(e); erreursServeur.push(e); console.log("[serveur] " + e);
+      }
+      if (!pret && t.includes("démarré")) { pret = true; serveursAllumes.add(srv); res(Object.assign(srv, { dossier, erreurs })); }
     };
     srv.stdout.on("data", lire);
     srv.stderr.on("data", lire);
@@ -37,6 +45,7 @@ function demarrerServeur(port, { viderDossier = true, surLigne } = {}) {
 // Arrêt du serveur : normal, ou brutal comme un plantage ; son dossier de sauvegardes est effacé,
 // sauf s'il doit servir à la reprise
 async function arreterServeur(srv, { brutal = false, garderDossier = false } = {}) {
+  serveursAllumes.delete(srv);
   if (srv.exitCode === null) await new Promise(r => { srv.once("exit", r); srv.kill(brutal ? "SIGKILL" : "SIGTERM"); });
   if (!garderDossier) try { fs.rmSync(srv.dossier, { recursive: true, force: true }); } catch { /* dossier temporaire : tant pis s'il résiste */ }
 }
@@ -51,6 +60,17 @@ function connecter(port, nom) {
   });
 }
 
+// Tablette du MJ : connectée, reconnue par le serveur (`etat` = ce qu'il renvoie à une tablette
+// rechargée) ; une sauvegarde d'avant plantage est écartée, sauf `reprise: true`
+async function connecterMJ(port, { reprise = false } = {}) {
+  const mj = await connecter(port);
+  const reponse = attendre(mj, "mjReconnected", 5000);
+  mj.emit("registerMJ");
+  const etat = await reponse;
+  if (!reprise) mj.emit("discardCrashRecovery");
+  return { mj, etat };
+}
+
 // Attend un message du serveur ; `filtre` écarte ceux qui ne conviennent pas
 function attendre(s, evenement, ms = 10000, filtre) {
   return new Promise((res, rej) => {
@@ -60,6 +80,8 @@ function attendre(s, evenement, ms = 10000, filtre) {
   });
 }
 const attendrePhase = (s, phase, ms = 15000) => attendre(s, "phase", ms, p => p === phase);
+// Vrai si l'attente aboutit, faux si son délai est dépassé : de quoi en faire une vérification
+const arrive = attente => attente.then(() => true, () => false);
 
 // MJ automatique : passe les pauses de nuit, ouvre les actions (Chasseur, maire mourant), et selon
 // les options lance la nuit et valide l'attaque des loups (un test qui vérifie une de ces étapes
@@ -72,8 +94,9 @@ function piloterMJ(mj, { delai = 500, etapes = true, actions = true, nuit = fals
   if (loupsApres) mj.on("phase", p => { if (p === "wolves") setTimeout(() => mj.emit("lockWolfVotes"), loupsApres); });
 }
 
-// Compte des vérifications : chacune s'affiche ; bilan() imprime le total et la liste des échecs,
-// et rend le code de sortie (0 si tout est passé)
+// Compte des vérifications : chacune s'affiche ; bilan() ajoute « aucune erreur JavaScript du
+// serveur », imprime le total et la liste des échecs, et rend le code de sortie (0 si tout est
+// passé) ; arret(erreur) termine un test qui s'arrête net : bilan partiel, serveurs éteints.
 function compteur() {
   let reussies = 0;
   const echecs = [];
@@ -84,11 +107,21 @@ function compteur() {
     return !!cond;
   }
   function bilan(partiel = false) {
+    check("aucune erreur JavaScript du serveur", erreursServeur.length === 0, erreursServeur.slice(0, 3).join(" ‖ "));
     console.log(`\n${partiel ? "BILAN PARTIEL" : "BILAN"} : ${reussies}/${reussies + echecs.length} vérifications passées`);
     echecs.forEach(e => console.log("  • " + e));
     return echecs.length ? 1 : 0;
   }
-  return { check, bilan };
+  async function arret(e) {
+    console.log("\n❌ ARRÊT : " + (e && e.message || e));
+    bilan(true);
+    for (const srv of serveursAllumes) await arreterServeur(srv, { brutal: true });
+    process.exit(2);
+  }
+  // Une attente lancée d'avance qui échoue pendant qu'on en attend une autre arrête aussi le test
+  // proprement (sinon Node s'arrête net : ni bilan, ni serveur éteint)
+  process.on("unhandledRejection", arret);
+  return { check, bilan, arret };
 }
 
-module.exports = { sleep, demarrerServeur, arreterServeur, connecter, attendre, attendrePhase, piloterMJ, compteur };
+module.exports = { sleep, demarrerServeur, arreterServeur, connecter, connecterMJ, attendre, attendrePhase, arrive, piloterMJ, compteur };

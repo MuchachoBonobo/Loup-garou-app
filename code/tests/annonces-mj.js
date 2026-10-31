@@ -5,15 +5,13 @@
 // dont la transmission d'écharpe attend à son tour le MJ. Vérifie aussi l'annonce du tir.
 // Lancement : npm run test:rythme (après tests/rythme-mj.js) ou node tests/annonces-mj.js
 "use strict";
-const { sleep, demarrerServeur, arreterServeur, connecter, attendre, attendrePhase, piloterMJ, compteur } = require("./outils");
+const { sleep, demarrerServeur, arreterServeur, connecter, connecterMJ, attendre, attendrePhase, arrive, piloterMJ, compteur } = require("./outils");
 const PORT = 3106;
-const { check, bilan } = compteur();
-let srv = null;
+const { check, bilan, arret } = compteur();
 
 (async () => {
-  srv = await demarrerServeur(PORT);
-  const mj = await connecter(PORT);
-  mj.emit("registerMJ"); mj.emit("discardCrashRecovery");
+  const srv = await demarrerServeur(PORT);
+  const { mj } = await connecterMJ(PORT);
   const evMJ = { phases: [], actions: [] };
   mj.on("phase", p => evMJ.phases.push(p));
   mj.on("actionMJEnAttente", d => evMJ.actions.push(d));
@@ -38,7 +36,7 @@ let srv = null;
   await sleep(800);
   const id = n => (joueurs.find(p => p.name === n) || {}).id;
 
-  mj.emit("assignRoles", { loup: 1, chasseur: 1, voyante: 0, sorciere: 0, cupidon: 0, petiteFille: 0, idiot: 0, ange: 0, corbeau: 0, salvateur: 0, sisters: 0, conseil: false, autoMode: false, mjPilotedDay: true });
+  mj.emit("assignRoles", { loup: 1, chasseur: 1, conseil: false, autoMode: false, mjPilotedDay: true });
   await sleep(1200);
   const loup = noms.find(n => J[n].role === "Loup"), chasseur = noms.find(n => J[n].role === "Chasseur");
   const villageois = noms.filter(n => n !== loup && n !== chasseur);
@@ -87,7 +85,7 @@ let srv = null;
   mj.emit("mjOuvrirAction");
   await sleep(600);
   check("après le clic, le maire mourant est appelé (mayorMustTransfer)", J[maire].ev.transfert.length === 1);
-  const versJour = attendrePhase(mj, "day", 5000).then(() => true, () => false);
+  const versJour = arrive(attendrePhase(mj, "day", 5000));
   J[maire].s.emit("mayorTransferChoice", id(villageois[1]));
   check("après la transmission, le jour se lève", await versJour, evMJ.phases.slice(-3));
 
@@ -95,9 +93,4 @@ let srv = null;
   mj.close(); noms.forEach(n => J[n].s.close());
   await arreterServeur(srv, { brutal: true });
   process.exit(bilan());
-})().catch(async e => {
-  console.log("\n❌ ARRÊT : " + e.message);
-  bilan(true);
-  if (srv) await arreterServeur(srv, { brutal: true });
-  process.exit(2);
-});
+})().catch(arret);

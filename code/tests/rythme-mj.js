@@ -5,12 +5,12 @@
 // Lancement : npm run test:rythme   (~2 min, serveur jetable sur le port 3105)
 "use strict";
 const path = require("path"), fs = require("fs");
-const { sleep, demarrerServeur, arreterServeur, connecter, attendre, attendrePhase, piloterMJ, compteur } = require("./outils");
+const { sleep, demarrerServeur, arreterServeur, connecter, connecterMJ, attendre, attendrePhase, piloterMJ, compteur } = require("./outils");
 const PORT = 3105;
-const { check, bilan } = compteur();
+const { check, bilan, arret } = compteur();
 let srv = null;
 const client = () => connecter(PORT);
-function lireSnapshot() { try { return JSON.parse(fs.readFileSync(path.join(srv.dossier, "state-snapshot.json"), "utf8")); } catch (_) { return null; } }
+function lireSnapshot() { try { return JSON.parse(fs.readFileSync(path.join(srv.dossier, "state-snapshot.json"), "utf8")); } catch { return null; } }
 // Plantage du serveur, puis redémarrage sur la même sauvegarde
 async function planterPuisRedemarrer() {
   await arreterServeur(srv, { brutal: true, garderDossier: true });
@@ -20,14 +20,10 @@ async function planterPuisRedemarrer() {
 // Le MJ (re)connecté ; MJ automatique pendant la nuit. Les loups robots votent entre 2 et 8 s
 // (BOT_MAX_DELAY_MS) : le MJ valide après, sinon la nuit passe parfois sans mort (et sans
 // Conseil des Morts le lendemain)
-async function nouveauMJ(recupererCrash) {
-  const mj = await client();
-  const rec = attendre(mj, "mjReconnected", 5000);
-  mj.emit("registerMJ");
-  const etat = await rec;
-  if (!recupererCrash) mj.emit("discardCrashRecovery");
-  piloterMJ(mj, { delai: 300, loupsApres: 9000 });
-  return { mj, etat };
+async function nouveauMJ(reprise) {
+  const r = await connecterMJ(PORT, { reprise });
+  piloterMJ(r.mj, { delai: 300, loupsApres: 9000 });
+  return r;
 }
 
 (async () => {
@@ -38,14 +34,14 @@ async function nouveauMJ(recupererCrash) {
     m.on("phase", p => evMJ.phases.push(p));
     m.on("nuitEnAttente", () => evMJ.nuitEnAttente++);
     m.on("matinEnAttente", d => evMJ.matins.push(d));
-    m.on("councilResolvedMJ", d => evMJ.conseil.push(d.winner)); m.on("councilStartMJ", d => { evMJ.ouvertures = (evMJ.ouvertures||0) + 1; });
+    m.on("councilResolvedMJ", d => evMJ.conseil.push(d.winner));
   };
   suivreMJ(mj);
 
   // Un « vrai » joueur (pour les écrans et les reconnexions) + 8 robots
   let joueur = await client();
   const evJ = { phases: [], aubes: [], finMatin: [], evenements: [] };
-  let monRole = null, joueurs = [];
+  let monRole = null, joueurs = [], morts = [];
   const suivreJoueur = j => {
     j.on("phase", p => evJ.phases.push(p));
     j.on("dawnResult", d => evJ.aubes.push(d));
@@ -54,15 +50,31 @@ async function nouveauMJ(recupererCrash) {
     j.on("yourRole", d => { monRole = d.role; });
     j.on("players", p => { joueurs = p; });
     j.on("phase", p => { if (p === "wolves" && monRole === "Loup") { const cible = joueurs.find(x => x.isBot); if (cible) j.emit("voteWolf", cible.id); } });
+    // Élu maire puis tué, il transmet l'écharpe à un robot vivant, comme le ferait un robot
+    // (sans réponse, la partie attendrait 60 s et le matin ne viendrait pas à temps)
+    j.on("deadPlayers", d => { morts = d; });
+    j.on("mayorMustTransfer", mourant => {
+      if (mourant !== j.id) return;
+      const successeur = joueurs.find(x => x.isBot && !morts.includes(x.id));
+      if (successeur) setTimeout(() => j.emit("mayorTransferChoice", successeur.id), 500);
+    });
   };
   suivreJoueur(joueur);
   joueur.emit("register", "Testeur");
+  // Le joueur recharge sa page : il revient sous son prénom ; rend l'état que le serveur lui renvoie
+  const rechargerJoueur = async () => {
+    joueur.close();
+    joueur = await client(); suivreJoueur(joueur);
+    const etat = attendre(joueur, "reconnected", 5000);
+    joueur.emit("register", "Testeur");
+    return etat;
+  };
   for (let i = 0; i < 8; i++) mj.emit("addBot");
   await sleep(1000);
 
   console.log("\n▶ 1. Élection du maire puis crépuscule");
   const roleP = attendre(joueur, "yourRole", 5000);
-  mj.emit("assignRoles", { loup: 1, voyante: 0, sorciere: 0, cupidon: 0, chasseur: 0, petiteFille: 0, idiot: 0, ange: 0, corbeau: 0, salvateur: 0, sisters: 0, autoMode: false, mjPilotedDay: true });
+  mj.emit("assignRoles", { loup: 1, autoMode: false, mjPilotedDay: true });
   const role = await roleP;
   check("le téléphone sait que la nuit attend le MJ (yourRole.nuitParMJ)", role.nuitParMJ === true, role.nuitParMJ);
   await sleep(2500);
@@ -120,11 +132,7 @@ async function nouveauMJ(recupererCrash) {
   await sleep(4500);
   check("l'évènement n'est PAS appliqué seul après 3 s", evJ.evenements.length === nbEvAvant, evJ.evenements.length - nbEvAvant);
   // Joueur qui recharge sa page avant l'annonce
-  joueur.close();
-  joueur = await client(); suivreJoueur(joueur);
-  let rec = attendre(joueur, "reconnected", 5000);
-  joueur.emit("register", "Testeur");
-  let etatJ = await rec;
+  let etatJ = await rechargerJoueur();
   check("joueur reconnecté avant l'annonce : pas d'évènement dans son état", !etatJ.activeCouncilEvent, etatJ.activeCouncilEvent);
   check("joueur reconnecté : nuitParMJ présent dans son état", etatJ.nuitParMJ === true, etatJ.nuitParMJ);
 
@@ -145,10 +153,7 @@ async function nouveauMJ(recupererCrash) {
   check("reprise : le MJ retrouve l'évènement à annoncer", mR && mR.evenement && mR.evenement.id === (avantCrash && avantCrash.activeCouncilEvent), mR);
 
   console.log("\n▶ 8. Annonce de l'évènement, puis débat, puis vote");
-  joueur = await client(); suivreJoueur(joueur);
-  rec = attendre(joueur, "reconnected", 5000);
-  joueur.emit("register", "Testeur");
-  await rec;
+  await rechargerJoueur();
   const evP = attendre(joueur, "councilEventActive", 3000).catch(() => null);
   mj.emit("mjAnnoncerEvenement");
   const ev = await evP;
@@ -156,11 +161,7 @@ async function nouveauMJ(recupererCrash) {
   const n = evJ.evenements.length;
   mj.emit("mjAnnoncerEvenement"); await sleep(800);
   check("second clic « Annoncer » sans effet", evJ.evenements.length === n, evJ.evenements.length - n);
-  joueur.close();
-  joueur = await client(); suivreJoueur(joueur);
-  rec = attendre(joueur, "reconnected", 5000);
-  joueur.emit("register", "Testeur");
-  etatJ = await rec;
+  etatJ = await rechargerJoueur();
   check("joueur reconnecté après l'annonce : il retrouve l'évènement", etatJ.activeCouncilEvent && etatJ.activeCouncilEvent.id === ev.id, etatJ.activeCouncilEvent);
   const fP = attendre(joueur, "finAnnonceMatin", 3000).catch(() => null);
   mj.emit("mjFinAnnonceMatin");
@@ -187,9 +188,4 @@ async function nouveauMJ(recupererCrash) {
   mj.close(); joueur.close();
   await arreterServeur(srv, { brutal: true });
   process.exit(bilan());
-})().catch(async e => {
-  console.log("\n❌ ARRÊT : " + e.message);
-  bilan(true);
-  if (srv) await arreterServeur(srv, { brutal: true });
-  process.exit(2);
-});
+})().catch(arret);
