@@ -530,6 +530,12 @@ function resynchroniserApresReconnexion(socket) {
   // Étape de nuit en cours : le joueur qui doit agir retrouve sa demande (sinon la nuit
   // attendait jusqu'au filet de son étape)
   if (vivant && state.phase === "corbeau" && role === "Corbeau") socket.emit("corbeauTurn");
+  if (vivant && state.phase === "salvateur" && role === "Salvateur") socket.emit("salvateurTurn", S.infosSalvateur());
+  // Sœur reconnectée : son panneau revient, et son décompte reprend sur le temps restant
+  if (vivant && state.phase === "sisters" && role === "Sœurs") {
+    socket.emit("sistersTurn", { count: S.vivantsAvecRole("Sœurs").length });
+    if (state.sistersTimerEnd) socket.emit("sistersTimerStart", { durationMs: Math.max(0, state.sistersTimerEnd - Date.now()) });
+  }
   // La Sorcière s'est reconnectée, ou la victime des loups (la Sorcière reçoit son nouvel identifiant)
   if (state.phase === "witch" && ((vivant && role === "Sorcière") || state.nightTarget === id)) roles.informerSorciere();
   // Voyante ou Petite Fille reconnectée avant d'avoir confirmé : on lui remontre la réponse

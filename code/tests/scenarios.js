@@ -2,7 +2,7 @@
  * tests/scenarios.js — Tests d'intégration du serveur
  *
  * Lance un serveur sur le port 3099, connecte de vrais sockets socket.io-client,
- * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S17) est décrit
+ * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S18) est décrit
  * au-dessus de sa fonction.
  *
  * Usage : npm test   (ou : node tests/scenarios.js)
@@ -651,6 +651,43 @@ const s17 = () => scenario("S17", "Arrivée en pleine partie, prénom déjà pri
   check("S17-prénom déjà pris refusé, sans attente de partie", !!r2 && !(r2.details && r2.details.partieEnCours), JSON.stringify(r2));
 });
 
+// S18 — Reconnexion pendant le tour des Sœurs, puis du Salvateur, puis pendant un vote du jour :
+// le serveur renvoie à chacun sa demande (le panneau des Sœurs avec le temps restant, la
+// protection du Salvateur), et l'état complet donne la durée du vote en cours (la page ne la
+// recopie plus)
+const s18 = () => scenario("S18", "Reconnexion des Sœurs, du Salvateur, et pendant un vote", async all => {
+  const { mj, players, roleOf, avecRole } = await preparerPartie(all, ["s18_A","s18_B","s18_C","s18_D","s18_E"], { loup: 1, salvateur: 1, sisters: 2 });
+  const soeurs = avecRole("Sœurs"), [salvP] = avecRole("Salvateur");
+  if (soeurs.length !== 2 || !salvP) { ko("S18-setup", JSON.stringify(roleOf)); return; }
+
+  const soeursP = attendrePhase(soeurs[0].s, "sisters", 6000);
+  mj.emit("setPhase", "sisters");
+  await soeursP;
+  await sleep(1500);
+  const s = await reconnecter(all, soeurs[1]);
+  const tourP = attendre(s, "sistersTurn", 4000).catch(() => null), decompteP = attendre(s, "sistersTimerStart", 4000).catch(() => null);
+  const tour = await tourP, decompte = await decompteP;
+  check("S18-la Sœur reconnectée retrouve son panneau", !!tour && tour.count === 2, JSON.stringify(tour));
+  check("S18-son décompte reprend sur le temps restant", !!decompte && decompte.durationMs > 0 && decompte.durationMs < 19000, JSON.stringify(decompte));
+
+  const salvateurP = attendrePhase(salvP.s, "salvateur", 6000);
+  mj.emit("setPhase", "salvateur");
+  await salvateurP;
+  const s2 = await reconnecter(all, salvP);
+  check("S18-le Salvateur reconnecté retrouve sa protection", await arrive(attendre(s2, "salvateurTurn", 4000)));
+
+  const jourP = attendrePhase(players[0].s, "day", 6000);
+  mj.emit("setPhase", "day");
+  await jourP;
+  await sleep(300);
+  const voteP = attendre(players[0].s, "voteStarted", 4000).catch(() => null);
+  mj.emit("startVote");
+  const vote = await voteP;
+  const etat = await new Promise(res => { players[0].s.once("reconnected", res); players[0].s.emit("register", players[0].name); });
+  check("S18-l'état complet donne la durée du vote en cours", !!vote && etat.voteDureeMs === vote.duration,
+    `vote=${vote && vote.duration} état=${etat.voteDureeMs}`);
+});
+
 // Démarrage du serveur et exécution des scénarios
 async function main() {
   console.log("═".repeat(62));
@@ -660,7 +697,7 @@ async function main() {
   const serveur = await demarrerServeur(TEST_PORT);
   console.log("  Serveur test prêt : http://localhost:" + TEST_PORT + "\n");
 
-  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17]) {
+  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18]) {
     await s();
     await sleep(800);
   }

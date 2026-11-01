@@ -36,7 +36,7 @@ const CHAMPS = [
   // Phase et infos partie
   "phase", "players", "roles", "deadPlayers", "lovers", "mayor", "playerRegistry", "deadChatHistory",
   // Votes
-  "votesDay", "votesWolf", "mayorVote", "voteMode", "voteTimerEnd", "fastResolveTriggered",
+  "votesDay", "votesWolf", "mayorVote", "voteMode", "voteTimerEnd", "voteDureeMs", "fastResolveTriggered",
   // Nuit
   "nightTarget", "witchSaveUsed", "witchKillUsed", "witchSaveActive", "witchKillTarget",
   "cupidDone", "corbeauTarget", "idiotRevealed", "nbVotesJour", "angeVainqueur",

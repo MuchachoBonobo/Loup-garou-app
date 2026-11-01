@@ -72,7 +72,6 @@ button:disabled { opacity:0.35; cursor:not-allowed; }
 #voteTimerBox { display:none; background:rgb(var(--n1)); border:1px solid rgb(var(--n5)); text-align:center; }
 .timer-label { font-size:11px; color:rgb(var(--n5)); margin-bottom:4px; text-transform:uppercase; letter-spacing:1px; }
 #timerVal { font-size:40px; font-weight:bold; color:rgb(var(--or-vif)); line-height:1.1; }
-#timerVal.urgent { color:rgb(var(--sang-vif)); animation:pulse 0.5s infinite alternate; }
 .timer-mode { font-size:12px; color:rgb(var(--n6)); margin-top:4px; }
 #timerBar { height:6px; background:rgb(var(--n3)); border-radius:3px; margin-top:8px; overflow:hidden; }
 #timerBarFill { height:100%; background:rgb(var(--or-vif)); border-radius:3px; transition:width 0.25s,background 0.25s; }
@@ -80,26 +79,25 @@ button:disabled { opacity:0.35; cursor:not-allowed; }
 
 /* CARTE DE RÔLE */
 /* Cartes plein écran ouvertes par la classe « show » (mise en page : communs.css) */
-#roleCard, #dayDeathCard, #nightFallCard { display:none; }
-#roleCard.show, #dayDeathCard.show, #nightFallCard.show { display:flex; animation:fadeIn 0.5s ease forwards; }
-#roleCard.hiding, #dayDeathCard.hiding, #nightFallCard.hiding { animation:fadeOut 0.6s ease forwards; }
+#roleCard, #dayDeathCard { display:none; }
+#roleCard.show, #dayDeathCard.show { display:flex; animation:fadeIn 0.5s ease forwards; }
+#roleCard.hiding, #dayDeathCard.hiding { animation:fadeOut 0.6s ease forwards; }
 #roleCard { z-index:9998; background:radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--lune-nuit)) 100%); }
 #roleCard .rc-emoji { font-size:80px; margin-bottom:16px; animation:cardPop 0.5s ease 0.2s both; position:relative; display:inline-block; }
 #roleCard .rc-title { font-size:26px; font-weight:bold; color:rgb(var(--blanc)); margin-bottom:12px; animation:cardSlide 0.5s ease 0.3s both; }
 #roleCard .rc-role  { font-size:18px; color:rgb(var(--lune-clair)); margin-bottom:16px; animation:cardSlide 0.5s ease 0.35s both; }
-#roleCard .rc-text  { font-size:13px; color:rgba(255,255,255,0.75); max-width:360px; line-height:1.8; font-style:italic; animation:cardSlide 0.5s ease 0.4s both; margin-bottom:14px; }
+#roleCard .rc-text  { font-size:13px; color:rgba(var(--blanc),0.75); max-width:360px; line-height:1.8; font-style:italic; animation:cardSlide 0.5s ease 0.4s both; margin-bottom:14px; }
 #roleCard .rc-mission { font-size:13px; color:rgb(var(--or-vif)); max-width:360px; line-height:1.6; animation:cardSlide 0.5s ease 0.5s both; margin-bottom:8px; }
-#roleCard .rc-win     { font-size:12px; color:rgba(255,255,255,0.45); max-width:360px; animation:cardSlide 0.5s ease 0.55s both; letter-spacing:.5px; }
+#roleCard .rc-win     { font-size:12px; color:rgba(var(--blanc),0.45); max-width:360px; animation:cardSlide 0.5s ease 0.55s both; letter-spacing:.5px; }
 
 /* CHASSEUR */
 #chasseurPanel { display:none; background:rgb(var(--braise-sombre)); border:2px solid rgb(var(--braise-vif)); padding:15px; margin:10px auto; max-width:400px; border-radius:8px; }
 #dayDeathCard { z-index:9999; background:radial-gradient(ellipse at center,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 100%); }
 /* Avec un MJ, c'est lui qui referme les annonces : pas de « Continuer → » (sauf « OK, j'ai vu ») */
 body.avec-mj #deathCardBtn:not(.confirmer) { display:none; }
-#nightFallCard { z-index:9999; background:radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--lune-nuit)) 100%); }
 .card-emoji { font-size:80px; margin-bottom:16px; animation:cardPop 0.5s ease 0.2s both; }
 .card-title { font-size:26px; font-weight:bold; color:rgb(var(--blanc)); margin-bottom:12px; animation:cardSlide 0.5s ease 0.3s both; }
-.card-text  { font-size:15px; color:rgba(255,255,255,0.85); max-width:360px; line-height:1.7; font-style:italic; animation:cardSlide 0.5s ease 0.4s both; }
+.card-text  { font-size:15px; color:rgba(var(--blanc),0.85); max-width:360px; line-height:1.7; font-style:italic; animation:cardSlide 0.5s ease 0.4s both; }
 
 @keyframes fadeIn  { from{opacity:0}to{opacity:1} }
 @keyframes fadeOut { from{opacity:1}to{opacity:0} }
@@ -139,7 +137,7 @@ body.vote-urgent { animation:bgPulse 0.65s ease infinite; }
   white-space: nowrap;
   animation: actionPulse 2.5s ease-in-out infinite;
   pointer-events: none;
-  box-shadow: 0 2px 16px rgba(0,0,0,0.7);
+  box-shadow: 0 2px 16px rgba(var(--noir),0.7);
 }
 @keyframes actionPulse {
   0%, 100% { opacity: 0.65; }
@@ -208,7 +206,7 @@ body.vote-urgent { animation:bgPulse 0.65s ease infinite; }
 /* Halo lumineux derrière l'emoji du rôle */
 #roleCard.show .rc-emoji::after {
   content: ""; position: absolute; inset: -40px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--blanc),0.15) 0%, transparent 70%);
   z-index: -1; animation: haloPulse 2s ease-in-out infinite;
 }
 @keyframes haloPulse {
@@ -311,8 +309,8 @@ body::after {
   0%,100%{opacity:0.45;}50%{opacity:0.12;}
 }
 
-#btnRecharger { position:fixed; top:8px; right:8px; z-index:100001; min-width:34px; height:34px; padding:0 9px; border-radius:17px; border:1px solid rgba(255,255,255,0.15); background:rgba(0,0,0,0.35); color:rgba(255,255,255,0.4); font-size:16px; line-height:1; cursor:pointer; }
-#btnRecharger.arme { color:rgb(var(--blanc)); font-size:13px; background:rgba(var(--n4),0.85); border-color:rgba(255,255,255,0.4); }
+#btnRecharger { position:fixed; top:8px; right:8px; z-index:100001; min-width:34px; height:34px; padding:0 9px; border-radius:17px; border:1px solid rgba(var(--blanc),0.15); background:rgba(var(--noir),0.35); color:rgba(var(--blanc),0.4); font-size:16px; line-height:1; cursor:pointer; }
+#btnRecharger.arme { color:rgb(var(--blanc)); font-size:13px; background:rgba(var(--n4),0.85); border-color:rgba(var(--blanc),0.4); }
 
 @keyframes ddSunBreathe {
   0%, 100% { transform: scale(1); filter: drop-shadow(0 0 28px rgba(var(--or-vif),0.5)); }

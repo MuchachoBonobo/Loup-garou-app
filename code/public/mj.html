@@ -110,7 +110,7 @@
   <div id="mjVoteDeathSubtitle" style="font-size:13px;color:rgb(var(--braise-vif));letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le verdict du village</div>
   <div id="mjVoteDeathName" style="font-size:26px;font-weight:bold;color:rgb(var(--or-vif));margin-bottom:6px;"></div>
   <div id="mjVoteDeathRole" style="font-size:16px;color:rgb(var(--or-vif));margin-bottom:14px;"></div>
-  <div id="mjVoteDeathNarr" style="max-width:480px;color:rgba(255,255,255,0.82);line-height:1.6;font-size:14px;font-style:italic;margin-bottom:18px;"></div>
+  <div id="mjVoteDeathNarr" style="max-width:480px;color:rgba(var(--blanc),0.82);line-height:1.6;font-size:14px;font-style:italic;margin-bottom:18px;"></div>
   <button onclick="closeMjVoteDeathCard()" style="margin-top:4px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--or-vif),0.45);background:rgba(var(--or-vif),0.1);color:rgb(var(--or-vif));font-size:14px;cursor:pointer;">
     Continuer
   </button>
@@ -141,7 +141,7 @@
   <div style="font-size:64px;margin-bottom:14px;">🪦</div>
   <div style="font-size:14px;color:rgb(var(--ame-vif));letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
   <div id="councilEventTitle" style="font-size:28px;font-weight:bold;color:rgb(var(--ame-clair));margin-bottom:14px;"></div>
-  <div id="councilEventNarrative" style="max-width:420px;color:rgba(255,255,255,0.78);line-height:1.6;font-size:14px;font-style:italic;margin-bottom:14px;"></div>
+  <div id="councilEventNarrative" style="max-width:420px;color:rgba(var(--blanc),0.78);line-height:1.6;font-size:14px;font-style:italic;margin-bottom:14px;"></div>
   <div id="councilEventRuleBox" style="max-width:440px;background:rgba(var(--ame-clair),0.1);border:1px solid rgba(var(--ame-clair),0.45);border-radius:10px;padding:14px 16px;margin-bottom:16px;text-align:left;">
     <div style="color:rgb(var(--ame-clair));font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">📋 Règle à appliquer</div>
     <div id="councilEventRule" style="color:rgb(var(--ame-clair));font-size:14px;line-height:1.55;"></div>
@@ -320,7 +320,7 @@
   <div id="dayStateBanner" style="display:none;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.5;text-align:center;"></div>
   <div id="voteModeLabel" style="font-size:12px;color:rgb(var(--n6));">Mode libre 60 s. En pilotage MJ, tu lances le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).</div>
   <div class="btn-group" style="margin-top:8px;">
-    <button class="btn primary" id="mjBtnLancerVote" onclick="launchVote()" style="flex:1;">🚀 Lancer le vote (60s)</button>
+    <button class="btn primary" id="mjBtnLancerVote" onclick="launchVote()" style="flex:1;">🚀 Lancer le vote</button>
     <button class="btn"         id="mjBtnTerminerVote" onclick="lockDay()">⏹️ Terminer</button>
   </div>
   <div id="timerDisplay">--</div>
@@ -391,7 +391,7 @@
 <div id="qrFullscreen" class="plein-ecran" style="display:none;z-index:10000;background:radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--n0)) 100%);">
   <div style="font-size:15px;color:rgb(var(--lune-vif));letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Rejoignez la partie</div>
   <div class="titre" style="font-size:26px;font-weight:bold;color:rgb(var(--lune-clair));margin-bottom:24px;">Scannez pour entrer dans le village</div>
-  <div id="qrFullscreenCode" style="background:rgb(var(--blanc));padding:20px;border-radius:16px;box-shadow:0 16px 50px rgba(0,0,0,0.6);"></div>
+  <div id="qrFullscreenCode" style="background:rgb(var(--blanc));padding:20px;border-radius:16px;box-shadow:0 16px 50px rgba(var(--noir),0.6);"></div>
   <div id="qrFullscreenUrl" style="font-size:14px;color:rgb(var(--lune-base));margin-top:18px;letter-spacing:1px;"></div>
   <div style="margin-top:30px;font-size:16px;color:rgb(var(--or-vif));display:flex;align-items:center;gap:8px;">🔇 Pensez à mettre vos téléphones en silencieux</div>
   <div style="margin-top:6px;font-size:12px;color:rgb(var(--lune-base));max-width:340px;line-height:1.5;">Pour préserver l'ambiance, aucun son ni vibration ne doit trahir un rôle pendant la nuit.</div>
@@ -582,7 +582,7 @@ socket.on("councilMusicOverride", which => {
 
 socket.on("councilStormStart", () => {
   // Tempête : remplace la musique du jour par "rainynight.mp3" en boucle.
-  // Le tonnerre (effet ponctuel) est joué toutes les 40s par le serveur.
+  // Le tonnerre (effet ponctuel) est joué toutes les 30 s par le serveur.
   if (!audioEnabled) return;
   stopAmbiance();
   try {
@@ -701,34 +701,12 @@ socket.on("mjDayRecap", data => {
   } catch(_) {}
 });
 
-// Règle exacte de chaque évènement du Conseil, affichée dans la carte du MJ : quoi appliquer et annoncer
-const MJ_EVENT_RULES = {
-  riot:           "Le vote du village est ANONYME : personne ne voit qui vote pour qui. Durée 60 s.",
-  judgment:       "Vote VERROUILLÉ : une fois qu'un joueur a voté, il ne peut plus changer son choix. Durée 60 s.",
-  panic:          "Vote EXPRESS : durée réduite à 30 s — les joueurs doivent trancher très vite.",
-  paranoia:       "Aucun joueur ne peut parler plus de 20 secondes d'affilée. Au-delà, il se tait. (À faire respecter à l'oral.)",
-  madness:        "Toute phrase d'un joueur doit commencer par « Je pense que… » ou « Je jure que… ». (À faire respecter.)",
-  eclipse:        "Ambiance seulement : la musique de nuit joue en plein jour. Aucun effet de règle — annonce l'atmosphère.",
-  storm:          "Ambiance seulement : un orage gronde toute la journée. Aucun effet de règle.",
-  fog:            "Interdit de bouger les bras pour s'exprimer : pas de gestes, pas de doigt pointé, les bras restent immobiles. (À faire respecter.)",
-  fire:           "Le maire PERD son pouvoir d'arbitrage : en cas d'égalité au vote, c'est le hasard qui tranche (automatique).",
-  whispers:       "Les joueurs ne peuvent parler qu'à VOIX BASSE toute la journée. (À faire respecter.)",
-  tribunal:       "Pour parler, un joueur doit se LEVER face à l'assemblée. Assis = pas de parole. (À faire respecter.)",
-  bell:           "Une cloche sonne automatiquement toutes les 45 s. À chaque sonnerie, tout le monde se tait quelques instants.",
-  last_words:     "Avant de lancer le vote, chaque joueur lève la main et déclare « Si je meurs aujourd'hui… » suivi de son souhait.",
-  wind:           "Interdit de regarder un autre joueur dans les yeux en parlant — regards vers le sol. (À faire respecter.)",
-  murmurs:        "Ambiance seulement : des murmures de morts se font entendre. Aucun effet de règle.",
-  voteMute:       "VOTE MUET : aucune parole pendant le vote — ni débat, ni accusation, ni plaidoyer. 90 s pour voter en silence.",
-  silencedVoices: "Interdit de parler à voix haute. Un chat écrit s'ouvre : les vivants y écrivent, tous (vivants et morts) peuvent lire.",
-  abdication:     "Le maire ABDIQUE : il désigne lui-même son successeur, sans vote du village. Une carte de choix apparaît au maire."
-};
-
 // Affiche la carte évènement MJ : titre + narratif immersif + RÈGLE explicite.
 // Remplit et ouvre la carte de l'évènement : titre, récit, règle à appliquer
 function ouvrirCarteEvenement(data) {
   document.getElementById("councilEventTitle").innerText = data.title || "";
   document.getElementById("councilEventNarrative").innerText = data.narrative || "";
-  document.getElementById("councilEventRule").innerText = MJ_EVENT_RULES[data.id] || "(Règle non répertoriée — voir le récit ci-dessus.)";
+  document.getElementById("councilEventRule").innerText = data.regle || "(Règle non répertoriée — voir le récit ci-dessus.)";
   document.getElementById("councilEventCard").style.display = "flex";
 }
 function showMjCouncilEventCard(data) {
@@ -737,7 +715,7 @@ function showMjCouncilEventCard(data) {
   if (_mjCouncilEventCardAutoClose) clearTimeout(_mjCouncilEventCardAutoClose);
   _mjCouncilEventCardAutoClose = setTimeout(closeCouncilEventCard, 30000);  // filet de sécurité
   // Narration TTS : titre + règle explicite (le MJ doit savoir quoi annoncer)
-  try { speakNarration(data.title + ". " + (MJ_EVENT_RULES[data.id] || data.narrative || "")); } catch(_) {}
+  try { speakNarration(data.title + ". " + (data.regle || data.narrative || "")); } catch(_) {}
 }
 
 // Bandeau permanent de l'évènement du jour : le MJ y retrouve la règle à tout moment,
@@ -748,7 +726,7 @@ function afficherBandeauEvenement(data) {
   const banner = document.getElementById("councilActiveBanner");
   if (!banner) return;
   if (!data) { banner.style.display = "none"; return; }
-  const regle = MJ_EVENT_RULES[data.id] || "";
+  const regle = data.regle || "";
   banner.style.display = "block";
   banner.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
       <strong>🪦 Événement du jour : ${data.title}</strong>
@@ -789,7 +767,7 @@ socket.on("councilVoteUpdateMJ", data => {
 socket.on("councilResolvedMJ", data => {
   // Même carte plein écran qu'un évènement actif (titre, récit, règle) : le MJ sait ce qui
   // se passera demain. `data.winner` est l'id de l'évènement.
-  showMjCouncilEventCard({ id: data.winner, title: data.title, narrative: data.narrative });
+  showMjCouncilEventCard({ id: data.winner, title: data.title, narrative: data.narrative, regle: data.regle });
   showAlert(`🪦 Événement choisi pour demain : ${data.title}`, "success");
 });
 
@@ -1272,11 +1250,7 @@ function renderMissingVoters(votes){
 function renderDayCounts(counts){
   lastDayCounts=counts;
   const div=document.getElementById("dayCounts"); if(!div) return;
-  // Applique les votes corbeau
-  const allCounts={...counts};
-  if(corbeauTarget && !deadIds.includes(corbeauTarget)){
-    allCounts[corbeauTarget]=(allCounts[corbeauTarget]||0)+2;
-  }
+  const allCounts=voixAvecCorbeau(counts, corbeauTarget, deadIds);
   const entries=Object.entries(allCounts).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
   if(!entries.length){ div.innerHTML="<span style='color:rgb(var(--n4));font-size:11px;'>—</span>"; return; }
   const max=entries[0][1];
@@ -1409,11 +1383,11 @@ socket.on("deadChatMsg", msg=>{
 let countdownInterval=null, mjEndsAt=null, mjTotalMs=null;
 socket.on("voteStarted", data=>{
   mjEndsAt=data.endsAt; mjTotalMs=data.duration;
-  const labels={1:"⏱️ Mode Libre (60s)",2:"⚖️ Le Jugement — verrouillé (60s)",4:"⚡ La Panique — express (30s)",5:"🖤 L'Émeute — vote anonyme (60s)"};
-  // Certains events du Conseil écrasent la durée par défaut : adapte le label.
+  const labels={1:"⏱️ Mode Libre",2:"⚖️ Le Jugement — verrouillé",4:"⚡ La Panique — express",5:"🖤 L'Émeute — vote anonyme"};
   let label = labels[data.mode] || "Vote en cours";
-  if (_mjActiveCouncilEvent === "voteMute") label = "🤐 Le Vote Muet — silence total (90s)";
-  document.getElementById("voteModeLabel").innerText = label;
+  if (_mjActiveCouncilEvent === "voteMute") label = "🤐 Le Vote Muet — silence total";
+  // La durée est celle du serveur (le Vote Muet, par exemple, la rallonge)
+  document.getElementById("voteModeLabel").innerText = `${label} (${Math.round(data.duration / 1000)} s)`;
   document.getElementById("timerDisplay").style.display="block";
   document.getElementById("mjTimerBar").style.display="block";
   startCountdown();
@@ -1714,7 +1688,7 @@ function majBoutonsJour() {
     // Débat : « Terminer » ne sert à rien (il n'y a pas de vote à clore) ; « Lancer » attend
     // que les joueurs aient fermé la carte de l'aube, ou la fin du réveil (« Lancer le débat »)
     lancer.disabled = attente > 0 || _mjMatinEnCours;
-    lancer.textContent = attente > 0 ? `🚀 Lancer le vote (dans ${attente} s)` : "🚀 Lancer le vote (60s)";
+    lancer.textContent = attente > 0 ? `🚀 Lancer le vote (dans ${attente} s)` : "🚀 Lancer le vote";
     terminer.disabled = true;
   }
   if (passer) passer.disabled = (mjEtatVote === "resultat");

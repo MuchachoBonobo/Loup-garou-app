@@ -32,3 +32,12 @@ const CAUSES = {
   amour:    { emoji: "💔", texte: "victime d'un chagrin d'amour" },
 };
 const causeEnTexte = c => (CAUSES[c] || {}).texte || c || "mort";
+
+// Voix du vote du jour, plus les 2 voix du Corbeau sur sa cible tant qu'elle est en vie (le
+// serveur les ajoute au dépouillement, votes.js) : affichées pareil sur les deux écrans
+const VOIX_DU_CORBEAU = 2;
+function voixAvecCorbeau(voix, cibleCorbeau, morts) {
+  const total = { ...voix };
+  if (cibleCorbeau && !morts.includes(cibleCorbeau)) total[cibleCorbeau] = (total[cibleCorbeau] || 0) + VOIX_DU_CORBEAU;
+  return total;
+}

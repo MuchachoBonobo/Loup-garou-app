@@ -567,6 +567,7 @@ function resumeGame() {
   if (state.phase === "day" && state.pausedVoteRemainingMs && state.pausedVoteRemainingMs > 200) {
     const ms = state.pausedVoteRemainingMs;
     state.voteTimerEnd = Date.now() + ms;
+    state.voteDureeMs = ms;
     state.voteTimer = setTimeout(() => { votes.resolveDayVote(); }, ms);
     state.io.emit("voteResumed", { endsAt: state.voteTimerEnd, durationMs: ms, serverNow: Date.now() });
   }

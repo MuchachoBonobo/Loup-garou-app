@@ -45,7 +45,7 @@ function partieNeuve() {
 
     // Votes
     votesDay: {}, votesWolf: {}, mayorVote: {}, voteMode: 1,
-    voteTimer: null, voteTimerEnd: null, lockedVoters: new Set(), voteRateLimit: new Map(),
+    voteTimer: null, voteTimerEnd: null, voteDureeMs: null, lockedVoters: new Set(), voteRateLimit: new Map(),
     dayResolutionPending: false,
     // Vote du jour clos, résultat en cours d'annonce (suspense, égalité à trancher) : les
     // boutons du vote sont ignorés jusqu'au changement de phase (remis à false par setPhase).
@@ -224,6 +224,7 @@ function buildFullState(socketId) {
     dayCounts:    computeCounts(state.votesDay),
     mayorVote:    state.mayorVote,
     voteTimerEnd: state.voteTimerEnd,
+    voteDureeMs:  state.voteDureeMs,
     voteMode:     state.voteMode,
     role:         state.roles[socketId],
     wolves:       isWolf ? joueursAvecRole("Loup") : [],
@@ -243,22 +244,7 @@ function buildFullState(socketId) {
   snapshot.mjPilotedDay = !!state.mjPilotedDay;
   snapshot.nuitParMJ = !state.autoMode;
   if (isDead && !state.mjPilotedDay) snapshot.deadVision = visionComplete();
-
-  // Reconnexion pendant le tour des Sœurs ou du Salvateur : le téléphone rouvre son panneau
-  // (avec le temps restant). Les autres rôles reçoivent leur demande à part
-  // (server.js, resynchroniserApresReconnexion).
-  if (!isDead) {
-    const myRole = state.roles[socketId];
-    if (state.phase === "sisters" && myRole === "Sœurs") {
-      snapshot.pendingSistersTurn = {
-        count: vivantsAvecRole("Sœurs").length,
-        timerEndsAt: state.sistersTimerEnd || null,
-        // Temps restant calculé ici : le téléphone n'a pas forcément la même heure que le PC.
-        timerRemainingMs: state.sistersTimerEnd ? Math.max(0, state.sistersTimerEnd - Date.now()) : null,
-      };
-    }
-    if (state.phase === "salvateur" && myRole === "Salvateur") snapshot.pendingSalvateurTurn = infosSalvateur();
-  }
+  // Le joueur qui doit agir la nuit retrouve sa demande à part (server.js, resynchroniserApresReconnexion)
 
   snapshot.serverNow = Date.now();
   return snapshot;

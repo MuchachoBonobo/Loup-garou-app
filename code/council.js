@@ -3,7 +3,7 @@
 // councilUsedEvents) vit dans state.js pour que votes.js puisse lire activeCouncilEvent.
 // Seuls les timers d'ambiance (cloche, murmures, tonnerre) restent privés ici.
 // Chaque évènement porte ses effets (`technical`) : votes.js lit le mode et la durée du vote
-// et le pouvoir du maire par effetDuJour().
+// et le pouvoir du maire par effetDuJour(). Sa `regle` est ce que le MJ applique et annonce.
 
 const { state, isMJ, vivantsSauf, playerName, fisherYates, auHasard, versMJ } = require('./state');
 const lights = require('./lights');
@@ -21,42 +21,49 @@ const COUNCIL_EVENTS = {
     id: "riot",
     title: "🖤 L'Émeute",
     narrative: "Un grondement traverse la place du village. La méfiance brouille les regards, les voix se confondent. Personne ne saura qui aura voté pour qui : ce vote sera entièrement anonyme.",
+    regle: "Le vote du village est ANONYME : personne ne voit qui vote pour qui. Durée 60 s.",
     technical: { forceVoteMode: 5 }
   },
   judgment: {
     id: "judgment",
     title: "⚖️ Le Jugement",
     narrative: "Une fois prononcé, un vote ne peut plus être changé. Que chacun pèse ses mots — la sentence est définitive dès qu'elle tombe.",
+    regle: "Vote VERROUILLÉ : une fois qu'un joueur a voté, il ne peut plus changer son choix. Durée 60 s.",
     technical: { forceVoteMode: 2 }
   },
   panic: {
     id: "panic",
     title: "⚡ La Panique",
     narrative: "Le village sombre dans la précipitation. Plus le temps de réfléchir : il faut trancher, et vite.",
+    regle: "Vote EXPRESS : durée réduite à 30 s — les joueurs doivent trancher très vite.",
     technical: { forceVoteMode: 4 }
   },
   paranoia: {
     id: "paranoia",
     title: "😰 La Paranoïa",
     narrative: "Une étrange angoisse étreint les villageois. Les mots se coincent dans la gorge. Aucun discours ne pourra durer plus de 20 secondes — au-delà, le silence reprend ses droits.",
+    regle: "Aucun joueur ne peut parler plus de 20 secondes d'affilée. Au-delà, il se tait. (À faire respecter à l'oral.)",
     technical: null
   },
   madness: {
     id: "madness",
     title: "🌀 La Folie",
     narrative: "Un voile étrange descend sur les esprits. Plus personne ne sait ce qu'il croit vraiment. Toute parole devra commencer par « Je pense que… » ou « Je jure que… »",
+    regle: "Toute phrase d'un joueur doit commencer par « Je pense que… » ou « Je jure que… ». (À faire respecter.)",
     technical: null
   },
   eclipse: {
     id: "eclipse",
     title: "🌑 L'Éclipse",
     narrative: "Le soleil se voile. Un crépuscule étrange recouvre la place du village en plein jour. La nuit semble refuser de s'effacer.",
+    regle: "Ambiance seulement : la musique de nuit joue en plein jour. Aucun effet de règle — annonce l'atmosphère.",
     technical: { dayMusic: "night" }
   },
   storm: {
     id: "storm",
     title: "⛈️ La Tempête",
     narrative: "Le ciel s'assombrit. Au loin, le tonnerre gronde. Une pluie froide commence à fouetter les visages. Le village vivra cette journée sous l'orage.",
+    regle: "Ambiance seulement : un orage gronde toute la journée. Aucun effet de règle.",
     technical: { stormSound: true }
   },
   // Identifiant interne « fog » conservé (scène de lumière council.fog, sauvegardes) :
@@ -65,66 +72,77 @@ const COUNCIL_EVENTS = {
     id: "fog",
     title: "🧊 La Paralysie",
     narrative: "Un froid étrange engourdit les villageois. Leurs bras pèsent comme de la pierre. Aujourd'hui, personne ne pourra bouger les bras pour s'exprimer : seuls les mots pourront convaincre.",
+    regle: "Interdit de bouger les bras pour s'exprimer : pas de gestes, pas de doigt pointé, les bras restent immobiles. (À faire respecter.)",
     technical: null
   },
   fire: {
     id: "fire",
     title: "🔥 L'Incendie",
     narrative: "Une fumée âcre monte de la grange du Maire. Son écharpe brûle avec ses derniers privilèges. Aujourd'hui, en cas d'égalité, c'est le hasard — et non lui — qui tranchera.",
+    regle: "Le maire PERD son pouvoir d'arbitrage : en cas d'égalité au vote, c'est le hasard qui tranche (automatique).",
     technical: { mayorPowerless: true }
   },
   whispers: {
     id: "whispers",
     title: "🤫 Les Chuchotements",
     narrative: "Une étrange retenue s'installe. Les villageois n'osent plus élever la voix. Toute la journée, ils ne pourront parler qu'à voix basse.",
+    regle: "Les joueurs ne peuvent parler qu'à VOIX BASSE toute la journée. (À faire respecter.)",
     technical: null
   },
   tribunal: {
     id: "tribunal",
     title: "🧍 Le Tribunal",
     narrative: "Une vieille tradition refait surface. Les anciens insistent : pour parler, il faut se lever. Quiconque souhaite s'exprimer devra se mettre debout face à l'assemblée.",
+    regle: "Pour parler, un joueur doit se LEVER face à l'assemblée. Assis = pas de parole. (À faire respecter.)",
     technical: null
   },
   bell: {
     id: "bell",
     title: "⛪ La Cloche du village",
     narrative: "La vieille cloche de l'église s'est mise à sonner sans raison. Toutes les 45 secondes, elle retentira — et chacun devra se taire quelques instants pour l'écouter.",
+    regle: "Une cloche sonne automatiquement toutes les 45 s. À chaque sonnerie, tout le monde se tait quelques instants.",
     technical: { bellInterval: true }
   },
   last_words: {
     id: "last_words",
     title: "🕯️ Les Dernières Volontés",
     narrative: "Une coutume oubliée resurgit : avant le vote, chaque villageois doit lever la main et déclarer ce qu'il souhaite, au cas où il mourrait aujourd'hui : « Si je meurs aujourd'hui… »",
+    regle: "Avant de lancer le vote, chaque joueur lève la main et déclare « Si je meurs aujourd'hui… » suivi de son souhait.",
     technical: null
   },
   wind: {
     id: "wind",
     title: "🌬️ Le Vent",
     narrative: "Un vent persistant traverse la place. Il pousse les regards vers le sol. Aujourd'hui, plus personne ne pourra fixer un autre dans les yeux en parlant.",
+    regle: "Interdit de regarder un autre joueur dans les yeux en parlant — regards vers le sol. (À faire respecter.)",
     technical: null
   },
   murmurs: {
     id: "murmurs",
     title: "👻 Les Morts Murmurent",
     narrative: "Un souffle étrange traverse la foule. Par moments, on jurerait entendre des voix… des plaintes… des mots imperceptibles. Les morts ne sont peut-être pas si loin.",
+    regle: "Ambiance seulement : des murmures de morts se font entendre. Aucun effet de règle.",
     technical: { murmurSound: true }
   },
   voteMute: {
     id: "voteMute",
     title: "🤐 Le Vote Muet",
     narrative: "Le village se tait. Plus aucun mot ne sera prononcé — ni accusation, ni plaidoyer, ni murmure. Que chacun médite, juge en silence, et trace son verdict. 90 secondes pour voter, sans débat.",
+    regle: "VOTE MUET : aucune parole pendant le vote — ni débat, ni accusation, ni plaidoyer. 90 s pour voter en silence.",
     technical: { voteDurationMs: 90000 }
   },
   silencedVoices: {
     id: "silencedVoices",
     title: "💬 Les Voix Étouffées",
     narrative: "Une étrange paralysie saisit les gorges. Plus personne ne pourra parler à voix haute aujourd'hui. Mais sur la place du village, un parchemin s'est déroulé : les vivants pourront y inscrire leurs pensées, et tous — vivants comme morts — pourront les lire.",
+    regle: "Interdit de parler à voix haute. Un chat écrit s'ouvre : les vivants y écrivent, tous (vivants et morts) peuvent lire.",
     technical: { dayChat: true }
   },
   abdication: {
     id: "abdication",
     title: "👑 L'Abdication",
     narrative: "L'écharpe pèse trop lourd. Le Maire renonce à ses insignes et désigne, ici et maintenant, celui ou celle qui portera la responsabilité pour ce jour et les suivants.",
+    regle: "Le maire ABDIQUE : il désigne lui-même son successeur, sans vote du village. Une carte de choix apparaît au maire.",
     technical: { abdication: true }
   }
 };
@@ -188,6 +206,7 @@ function resolveCouncil() {
     winner,
     title:     COUNCIL_EVENTS[winner].title,
     narrative: COUNCIL_EVENTS[winner].narrative,
+    regle:     COUNCIL_EVENTS[winner].regle,
     counts
   });
   state.councilOptions = null;
@@ -195,10 +214,10 @@ function resolveCouncil() {
   state.io.emit("councilResolved", { winner });
 }
 
-// L'évènement tel que les écrans le reçoivent ({ id, title, narrative }), ou null
+// L'évènement tel que les écrans le reçoivent ({ id, title, narrative, regle }), ou null
 function evenementPublic(id) {
   const ev = id && COUNCIL_EVENTS[id];
-  return ev ? { id: ev.id, title: ev.title, narrative: ev.narrative } : null;
+  return ev ? { id: ev.id, title: ev.title, narrative: ev.narrative, regle: ev.regle } : null;
 }
 
 // Effets de l'évènement du jour (`technical`), ou aucun
@@ -348,7 +367,6 @@ function handleCouncilVote(socket, eventId) {
   if (!state.councilOptions || !state.councilOptions.includes(eventId)) return;
   state.councilVotes[socket.id] = eventId;
   versMJ("councilVoteUpdateMJ", { councilVotes: state.councilVotes });
-  socket.emit("councilVoteConfirm", { eventId });
 }
 
 // ===== LES VOIX ÉTOUFFÉES — chat écrit du jour =====

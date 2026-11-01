@@ -316,6 +316,7 @@ function startDayVote(mode) {
   const duration = effet.voteDurationMs || durations[mode] || 60000;
   const endsAt = Date.now() + duration + 800;
   state.voteTimerEnd = endsAt;
+  state.voteDureeMs = duration;
 
   const realVotes = votesDuVillage();
   const corbeauInfo = infosCorbeau();
@@ -422,6 +423,7 @@ function handleVoteDay(socket, id) {
         state.fastResolveTriggered = true;
         clearVoteTimer();
         state.voteTimerEnd = Date.now() + FAST_RESOLVE_MS;
+        state.voteDureeMs = FAST_RESOLVE_MS;
         state.voteTimer = setTimeout(() => { resolveDayVote(); }, FAST_RESOLVE_MS);
         state.io.emit("autoResolve", "✅ Tout le village a voté — vote rapide 30s !");
         state.io.emit("voteResumed", { endsAt: state.voteTimerEnd, durationMs: FAST_RESOLVE_MS, serverNow: Date.now() });
