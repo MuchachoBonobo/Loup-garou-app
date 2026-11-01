@@ -154,36 +154,6 @@
   </button>
 </div>
 
-<!-- Carte explicative au lancement de la mission (tous joueurs) -->
-<div id="missionExplainCard" class="plein-ecran" style="display:none;z-index:9998;background:radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--lune-nuit)) 100%);">
-  <div class="card-emoji">🕵️</div>
-  <div class="card-title" style="color:rgb(var(--lune-clair));">Mission Secrète</div>
-  <div style="max-width:380px;color:rgba(255,255,255,0.85);line-height:1.7;font-size:14px;animation:cardSlide 0.5s ease 0.3s both;">
-    <div style="margin-bottom:14px;">
-      Le <strong style="color:rgb(var(--or-vif));">Maire</strong> désigne <strong>3 joueurs</strong> pour partir en mission.
-    </div>
-    <div style="margin-bottom:14px;">
-      Chaque joueur sélectionné choisit secrètement :
-    </div>
-    <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:10px 14px;margin-bottom:14px;text-align:left;">
-      <div style="margin:4px 0;"><span style="color:rgb(var(--vert-vif));">✅ Réussite</span></div>
-      <div style="margin:4px 0;"><span style="color:rgb(var(--sang-vif));">❌ Échec</span></div>
-    </div>
-    <div style="background:rgb(var(--braise-fond));border:1px solid rgb(var(--or-base));border-radius:8px;padding:8px 12px;margin-bottom:14px;color:rgb(var(--braise-vif));font-size:13px;">
-      ⚠️ La mission échoue s'il y a au moins un Échec.
-    </div>
-    <div style="margin-bottom:14px;font-style:italic;color:rgba(255,255,255,0.6);">
-      Le résultat sera révélé demain matin…
-    </div>
-    <div style="background:rgb(var(--vert-fond));border:1px solid rgb(var(--vert-base));border-radius:8px;padding:10px 14px;color:rgb(var(--vert-vif));font-size:13px;">
-      🎁 Si la mission réussit, le Maire obtiendra une information secrète sur 3 joueurs de son choix.
-    </div>
-  </div>
-  <button onclick="closeMissionExplainCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--lune-clair),0.4);background:rgba(var(--lune-clair),0.1);color:rgb(var(--lune-clair));font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.6s both;">
-    🕵️ J'ai compris
-  </button>
-</div>
-
 <div id="lobby" style="margin:20px auto;">
   <input id="name" placeholder="Ton prénom" style="padding:8px;border-radius:6px;border:1px solid rgb(var(--n5));background:rgb(var(--n3));color:rgb(var(--n8));font-size:15px;">
   <button onclick="join()">Rejoindre</button>
@@ -343,70 +313,6 @@
 <!-- Sorcière : plein écran, seulement l'encadré de la question (le moins d'information possible) -->
 <div id="witchPanel" style="display:none;position:fixed;inset:0;z-index:9600;background:radial-gradient(ellipse at center,rgb(var(--vert-fond)) 0%,rgb(var(--vert-nuit)) 100%);flex-direction:column;padding:24px 16px;overflow-y:auto;">
   <div id="witchEtape" style="margin:auto;width:100%;max-width:420px;background:rgb(var(--vert-fond));border:2px solid rgb(var(--vert-base));border-radius:14px;padding:22px 16px;text-align:center;"></div>
-</div>
-
-<!-- ===== MISSION ===== -->
-
-<!-- Statut mission visible par tous (team sélectionnée, nb cartes jouées) -->
-<div id="missionStatusPanel" class="panneau" style="display:none;background:rgb(var(--lune-nuit));border:1px solid rgb(var(--lune-sombre));text-align:center;">
-  <div style="font-size:11px;color:rgb(var(--lune-base));text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">🎭 Mission secrète</div>
-  <div id="missionStatusText" style="font-size:13px;color:rgb(var(--lune-clair));"></div>
-  <div id="missionCardCounter" style="display:none;margin-top:8px;font-size:12px;color:rgb(var(--n5));"></div>
-</div>
-
-<!-- Maire : sélection des 3 joueurs pour la mission -->
-<div id="missionPanel" class="panneau" style="display:none;background:rgb(var(--lune-fond));border:2px solid rgb(var(--lune-base));">
-  <div style="font-size:24px;text-align:center;margin-bottom:8px;">🎭</div>
-  <div style="font-weight:bold;color:rgb(var(--lune-vif));font-size:15px;text-align:center;margin-bottom:6px;">Tu es le Maire — choisis ton équipe</div>
-  <div style="font-size:12px;color:rgb(var(--n5));margin-bottom:12px;text-align:center;">Sélectionne 3 joueurs (pas toi-même). Ils choisiront secrètement une carte.</div>
-  <div id="missionTeamBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
-  <div id="missionSelectedNames" style="margin-top:10px;font-size:12px;color:rgb(var(--lune-vif));text-align:center;min-height:18px;"></div>
-  <button id="missionConfirmBtn" onclick="confirmMissionTeam()" disabled
-    style="width:100%;margin-top:12px;padding:12px;background:rgb(var(--lune-sombre));border:2px solid rgb(var(--lune-base));border-radius:8px;color:rgb(var(--lune-vif));font-size:14px;cursor:pointer;opacity:0.4;">
-    ✅ Confirmer l'équipe
-  </button>
-</div>
-
-<!-- Joueur sélectionné : choix de carte -->
-<div id="missionVotePanel" class="panneau" style="display:none;background:rgb(var(--lune-fond));border:2px solid rgb(var(--lune-base));text-align:center;">
-  <div style="font-size:24px;margin-bottom:8px;">🎭</div>
-  <div style="font-weight:bold;color:rgb(var(--lune-vif));font-size:15px;margin-bottom:6px;">Mission — Choisis ta carte</div>
-  <div style="font-size:12px;color:rgb(var(--n5));margin-bottom:14px;line-height:1.6;">
-    Choisis <strong style="color:rgb(var(--n7));">secrètement</strong> une carte.<br>
-    Ton choix n'est pas visible par les autres.
-  </div>
-  <div style="display:flex;gap:12px;justify-content:center;">
-    <button onclick="playMissionCard('success')"
-      style="flex:1;padding:18px 8px;background:rgb(var(--vert-sombre));border:2px solid rgb(var(--vert-base));border-radius:10px;color:rgb(var(--vert-vif));font-size:22px;cursor:pointer;">
-      ✅<div style="font-size:11px;margin-top:4px;color:rgb(var(--vert-base));">Réussite</div>
-    </button>
-    <button onclick="playMissionCard('fail')"
-      style="flex:1;padding:18px 8px;background:rgb(var(--sang-fond));border:2px solid rgb(var(--sang-base));border-radius:10px;color:rgb(var(--sang-vif));font-size:22px;cursor:pointer;">
-      ❌<div style="font-size:11px;margin-top:4px;color:rgb(var(--sang-base));">Échec</div>
-    </button>
-  </div>
-  <div id="missionCardDone" style="display:none;margin-top:12px;font-size:13px;color:rgb(var(--vert-vif));">✅ Carte jouée — en attente des autres joueurs…</div>
-</div>
-
-<!-- Maire : bonus (si mission réussie) -->
-<div id="missionBonusPanel" class="panneau" style="display:none;background:rgb(var(--vert-fond));border:2px solid rgb(var(--vert-base));">
-  <div style="font-size:24px;text-align:center;margin-bottom:8px;">🔍</div>
-  <div style="font-weight:bold;color:rgb(var(--vert-vif));font-size:15px;text-align:center;margin-bottom:6px;">Mission réussie — Bonus d'information</div>
-  <div style="font-size:12px;color:rgb(var(--n5));margin-bottom:12px;text-align:center;line-height:1.6;">
-    Choisis 3 joueurs. Tu sauras en privé si au moins un d'eux est un Loup.
-  </div>
-  <div id="missionBonusBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
-  <div id="missionBonusSelectedNames" style="margin-top:10px;font-size:12px;color:rgb(var(--vert-vif));text-align:center;min-height:18px;"></div>
-  <button id="missionBonusConfirmBtn" onclick="confirmMissionBonus()" disabled
-    style="width:100%;margin-top:12px;padding:12px;background:rgb(var(--vert-sombre));border:2px solid rgb(var(--vert-base));border-radius:8px;color:rgb(var(--vert-vif));font-size:14px;cursor:pointer;opacity:0.4;">
-    🔍 Révéler
-  </button>
-</div>
-
-<!-- Résultat bonus (privé, visible uniquement par le maire) -->
-<div id="missionBonusResult" class="panneau" style="display:none;background:rgb(var(--vert-fond));border:2px solid rgb(var(--vert-base));text-align:center;">
-  <div id="missionBonusResultText" style="font-size:16px;font-weight:bold;margin-bottom:6px;"></div>
-  <div id="missionBonusResultSub" style="font-size:12px;color:rgb(var(--n5));"></div>
 </div>
 
 <div id="deathLogPanel" class="panneau" style="display:none;background:rgb(var(--n1));border:1px solid rgb(var(--n3));text-align:left;">
@@ -582,7 +488,7 @@ document.addEventListener("click", () => {
 // Les phases de nuit ne déclenchent JAMAIS de vibration : un téléphone qui
 // vibre dans le silence donne une info aux autres joueurs présents.
 const NO_VIBRATE_PHASES = ["cupid","amoureux","sisters","salvateur","wolves","seer","petiteFille","witch","corbeau","nightPause",
-  "mission","missionVote","missionBonus","chasseur"];
+  "chasseur"];
 // Vibration brute, sans garde de phase. À n'utiliser qu'après avoir vérifié
 // soi-même qu'on est bien de JOUR (cf. isDayContext pour le Chasseur / le Maire).
 function vibrateNow(pattern) {
@@ -625,13 +531,6 @@ let mjPilotedDay = true;
 let nuitParMJ = false;
 // Chasseur ou maire mourant : l'annonce du mort reste affichée jusqu'au clic du MJ
 let _actionAttendMJ = false;
-
-// ===== MISSION =====
-let missionActive = false;
-let missionTeamSelected = [];   // ids des 3 joueurs sélectionnés (visible par tous)
-let missionSelectedByMe = [];   // sélection en cours par le maire (côté client)
-let missionBonusSelectedByMe = []; // sélection bonus en cours
-let missionCardPlayed = false;  // ce joueur a-t-il joué sa carte ?
 
 // ===== PETITE FILLE =====
 let petiteFilleSelection = [];  // les 3 joueurs en cours de sélection (côté client)
@@ -826,11 +725,18 @@ socket.on("retireParMJ", () => {
   setTimeout(() => location.reload(), 1500);
 });
 
-socket.on("registerError", msg=>{
-  const inp=document.getElementById("name");
-  if(inp){ inp.style.borderColor="rgb(var(--sang-vif))"; inp.placeholder=msg; }
+// Prénom refusé (déjà pris, ou partie en cours) : il est oublié et le champ revient — sinon le
+// joueur restait bloqué, champ caché et prénom refusé renvoyé à chaque reconnexion. Refusé en
+// pleine partie, il rejoint tout seul dès le retour au salon.
+let _rejoindreAuSalon = false;
+socket.on("registerError", (msg, details)=>{
+  try { sessionStorage.removeItem("lgName"); } catch (_) {}
+  _rejoindreAuSalon = !!(details && details.partieEnCours);
+  afficherSaisiePrenom(true);
+  document.getElementById("name").style.borderColor="rgb(var(--sang-vif))";
   document.getElementById("status").innerText="⚠️ "+msg;
 });
+socket.on("phase", p=>{ if(p==="lobby" && _rejoindreAuSalon){ _rejoindreAuSalon=false; join(); } });
 socket.on("autoResolve", msg => {
   const b = document.getElementById("autoResolveBanner");
   b.innerText = msg; b.style.display = "block";
@@ -921,10 +827,7 @@ socket.on("gameSummary", data => {
   if (gameIsOver) afficherMaMedaille(data);
   if (data.deathLog) updateDeathLog(data.deathLog);
   const es = document.getElementById("endScreen");
-  if (es && es.className === "visible") {
-    const t = document.getElementById("endScreenTitle").innerText;
-    populateEndScreen(data, t.includes("Loups")?"wolves":t.includes("Amoureux")?"lovers":t.includes("Ange")?"ange":"villagers");
-  }
+  if (es && es.className === "visible") populateEndScreen(data, data.winner);
 });
 
 socket.on("gameEnd", msg=>{
@@ -943,7 +846,6 @@ socket.on("gameEnd", msg=>{
    "infoPanel","tiebreakPanel","votesPanel","voteTimerBox","voteWaitBox",
    "witchPanel","corbeauPanel","chasseurPanel","petiteFillePanel",
    "deadChatPanel","deadVisionPanel","deathLogPanel","playersSection",
-   "missionPanel","missionVotePanel","missionBonusPanel","missionStatusPanel","missionBonusResult",
    "dayDebateScreen","deadFullScreen","actionPendingBanner","roleRevealCover"
   ].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
   // Carte de rôle encore ouverte (pas retournée, page rechargée) : elle masquait la victoire
@@ -955,10 +857,8 @@ socket.on("gameEnd", msg=>{
   const carteOuverte = document.getElementById("dayDeathCard");
   if (carteOuverte && carteOuverte.classList.contains("show")) { _dawnOnClose = null; closeDawnCard(); }
 
-  const isWolves = msg.includes("Loups");
-  const isLovers = msg.includes("Amoureux");
-  const isAnge   = msg.includes("Ange");
-  const key = isWolves ? "wolves" : isLovers ? "lovers" : isAnge ? "ange" : "villagers";
+  // Le camp gagnant vient du résumé de fin, que le serveur envoie juste avant
+  const key = (lastGameSummary && lastGameSummary.winner) || "villagers";
   const titleMap = {
     wolves:    "🐺 Les Loups ont gagné !",
     lovers:    "💘 Les Amoureux ont gagné !",
@@ -1168,7 +1068,7 @@ function carteAnnonce(emoji, titre, texte, fond, noms = []) {
 
 // ===== CHOISIR UN JOUEUR =====
 // Une seule liste pour tous les choix d'un joueur (Salvateur, Corbeau, Sorcière, Chasseur, maire :
-// égalité, transmission, abdication, Voyante ; Petite Fille, mission et Cupidon via choisirDesJoueurs) : photo +
+// égalité, transmission, abdication, Voyante ; Petite Fille et Cupidon via choisirDesJoueurs) : photo +
 // prénom, une ligne chacun. `couleur` : la bordure, propre au rôle. `interdit(id)` renvoie la
 // raison d'une cible refusée (bouton grisé), ou rien.
 function choisirUnJoueur(conteneur, joueurs, action, couleur, interdit = () => null) {
@@ -1188,7 +1088,7 @@ function choisirUnJoueur(conteneur, joueurs, action, couleur, interdit = () => n
   });
 }
 
-// Choix de plusieurs joueurs (3 pour la Petite Fille et la mission, 2 pour Cupidon) : mêmes boutons,
+// Choix de plusieurs joueurs (3 pour la Petite Fille, 2 pour Cupidon) : mêmes boutons,
 // un toucher ajoute ou retire, la validation ne s'allume qu'au compte.
 // `selection()` rend le tableau en cours, modifié sur place (il suit ainsi les reconnexions, qui
 // le remplacent). Renvoie la fonction qui remet l'affichage à jour.
@@ -1302,12 +1202,15 @@ function join() {
   socket.emit("register", name);
   apresRejoindre();
 }
-// On NE cache PAS encore le lobby : on garde la photo section visible jusqu'au start.
-// L'input nom et bouton Rejoindre se masquent.
+// Salon : la saisie du prénom (champ + « Rejoindre ») ou, une fois inscrit, la section photo,
+// visible jusqu'au lancement de la partie
+function afficherSaisiePrenom(saisie) {
+  document.getElementById("name").style.display = saisie ? "" : "none";
+  const b = document.querySelector("#lobby > button[onclick='join()']"); if (b) b.style.display = saisie ? "" : "none";
+  document.getElementById("photoSection").style.display = saisie ? "none" : "block";
+}
 function apresRejoindre() {
-  document.getElementById("name").style.display = "none";
-  const b = document.querySelector("#lobby > button[onclick='join()']"); if (b) b.style.display = "none";
-  document.getElementById("photoSection").style.display = "block";
+  afficherSaisiePrenom(false);
   requestWakeLock();
   startWakeLockHeartbeat();
 }
@@ -1420,18 +1323,6 @@ socket.on("reconnected", state => {
   if(state.deadVision){deadVisionData=state.deadVision;renderDeadVision();}
   if(state.deathLog) updateDeathLog(state.deathLog);
   if(state.idiotRevealed){ idiotRevealed=true; idiotId=state.idiotId; }
-  // Restaure état mission
-  if(state.missionActive){
-    missionActive=true;
-    missionTeamSelected=state.missionTeam||[];
-    const msp=document.getElementById("missionStatusPanel");
-    if(msp&&state.missionPhase) msp.style.display="block";
-    if(state.missionTeam&&state.missionTeam.length>0){
-      const names=state.missionTeam.map(id=>{const p=players.find(x=>x.id===id);return p?p.name:id;}).join(", ");
-      const st=document.getElementById("missionStatusText");
-      if(st) st.innerText="Équipe de mission : "+names;
-    }
-  }
   renderInfoPanel(); scheduleRender();
   // Après une reconnexion en plein jour, le bloc « Votre identité » doit redevenir
   // masqué (bouton « Maintenir pour voir mon rôle ») : sans cet appel il restait affiché.
@@ -1515,7 +1406,6 @@ function traduireIdsApresReconnexion(nouveauxJoueurs) {
   mayorCounts = TK(mayorCounts); dayCounts = TK(dayCounts); votesDayDetail = TK(votesDayDetail); wolfVotes = TK(wolfVotes);
   roles = TK(roles); deathInfoById = TK(deathInfoById);
   mayorVotedSet = new Set([...mayorVotedSet].map(T));
-  missionTeamSelected = TL(missionTeamSelected); missionSelectedByMe = TL(missionSelectedByMe); missionBonusSelectedByMe = TL(missionBonusSelectedByMe);
   petiteFilleSelection = TL(petiteFilleSelection);
   amoureuxSelection = TL(amoureuxSelection);
 }
@@ -1568,13 +1458,13 @@ function isActiveDuringPhase(p, r) {
 // Le voile de nuit cède la place aux cartes : une carte est ouverte si elle a la classe
 // « show » ou data-open="1" (carte du maire)
 function isAnyNarrativeCardOpen() {
-  const ids = ['roleCard','dayDeathCard','nightFallCard','councilEventCard','missionExplainCard','mayorCard','sistersPanel','amoureuxPanel'];
+  const ids = ['roleCard','dayDeathCard','nightFallCard','councilEventCard','mayorCard','sistersPanel','amoureuxPanel'];
   for (const id of ids) {
     const el = document.getElementById(id);
     if (!el) continue;
     if (el.className && el.className.includes("show")) return true;
     if (el.getAttribute && el.getAttribute("data-open") === "1") return true;
-    // Cartes avec display:flex inline (councilEventCard, missionExplainCard)
+    // Cartes avec display:flex inline (councilEventCard)
     if (el.style && el.style.display === "flex") return true;
   }
   return false;
@@ -1776,7 +1666,7 @@ function updateRoleRevealBtn() {
   const content = document.getElementById("infoPanelContent");
   if (!btn || !content) return;
   // Masquage actif seulement quand les yeux sont ouverts collectivement
-  const dayLike = ['day','crepuscule','mayorVote','mission','missionVote','missionBonus','mayorTransfer','chasseur','lobby'].includes(phase);
+  const dayLike = ['day','crepuscule','mayorVote','mayorTransfer','chasseur','lobby'].includes(phase);
   if (dayLike && role && !iAmDead) {
     btn.style.display = "block";
     if (!btn.dataset.bound) {
@@ -1888,40 +1778,6 @@ socket.on("phase", p=>{
     }
   }
   else document.getElementById("voteWaitBox").style.display="none";
-
-  // ===== MISSION : gestion des panneaux selon phase =====
-  // Règle : chaque panneau mission est ouvert/fermé par son event dédié, PAS par le handler phase.
-  // Le handler phase se contente de gérer missionStatusPanel et de fermer les panneaux
-  // qui ne correspondent plus à la phase courante.
-  const isMissionPhase = ["mission","missionVote","missionBonus"].includes(p);
-
-  // missionStatusPanel : visible pendant toute la durée de la mission
-  const msp = document.getElementById("missionStatusPanel");
-  if(msp) msp.style.display = isMissionPhase ? "block" : "none";
-
-  // Ferme UNIQUEMENT les panneaux qui n'ont pas d'event dédié pour les ouvrir
-  // — missionPanel    : ouvert par missionSelectTeam → ne fermer que hors phase mission
-  // — missionVotePanel: ouvert par missionCardChoice → ne fermer que hors phase missionVote
-  // — missionBonusPanel: ouvert par showMissionBonusPanel → ne fermer que hors phase missionBonus
-  // — missionBonusResult: ouvert par missionBonusResult event → ne fermer que hors phase missionBonus
-  if(p !== "mission")      { const e=document.getElementById("missionPanel");      if(e) e.style.display="none"; }
-  if(p !== "missionVote")  { const e=document.getElementById("missionVotePanel");  if(e) e.style.display="none"; }
-  if(p !== "missionBonus") { const e=document.getElementById("missionBonusPanel"); if(e) e.style.display="none"; }
-  // missionBonusResult : reste visible pendant le jour pour que le maire puisse consulter le résultat
-  // Disparaît seulement à la nuit suivante (phase wolves ou cupid)
-  if(["wolves","cupid","lobby"].includes(p)) { const e=document.getElementById("missionBonusResult"); if(e) e.style.display="none"; }
-
-  if(p==="mission"){
-    document.getElementById("missionStatusText").innerText="Le Maire choisit son équipe…";
-    document.getElementById("missionCardCounter").style.display="none";
-  }
-  if(p==="missionVote"){
-    document.getElementById("missionCardCounter").style.display="block";
-    document.getElementById("missionCardCounter").innerText="0 / 3 cartes jouées";
-  }
-  if(p==="missionBonus"){
-    showMissionBonusPanel();
-  }
 
   renderVotesPanel(); scheduleRender();
   // Écrans du jour réévalués à chaque phase : débat, écran de mort, vote des morts
@@ -2161,11 +2017,6 @@ function decompteSoeurs(fin) {
 }
 // La fermeture du panneau Sœurs en cas de changement de phase est gérée
 // dans le gros handler socket.on("phase", ...) plus haut.
-
-// Sélection de mission refusée par le serveur (équipe invalide)
-socket.on("missionError", msg => {
-  document.getElementById("status").innerText = "⚠️ " + msg;
-});
 
 socket.on("corbeauConfirm", data=>{
   document.getElementById("corbeauPanel").style.display = "none";
@@ -2426,57 +2277,6 @@ socket.on("dayVoteResult", data=>{
 
 socket.on("daySkipped",()=>{ document.getElementById("status").innerText="🌅 Pas de vote ce jour."; });
 
-// ===== MISSION — HANDLERS =====
-
-// Reçu uniquement par le maire
-socket.on("missionSelectTeam", data=>{
-  missionActive = true;
-  missionSelectedByMe = [];
-  const panel = document.getElementById("missionPanel");
-  panel.style.display = "block";
-  choisirDesJoueurs(document.getElementById("missionTeamBtns"), data.players, "rgb(var(--lune-vif))",
-    "missionSelectedNames", "missionConfirmBtn", () => missionSelectedByMe);
-});
-
-function confirmMissionTeam(){
-  if(missionSelectedByMe.length !== 3) return;
-  socket.emit("missionTeamChoice", missionSelectedByMe);
-  document.getElementById("missionPanel").style.display = "none";
-  document.getElementById("status").innerText = "🎭 Équipe envoyée — en attente des choix…";
-}
-
-// Reçu par tous : l'équipe est connue
-socket.on("missionStarted", data=>{
-  missionActive = true;
-  document.getElementById("missionStatusPanel").style.display = "block";
-  document.getElementById("missionStatusText").innerText = `🎭 Mission lancée par ${data.mayorName}`;
-  // Affiche la carte explicative pour TOUS les joueurs (vivants comme spectateurs)
-  showMissionExplainCard();
-});
-
-let _missionExplainAutoClose = null;
-function showMissionExplainCard(){
-  const card = document.getElementById("missionExplainCard");
-  if(!card) return;
-  card.style.display = "flex";
-  card.style.animation = "fadeIn 0.5s ease forwards";
-  updateNightCover();
-  // Auto-close après 20 secondes — filet de sécurité, fermeture manuelle attendue
-  if(_missionExplainAutoClose) clearTimeout(_missionExplainAutoClose);
-  _missionExplainAutoClose = setTimeout(closeMissionExplainCard, 20000);
-}
-function closeMissionExplainCard(){
-  if(_missionExplainAutoClose) { clearTimeout(_missionExplainAutoClose); _missionExplainAutoClose = null; }
-  const card = document.getElementById("missionExplainCard");
-  if(!card) return;
-  card.style.animation = "fadeOut 0.6s ease forwards";
-  setTimeout(()=>{
-    card.style.display = "none"; card.style.animation = "";
-    updateNightCover();
-    updateDayDebateScreen();
-  }, 600);
-}
-
 // ===== CONSEIL DES MORTS — vote =====
 let councilCurrentOptions = [];
 let councilHasVoted = false;
@@ -2589,76 +2389,9 @@ socket.on("councilEventEnd", () => {
   refreshSilentDayChatVisibility();
 });
 
-socket.on("missionTeamSelected", data=>{
-  missionTeamSelected = data.team.map(p=>p.id);
-  const names = data.team.map(p=>p.name).join(", ");
-  document.getElementById("missionStatusPanel").style.display = "block";
-  document.getElementById("missionStatusText").innerText =
-    `🎭 Équipe de mission : ${names}`;
-  document.getElementById("missionCardCounter").style.display = "block";
-  document.getElementById("missionCardCounter").innerText = "En attente des votes…";
-});
-
-// Reçu par les 3 membres de l'équipe seulement
-socket.on("missionCardChoice", data=>{
-  missionCardPlayed = false;
-  const panel = document.getElementById("missionVotePanel");
-  panel.style.display = "block";
-  document.getElementById("missionCardDone").style.display = "none";
-  // Réactive les boutons
-  panel.querySelectorAll("button").forEach(b=>{ b.disabled=false; b.style.opacity="1"; });
-});
-
-function playMissionCard(card){
-  if(missionCardPlayed) return;
-  missionCardPlayed = true;
-  socket.emit("missionCard", card);
-  // Cache les boutons, affiche confirmation
-  document.getElementById("missionVotePanel").querySelectorAll("button[onclick]").forEach(b=>{
-    b.disabled=true; b.style.opacity="0.3";
-  });
-  document.getElementById("missionCardDone").style.display = "block";
-}
-
-// Reçu par le joueur : confirmation de son choix
-socket.on("missionCardConfirm", data=>{
-  // Déjà géré dans playMissionCard côté UI
-});
-
-// Reçu par tous : quelqu'un a joué une carte (sans dire qui ni laquelle)
-socket.on("missionCardPlayed", data=>{
-  const counter = document.getElementById("missionCardCounter");
-  if(counter) counter.innerText = `${data.count} / ${data.total} cartes jouées`;
-});
-
-// Reçu à l'aube via dawnResult — la révélation est dans le texte narratif (pas de nouvelle carte)
-// Voir handler dawnResult modifié ci-dessous
-
-// Reçu uniquement par le maire si mission réussie
-socket.on("missionBonusResult", data=>{
-  // Cache le panel de sélection
-  document.getElementById("missionBonusPanel").style.display = "none";
-  // Affiche le résultat
-  const res = document.getElementById("missionBonusResult");
-  res.style.display = "block";
-  const names = data.team.map(p=>p.name).join(", ");
-  const txt = document.getElementById("missionBonusResultText");
-  const sub = document.getElementById("missionBonusResultSub");
-  if(data.hasWolf){
-    txt.style.color = "rgb(var(--sang-vif))";
-    txt.innerText = "⚠️ OUI — au moins un Loup parmi eux !";
-  } else {
-    txt.style.color = "rgb(var(--vert-vif))";
-    txt.innerText = "✅ NON — aucun Loup parmi eux.";
-  }
-  sub.innerText = `Joueurs inspectés : ${names}`;
-});
-
-// Reçu par le maire : activer le panneau bonus
 socket.on("dawnResult", data=>{
   const deaths  = Array.isArray(data) ? data : (data.deaths || []);
   const saved   = !Array.isArray(data) && data.saved;
-  const missionResult = !Array.isArray(data) ? data.missionResult : null;
   if (deaths.length > 0) {
     deaths.forEach(d => {
       // Vérifie qu'on n'ajoute pas un doublon (loversDeathInfo peut avoir déjà ajouté ce joueur)
@@ -2682,9 +2415,6 @@ socket.on("dawnResult", data=>{
     title = deaths.length === 1 ? "Le village pleure" : "Une nuit de deuil";
     text  = phraseDesMorts(deaths, "cette nuit");
   }
-  // Le résultat de mission n'est pas un rôle → on peut le montrer aux joueurs
-  if (missionResult === "success")      text += "\n\n🎭 Mission réussie.";
-  else if (missionResult === "fail")    text += "\n\n🎭 Mission échouée.";
   carteAnnonce(emoji, title, text, "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%)", deaths.map(d => d.name));
   const c = document.getElementById("dayDeathCard");
   // Réinitialise nightCardShownThisNight : la carte d'aube précède toujours la nuit suivante
@@ -2718,32 +2448,6 @@ socket.on("dawnResult", data=>{
   _aubeAttendLeMJ = !Array.isArray(data) && !!data.annonceParMJ;
   if (!_aubeAttendLeMJ) setTimeout(() => { if(c.className === "show") closeDawnCard(); }, 7000);
 });
-
-// Reçu par tous : le maire a utilisé son bonus
-socket.on("missionBonusUsed", data=>{
-  const names = data.team ? data.team.map(p=>p.name).join(", ") : "…";
-  document.getElementById("missionStatusText").innerText =
-    `🔍 ${data.mayorName} a inspecté : ${names}`;
-  document.getElementById("missionBonusPanel").style.display = "none";
-});
-
-function showMissionBonusPanel(){
-  if(socket.id !== mayor) return;
-  missionBonusSelectedByMe = [];
-  const panel = document.getElementById("missionBonusPanel");
-  panel.style.display = "block";
-  // Le maire ne peut pas s'inspecter lui-même
-  choisirDesJoueurs(document.getElementById("missionBonusBtns"), players.filter(p => !deadPlayers.includes(p.id) && p.id !== mayor),
-    "rgb(var(--vert-base))", "missionBonusSelectedNames", "missionBonusConfirmBtn", () => missionBonusSelectedByMe);
-}
-
-function confirmMissionBonus(){
-  if(missionBonusSelectedByMe.length !== 3) return;
-  socket.emit("missionBonusChoice", missionBonusSelectedByMe);
-  document.getElementById("missionBonusPanel").style.display = "none";
-}
-
-// ===== FIN MISSION HANDLERS =====
 
 socket.on("tiebreakNeeded", data=>{
   // Seul le maire voit le panel de tiebreak — les autres joueurs voient un message de statut
@@ -2952,7 +2656,7 @@ socket.on("voteStarted", data=>{
     const carte = document.getElementById("dayDeathCard");
     if (carte && carte.className === "show" && !_confirmationNuitEnAttente) closeDawnCard();
   }
-  // Vibration : début de vote du jour (mayorVote ou day) — pas en mission/nuit
+  // Vibration : début de vote du jour (mayorVote ou day) — pas la nuit
   if(phase === "day" || phase === "mayorVote") vibrateIfDay([100, 50, 100]);
   currentVoteMode=data.mode;
   myDayVote=null;
@@ -3017,15 +2721,12 @@ socket.on("gameReset", data => {
   // Réponse de nuit qui attendait son « OK » : abandonnée avec la partie
   _confirmationNuitEnAttente = null;
   boutonCarte(false);
-  // Reset mission
-  missionActive=false; missionTeamSelected=[]; missionSelectedByMe=[]; missionBonusSelectedByMe=[]; missionCardPlayed=false;
-  ["missionPanel","missionVotePanel","missionBonusPanel","missionBonusResult","missionStatusPanel","missionExplainCard","councilPanel","councilEventCard"].forEach(id=>{
+  ["councilPanel","councilEventCard"].forEach(id=>{
     const e=document.getElementById(id); if(e) e.style.display="none";
   });
   if(_councilEventCardAutoClose) { clearTimeout(_councilEventCardAutoClose); _councilEventCardAutoClose=null; }
   _pendingCouncilEventData = null;
   councilCurrentOptions = []; councilHasVoted = false;
-  if(_missionExplainAutoClose) { clearTimeout(_missionExplainAutoClose); _missionExplainAutoClose=null; }
   ["roleCard","dayDeathCard","nightFallCard"].forEach(id=>{
     const el=document.getElementById(id);
     if(el){ el.className=""; el.style.display=""; el.style.background=""; el.removeAttribute("data-open"); }
@@ -3244,7 +2945,7 @@ function majChoixDeNuit(){
 
 // 3. Pendant un choix personnel, la liste des joueurs se cache : ses prénoms et ses photos sont
 // déjà dans l'encadré. Une seule règle, quel que soit le chemin qui ouvre ou ferme l'encadré.
-const PANNEAUX_DE_CHOIX=["seerPanel","cupidPanel","salvateurPanel","corbeauPanel","petiteFillePanel","missionPanel","missionBonusPanel"];
+const PANNEAUX_DE_CHOIX=["seerPanel","cupidPanel","salvateurPanel","corbeauPanel","petiteFillePanel"];
 function majListeJoueurs(){
   const choixOuvert=PANNEAUX_DE_CHOIX.some(id=>document.getElementById(id).style.display!=="none");
   if(!gameIsOver) document.getElementById("playersSection").style.display=choixOuvert?"none":"";

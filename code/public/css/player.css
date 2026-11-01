@@ -14,7 +14,7 @@ button:disabled { opacity:0.35; cursor:not-allowed; }
 #mayorCardPhoto > * { margin:0 !important; border:3px solid rgb(var(--or-vif)) !important; animation:cardPop 0.5s ease 0.1s both; }
 
 /* IDENTITE */
-/* Encadré dans la page (identité, votes, chat et vision des morts, rôles de nuit, mission…) :
+/* Encadré dans la page (identité, votes, chat et vision des morts, rôles de nuit…) :
    même forme partout, la couleur reste propre à chacun */
 .panneau { border-radius:10px; margin:10px auto; max-width:480px; padding:14px 16px; }
 #infoPanel h3, #deadChatPanel h3, #deadVisionPanel h3, #votesPanel h3 { margin:0 0 10px; text-align:center; font-size:12px; letter-spacing:1px; text-transform:uppercase; }

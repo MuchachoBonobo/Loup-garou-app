@@ -25,11 +25,6 @@ body { background:rgb(var(--n0)); color:rgb(var(--n8)); font-size:14px; max-widt
 .night-step.pending { color:rgb(var(--n4)); border-color:rgb(var(--n2)); }
 @keyframes nightPulse { 0%,100%{box-shadow:0 0 8px rgba(var(--lune-vif),0.3);} 50%{box-shadow:0 0 16px rgba(var(--lune-vif),0.6);} }
 
-/* Mission phase bar */
-#missionPhaseBar { display:none; background:rgb(var(--lune-nuit)); border:1px solid rgb(var(--lune-sombre)); border-radius:10px; padding:12px 14px; margin-bottom:10px; }
-#missionPhaseBar.active { display:block; }
-#missionPhaseTitle { font-size:11px; color:rgb(var(--lune-base)); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
-
 #alertBanner { display:none; border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:13px; }
 #alertBanner.info    { background:rgb(var(--or-fond)); border:1px solid rgb(var(--or-base)); color:rgb(var(--or-vif)); }
 #alertBanner.warn    { background:rgb(var(--braise-fond)); border:1px solid rgb(var(--braise-base)); color:rgb(var(--braise-vif)); }
@@ -39,11 +34,6 @@ body { background:rgb(var(--n0)); color:rgb(var(--n8)); font-size:14px; max-widt
 #stuckGameBanner   { display:none; background:rgb(var(--braise-nuit)); border:1px solid rgb(var(--braise-base)); border-radius:8px; padding:10px 14px; margin-bottom:10px; font-size:13px; color:rgb(var(--braise-vif)); }
 #chasseurPanel     { display:none; background:rgb(var(--braise-fond)); border:2px solid rgb(var(--braise-vif)); border-radius:10px; padding:12px; margin-bottom:10px; }
 #replayPanel       { display:none; background:rgb(var(--n1)); border:1px solid rgb(var(--n4)); border-radius:10px; padding:14px; margin-bottom:10px; }
-
-/* Mission MJ panel */
-#missionMJPanel { display:none; background:rgb(var(--lune-fond)); border:2px solid rgb(var(--lune-base)); border-radius:10px; padding:14px; margin-bottom:10px; }
-#missionMJPanel.active { display:block; }
-#missionBonusMJInfo { display:none; background:rgb(var(--vert-fond)); border:1px solid rgb(var(--vert-base)); border-radius:8px; padding:10px; margin-top:8px; font-size:13px; }
 
 .btn       { padding:9px 14px; cursor:pointer; border-radius:7px; border:1px solid rgb(var(--n4)); background:rgb(var(--n2)); color:rgb(var(--n8)); font-size:13px; transition:all 0.15s; }
 .btn:hover { background:rgb(var(--n3)); border-color:rgb(var(--n4)); }

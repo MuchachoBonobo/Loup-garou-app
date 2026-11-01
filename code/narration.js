@@ -13,10 +13,6 @@ const NARRATIONS = {
   ],
 
   // === Maire élu ===
-  "mayorVote_to_mission": [
-    "Le Maire est élu. Une mission secrète l'attend : il doit choisir trois envoyés.",
-    "Le village a son Maire. L'heure d'une mission délicate a sonné. Trois noms vont être désignés."
-  ],
   "mayorVote_to_cupid": [
     "Le Maire prend ses fonctions. La nuit tombe sur le village. Que tout le monde ferme les yeux. Cupidon, lève-toi.",
     "Le Maire est en place. La nuit s'installe. Cupidon, à toi de tisser le fil de l'amour.",
@@ -26,22 +22,6 @@ const NARRATIONS = {
     "Le Maire est élu. La nuit s'abat sur le village. Loups-Garous, réveillez-vous.",
     "Le Maire prend l'écharpe. Les ténèbres tombent. La meute s'éveille.",
     "Notre Maire est en place. La nuit règne. Que les Loups ouvrent les yeux."
-  ],
-
-  // === Mission ===
-  "mission_to_missionVote": [
-    "L'équipe est désignée. Que les trois envoyés choisissent secrètement leur carte.",
-    "Trois envoyés sont nommés. À eux de jouer leur carte dans l'ombre."
-  ],
-  "missionVote_to_cupid": [
-    "Les cartes sont jouées. Le résultat sera révélé à l'aube. Cupidon, à toi maintenant.",
-    "Les envoyés ont parlé. Leur secret se révélera demain. Cupidon, lève-toi."
-  ],
-
-  // Mission terminée, pas de Cupidon dans la partie : la nuit enchaîne sur les Loups.
-  "missionVote_to_wolves": [
-    "Les cartes sont jouées. Le résultat sera révélé à l'aube. La nuit tombe : Loups-Garous, réveillez-vous.",
-    "Les envoyés ont parlé. Leur secret se révélera demain. Que la meute ouvre les yeux."
   ],
 
   // === Cupidon → Loups ===
@@ -179,16 +159,6 @@ const NARRATIONS = {
   "nightPause_to_witch":     ["Sorcière, ouvre les yeux. Voici la victime des Loups."],
   "crepuscule_to_nightPause": ["Le village s'endort. Que chacun ferme les yeux.", "La nuit tombe sur le village. Fermez les yeux."],
   "nightPause_to_day":       ["Le jour se lève sur le village. Ouvrez les yeux.", "L'aube pointe. Villageois, réveillez-vous."],
-  "nightPause_to_missionBonus": ["Le jour se lève sur une mission réussie. Maire, l'information est à toi."],
-
-  "witch_to_missionBonus": [
-    "La Sorcière range ses fioles. Le jour se lève sur une mission réussie. Maire, l'information est à toi.",
-    "La nuit s'achève. La mission a réussi. Maire, choisis trois personnes à inspecter."
-  ],
-  "missionBonus_to_day": [
-    "L'inspection est faite. Le Maire garde son secret. Le village peut désormais débattre.",
-    "Le Maire a inspecté. Place au débat."
-  ],
 
   // === Jour → nuit suivante ===
   "day_to_wolves": [
@@ -225,10 +195,6 @@ const NARRATIONS = {
   "mayorTransfer_to_wolves": [
     "Le nouveau Maire est en place. La nuit reprend ses droits.",
     "L'écharpe est transmise. La nuit s'installe à nouveau."
-  ],
-  "mayorTransfer_to_missionBonus": [
-    "Le nouveau Maire prend ses fonctions et hérite de l'inspection. À toi de choisir trois cibles.",
-    "L'écharpe a été transmise. Maire, lance ton inspection."
   ]
 };
 

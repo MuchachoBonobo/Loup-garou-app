@@ -1,6 +1,6 @@
 // roles.js — Logique de tous les rôles : Salvateur, Voyante, Petite Fille, Sorcière, Cupidon,
 // Corbeau, Chasseur, Idiot ; mécanique mort, transfert maire, résolution de nuit, attribution
-// initiale, mission. Inclut tous les handlers socket des rôles.
+// initiale. Inclut tous les handlers socket des rôles.
 //
 // Dépendances circulaires (phases, votes) résolues via require('./module').fn() à l'usage.
 
@@ -18,45 +18,14 @@ const { buildDeathNarrative } = require('./death-narratives');
 // Phases où une mort compte comme « de nuit » : après une transmission d'écharpe, la
 // partie reprend alors au jour (et non sur une nouvelle nuit). Doit contenir TOUTES les
 // étapes de nuit, y compris la pause du MJ (« nightPause ») : c'est pendant cette pause
-// que la nuit se résout quand le MJ la rythme. Les phases de la mission sont rangées ici
-// depuis toujours (elles précèdent la première nuit).
+// que la nuit se résout quand le MJ la rythme.
 const PHASES_DE_NUIT = ["cupid", "amoureux", "sisters", "salvateur", "wolves", "seer", "petiteFille", "corbeau", "witch",
-  "nightPause", "mission", "missionVote", "missionBonus"];
+  "nightPause"];
 
 // Une mort de la nuit telle que l'aube l'annonce (récit compris)
 function buildDeath(id, cause) {
   const role = state.roles[id], name = playerName(id);
   return { id, name, role, cause, narrative: buildDeathNarrative({ role, cause, name }) };
-}
-
-// ===== MISSION — MINUTERIES =====
-function clearMissionTimeouts() {
-  ["teamTimeout", "cardTimeout", "bonusTimeout"].forEach(k => { clearTimeout(state.mission[k]); state.mission[k] = null; });
-}
-
-// Le bonus d'une mission réussie attend le maire (vivant) après la nuit
-function bonusMissionAttendu() {
-  return state.mission.active && state.mission.result === "success" && !state.mission.bonusDone
-    && !!state.mayor && !state.deadPlayers.includes(state.mayor);
-}
-
-// ===== MISSION — RÉSOLUTION DES CARTES =====
-function resolveMissionCards() {
-  clearMissionTimeouts();
-  const hasFail = Object.values(state.mission.cards).some(c => c === "fail");
-  state.mission.result = hasFail ? "fail" : "success";
-
-  // Informe le MJ discrètement du résultat brut
-  versMJ("missionResultMJ", {
-    result: state.mission.result,
-    cards: state.mission.team.map(id => ({
-      id, name: playerName(id), card: state.mission.cards[id]
-    }))
-  });
-
-  // Enregistre le résultat mais ne le révèle PAS encore au broadcast.
-  // → la révélation se fera dans doResolveNight() via missionReveal.
-  ouvrirNuit(true);
 }
 
 // ===== CHASSEUR ET MAIRE MOURANT : APPEL AUX TÉLÉPHONES =====
@@ -67,7 +36,7 @@ function annoncerTransfert(id) { if (state.autoMode) state.io.emit("mayorMustTra
 
 // ===== ENTRÉE DE LA NUIT (rythme du MJ) =====
 // Après le jour (vote, vote passé, Idiot, tir du Chasseur, transmission d'écharpe) et après
-// l'élection du maire (ou la mission) : avec un MJ, phase « crepuscule » jusqu'à son
+// l'élection du maire : avec un MJ, phase « crepuscule » jusqu'à son
 // « 🌙 Lancer la nuit » — les téléphones gardent la carte du mort ou du maire jusque-là
 // (demande d'Alexandre, 2026-10-26). En mode autonome, la nuit démarre aussitôt.
 function ouvrirNuit(premiere) {
@@ -290,21 +259,17 @@ function resoudreNuit() {
   state.witchSaveActive = false;
 
   const enChasseur = state.phase === "chasseur";
-  const missionResultToReveal = (state.mission.active && !state.mission.resultRevealed) ? state.mission.result : null;
-  if (missionResultToReveal !== null) state.mission.resultRevealed = true;
-  const bonusMission = bonusMissionAttendu();
   // Avec un MJ, la carte des morts reste jusqu'à son clic : « 🔫 Le Chasseur tire », la
   // transmission d'écharpe qu'il lance, ou le réveil qu'il mène
   const annonceParMJ = enChasseur ? !!state.actionMJ
-    : (state.actionMJ === "mayorTransfer" || require('./council').annonceMatinParMJ()) && !state.pendingEndGame && !bonusMission;
+    : (state.actionMJ === "mayorTransfer" || require('./council').annonceMatinParMJ()) && !state.pendingEndGame;
   ajouterMortsDAmour();
   state.io.emit("dawnResult", {
     deaths, saved: savedThisNight, witchKilled: witchKillThisNight,
     nightNum: state.gameStats.nightCount,
-    missionResult: missionResultToReveal,
     annonceParMJ
   });
-  lumieresAube(deaths.length, missionResultToReveal);
+  lumieresAube(deaths.length);
 
   // Récap de la nuit pour le MJ, envoyé au début du jour (setPhase("day")) ou plus tôt ci-dessous
   state.pendingDayRecap = {
@@ -312,8 +277,7 @@ function resoudreNuit() {
     nightDeaths: deaths.map(d => ({ name: d.name, role: d.role, cause: d.cause })),
     saved: savedThisNight,
     savedByWitch:     protectedByWitch,
-    savedBySalvateur: protectedBySalvateur,
-    missionResult: missionResultToReveal
+    savedBySalvateur: protectedBySalvateur
   };
   // Fin de la résolution avant tout changement de phase, pour ne pas retarder les transitions
   state.inNightResolution = false;
@@ -345,7 +309,7 @@ function resoudreNuit() {
 
   // La transmission d'écharpe passe avant le jour : le MJ voit déjà le récap de la nuit
   if (state.phase === "mayorTransfer") envoyerRecapMJ();
-  else phases.setPhase(bonusMission ? "missionBonus" : "day");
+  else phases.setPhase("day");
 }
 
 // Récap de la nuit envoyé au MJ : à l'aube s'il ne faut pas attendre le jour (Chasseur,
@@ -356,13 +320,10 @@ function envoyerRecapMJ() {
   state.pendingDayRecap = null;
 }
 
-// Lumières de l'aube : un éclair par mort puis la couleur de la mission ; l'aube si personne n'est mort
-function lumieresAube(nbMorts, mission) {
-  const couleurMission = mission === "success" ? "flash.reussite" : "flash.death";
-  if (nbMorts > 0) {
-    lights.flashSequence("flash.death", nbMorts);
-    if (mission !== null) setTimeout(() => lights.flash(couleurMission), nbMorts * 750 + 300);
-  } else lights.flash(mission !== null ? couleurMission : "flash.dawn");
+// Lumières de l'aube : un éclair par mort ; l'aube si personne n'est mort
+function lumieresAube(nbMorts) {
+  if (nbMorts > 0) lights.flashSequence("flash.death", nbMorts);
+  else lights.flash("flash.dawn");
 }
 
 // ===== MORT =====
@@ -543,7 +504,7 @@ function performMayorTransfer(targetId) {
   if (phases.checkVictory()) return;
   // Maire mort au vote du jour (ou abattu par un Chasseur mort au vote) : la nuit suit
   if (ctx === "day" || ctx === "chasseurFromDay") ouvrirNuit(false);
-  else if (ctx === "night") phases.setPhase(bonusMissionAttendu() ? "missionBonus" : "day");
+  else if (ctx === "night") phases.setPhase("day");
   else {
     // « chasseur » : abattu par un Chasseur mort la nuit, le jour suit
     if (ctx !== "chasseur") log.warn('performMayorTransfer', 'contexte inconnu=' + ctx + ' → retour au jour');
@@ -625,7 +586,6 @@ function assignAndStart(config, playerList) {
 
   versMJ("rolesMJ", { roles: state.roles, players: state.players });
 
-  state.mission.active = !!config.mission;
   phases.setPhase("mayorVote");
 }
 
@@ -856,81 +816,10 @@ function handleMayorTransferChoice(socket, targetId) {
   performMayorTransfer(targetId);
 }
 
-// ===== MISSION =====
-// 3 joueurs vivants distincts, autres que le maire (il ne s'envoie ni ne s'inspecte lui-même)
-function equipeValide(ids) {
-  const alive = alivePlayers().map(p => p.id);
-  return ids.every(id => alive.includes(id) && id !== state.mayor) && new Set(ids).size === 3;
-}
-
-// Le maire (joueur ou robot) a choisi l'équipe : chacun de ses membres reçoit ses cartes
-function envoyerEnMission(teamIds) {
-  clearMissionTimeouts();
-  state.mission.team = teamIds;
-  const equipe = teamIds.map(id => ({ id, name: playerName(id) }));
-  state.io.emit("missionTeamSelected", { team: equipe, mayorName: playerName(state.mayor) });
-  teamIds.forEach(demanderCarteMission);
-  versMJ("missionMJInfo", { step: "cardVote", team: equipe });
-  phases.setPhase("missionVote");
-}
-
-// Un membre de l'équipe est invité à jouer sa carte secrète (envoi en mission, reconnexion)
-function demanderCarteMission(id) {
-  state.io.to(id).emit("missionCardChoice", { mayorName: playerName(state.mayor), teamNames: state.mission.team.map(playerName) });
-}
-
-// Carte jouée par un membre de l'équipe (joueur ou robot) ; la mission se résout à la dernière
-function jouerCarteMission(id, card) {
-  state.mission.cards[id] = card;
-  state.io.to(id).emit("missionCardConfirm", { card });
-  const recues = Object.keys(state.mission.cards).length, total = state.mission.team.length;
-  versMJ("missionMJInfo", { step: "cardReceived", received: recues, total });
-  state.io.emit("missionCardPlayed", { count: recues, total });
-  if (recues === total) resolveMissionCards();
-}
-
-// Bonus d'une mission réussie : le maire apprend si un loup est parmi les 3 qu'il désigne
-function inspecterBonus(teamIds) {
-  clearMissionTimeouts();
-  state.mission.bonusDone = true;
-  const equipe = teamIds.map(id => ({ id, name: playerName(id) }));
-  const loups = teamIds.filter(id => state.roles[id] === "Loup");
-  state.io.to(state.mayor).emit("missionBonusResult", { team: equipe, hasWolf: loups.length > 0 });
-  versMJ("missionMJBonusResult", {
-    team: equipe, hasWolf: loups.length > 0, wolves: loups.map(id => playerName(id))
-  });
-  state.io.emit("missionBonusUsed", { mayorName: playerName(state.mayor), team: equipe });
-  phases.setPhase("day");
-}
-
-function handleMissionTeamChoice(socket, teamIds) {
-  if (state.phase !== "mission" || socket.id !== state.mayor) return;
-  if (!Array.isArray(teamIds) || teamIds.length !== 3) return;
-  if (!equipeValide(teamIds)) return socket.emit("missionError", "Sélection invalide — 3 joueurs vivants autres que toi.");
-  envoyerEnMission(teamIds);
-}
-
-function handleMissionCard(socket, card) {
-  if (state.phase !== "missionVote") return;
-  if (!state.mission.team.includes(socket.id)) return;
-  if (state.mission.cards[socket.id]) return;
-  if (card !== "success" && card !== "fail") return;
-  jouerCarteMission(socket.id, card);
-}
-
-function handleMissionBonusChoice(socket, bonusTeamIds) {
-  if (state.phase !== "missionBonus" || socket.id !== state.mayor) return;
-  if (!Array.isArray(bonusTeamIds) || bonusTeamIds.length !== 3) return;
-  if (!equipeValide(bonusTeamIds)) return socket.emit("missionError", "Sélection bonus invalide — 3 joueurs vivants autres que toi.");
-  inspecterBonus(bonusTeamIds);
-}
-
 // IMPORTANT : on MUTE l'objet module.exports (pas de réassignation) pour ne pas
 // invalider les références capturées par phases.js et votes.js pendant la phase
 // de chargement circulaire.
 Object.assign(module.exports, {
-  // Mission
-  clearMissionTimeouts, resolveMissionCards, envoyerEnMission, jouerCarteMission, inspecterBonus, demanderCarteMission,
   // Nuit
   ETAPES_NUIT, LIBELLES_ETAPES_NUIT, startNightSequence, doResolveNight, allerEtapeNuit, lancerEtapeNuit, etapeApres,
   ouvrirNuit, lancerNuitAttendue, finAmoureux, demarrerTimerSoeurs, advanceAfterSeer, advanceAfterPetiteFille,
@@ -945,5 +834,4 @@ Object.assign(module.exports, {
   handlePetiteFilleChoice, handlePetiteFilleDone,
   handleWitchSave, handleWitchKill, handleWitchDone, handleResolveNight,
   handleChasseurAction, handleMayorTransferChoice,
-  handleMissionTeamChoice, handleMissionCard, handleMissionBonusChoice,
 });

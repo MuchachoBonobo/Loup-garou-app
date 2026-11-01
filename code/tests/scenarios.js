@@ -2,7 +2,7 @@
  * tests/scenarios.js — Tests d'intégration du serveur
  *
  * Lance un serveur sur le port 3099, connecte de vrais sockets socket.io-client,
- * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S16) est décrit
+ * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S17) est décrit
  * au-dessus de sa fonction.
  *
  * Usage : npm test   (ou : node tests/scenarios.js)
@@ -623,6 +623,34 @@ const s16 = () => scenario("S16", "Bouton d'urgence « Voyante » sans Voyante",
   check("S16-la Sorcière reçoit ses potions", await arrive(potionsP));
 });
 
+// S17 — Arrivée en pleine partie : le prénom inconnu est refusé (son téléphone attend la partie
+// suivante, le MJ est prévenu) au lieu de devenir un joueur sans rôle, compté vivant et votant ;
+// au retour au salon il s'inscrit. Au salon, un prénom déjà pris est refusé, sans attente.
+const s17 = () => scenario("S17", "Arrivée en pleine partie, prénom déjà pris", async all => {
+  const { mj, players } = await preparerPartie(all, ["s17_A","s17_B","s17_C","s17_D","s17_E"], { loup: 1 });
+  const refus = s => Promise.race([new Promise(res => s.once("registerError", (msg, details) => res({ msg, details }))), sleep(5000).then(() => null)]);
+  const retard = await connecter(TEST_PORT); all.push(retard);
+  const refusP = refus(retard), alerteP = attendre(mj, "retardataire", 5000);
+  retard.emit("register", "s17_Retard");
+  const r1 = await refusP;
+  check("S17-refusé en pleine partie, en attente de la suivante", !!(r1 && r1.details && r1.details.partieEnCours), JSON.stringify(r1));
+  check("S17-le MJ est prévenu", await arrive(alerteP));
+
+  const salonP = attendre(players[0].s, "players", 6000);
+  mj.emit("reset");
+  const salon = await salonP.catch(() => []);
+  check("S17-il n'a jamais été compté parmi les joueurs", salon.length === 5 && !salon.some(p => p.name === "s17_Retard"), salon.map(p => p.name).join());
+  const inscritP = attendre(players[0].s, "players", 6000, l => l.some(p => p.name === "s17_Retard"));
+  retard.emit("register", "s17_Retard");
+  check("S17-au salon, il s'inscrit", await arrive(inscritP));
+
+  const doublon = await connecter(TEST_PORT); all.push(doublon);
+  const r2P = refus(doublon);
+  doublon.emit("register", "s17_A");
+  const r2 = await r2P;
+  check("S17-prénom déjà pris refusé, sans attente de partie", !!r2 && !(r2.details && r2.details.partieEnCours), JSON.stringify(r2));
+});
+
 // Démarrage du serveur et exécution des scénarios
 async function main() {
   console.log("═".repeat(62));
@@ -632,7 +660,7 @@ async function main() {
   const serveur = await demarrerServeur(TEST_PORT);
   console.log("  Serveur test prêt : http://localhost:" + TEST_PORT + "\n");
 
-  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16]) {
+  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17]) {
     await s();
     await sleep(800);
   }

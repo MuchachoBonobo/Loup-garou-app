@@ -27,9 +27,6 @@ const MAYOR_TRANSFER_TIMEOUT_MS = 60000;
 const VOTE_RATE_MS              = 1000;
 const STUCK_TIMEOUT_MS          = 10 * 60 * 1000;
 const FAST_RESOLVE_MS           = 30000;
-const MISSION_TEAM_TIMEOUT_MS   = 120000;
-const MISSION_CARD_TIMEOUT_MS   = 90000;
-const MISSION_BONUS_TIMEOUT_MS  = 90000;
 const MAYOR_AUTO_TIMEOUT_MS     = 90000;
 const WOLVES_AUTO_TIMEOUT_MS    = 120000;
 const WOLF_CONSENSUS_GRACE_MS   = 3000;
@@ -110,12 +107,6 @@ function partieNeuve() {
     // le chat écrit du jour (les vivants seuls écrivent).
     councilOptions: null, councilVotes: {}, pendingCouncilEvent: null, activeCouncilEvent: null,
     councilUsedEvents: [], silentDayChatHistory: [],
-
-    // Mission
-    mission: {
-      active: false, team: [], cards: {}, result: null, resultRevealed: false, bonusDone: false,
-      teamTimeout: null, cardTimeout: null, bonusTimeout: null,
-    },
 
     // Journal de la partie : médailles et écrans de fin
     gameStats: {
@@ -240,10 +231,6 @@ function buildFullState(socketId) {
     deathLog:     state.gameStats.deathLog,
     idiotRevealed: state.idiotRevealed,
     idiotId:      state.idiotRevealed ? joueursAvecRole("Idiot")[0] : null,
-    missionActive: state.mission.active,
-    missionTeam:   state.mission.team,
-    missionResult: state.mission.result,
-    missionPhase:  (state.phase === "mission" || state.phase === "missionVote" || state.phase === "missionBonus") ? state.phase : null,
     activeCouncilEvent: (state.phase === "day" && state.evenementAnnonce) ? council.evenementPublic(state.activeCouncilEvent) : null,
     myDayVoteId:  state.votesDay[socketId]  || null,
     myMayorVoteId: state.mayorVote[socketId] || null,
@@ -291,7 +278,7 @@ const CHAMPS_JOUEUR = ["mayor", "currentChasseurShooter", "dyingMayorId", "corbe
   "protectedTarget", "lastProtectedTarget", "pendingChasseurAfterTransfer", "angeVainqueur"];
 function remplacerIdentifiant(ancien, nouveau, role) {
   if (role) { state.roles[nouveau] = role; delete state.roles[ancien]; }
-  [state.lovers, state.deadPlayers, state.mission.team, state.tiebreakCandidates].forEach(liste => {
+  [state.lovers, state.deadPlayers, state.tiebreakCandidates].forEach(liste => {
     const i = liste.indexOf(ancien);
     if (i >= 0) liste[i] = nouveau;
   });
@@ -301,8 +288,8 @@ function remplacerIdentifiant(ancien, nouveau, role) {
   [state.votesDay, state.votesWolf, state.mayorVote].forEach(urne => {
     Object.keys(urne).forEach(votant => { if (urne[votant] === ancien) urne[votant] = nouveau; });
   });
-  // Ses propres bulletins, et sa carte de mission
-  [state.votesDay, state.votesWolf, state.mayorVote, state.councilVotes, state.mission.cards].forEach(urne => {
+  // Ses propres bulletins
+  [state.votesDay, state.votesWolf, state.mayorVote, state.councilVotes].forEach(urne => {
     if (urne[ancien] !== undefined) { urne[nouveau] = urne[ancien]; delete urne[ancien]; }
   });
   if (state.lockedVoters.delete(ancien)) state.lockedVoters.add(nouveau);
@@ -322,7 +309,6 @@ module.exports = {
   SISTERS_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS, VOTE_RATE_MS,
   STUCK_TIMEOUT_MS, FAST_RESOLVE_MS,
-  MISSION_TEAM_TIMEOUT_MS, MISSION_CARD_TIMEOUT_MS, MISSION_BONUS_TIMEOUT_MS,
   MAYOR_AUTO_TIMEOUT_MS, WOLVES_AUTO_TIMEOUT_MS, WOLF_CONSENSUS_GRACE_MS,
   DAY_AUTO_START_DELAY_MS, BOT_MIN_DELAY_MS, BOT_MAX_DELAY_MS,
   // Helpers

@@ -184,9 +184,6 @@ io.on("connection", socket => {
       deadPlayers: state.deadPlayers.map(id => ({ id, name: playerName(id), role: state.roles[id] })),
       lovers: state.lovers,
       gameStats: state.gameStats,
-      missionActive: state.mission.active,
-      missionTeam:   state.mission.team,
-      missionResult: state.mission.result,
       nightTarget: state.nightTarget ? { id: state.nightTarget, name: playerName(state.nightTarget) } : null,
       etapeNuitLibelle: state.phase === "nightPause" ? roles.LIBELLES_ETAPES_NUIT[state.etapeNuitSuivante] : null,
       // État du vote du jour, pour griser les bons boutons d'une tablette rechargée
@@ -294,7 +291,14 @@ io.on("connection", socket => {
       resynchroniserApresReconnexion(socket);
       return;
     }
-    if (state.phase === "lobby" && state.playerRegistry[key]) {
+    // Partie en cours, prénom inconnu : il attend la partie suivante. Inscrit maintenant, il
+    // serait un joueur sans rôle, compté vivant pour la victoire et autorisé à voter.
+    if (state.phase !== "lobby") {
+      socket.emit("registerError", "Une partie est en cours : tu rejoindras la suivante.", { partieEnCours: true });
+      versMJ("retardataire", { name: trimmed });
+      return;
+    }
+    if (state.playerRegistry[key]) {
       const existing = state.players.find(p => p.name.toLowerCase() === key);
       // Prénom déjà pris par un téléphone encore connecté
       if (existing && existing.id !== socket.id && io.sockets.sockets.get(existing.id)) {
@@ -384,11 +388,6 @@ io.on("connection", socket => {
   // ===== MAIRE =====
   socket.on("voteMayor",     target => votes.handleVoteMayor(socket, actuel(target)));
   socket.on("lockMayorVote", ()     => votes.handleLockMayorVote(socket));
-
-  // ===== MISSION =====
-  socket.on("missionTeamChoice",  teamIds      => roles.handleMissionTeamChoice(socket, actuel(teamIds)));
-  socket.on("missionCard",        card         => roles.handleMissionCard(socket, card));
-  socket.on("missionBonusChoice", bonusTeamIds => roles.handleMissionBonusChoice(socket, actuel(bonusTeamIds)));
 
   // ===== ÉGALITÉ TRANCHÉE PAR LE MAIRE =====
   socket.on("tiebreakChoice", targetId => votes.handleTiebreakChoice(socket, actuel(targetId)));
@@ -544,8 +543,6 @@ function resynchroniserApresReconnexion(socket) {
   // Chasseur ou maire mourant dont l'action est ouverte (tout le monde sait qui transmet l'écharpe)
   if (state.phase === "chasseur" && state.currentChasseurShooter === id && !state.actionMJ) socket.emit("chasseurMustShoot", id);
   if (state.phase === "mayorTransfer" && state.dyingMayorId === id && !state.actionMJ) io.emit("mayorMustTransfer", id);
-  // Vote de mission : la demande de carte, si elle n'est pas encore jouée
-  if (state.phase === "missionVote" && state.mission.team.includes(id) && !state.mission.cards[id]) roles.demanderCarteMission(id);
   // Conseil des Morts en cours : le mort reconnecté retrouve son vote
   if (state.councilOptions && !vivant) socket.emit("councilStart", council.optionsDuConseil());
 }

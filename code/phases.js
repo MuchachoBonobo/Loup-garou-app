@@ -7,7 +7,6 @@ const {
   WITCH_TIMEOUT_MS, CUPID_TIMEOUT_MS, CORBEAU_TIMEOUT_MS, SEER_TIMEOUT_MS, SALVATEUR_TIMEOUT_MS, NIGHT_PAUSE_TIMEOUT_MS,
   PETITE_FILLE_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS,
   CHASSEUR_TIMEOUT_MS, MAYOR_TRANSFER_TIMEOUT_MS,
-  MISSION_TEAM_TIMEOUT_MS, MISSION_CARD_TIMEOUT_MS, MISSION_BONUS_TIMEOUT_MS,
   MAYOR_AUTO_TIMEOUT_MS, WOLVES_AUTO_TIMEOUT_MS,
   DAY_AUTO_START_DELAY_MS, STUCK_TIMEOUT_MS,
   BOT_MIN_DELAY_MS, BOT_MAX_DELAY_MS,
@@ -274,38 +273,6 @@ function installPhaseTimeouts(p) {
     }, NIGHT_PAUSE_TIMEOUT_MS);
   }
 
-  if (p === "mission") {
-    state.mission.teamTimeout = setTimeout(() => {
-      if (state.phase === "mission") {
-        state.io.emit("autoResolve", "⏱️ Le Maire n'a pas sélectionné son équipe — mission annulée.");
-        state.mission.active = false;
-        roles.ouvrirNuit(true);
-      }
-    }, MISSION_TEAM_TIMEOUT_MS);
-  }
-
-  if (p === "missionVote") {
-    state.mission.cardTimeout = setTimeout(() => {
-      if (state.phase === "missionVote") {
-        state.mission.team.forEach(id => {
-          if (!state.mission.cards[id]) state.mission.cards[id] = "success";
-        });
-        state.io.emit("autoResolve", "⏱️ Temps écoulé — cartes manquantes comptées comme Réussite.");
-        roles.resolveMissionCards();
-      }
-    }, MISSION_CARD_TIMEOUT_MS);
-  }
-
-  if (p === "missionBonus") {
-    state.mission.bonusTimeout = setTimeout(() => {
-      if (state.phase === "missionBonus") {
-        state.io.emit("autoResolve", "⏱️ Le Maire n'a pas utilisé son bonus — passage au jour.");
-        state.mission.bonusDone = true;
-        setPhase("day");
-      }
-    }, MISSION_BONUS_TIMEOUT_MS);
-  }
-
   // Chasseur : tir aléatoire si inactif
   if (p === "chasseur" && state.actionMJ === "chasseur") {
     filetActionMJ("chasseurTimeout", "chasseur");
@@ -357,7 +324,6 @@ function clearPhaseTimeouts() {
   state.seerPendingResult = null;
   state.petiteFillePendingResult = null;
   state.sistersTimerEnd = null;
-  roles.clearMissionTimeouts();
   arreterFiletsAutonomes();
 }
 
@@ -501,44 +467,6 @@ function runBotsForPhase(p) {
       });
     }
   }
-
-  // Mission — sélection équipe
-  if (p === "mission" && mayorBot()) {
-    scheduleBot(() => {
-      if (state.phase !== "mission") return;
-      const candidates = vivantsSauf(state.mayor);
-      if (candidates.length >= 3) roles.envoyerEnMission(fisherYates(candidates).slice(0, 3).map(pl => pl.id));
-    });
-  }
-
-  // Mission — carte secrète de chaque robot de l'équipe : un loup sabote 7 fois sur 10,
-  // un villageois réussit 8 fois sur 10
-  if (p === "missionVote") {
-    aliveBots.filter(b => state.mission.team.includes(b.id)).forEach(bot => {
-      scheduleBot(() => {
-        if (state.phase !== "missionVote" || state.mission.cards[bot.id]) return;
-        const card = state.roles[bot.id] === "Loup"
-          ? (Math.random() < 0.7 ? "fail" : "success")
-          : (Math.random() < 0.8 ? "success" : "fail");
-        roles.jouerCarteMission(bot.id, card);
-      });
-    });
-  }
-
-  // Mission — bonus du maire (il ne s'inspecte pas lui-même)
-  if (p === "missionBonus" && mayorBot()) {
-    scheduleBot(() => {
-      if (state.phase !== "missionBonus") return;
-      const candidates = vivantsSauf(state.mayor);
-      if (candidates.length >= 3) roles.inspecterBonus(fisherYates(candidates).slice(0, 3).map(pl => pl.id));
-    });
-  }
-}
-
-// Le maire actuel est-il un robot ?
-function mayorBot() {
-  const maire = state.mayor && state.players.find(pl => pl.id === state.mayor);
-  return !!(maire && maire.isBot);
 }
 
 // ===== VICTOIRE =====

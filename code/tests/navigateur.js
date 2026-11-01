@@ -4,7 +4,7 @@
  * ce que chaque écran affiche (cartes, voile de nuit, listes de choix, écran de débat, écran de
  * mort, boutons de vote, fin de partie) et qu'aucune page n'a d'erreur JavaScript.
  *
- * Partie 1 — 2 loups, 4 villageois dont 2 Sœurs, MJ qui pilote le jour, sans Conseil ni mission.
+ * Partie 1 — 2 loups, 4 villageois dont 2 Sœurs, MJ qui pilote le jour, sans Conseil.
  *   Nuit 1 : les loups tuent V1. Jour 1 : le village élimine L1. Nuit 2 : L2 tue V2.
  *   Jour 2 : le village élimine L2 → victoire du village. Le maire (V4) n'est jamais visé.
  * Partie 2 — les rôles qui choisissent : Cupidon, Salvateur, Voyante, Petite Fille, Corbeau,
@@ -81,7 +81,7 @@ async function preparer(navigateur, port, noms, composition) {
   await mj.evaluate(c => {
     document.querySelectorAll("#mjSectionStart input[type=number]").forEach(i => { i.value = 0; });
     for (const [id, n] of Object.entries(c)) document.getElementById(id).value = n;
-    for (const id of ["mission", "conseil", "autoMode"]) { const x = document.getElementById(id); if (x) x.checked = false; }
+    for (const id of ["conseil", "autoMode"]) { const x = document.getElementById(id); if (x) x.checked = false; }
     document.getElementById("mjPilotedDay").checked = true;
   }, composition);
   await clic(mj, 'button[onclick="startGame()"]');

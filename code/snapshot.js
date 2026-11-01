@@ -66,14 +66,6 @@ function serializeState(state) {
     savedAt: new Date().toISOString(),
     ...Object.fromEntries(CHAMPS.map(k => [k, state[k]])),
     lockedVoters: Array.from(state.lockedVoters || []),
-    mission: state.mission ? {
-      active: state.mission.active,
-      team: state.mission.team,
-      cards: state.mission.cards,
-      result: state.mission.result,
-      resultRevealed: state.mission.resultRevealed,
-      bonusDone: state.mission.bonusDone,
-    } : null,
     gameStats: state.gameStats,
     mjPilotedDay: state.mjPilotedDay,
     conseilActif: state.conseilActif,
@@ -86,7 +78,6 @@ function applySnapshot(state, snap) {
   const d = defauts();
   for (const k of CHAMPS) state[k] = relire(snap[k], d[k]);
   state.lockedVoters = new Set(snap.lockedVoters || []);
-  if (snap.mission) Object.assign(state.mission, snap.mission);
   // Journal de la partie : une sauvegarde plus ancienne garde les rubriques apparues depuis
   if (snap.gameStats) state.gameStats = { ...d.gameStats, ...snap.gameStats };
   // Absents des anciennes sauvegardes : on garde alors la valeur en place

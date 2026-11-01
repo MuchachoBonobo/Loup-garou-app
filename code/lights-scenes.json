@@ -23,14 +23,6 @@
     "bri": 110,
     "transition": 5000
   },
-  "missionBonus": {
-    "xy": [
-      0.249,
-      0.493
-    ],
-    "bri": 200,
-    "transition": 1000
-  },
   "mayorVote": {
     "xy": [
       0.43,
@@ -112,14 +104,6 @@
     "bri": 200,
     "transition": 400,
     "effect": "slow_pulse"
-  },
-  "mission": {
-    "xy": [
-      0.207,
-      0.233
-    ],
-    "bri": 150,
-    "transition": 1000
   },
   "mayorTransfer": {
     "xy": [
@@ -375,14 +359,6 @@
     "transition": 1200,
     "effect": "slow_pulse"
   },
-  "missionVote": {
-    "xy": [
-      0.207,
-      0.233
-    ],
-    "bri": 150,
-    "transition": 1000
-  },
   "flash.victoire.village": {
     "xy": [
       0.465,
@@ -418,14 +394,5 @@
     "bri": 254,
     "duration": 400,
     "repeat": 5
-  },
-  "flash.reussite": {
-    "xy": [
-      0.2,
-      0.622
-    ],
-    "bri": 254,
-    "duration": 400,
-    "repeat": 2
   }
 }

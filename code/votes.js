@@ -2,7 +2,7 @@
 // Dépendances circulaires (phases, roles) résolues via require('./module').fn() à l'usage.
 
 const {
-  state, alivePlayers, vivantsSauf, computeCounts, playerName, isMJ, hasRole, auHasard, versMJ, vivantsAvecRole, infosCorbeau,
+  state, alivePlayers, computeCounts, playerName, isMJ, hasRole, auHasard, versMJ, vivantsAvecRole, infosCorbeau,
   VOTE_RATE_MS, FAST_RESOLVE_MS, WOLF_CONSENSUS_GRACE_MS, resetActivity,
 } = require('./state');
 
@@ -97,21 +97,7 @@ function performLockMayorVote() {
     // Délai 5 s : laisse le temps à la lumière et au MJ d'annoncer le nouveau maire
     setTimeout(() => {
       if (state.phase !== "mayorVote") return; // phase changée manuellement pendant l'attente
-      if (state.mission.active) {
-        state.io.to(state.mayor).emit("missionSelectTeam", {
-          mayorName: playerName(state.mayor),
-          // Le maire ne peut pas s'envoyer en mission
-          players: vivantsSauf(state.mayor).map(p => ({ id: p.id, name: p.name }))
-        });
-        state.io.emit("missionStarted", { mayorName: playerName(state.mayor) });
-        versMJ("missionMJInfo", {
-          step: "teamSelection",
-          mayorName: playerName(state.mayor)
-        });
-        phases.setPhase("mission");
-      } else {
-        roles.ouvrirNuit(true);
-      }
+      roles.ouvrirNuit(true);
     }, 5000);
   });
 }

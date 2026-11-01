@@ -175,19 +175,6 @@
   <div id="nightPhaseSteps"></div>
 </div>
 
-<!-- INDICATEUR PHASE MISSION -->
-<div id="missionPhaseBar">
-  <div id="missionPhaseTitle">🎭 Phase Mission</div>
-  <div id="missionMJPanel">
-    <div id="missionMJStatus" style="font-size:13px;color:rgb(var(--lune-vif));margin-bottom:8px;"></div>
-    <div id="missionMJCards" style="font-size:12px;color:rgb(var(--n5));"></div>
-    <div id="missionBonusMJInfo">
-      <div style="font-size:11px;color:rgb(var(--vert-vif));font-weight:bold;margin-bottom:4px;">🔍 Bonus utilisé :</div>
-      <div id="missionBonusMJText" style="font-size:12px;color:rgb(var(--n7));"></div>
-    </div>
-  </div>
-</div>
-
 <!-- REJOUER -->
 <div id="replayPanel">
   <div class="section-title">🏆 Classement de la soirée</div>
@@ -205,7 +192,6 @@
     <div class="config-item">🪶 <input id="rp_corbeau" type="number" value="0" min="0"></div>
     <div class="config-item">🛡️ <input id="rp_salvateur" type="number" value="0" min="0"></div>
     <div class="config-item">👯‍♀️ <input id="rp_sisters" type="number" value="0" min="0" max="2" step="2" title="0 ou 2 sœurs"></div>
-    <div class="config-item">🎭 <input id="rp_mission" type="checkbox"> Mission</div>
     <div class="config-item">🪦 <input id="rp_conseil" type="checkbox" checked> Conseil</div>
   </div>
   <button class="btn primary" onclick="replayGame()" style="width:100%;">🚀 Relancer la partie</button>
@@ -226,7 +212,6 @@
     <div class="config-item">🪶<input id="corbeau"    type="number" value="0" min="0"></div>
     <div class="config-item">🛡️<input id="salvateur"  type="number" value="0" min="0"></div>
     <div class="config-item">👯‍♀️<input id="sisters" type="number" value="0" min="0" max="2" step="2" title="0 ou 2 sœurs jumelles"></div>
-    <div class="config-item">🎭<input id="mission" type="checkbox" title="Activer la phase de mission"> Mission</div>
     <div class="config-item">🪦<input id="conseil" type="checkbox" checked title="Conseil des Morts : chaque jour, les morts votent un évènement pour le lendemain"> Conseil</div>
   </div>
 
@@ -691,11 +676,6 @@ socket.on("mjDayRecap", data => {
       nightHtml += `<div style="margin-top:6px;color:rgb(var(--lune-vif));font-size:12px;">${saveLabel}.</div>`;
     }
   }
-  if (data.missionResult === "success") {
-    nightHtml += `<div style="margin-top:6px;color:rgb(var(--vert-vif));font-size:12px;font-weight:bold;">🎭 Mission RÉUSSIE</div>`;
-  } else if (data.missionResult === "fail") {
-    nightHtml += `<div style="margin-top:6px;color:rgb(var(--sang-vif));font-size:12px;font-weight:bold;">🎭 Mission ÉCHOUÉE</div>`;
-  }
   nightBlock.innerHTML = nightHtml;
   blocks.appendChild(nightBlock);
 
@@ -1061,19 +1041,10 @@ const MJ_PHASES_NUIT = ['cupid','amoureux','sisters','salvateur','wolves','seer'
 // ===== INDICATEUR PHASE NUIT =====
 function updateNightBar(currentPhase) {
   const nightPhases = MJ_PHASES_NUIT;
-  const missionPhases = ['mission','missionVote','missionBonus'];
   const bar = document.getElementById("nightPhaseBar");
-  const mBar = document.getElementById("missionPhaseBar");
 
   bar.classList.toggle("active", nightPhases.includes(currentPhase));
-  mBar.classList.toggle("active", missionPhases.includes(currentPhase));
 
-  if(missionPhases.includes(currentPhase)){
-    const labels={mission:"🎭 Sélection équipe",missionVote:"🗳️ Vote secret",missionBonus:"🔍 Bonus maire"};
-    document.getElementById("missionMJStatus").innerText = labels[currentPhase]||currentPhase;
-    document.getElementById("missionMJPanel").style.display="block";
-    return;
-  }
   if(!nightPhases.includes(currentPhase)) return;
 
   const steps = [
@@ -1171,53 +1142,6 @@ socket.on("phase", p=>{
   majActionSuivante();
 });
 
-// ===== MISSION — EVENTS MJ =====
-socket.on("missionStarted", data=>{
-  showAlert(`🎭 Mission lancée — ${data.mayorName} choisit son équipe`, "info");
-  document.getElementById("missionPhaseBar").classList.add("active");
-  document.getElementById("missionMJPanel").style.display="block";
-  document.getElementById("missionMJStatus").innerText = `${data.mayorName} sélectionne son équipe…`;
-  document.getElementById("missionBonusMJInfo").style.display="none";
-});
-
-socket.on("missionTeamSelected", data=>{
-  const names = data.team.map(p=>p.name).join(", ");
-  showAlert(`🎭 Équipe : ${names}`, "info");
-});
-
-socket.on("missionResultMJ", data=>{
-  const emoji = data.result === "success" ? "✅" : "❌";
-  const label = data.result === "success" ? "RÉUSSIE" : "ÉCHOUÉE";
-  const cardsStr = data.cards.map(c => `${c.name}: ${c.card==="success"?"✅":"❌"}`).join(" | ");
-  showAlert(`🎭 Mission ${label} — ${cardsStr}`, data.result==="success"?"success":"warn");
-  document.getElementById("missionMJStatus").innerText = `Mission ${label}`;
-  document.getElementById("missionMJCards").innerText = cardsStr;
-});
-
-socket.on("missionBonusUsed", data=>{
-  const names = data.team ? data.team.map(p=>p.name).join(", ") : "…";
-  showAlert(`🔍 ${data.mayorName} a inspecté : ${names}`, "info");
-});
-
-socket.on("missionMJBonusResult", data=>{
-  const names = data.team.map(p=>p.name).join(", ");
-  const hasWolf = data.hasWolf;
-  const wolves  = data.wolves?.join(", ") || "aucun";
-  const bonusDiv = document.getElementById("missionBonusMJInfo");
-  const bonusTxt = document.getElementById("missionBonusMJText");
-  bonusDiv.style.display="block";
-  bonusTxt.innerText = hasWolf
-    ? `⚠️ OUI — Loup(s) parmi [${names}] : ${wolves}`
-    : `✅ NON — Aucun loup parmi [${names}]`;
-});
-
-socket.on("missionMJInfo", data=>{
-  const st = document.getElementById("missionMJStatus");
-  const cd = document.getElementById("missionMJCards");
-  if(data.step==="cardVote"){ const names=data.team.map(p=>p.name).join(", "); st.innerText=`Vote en cours — équipe : ${names}`; cd.innerText="0 / 3 cartes jouées"; }
-  if(data.step==="cardReceived") cd.innerText=`${data.received} / ${data.total} cartes jouées`;
-});
-
 // ===== TRIGGERS MUSICAUX =====
 // Envoyé au lancement de la partie ET à chaque (re)connexion du MJ : la liste des joueurs
 // qui l'accompagne doit être reprise, sinon une tablette rechargée en pleine partie
@@ -1229,10 +1153,7 @@ socket.on("playNightMusic", ()=>{ if(!isGameOver) playAmbiance("night"); });
 
 socket.on("dawnResult", data=>{
   const deaths = data.deaths||[];
-  const mr = data.missionResult;
   let alertMsg = deaths.length ? `☀️ Morts : ${deaths.map(d=>d.name).join(", ")}` : "☀️ Nuit calme.";
-  if(mr==="success") alertMsg += " | 🎭 Mission RÉUSSIE";
-  else if(mr==="fail") alertMsg += " | 🎭 Mission ÉCHOUÉE";
   showAlert(alertMsg, deaths.length?"info":"success");
   if(!isGameOver) { playAmbiance("day"); _mjDawnContext = true; }
   if(deaths.length) playEffect("death");   // le glas de l'aube ; au vote, c'est le serveur qui le sonne
@@ -1246,18 +1167,14 @@ socket.on("gameEnd", msg=>{
   document.getElementById("gameEndBanner").style.display="block";
   document.getElementById("gameEndBanner").innerText=msg;
   stopCountdown(); stopHeartbeat();
-  const isWolvesWin=msg.includes("Loups"), isLoversWin=msg.includes("Amoureux"), isAngeWin=msg.includes("Ange");
-  playAmbiance(isWolvesWin?"endgame_loups":isLoversWin?"endgame_amoureux":isAngeWin?"endgame_ange":"endgame_village");
+  // Le camp gagnant vient du résumé de fin, que le serveur envoie juste avant
+  playAmbiance({ wolves:"endgame_loups", lovers:"endgame_amoureux", ange:"endgame_ange" }[dernierVainqueur] || "endgame_village");
   document.getElementById("nightPhaseBar").classList.remove("active");
-  document.getElementById("missionPhaseBar").classList.remove("active");
   ROLES_COMPO.forEach(k=>{
     const src=document.getElementById(k), dst=document.getElementById("rp_"+k);
     if(src&&dst) dst.value=src.value;
   });
-  ["mission","conseil"].forEach(k=>{
-    const src=document.getElementById(k), dst=document.getElementById("rp_"+k);
-    if(src&&dst) dst.checked=src.checked;
-  });
+  document.getElementById("rp_conseil").checked = document.getElementById("conseil").checked;
   document.getElementById("replayPanel").style.display="block";
 });
 
@@ -1281,18 +1198,6 @@ socket.on("mjReconnected", state=>{
     afficherMortsMJ(state.deadPlayers);
   }
   if(state.gameStats&&state.gameStats.deathLog) updateMJDeathLog(state.gameStats.deathLog);
-  // Restaure état mission
-  if(state.missionActive){
-    document.getElementById("missionPhaseBar").classList.add("active");
-    document.getElementById("missionMJPanel").style.display="block";
-    if(state.missionTeam?.length>0){
-      const names = state.missionTeam.map(id=>{ const p=players.find(x=>x.id===id); return p?p.name:id; }).join(", ");
-      document.getElementById("missionMJStatus").innerText = `Équipe : ${names}`;
-    }
-    if(state.missionResult){
-      document.getElementById("missionMJStatus").innerText = `Mission : ${state.missionResult==="success"?"✅ RÉUSSIE":"❌ ÉCHOUÉE"}`;
-    }
-  }
   // Cible nuit : si les loups ont déjà choisi et qu'on est en phase seer/corbeau/witch
   if (state.nightTarget && ["seer","petiteFille","corbeau","witch"].includes(state.phase)) {
     showAlert(`🐺 Cible des Loups : ${state.nightTarget.name}`, "info");
@@ -1410,7 +1315,7 @@ socket.on("tiebreakMJ", data=>{
 });
 socket.on("tiebreakResolved", data=>{
   document.getElementById("tiebreakMJBanner").style.display="none";
-  showAlert(`⚖️ Tiebreak résolu : ${data.name}`, "success");
+  showAlert(`⚖️ Égalité tranchée : ${data.name}`, "success");
 });
 
 socket.on("autoResolve",   msg=>showAlert(msg, "success"));
@@ -1465,7 +1370,8 @@ socket.on("stuckGame", data=>{
   document.getElementById("stuckGameMsg").innerText=`"${label[data.phase]||data.phase}" inactive depuis ${data.idleMinutes} min.`;
   document.getElementById("stuckGameBanner").style.display="block";
 });
-socket.on("gameSummary", data=>{ if(data.deathLog) updateMJDeathLog(data.deathLog); });
+let dernierVainqueur = null;
+socket.on("gameSummary", data=>{ dernierVainqueur = data.winner; if(data.deathLog) updateMJDeathLog(data.deathLog); });
 
 socket.on("gameReset", data=>{
   isGameOver = false; // Remis à false EN PREMIER pour éviter toute race condition
@@ -1482,10 +1388,7 @@ socket.on("gameReset", data=>{
   document.getElementById("replayPanel").style.display="none";
   document.getElementById("alertBanner").style.display="none";
   document.getElementById("nightPhaseBar").classList.remove("active");
-  document.getElementById("missionPhaseBar").classList.remove("active");
   updateMJLayout("lobby");
-  document.getElementById("missionMJPanel").style.display="none";
-  document.getElementById("missionBonusMJInfo").style.display="none";
   document.getElementById("voteModeLabel").innerText="Mode libre 60 s. En pilotage MJ, tu lances le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).";
   closeDayRecapCard();
   closeMjVoteDeathCard();
@@ -1556,7 +1459,6 @@ const ROLES_COMPO = ["cupidon","voyante","sorciere","chasseur","loup","petiteFil
 function lireComposition(prefixe){
   return {
     ...Object.fromEntries(ROLES_COMPO.map(k => [k, +v(prefixe + k) || 0])),
-    mission: !!document.getElementById(prefixe + "mission")?.checked,
     conseil: !!document.getElementById(prefixe + "conseil")?.checked,
     // Mode autonome et mode du jour : les mêmes cases pour une partie et la suivante
     autoMode: document.getElementById("autoMode")?.checked||false,
@@ -1734,7 +1636,7 @@ function lockDay()    { socket.emit("lockDayVotes"); }
 function launchVote() {
   if (Date.now() < _mjLaunchVoteUnlocksAt) {
     const s = Math.ceil((_mjLaunchVoteUnlocksAt - Date.now()) / 1000);
-    showAlert(`⏳ Attends encore ${s}s — les joueurs voient encore la carte d'aube`, "warning");
+    showAlert(`⏳ Attends encore ${s}s — les joueurs voient encore la carte d'aube`, "warn");
     return;
   }
   socket.emit("startVote", 1);
@@ -1755,8 +1657,7 @@ function phaseLabel(p){
   return{lobby:"Salon",mayorVote:r("Maire", "Vote Maire"),cupid:r("Cupidon"),amoureux:"💞 Amoureux",sisters:r("Sœurs", "Sœurs jumelles"),
          salvateur:r("Salvateur"),wolves:r("Loup", "Loups"),
          seer:r("Voyante"),petiteFille:r("PetiteFille"),corbeau:r("Corbeau"),witch:r("Sorcière"),nightPause:"🌙 Entre deux rôles",crepuscule:"🌆 Crépuscule",
-         chasseur:r("Chasseur"),day:"☀️ Jour",mayorTransfer:r("Maire", "Transfert Maire"),
-         mission:"🎭 Mission — Équipe",missionVote:"🎭 Mission — Vote",missionBonus:"🔍 Mission — Bonus"}[p]||p;
+         chasseur:r("Chasseur"),day:"☀️ Jour",mayorTransfer:r("Maire", "Transfert Maire")}[p]||p;
 }
 
 // ===== CHEAT SHEET MJ — aide-mémoire contextuel par phase =====
@@ -1776,9 +1677,6 @@ const MJ_CHEATSHEET = {
   day:          { title:"☀️ Le jour — à toi de jouer", lines:["1. Annonce les morts de la nuit à voix haute (carte récap = ton support)", "2. Clique « ▶ Lancer le débat » en haut : « Le village se réveille… à vous de parler »", "3. Laisse les joueurs discuter — ils n'ont PAS leur écran, c'est voulu", "4. Quand le débat est mûr, clique « 🚀 Lancer le vote » en haut, puis « Terminer le vote »", "5. Le Maire tranche en cas d'égalité — puis « 🌙 Lancer la nuit » quand tu es prêt"] },
   chasseur:     { title:"🔫 Chasseur",             lines:["Le Chasseur vient de mourir : raconte sa mort", "Puis clique « 🔫 Le Chasseur tire » en haut — il emporte qui il veut (60 s)"] },
   mayorTransfer:{ title:"🏛️ Transfert d'écharpe", lines:["Le Maire mourant désigne son successeur (60 s)"] },
-  mission:      { title:"🎭 Mission — sélection",  lines:["Le Maire choisit 3 envoyés (il ne peut pas s'inclure)"] },
-  missionVote:  { title:"🎭 Mission — vote",       lines:["Les 3 envoyés choisissent secrètement Réussite ou Échec"] },
-  missionBonus: { title:"🔍 Inspection bonus",     lines:["Le Maire choisit 3 joueurs : il saura si un Loup se cache parmi eux"] },
   lobby:        { title:"⏳ Salon",                lines:["Configure les rôles puis clique « Lancer la partie »"] },
 };
 function updateCheatSheet(p) {
@@ -1881,6 +1779,8 @@ function renderResumeConnexions(){
 socket.on("connexionsMJ", etats => { etatsConnexion = etats || {}; renderRoles(); });
 socket.on("joueurPerdu",  d => showAlert(`📵 ${d.name} a perdu la connexion — qu'il rouvre la page du jeu : il retrouvera sa place avec son prénom.`, "warn"));
 socket.on("joueurRevenu", d => showAlert(`✅ ${d.name} est de retour.`, "success"));
+// Prénom inconnu en pleine partie : son téléphone l'a mis en attente de la partie suivante
+socket.on("retardataire", d => showAlert(`⏳ ${d.name} attend la partie suivante (arrivée en cours de partie).`, "info"));
 
 function renderRoles(){
   const div=document.getElementById("roles");

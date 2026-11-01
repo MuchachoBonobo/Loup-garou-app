@@ -7,7 +7,7 @@ Application web de Loup-Garou (party game) pensée pour le jeu en présentiel : 
 | Dossier | À qui | Contenu |
 |---------|-------|---------|
 | `code/` | **Claude** — Alexandre n'y va pas | Serveur, interfaces, sons, tests, outils, doc technique. Tu l'organises et le modifies librement (en gardant les conventions ci-dessous). |
-| `gestion/` | **Alexandre** | Documents **Word** (.docx, police Calibri) : pitch, mise en place (Wi-Fi, lancement), lumières, prospection, site internet, prix, prise de contact ; plaquettes commerciales (PDF, dans `Plaquettes/`) ; lanceurs `Lancer le jeu.bat` et `Tester les lumieres.bat`. |
+| `gestion/` | **Alexandre** | Documents **Word** (.docx, police Calibri) : pitch, mise en place (Wi-Fi, lancement), lumières, prospection, site internet, prix, tablette du MJ (achat à venir), prise de contact ; plaquettes commerciales (PDF, dans `Plaquettes/`) ; lanceurs `Lancer le jeu.bat` et `Tester les lumieres.bat`. |
 
 - Dans `gestion/`, tu ne modifies **que sur demande**, avec deux exceptions : (1) si une modification du code change la mise en place ou ce que les documents promettent (variable `.env`, port, étape de lancement, rôle, durée affichée aux joueurs…), mets à jour la fiche ou la plaquette concernée dans le même mouvement et dis-le ; (2) ne jamais y mettre de jargon technique — ces fiches s'adressent à quelqu'un qui ne code pas.
 - **Plaquettes** : on ne touche jamais aux PDF. Leurs sources sont les pages HTML de `code/plaquettes/` ; `sh code/plaquettes/rendre-pdf.sh` refait les PDF (Chrome, polices Google : il faut Internet). Une page A4 masque ce qui dépasse : après une modification, vérifier que rien n'est coupé en bas de page.

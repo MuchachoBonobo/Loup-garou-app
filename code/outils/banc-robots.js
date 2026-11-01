@@ -1,4 +1,4 @@
-// Banc d'essai : parties complètes jouées par des bots (6 à 15 joueurs, rôles, mission, mode
+// Banc d'essai : parties complètes jouées par des bots (6 à 15 joueurs, rôles, mode
 // autonome ou nuit rythmée par le MJ, pauses du MJ, tirés au hasard), avec contrôle des règles
 // à chaque évènement reçu par le MJ : ordre de la nuit, rôles morts qui ne se réveillent pas,
 // jour après chaque nuit, règle de l'Ange, justesse du vainqueur, erreurs du serveur.
@@ -48,14 +48,13 @@ async function partie(num) {
     cfg[r] = (places > 0 && alea() < 0.55) ? 1 : 0; places -= cfg[r];
   }
   cfg.sisters = (places >= 2 && alea() < 0.4) ? 2 : 0;
-  cfg.mission = alea() < 0.3;
   cfg.conseil = alea() < 0.75;
   if (FIXE) Object.assign(cfg, FIXE.cfg);
   const modeMJ = FIXE ? !FIXE.cfg.autoMode : alea() < 0.6;          // nuit rythmée par le MJ (sinon mode autonome)
   cfg.autoMode = !modeMJ;
   cfg.autoVoteMode = [1, 2, 4, 5][entre(0, 3)];
   cfg.mjPilotedDay = modeMJ ? alea() < 0.6 : false;
-  const desc = `N=${N} ${modeMJ ? "MJ" : "auto"}${cfg.mjPilotedDay ? "+jourPiloté" : ""}${cfg.mission ? "+mission" : ""}${cfg.conseil ? "" : "+sansConseil"} rôles=` +
+  const desc = `N=${N} ${modeMJ ? "MJ" : "auto"}${cfg.mjPilotedDay ? "+jourPiloté" : ""}${cfg.conseil ? "" : "+sansConseil"} rôles=` +
     Object.entries(cfg).filter(([k, v]) => typeof v === "number" && v > 0 && k !== "autoVoteMode").map(([k, v]) => k + (v > 1 ? v : "")).join(",");
 
   // --- Suivi ---
