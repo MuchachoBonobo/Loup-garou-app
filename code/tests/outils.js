@@ -85,12 +85,14 @@ const arrive = attente => attente.then(() => true, () => false);
 
 // MJ automatique : passe les pauses de nuit, ouvre les actions (Chasseur, maire mourant), et selon
 // les options lance la nuit et valide l'attaque des loups (un test qui vérifie une de ces étapes
-// la laisse au test). `delai` : en ms, ou une fonction qui le tire à chaque clic.
-function piloterMJ(mj, { delai = 500, etapes = true, actions = true, nuit = false, loupsApres = 0 } = {}) {
+// la laisse au test), et lance la victoire qui attend son clic. `delai` : en ms, ou une fonction qui
+// le tire à chaque clic.
+function piloterMJ(mj, { delai = 500, etapes = true, actions = true, nuit = false, loupsApres = 0, victoire = true } = {}) {
   const cliquer = evenement => () => setTimeout(() => mj.emit(evenement), typeof delai === "function" ? delai() : delai);
   if (etapes) mj.on("etapeNuitEnAttente", cliquer("mjEtapeSuivante"));
   if (actions) mj.on("actionMJEnAttente", cliquer("mjOuvrirAction"));
   if (nuit) mj.on("nuitEnAttente", cliquer("mjLancerNuit"));
+  if (victoire) mj.on("victoireEnAttente", cliquer("mjLancerVictoire"));
   if (loupsApres) mj.on("phase", p => { if (p === "wolves") setTimeout(() => mj.emit("lockWolfVotes"), loupsApres); });
 }
 

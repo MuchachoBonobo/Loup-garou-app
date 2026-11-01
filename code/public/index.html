@@ -245,8 +245,7 @@
 </div>
 
 <div id="cupidPanel" class="panneau" style="display:none;background:rgb(var(--amour-fond));border:2px solid rgb(var(--amour-base));">
-  <h3 style="color:rgb(var(--amour-vif));margin:0 0 8px;font-size:14px;">💘 Cupidon unit deux joueurs</h3>
-  <p style="font-size:12px;color:rgb(var(--amour-vif));margin-bottom:10px;">Choisis les deux amoureux : si l'un meurt, l'autre le suit.</p>
+  <h3 style="color:rgb(var(--amour-vif));margin:0 0 10px;font-size:14px;">💘 Choisis les 2 amoureux</h3>
   <div id="cupidTargets"></div>
   <div id="cupidNoms" style="margin-top:10px;font-size:12px;color:rgb(var(--amour-vif));text-align:center;min-height:18px;"></div>
   <button id="cupidValider" onclick="confirmerAmoureux()" disabled
@@ -729,21 +728,20 @@ socket.on("autoResolve", msg => {
 });
 
 // ===== PAUSE / REPRISE =====
-socket.on("gamePaused", data => {
+// Partie en pause (aussi pour un téléphone rechargé pendant la pause) : le compte à rebours du
+// vote se fige sur le temps restant
+function afficherPause(data) {
   document.getElementById("pauseOverlay").style.display = "flex";
-  // Stoppe le countdown du vote (timer figé visuellement)
   stopCountdown();
-  // Indique le temps gelé
   if (data && data.voteRemainingMs) {
     const v = document.getElementById("timerVal");
     if (v) v.innerText = Math.ceil(data.voteRemainingMs/1000) + "s ⏸️";
   }
-});
+}
+socket.on("gamePaused", afficherPause);
 socket.on("gameResumed", data => {
   document.getElementById("pauseOverlay").style.display = "none";
 });
-// Fin du vote à l'heure de ce téléphone (corrige l'écart d'horloge avec le serveur)
-function finDuVote(d) { return d.serverNow && d.endsAt ? d.endsAt + (Date.now() - d.serverNow) : d.endsAt; }
 // Quand le vote du jour reprend, on redémarre le countdown
 socket.on("voteResumed", data => {
   voteEndsAt = finDuVote(data);
@@ -836,9 +834,9 @@ socket.on("gameEnd", msg=>{
   card.style.display = "flex"; card.style.animation = "fadeIn 0.6s ease forwards";
 });
 
-// Page de fin épurée (2026-10-26, choix d'Alexandre) : une seule liste « photo · prénom · rôle ·
-// médaille », puis le classement de la soirée. Plus de statistiques ni de messagerie : la partie
-// se raconte autour de la table. Toucher une médaille affiche son nom et ce qui l'a valu.
+// Page de fin épurée (2026-10-26, choix d'Alexandre) : une seule liste « photo · prénom · rôle »,
+// puis le classement de la soirée. Plus de statistiques ni de messagerie : la partie se raconte
+// autour de la table. Chacun ne voit que sa propre médaille, sous le titre (2026-11-01).
 function populateEndScreen(data, winner) {
   const rd = ROLE_DISPLAY;  // table commune (l'ancienne copie locale oubliait Corbeau, Salvateur, Sœurs)
   const allPlayers = [...players];
@@ -855,13 +853,7 @@ function populateEndScreen(data, winner) {
     const avatar = p.photo
       ? `<img src="${p.photo}" ${attrZoom(p.name)} style="width:32px;height:32px;border-radius:50%;object-fit:cover;cursor:zoom-in;${isDead?'filter:grayscale(0.7);':''}">`
       : `<span style="font-size:22px;width:32px;text-align:center;display:inline-block;">${emojiDuRole(r) || "❓"}</span>`;
-    // Une médaille au plus par joueur (badges.js) ; son nom s'affiche au toucher
-    const medaille = ((data.badges || {})[p.name] || [])[0];
-    const medailleHtml = medaille
-      ? `<span class="ermedaille" onclick="var d=this.parentNode.querySelector('.er-detail');d.style.display=d.style.display==='block'?'none':'block';">${medaille.emoji}</span>` +
-        `<div class="er-detail">${medaille.emoji} ${medaille.label}${medaille.desc ? " — " + medaille.desc : ""}</div>`
-      : "";
-    return `<div class="${rowClass}">${avatar}<span class="ern">${p.name}</span><span class="err">${rd[r]||r}</span><span class="erbadge">${badges}</span>${medailleHtml}</div>`;
+    return `<div class="${rowClass}">${avatar}<span class="ern">${p.name}</span><span class="err">${rd[r]||r}</span><span class="erbadge">${badges}</span></div>`;
   }).join("");
 
   // ===== CLASSEMENT DE LA SOIRÉE (1 point par victoire, cumulé sur les parties) =====
@@ -1254,17 +1246,20 @@ socket.on("reconnected", state => {
   requestWakeLock();
   // Reconnexion de jour : vote en cours → voteTimerBox (plus bas), sinon l'écran de débat
   if(phase==="day"){ voteActive=true; }
-  if(state.voteTimerEnd && (state.serverNow ? state.voteTimerEnd > state.serverNow : Date.now() < state.voteTimerEnd)){
-    // Écart d'horloge téléphone ↔ PC compensé (comme pour voteStarted)
-    voteEndsAt=state.voteTimerEnd + (state.serverNow ? Date.now() - state.serverNow : 0);
+  // Vote en cours, ou figé par une pause (afficherPause, plus bas, montre le temps restant)
+  const voteEnPause = !!(state.pause && state.pause.voteRemainingMs);
+  if(voteEnPause || (state.voteTimerEnd && (state.serverNow ? state.voteTimerEnd > state.serverNow : Date.now() < state.voteTimerEnd))){
+    voteEndsAt=finDuVote({ endsAt: state.voteTimerEnd, serverNow: state.serverNow });
     voteTotalMs=state.voteDureeMs||60000;
     voteActive=true;
     currentVoteMode=state.voteMode||0;
-    document.getElementById("voteTimerBox").style.display="block"; startCountdown();
+    document.getElementById("voteTimerBox").style.display="block";
+    if (!voteEnPause) startCountdown();
   } else {
     voteActive=false;
     currentVoteMode=0;
   }
+  if (state.pause) afficherPause(state.pause);
   if(state.deadVision){deadVisionData=state.deadVision;renderDeadVision();}
   roleDesMorts = Object.fromEntries((state.deathLog || []).map(d => [d.id, d.role]));
   if(state.idiotRevealed){ idiotRevealed=true; idiotId=state.idiotId; }
@@ -1635,6 +1630,7 @@ socket.on("phase", p=>{
   // Anti-triche : voile de nuit + reveal jour mis à jour à chaque changement de phase
   updateNightCover();
   updateRoleRevealBtn();
+  if (!gameIsOver) majPanneauIdentite();
   // À l'aube, tout ce qui a été vu/appris pendant la nuit s'efface
   if (p === "day") clearNightSecrets();
   // Sœurs : on ferme le panneau si on quitte la phase
@@ -2277,15 +2273,14 @@ socket.on("councilEventEnd", () => {
 });
 
 socket.on("dawnResult", data=>{
-  const deaths = data.deaths || [], saved = data.saved;
+  const deaths = data.deaths || [];
   // Carte de l'aube côté joueur : les photos, jamais les rôles (le MJ les a dans son récap)
+  // Personne n'est mort : même forme que la carte des morts, et rien sur un éventuel sauvetage
+  // (le village ne l'apprend pas ; le MJ le voit sur sa carte) — choix d'Alexandre, 2026-11-01
   let title, text, emoji;
-  if (deaths.length === 0 && saved) {
-    emoji = "🌅"; title = "Une vie sauvée dans l'ombre";
-    text  = "Les loups ont frappé cette nuit… mais leur victime a survécu. Le village se réveille soulagé.";
-  } else if (deaths.length === 0) {
+  if (deaths.length === 0) {
     emoji = "🌄"; title = "Une nuit paisible";
-    text  = "Personne n'a perdu la vie cette nuit. Mais les loups rôdent toujours — méfiance.";
+    text  = "Personne n'est mort cette nuit.";
   } else {
     // Le nom de chaque mort (demande d'Alexandre, 2026-10-26) ; les morts d'amour à part
     emoji = deaths.length === 1 ? "🌑" : "💀";
@@ -2600,6 +2595,10 @@ socket.on("gameReset", data => {
   });
   const ps=document.getElementById("playersSection"); if(ps) ps.style.display="";
   const es=document.getElementById("endScreen"); if(es) es.className="";
+  // Retour au salon (fin de partie, ou partie arrêtée par le MJ, même en pause) : l'écran du salon
+  // revient, avec la photo pour un joueur inscrit (afficherSaisiePrenom)
+  document.getElementById("lobby").style.display = "";
+  document.getElementById("pauseOverlay").style.display = "none";
   document.getElementById("deadChatMessages").innerHTML="";
   document.getElementById("status").innerText="";
   stopCountdown();
@@ -2632,9 +2631,13 @@ function stopCountdown(){
   if(v) v.classList.remove("heartbeat");
 }
 
+// « Ton identité » : pas la nuit — le joueur réveillé n'a que son choix à l'écran
+function majPanneauIdentite(){
+  if(role) document.getElementById("infoPanel").style.display = NIGHT_PHASES_FOR_COVER.includes(phase) ? "none" : "block";
+}
 function renderInfoPanel(){
   if(!role)return;
-  document.getElementById("infoPanel").style.display="block";
+  majPanneauIdentite();
   document.getElementById("infoRole").innerText=ROLE_DISPLAY[role]||role;
   const ad=document.getElementById("infoAllies"),al=document.getElementById("infoAlliesList"),at=document.getElementById("infoAlliesTitle");
   const loup=role==="Loup", compagnons=loup?wolves:role==="Sœurs"?soeurs:[];

@@ -20,7 +20,6 @@ try {
 } catch { /* pas de .env : le jeu tourne simplement sans les lumières */ }
 
 const express = require("express");
-const os      = require("os");
 const app  = express();
 const http = require("http").createServer(app);
 // Délais de détection d'un joueur parti : un téléphone dont l'écran se verrouille, ou
@@ -43,6 +42,7 @@ const votes     = require("./votes");
 const log       = require("./logger");
 const snapshot  = require("./snapshot");
 const soiree    = require("./soiree");
+const { adresseDuJeu } = require("./reseau");
 
 // Injecte io dans l'état partagé (les modules utilisent state.io)
 state.io = io;
@@ -84,18 +84,8 @@ app.use(express.static(path.join(__dirname, "public")));
 // Alias court pour l'URL du MJ : /mj → public/mj.html
 app.get("/mj", (req, res) => res.sendFile(path.join(__dirname, "public", "mj.html")));
 
-// Endpoint utilisé par le QR code de mj.html pour afficher l'URL de connexion joueur.
-// Renvoie la première IPv4 non-loopback détectée sur les interfaces réseau du serveur.
-function getLocalIPv4() {
-  const ifaces = os.networkInterfaces();
-  for (const name of Object.keys(ifaces)) {
-    for (const iface of ifaces[name] || []) {
-      if (iface.family === "IPv4" && !iface.internal) return iface.address;
-    }
-  }
-  return "127.0.0.1"; // fallback : au moins le QR code affichera quelque chose
-}
-app.get("/api/ip", (req, res) => res.json({ ip: getLocalIPv4(), port: PORT }));
+// Adresse des joueurs, affichée sous le QR code de mj.html (choix de l'adresse : reseau.js)
+app.get("/api/ip", (req, res) => res.json({ ip: adresseDuJeu(), port: PORT }));
 
 // QR code de connexion des joueurs, dessiné par le serveur (image SVG) : il s'affiche
 // même sans Internet.
@@ -103,7 +93,7 @@ app.get("/api/ip", (req, res) => res.json({ ip: getLocalIPv4(), port: PORT }));
 // sinon noir sur blanc (QR plein écran, le plus facile à scanner).
 const QRCode = require("qrcode");
 app.get("/api/qr.svg", async (req, res) => {
-  const url = `http://${getLocalIPv4()}:${PORT}`;
+  const url = `http://${adresseDuJeu()}:${PORT}`;
   const sombre = req.query.theme === "sombre";
   try {
     const svg = await QRCode.toString(url, {
@@ -162,6 +152,8 @@ io.on("connection", socket => {
   socket.use((packet, next) => {
     const eventName = packet[0];
     if (state.gamePaused && !ALLOWED_DURING_PAUSE.has(eventName)) return;
+    // Victoire en attente du MJ : seuls son « Lancer la victoire » et les messages de la pause passent
+    if (state.victoireEnAttente && !ALLOWED_DURING_PAUSE.has(eventName) && eventName !== "mjLancerVictoire") return;
     next();
   });
 
@@ -187,8 +179,14 @@ io.on("connection", socket => {
       nightTarget: state.nightTarget ? { id: state.nightTarget, name: playerName(state.nightTarget) } : null,
       etapeNuitLibelle: state.phase === "nightPause" ? roles.LIBELLES_ETAPES_NUIT[state.etapeNuitSuivante] : null,
       // État du vote du jour, pour griser les bons boutons d'une tablette rechargée
-      voteEnCours:  state.phase === "day" && !!state.voteTimer,
+      voteEnCours:  state.phase === "day" && (!!state.voteTimer || !!(state.gamePaused && state.pausedVoteRemainingMs)),
       voteClos:     state.phase === "day" && (state.resolutionJourEnCours || state.dayResolutionPending),
+      // Vote en cours (ou figé par la pause) : mode, durée et compte à rebours ; partie en pause :
+      // « Reprendre » (sans cela, une tablette rechargée en pause n'avait plus de quoi relancer la partie)
+      vote: (state.phase === "day" && (state.voteTimer || (state.gamePaused && state.pausedVoteRemainingMs)) && state.voteTimerEnd)
+        ? { mode: state.voteMode, duration: state.voteDureeMs, endsAt: state.voteTimerEnd, serverNow: Date.now() } : null,
+      pause: state.gamePaused ? { voteRemainingMs: state.pausedVoteRemainingMs } : null,
+      victoireEnAttente: state.victoireEnAttente,
       nuitEnAttente: state.phase === "crepuscule",
       actionMJ: state.actionMJ ? { type: state.actionMJ, nom: playerName(state.actionMJ === "chasseur" ? state.currentChasseurShooter : state.dyingMayorId) } : null,
       matin: (state.phase === "day" && state.annonceMatinEnCours)
@@ -402,6 +400,7 @@ io.on("connection", socket => {
   // Rythme du MJ : lancer la nuit, annoncer l'évènement, clore l'annonce du matin
   socket.on("mjLancerNuit",      ()  => roles.handleMJLancerNuit(socket));
   socket.on("mjOuvrirAction",    ()  => { if (isMJ(socket.id)) phases.ouvrirActionMJ(); });
+  socket.on("mjLancerVictoire",  ()  => { if (isMJ(socket.id)) phases.lancerVictoire(); });
   socket.on("mjAnnoncerEvenement", () => { if (isMJ(socket.id)) council.annoncerEvenement(); });
   socket.on("mjFinAnnonceMatin", ()  => {
     if (!isMJ(socket.id) || state.phase !== "day") return;
@@ -555,8 +554,8 @@ function resynchroniserApresReconnexion(socket) {
 
 // ===== DÉMARRAGE =====
 http.listen(PORT, () => {
-  log.info('=== serveur démarré ===', 'port=' + PORT, 'ip=' + getLocalIPv4());
+  log.info('=== serveur démarré ===', 'port=' + PORT, 'ip=' + adresseDuJeu());
   console.log(`🐺 Serveur Loup-Garou démarré sur http://localhost:${PORT}`);
-  console.log(`   IP locale : http://${getLocalIPv4()}:${PORT}`);
-  console.log(`   MJ        : http://${getLocalIPv4()}:${PORT}/mj`);
+  console.log(`   IP locale : http://${adresseDuJeu()}:${PORT}`);
+  console.log(`   MJ        : http://${adresseDuJeu()}:${PORT}/mj`);
 });

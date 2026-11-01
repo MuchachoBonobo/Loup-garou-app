@@ -9,7 +9,9 @@ body { background:rgb(var(--n0)); color:rgb(var(--n8)); font-size:14px; max-widt
 .section { background:rgb(var(--n1)); border:1px solid rgb(var(--n3)); border-radius:10px; padding:14px; margin-bottom:10px; }
 .section-title { font-size:10px; text-transform:uppercase; letter-spacing:1.5px; color:rgb(var(--n5)); margin-bottom:10px; }
 
-#mjHeader { display:flex; align-items:center; justify-content:space-between; padding:10px 0 12px; border-bottom:1px solid rgb(var(--n2)); margin-bottom:10px; }
+/* Barre du haut toujours visible, même par-dessus les cartes plein écran (étape suivante, aube,
+   évènement) : Pause et « 🏠 Salon » restent à portée de doigt */
+#mjHeader { display:flex; align-items:center; justify-content:space-between; padding:10px 0 12px; border-bottom:1px solid rgb(var(--n2)); margin-bottom:10px; position:sticky; top:0; z-index:9999; background:rgb(var(--n0)); }
 #mjHeader h1 { font-size:18px; font-weight:700; color:rgb(var(--n8)); }
 #connRow { display:flex; align-items:center; gap:8px; font-size:12px; color:rgb(var(--n5)); }
 #mjConnDot { font-size:14px; }
@@ -82,3 +84,7 @@ body { background:rgb(var(--n0)); color:rgb(var(--n8)); font-size:14px; max-widt
 
 #deadChatMJMessages { max-height:120px; overflow-y:auto; margin-bottom:8px; font-size:12px; }
 .chat-mj-msg { padding:2px 0; border-bottom:1px solid rgb(var(--sang-fond)); }
+/* Tablette coupée de l'ordinateur du jeu : en haut de l'écran, impossible à manquer */
+#mjHorsLigne { display:none; position:fixed; top:0; left:0; right:0; z-index:10000; background:rgb(var(--sang-fond)); border-bottom:2px solid rgb(var(--sang-vif)); color:rgb(var(--sang-clair)); padding:12px 16px; text-align:center; font-size:15px; font-weight:bold; line-height:1.5; }
+/* Victoire en attente du MJ : en bas de l'écran, par-dessus les cartes, jusqu'à son clic */
+#mjVictoireBouton { display:none; position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:9999; padding:16px 28px; border-radius:12px; border:2px solid rgb(var(--or-vif)); background:rgb(var(--or-fond)); color:rgb(var(--or-clair)); font-size:17px; font-weight:bold; cursor:pointer; box-shadow:0 6px 24px rgba(var(--noir),0.6); max-width:calc(100% - 32px); }

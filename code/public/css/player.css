@@ -164,8 +164,6 @@ body.vote-urgent { animation:bgPulse 0.65s ease infinite; }
 .end-role-row .ern { flex:1;font-weight:500; }
 .end-role-row .err { color:rgb(var(--n6));font-size:12px; }
 .end-role-row .erbadge { font-size:11px;color:rgb(var(--n5));margin-left:2px; }
-.end-role-row .ermedaille { font-size:18px;padding:2px 4px;cursor:pointer; }
-.end-role-row .er-detail { display:none;flex-basis:100%;font-size:11px;color:rgb(var(--n7));padding:2px 0 0 40px; }
 
 
 /* ============================================================

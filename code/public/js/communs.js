@@ -41,3 +41,7 @@ function voixAvecCorbeau(voix, cibleCorbeau, morts) {
   if (cibleCorbeau && !morts.includes(cibleCorbeau)) total[cibleCorbeau] = (total[cibleCorbeau] || 0) + VOIX_DU_CORBEAU;
   return total;
 }
+
+// Fin du vote à l'heure de cet appareil : son horloge peut avoir quelques secondes d'écart avec
+// celle du PC (d.serverNow : l'heure du PC à l'envoi)
+function finDuVote(d) { return d.serverNow && d.endsAt ? d.endsAt + (Date.now() - d.serverNow) : d.endsAt; }

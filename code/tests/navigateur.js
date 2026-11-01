@@ -155,9 +155,12 @@ async function election({ tel, pages, noms, id, etapeMJ }, maire, sonVote) {
   check("la carte du maire s'affiche partout", await tous(pages, p => attendre(p, () => document.getElementById("mayorCard").hasAttribute("data-open"))));
 }
 
-// Fin de partie : l'écran de fin sur tous les téléphones, qui annonce la victoire du village
-async function victoireDuVillage({ tel, pages }, temoin) {
+// Fin de partie : le MJ lance la victoire (bouton du bas de sa tablette), puis l'écran de fin sur
+// tous les téléphones, qui annonce la victoire du village
+async function victoireDuVillage({ mj, tel, pages }, temoin) {
   console.log("\n▶ Fin de partie");
+  check("le MJ voit « 🏆 Lancer la victoire »", await affiche(mj, "#mjVictoireBouton", 30000));
+  await clic(mj, "#mjVictoireBouton");
   check(`l'écran de fin s'affiche sur les ${pages.length} téléphones`, await tous(pages, p => affiche(p, "#endCard", 30000)));
   const titre = await texte(tel[temoin], "endTitle");
   check("il annonce la victoire du village", /village/i.test(titre), titre);

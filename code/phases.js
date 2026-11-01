@@ -110,6 +110,7 @@ function setPhase(p) {
   if (state.actionMJ) {
     versMJ("actionMJEnAttente", { type: p, nom: playerName(p === "chasseur" ? state.currentChasseurShooter : state.dyingMayorId) });
   }
+  if (p === "mayorTransfer" && state.dyingMayorId) roles.annoncerTransfert(state.dyingMayorId);
 
   // Nettoie tous les timeouts de phase
   clearPhaseTimeouts();
@@ -314,7 +315,7 @@ function installPhaseTimeouts(p) {
 
 // Minuteries des phases, et filets du mode autonome
 const MINUTERIES_DE_PHASE = ["seerTimeout", "petiteFilleTimeout", "nightPauseTimeout", "witchTimeout", "cupidTimeout",
-  "salvateurTimeout", "sistersTimeout", "amoureuxTimeout", "corbeauTimeout", "chasseurTimeout", "mayorTransferTimeout"];
+  "salvateurTimeout", "sistersTimeout", "amoureuxTimeout", "corbeauTimeout", "chasseurTimeout", "mayorTransferTimeout", "annonceMaireTimeout", "victoireTimeout"];
 const FILETS_AUTONOMES = ["mayorAutoLockTimer", "wolfConsensusTimer", "wolvesAutoLockTimer", "dayAutoStartTimer"];
 function arreterMinuteries(noms) { noms.forEach(k => { clearTimeout(state[k]); state[k] = null; }); }
 function arreterFiletsAutonomes() { arreterMinuteries(FILETS_AUTONOMES); state.mayorAllVotedNotified = false; }
@@ -470,16 +471,33 @@ function runBotsForPhase(p) {
 }
 
 // ===== VICTOIRE =====
+// Le camp qui gagne si `alive` sont les survivants (« lovers » : les deux amoureux seuls, quel
+// que soit leur camp ; « villagers » : plus aucun loup ; « wolves » : autant de loups que
+// d'autres), ou null. Sert aussi à juger la fin d'une nuit avant d'en traiter les morts (roles.js).
+// Un couple d'un loup et d'un villageois est un camp à part : il ne gagne que seul à deux, et tant
+// qu'il vit, ni les loups ni le village ne gagnent (règle d'Alexandre, 2026-11-01). Un couple de
+// deux loups gagne avec les loups, un couple de deux villageois avec le village.
+function campGagnant(alive) {
+  const loups = alive.filter(p => state.roles[p.id] === "Loup").length;
+  const coupleEnVie = state.lovers.length === 2 && state.lovers.every(id => alive.some(p => p.id === id));
+  if (coupleEnVie && alive.length === 2) return "lovers";
+  if (coupleEnVie && state.lovers.filter(id => state.roles[id] === "Loup").length === 1) return null;
+  if (loups === 0) return "villagers";
+  if (loups >= alive.length - loups) return "wolves";
+  return null;
+}
+const MESSAGES_DE_FIN = {
+  lovers:    "💘 Les Amoureux ont gagné ! Ils sont les derniers survivants.",
+  villagers: "🏆 Les Villageois ont gagné ! Tous les loups sont morts.",
+  wolves:    "🐺 Les Loups ont gagné ! Ils dominent le village.",
+};
+
 function checkVictory() {
-  const alive          = alivePlayers();
-  const aliveWolves    = alive.filter(p => state.roles[p.id] === "Loup");
-  const aliveVillagers = alive.filter(p => state.roles[p.id] !== "Loup");
-  // Les deux amoureux sont les derniers survivants (quel que soit leur camp)
-  const amoureuxSeuls  = state.lovers.length === 2 && alive.length === 2 && alive.every(p => state.lovers.includes(p.id));
-  // log uniquement quand on est sur le point de gagner (sinon trop verbeux)
-  if (aliveWolves.length === 0 || aliveWolves.length >= aliveVillagers.length || amoureuxSeuls) {
-    log.info('checkVictory', { alive: alive.length, wolves: aliveWolves.length, villagers: aliveVillagers.length });
-  }
+  // Victoire déjà constatée, qui attend le MJ : la partie ne va pas plus loin
+  if (state.victoireEnAttente) return true;
+  const alive = alivePlayers();
+  const camp  = campGagnant(alive);
+  if (camp) log.info('checkVictory', { alive: alive.length, camp });
 
   // Résumé de fin : journal des morts, survivants, médailles et classement de la soirée.
   // Appelé une seule fois par partie (doEnd) : la partie n'est comptée qu'une fois au classement.
@@ -510,29 +528,48 @@ function checkVictory() {
       lights.flash({ wolves: "flash.victoire.loups", lovers: "flash.victoire.amoureux", ange: "flash.victoire.ange" }[winner] || "flash.victoire.village");
       setPhase("lobby");
     };
-    // En pleine résolution de nuit, la fin de partie attend : doResolveNight la déclenche
-    // après l'annonce de l'aube et le récap du MJ
-    if (state.inNightResolution) {
-      state.pendingEndGame = doEnd;
-    } else {
-      doEnd();
-    }
+    // En pleine résolution de nuit, la fin de partie attend : resoudreNuit la déclenche après
+    // l'annonce de l'aube et le récap du MJ. Avec un MJ, elle attend son « 🏆 Lancer la
+    // victoire » (attendreVictoireMJ) : il raconte d'abord les morts.
+    doEnd.camp = winner;
+    if (state.inNightResolution) state.pendingEndGame = doEnd;
+    else if (!state.autoMode) attendreVictoireMJ(doEnd);
+    else doEnd();
   };
 
   // L'Ange désigné au premier vote du village gagne seul (votes.handleAngeVictoire)
   if (state.angeVainqueur) {
     endGame("ange", "👼 L'Ange a gagné ! Désigné dès le premier vote, il s'envole seul vers la victoire."); return true;
   }
-  if (amoureuxSeuls) {
-    endGame("lovers", "💘 Les Amoureux ont gagné ! Ils sont les derniers survivants."); return true;
-  }
-  if (aliveWolves.length === 0) {
-    endGame("villagers", "🏆 Les Villageois ont gagné ! Tous les loups sont morts."); return true;
-  }
-  if (aliveWolves.length >= aliveVillagers.length) {
-    endGame("wolves", "🐺 Les Loups ont gagné ! Ils dominent le village."); return true;
-  }
+  if (camp) { endGame(camp, MESSAGES_DE_FIN[camp]); return true; }
   return false;
+}
+
+// ===== VICTOIRE LANCÉE PAR LE MJ =====
+// Avec un MJ, toute victoire attend son « 🏆 Lancer la victoire » (demande d'Alexandre,
+// 2026-11-01) : les téléphones gardent la carte en cours (morts, tir, Ange), la partie ne va pas
+// plus loin (checkVictory, filtre de server.js). Sans tablette connectée à deux contrôles de
+// suite, elle part seule (même filet que le tir du Chasseur).
+function attendreVictoireMJ(fin) {
+  state.finEnAttente = fin;
+  state.victoireEnAttente = fin.camp;
+  versMJ("victoireEnAttente", { camp: fin.camp });
+  filetVictoire();
+}
+function filetVictoire(mjAbsent = false) {
+  state.victoireTimeout = setTimeout(() => {
+    if (!state.victoireEnAttente) return;
+    if (state.mjSocketId) return filetVictoire();
+    if (!mjAbsent) return filetVictoire(true);
+    lancerVictoire();
+  }, mjAbsent ? 30 * 1000 : NIGHT_PAUSE_TIMEOUT_MS);
+}
+function lancerVictoire() {
+  const fin = state.finEnAttente;
+  if (!fin) return;
+  clearTimeout(state.victoireTimeout);
+  state.finEnAttente = null; state.victoireEnAttente = null; state.victoireTimeout = null;
+  try { fin(); } catch (e) { log.error("fin de partie impossible", e); }
 }
 
 // ===== PAUSE / REPRISE =====
@@ -659,7 +696,7 @@ function handleLancerPartie(socket, config) {
 // de chargement circulaire (chacun a fait `const phases = require('./phases')`
 // avant que ce fichier n'ait fini d'exécuter).
 Object.assign(module.exports, {
-  setPhase, ouvrirActionMJ, runBotsForPhase, scheduleBot, checkVictory,
+  setPhase, ouvrirActionMJ, runBotsForPhase, scheduleBot, checkVictory, campGagnant, attendreVictoireMJ, lancerVictoire,
   // Handlers
   handleSetPhase, handlePauseGame, handleResumeGame, handleReset, handleLancerPartie,
 });

@@ -94,10 +94,12 @@ function performLockMayorVote() {
     lights.flash("flash.bell");
     if (state.lovers.length === 2) versMJ("loversInfo", state.lovers);
     state.mayorVote = {};
-    // Délai 5 s : laisse le temps à la lumière et au MJ d'annoncer le nouveau maire
-    setTimeout(() => {
-      if (state.phase !== "mayorVote") return; // phase changée manuellement pendant l'attente
-      roles.ouvrirNuit(true);
+    // Délai 5 s : laisse le temps à la lumière et au MJ d'annoncer le nouveau maire. Minuterie de
+    // phase (arrêtée par tout changement de phase) : une partie relancée dans ces 5 s voyait son
+    // propre vote du maire coupé par la nuit de la précédente.
+    state.annonceMaireTimeout = setTimeout(() => {
+      state.annonceMaireTimeout = null;
+      if (state.phase === "mayorVote") roles.ouvrirNuit(true);
     }, 5000);
   });
 }

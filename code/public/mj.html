@@ -9,6 +9,12 @@
 </head>
 <body>
 
+<!-- Tablette coupée de l'ordinateur du jeu (Wi-Fi perdu, ordinateur passé sur un autre réseau) -->
+<div id="mjHorsLigne">🔴 La tablette ne joint plus l'ordinateur du jeu.<br><span style="font-weight:normal;font-size:13px;">Vérifie que les deux sont sur le Wi-Fi « La nuit du village ».</span></div>
+
+<!-- Victoire constatée : le MJ la lance quand il a raconté (afficherVictoireAttendue) -->
+<button id="mjVictoireBouton" onclick="mjLancerVictoire()"></button>
+
 <div id="mjHeader">
   <h1>🎛️ MJ</h1>
   <div id="connRow">
@@ -17,6 +23,7 @@
     <span id="mjMaireAffiche" title="Maire du village" style="display:none;font-size:12px;color:rgb(var(--or-vif));background:rgb(var(--or-fond));border:1px solid rgb(var(--or-base));border-radius:4px;padding:2px 8px;"></span>
     <div class="audio-dot" id="dotAmbiance"></div>
     <span id="audioLabel" style="font-size:11px;">Silence</span>
+    <button id="salonBtn" onclick="retourAuSalon()" title="Arrêter la partie et revenir au salon" style="display:none;background:rgb(var(--sang-fond));border:1px solid rgb(var(--sang-base));color:rgb(var(--sang-vif));font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;font-weight:bold;">🏠 Salon</button>
     <button id="pauseBtn" onclick="togglePause()" title="Mettre en pause" style="background:rgb(var(--or-fond));border:1px solid rgb(var(--or-vif));color:rgb(var(--or-vif));font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;font-weight:bold;">⏸️ Pause</button>
     <button id="narrationBtn" onclick="toggleNarration()" title="Narration vocale" style="background:rgb(var(--lune-fond));border:1px solid rgb(var(--lune-base));color:rgb(var(--lune-vif));font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer;">🎙️</button>
     <button onclick="toggleMJFullscreen()" title="Plein écran (F11)" style="background:rgb(var(--n2));border:1px solid rgb(var(--n4));color:rgb(var(--n6));font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer;">🖥️</button>
@@ -92,15 +99,12 @@
 <div id="dayRecapCard" class="plein-ecran" style="display:none;z-index:9997;background:radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--n0)) 100%);">
   <div style="font-size:56px;margin-bottom:10px;">🌅</div>
   <div style="font-size:13px;color:rgb(var(--lune-vif));letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">L'aube se lève</div>
-  <div id="dayRecapTitle" style="font-size:26px;font-weight:bold;color:rgb(var(--or-vif));margin-bottom:18px;">Jour 1</div>
-
   <div id="dayRecapBlocks" style="max-width:520px;width:100%;text-align:left;display:flex;flex-direction:column;gap:14px;margin-bottom:18px;">
     <!-- bloc « Hier » + bloc « Cette nuit » remplis dynamiquement -->
   </div>
 
-  <button onclick="closeDayRecapCard()" style="margin-top:8px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--or-vif),0.45);background:rgba(var(--or-vif),0.1);color:rgb(var(--or-vif));font-size:14px;cursor:pointer;">
-    ☀️ Continuer
-  </button>
+  <!-- Les actions du matin, dans l'ordre (majBoutonsAube) -->
+  <div id="dayRecapActions" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:420px;margin-top:8px;"></div>
 </div>
 
 <!-- Carte du MJ pour une mort au vote ou par le tir du Chasseur : les joueurs ne voient pas
@@ -404,9 +408,16 @@
 const socket = io();
 socket.emit("registerMJ");
 
+// Connexion perdue : la pastille du haut, et au bout de 3 s le bandeau rouge (une reconnexion
+// éclair ne l'affiche pas) — la nuit attend les clics du MJ, qui n'arrivent plus
+let _horsLigneTimer = null;
 function setMJConnected(ok) {
   const d = document.getElementById("mjConnDot");
   if(d) d.textContent = ok ? "🟢" : "🔴";
+  clearTimeout(_horsLigneTimer);
+  const bandeau = document.getElementById("mjHorsLigne");
+  if (ok) bandeau.style.display = "none";
+  else _horsLigneTimer = setTimeout(() => { bandeau.style.display = "block"; }, 3000);
 }
 socket.on("connect",    () => { setMJConnected(true); socket.emit("registerMJ"); });
 socket.on("disconnect", () => setMJConnected(false));
@@ -627,9 +638,8 @@ function closeCouncilEventCard(){
 }
 
 // ===== CARTE RÉCAP MJ — fin de nuit / début de jour =====
-let _mjDayRecapAutoClose = null;
+// Elle reste jusqu'au « Lancer le débat » du MJ (demande d'Alexandre, 2026-11-01)
 function closeDayRecapCard(){
-  if (_mjDayRecapAutoClose) { clearTimeout(_mjDayRecapAutoClose); _mjDayRecapAutoClose = null; }
   const card = document.getElementById("dayRecapCard");
   if (card) card.style.display = "none";
   // Récap de la nuit fermé : un évènement du Conseil en attente s'affiche maintenant
@@ -640,11 +650,39 @@ function closeDayRecapCard(){
   }
 }
 
+// Boutons de la carte de l'aube, dans l'ordre du matin : le tir du Chasseur, la transmission
+// d'écharpe, l'évènement du Conseil, puis « Lancer le débat », qui ferme la carte. Un seul est
+// actif à la fois ; une action en cours (le Chasseur vise, le maire choisit) se lit sur son bouton.
+function majBoutonsAube() {
+  const zone = document.getElementById("dayRecapActions");
+  if (!zone) return;
+  // Victoire constatée : la seule action est le bouton « Lancer la victoire » du bas de l'écran
+  if (_mjVictoireAttendue) { zone.innerHTML = ""; return; }
+  const p = currentPhaseForBar, a = _mjActionEnAttente, etapes = [];
+  if (p === "chasseur") etapes.push(a && a.type === p
+    ? { libelle: `🔫 Le Chasseur tire — ${a.nom}`, action: mjOuvrirAction } : { libelle: "🔫 Le Chasseur vise…" });
+  if (p === "mayorTransfer") etapes.push(a && a.type === p
+    ? { libelle: `🏛️ Transmettre l'écharpe — ${a.nom}`, action: mjOuvrirAction } : { libelle: "🏛️ Le maire choisit son successeur…" });
+  const matin = p === "day" && _mjMatinEnCours;
+  if (matin && _mjEvenementAAnnoncer) etapes.push({ libelle: `📜 Annoncer l'évènement : ${_mjEvenementAAnnoncer.title}`, action: mjAnnoncerEvenement });
+  if (p === "day" && !_mjMatinEnCours) etapes.push({ libelle: "☀️ Continuer", action: closeDayRecapCard });
+  else etapes.push({ libelle: "▶ Lancer le débat", action: matin && !_mjEvenementAAnnoncer ? mjLancerDebat : null });
+  const active = etapes.findIndex(e => e.action);
+  zone.innerHTML = "";
+  etapes.forEach((e, i) => {
+    const b = document.createElement("button");
+    b.className = "btn" + (i === active ? " primary" : "");
+    b.style.cssText = "padding:12px;font-size:15px;";
+    b.textContent = e.libelle;
+    b.disabled = i !== active;
+    if (i === active) b.onclick = e.action;
+    zone.appendChild(b);
+  });
+}
+
 socket.on("mjDayRecap", data => {
-  const titleEl = document.getElementById("dayRecapTitle");
   const blocks  = document.getElementById("dayRecapBlocks");
-  if (!titleEl || !blocks) return;
-  titleEl.innerText = `Jour ${data.dayNum || "?"} · Nuit ${data.nightNum || "?"}`;
+  if (!blocks) return;
   blocks.innerHTML = "";
 
   // La carte de début de jour ne contient que la nuit : le vote de la veille a déjà eu sa
@@ -679,13 +717,10 @@ socket.on("mjDayRecap", data => {
   nightBlock.innerHTML = nightHtml;
   blocks.appendChild(nightBlock);
 
-  // Affiche la carte
+  // Affiche la carte, avec les actions du matin
   const card = document.getElementById("dayRecapCard");
-  if (card) {
-    card.style.display = "flex";
-    if (_mjDayRecapAutoClose) clearTimeout(_mjDayRecapAutoClose);
-    _mjDayRecapAutoClose = setTimeout(closeDayRecapCard, 25000);  // filet de sécurité 25 s
-  }
+  if (card) card.style.display = "flex";
+  majBoutonsAube();
 
   // Narration TTS : phrase de synthèse pour aider le MJ à raconter le réveil (sans le
   // vote de la veille, déjà raconté)
@@ -747,11 +782,14 @@ socket.on("councilEventActive", data => {
   // Bandeau MJ permanent avec l'événement actif (titre + règle + « Revoir la carte »)
   afficherBandeauEvenement(data);
   // Début du jour : récap de la nuit d'abord, évènement ensuite (en attente si le récap est ouvert)
+  // Récap de la nuit ouvert : l'évènement attend sa fermeture, sauf s'il vient du bouton
+  // « Annoncer l'évènement » de la carte (il s'ouvre alors par-dessus)
   const recap = document.getElementById("dayRecapCard");
-  if (recap && recap.style.display === "flex") {
+  if (recap && recap.style.display === "flex" && !_mjAnnonceDemandee) {
     _mjPendingCouncilEvent = data;
     return;
   }
+  _mjAnnonceDemandee = false;
   showMjCouncilEventCard(data);
 });
 
@@ -815,7 +853,9 @@ function togglePause() {
   if (isPausedMJ) socket.emit("resumeGame");
   else socket.emit("pauseGame");
 }
-socket.on("gamePaused", data => {
+// Partie en pause (aussi pour une tablette rechargée pendant la pause) : le bouton propose
+// « Reprendre », le compte à rebours du vote se fige sur le temps restant
+function afficherPauseMJ(data) {
   isPausedMJ = true;
   const btn = document.getElementById("pauseBtn");
   if (btn) {
@@ -826,13 +866,15 @@ socket.on("gamePaused", data => {
     btn.style.color = "rgb(var(--vert-vif))";
   }
   document.getElementById("pauseBanner").style.display = "block";
-  // Stoppe le countdown visuel du timer du jour
   stopCountdown();
   if (data && data.voteRemainingMs) {
     document.getElementById("timerDisplay").innerText = Math.ceil(data.voteRemainingMs/1000) + "s ⏸️";
+    document.getElementById("timerDisplay").style.display = "block";
   }
-});
-socket.on("gameResumed", data => {
+}
+socket.on("gamePaused", afficherPauseMJ);
+// Fin de la pause (reprise, ou retour au salon pendant la pause)
+function afficherRepriseMJ() {
   isPausedMJ = false;
   const btn = document.getElementById("pauseBtn");
   if (btn) {
@@ -843,15 +885,11 @@ socket.on("gameResumed", data => {
     btn.style.color = "rgb(var(--or-vif))";
   }
   document.getElementById("pauseBanner").style.display = "none";
-});
+}
+socket.on("gameResumed", afficherRepriseMJ);
 // Quand le vote du jour reprend, redémarre le countdown sur le temps restant
 socket.on("voteResumed", data => {
-  if (data.serverNow && data.endsAt) {
-    const networkLatency = Date.now() - data.serverNow;
-    mjEndsAt = data.endsAt + networkLatency;
-  } else {
-    mjEndsAt = data.endsAt;
-  }
+  mjEndsAt = finDuVote(data);
   mjTotalMs = data.durationMs;
   document.getElementById("timerDisplay").style.display = "block";
   document.getElementById("mjTimerBar").style.display = "block";
@@ -944,6 +982,15 @@ function playAmbiance(k){
   }catch(e){}
 }
 function stopAmbiance(){ if(ambianceAudio){ambianceAudio.pause();ambianceAudio.currentTime=0;ambianceAudio=null;} ambianceName=""; dotSet(false); lblSet("Silence"); }
+// Tablette rechargée ou reconnectée : la musique de la phase en cours — le salon au salon et au
+// vote du maire, la nuit la nuit, le jour sinon (l'Éclipse garde la nuit ; la Tempête et les
+// Murmures, encore en cours, continuent). Après la fin de partie, sa musique continue.
+function musiqueDeLaPhase(p) {
+  if (isGameOver || stormAudio) return;
+  if (["lobby", "mayorVote"].includes(p)) playAmbiance("lobby");
+  else if (MJ_PHASES_NUIT.includes(p) || _mjActiveCouncilEvent === "eclipse") playAmbiance("night");
+  else playAmbiance("day");
+}
 function playEffect(k){
   if(!audioEnabled)return;
   try{ sonAuNiveau(k, "effet").play().catch(()=>{}); }catch(e){}
@@ -1061,8 +1108,9 @@ function updateMJLayout(phase) {
   // Lobby uniquement : configuration de partie + QR code de connexion
   set("mjSectionStart", !inGame);
   set("mjSectionQR",    !inGame);
-  // En partie uniquement : contrôles d'urgence + chat des morts
+  // En partie uniquement : contrôles d'urgence, chat des morts, retour au salon
   set("mjSectionUrgency",  inGame);
+  set("salonBtn",          inGame);
   set("mjSectionDeadChat", inGame);
   // Strictement contextuel à la phase en cours
   set("mjSectionMayor",  phase === "mayorVote");
@@ -1124,7 +1172,9 @@ socket.on("phase", p=>{
 // Envoyé au lancement de la partie ET à chaque (re)connexion du MJ : la liste des joueurs
 // qui l'accompagne doit être reprise, sinon une tablette rechargée en pleine partie
 // affichait « En attente… » à la place des personnages et des votes sans noms.
-socket.on("rolesMJ", data=>{ roles=data.roles; if(data.players){ traduireIdsMJ(data.players); players=data.players; renderPlayers(); } renderRoles(); playAmbiance("lobby"); });
+// La musique du salon accompagne le vote du maire ; une tablette qui se reconnecte en pleine partie
+// reçoit aussi les rôles, mais retrouve la musique de la phase en cours (mjReconnected)
+socket.on("rolesMJ", data=>{ roles=data.roles; if(data.players){ traduireIdsMJ(data.players); players=data.players; renderPlayers(); } renderRoles(); if(["lobby","mayorVote"].includes(currentPhaseForBar)) playAmbiance("lobby"); });
 // Un joueur s'est reconnecté (nouvel identifiant) : on remet à jour la liste des rôles.
 socket.on("rolesMJUpdate", data=>{ roles=data.roles||roles; if(data.players) players=data.players; renderRoles(); });
 socket.on("playNightMusic", ()=>{ if(!isGameOver) playAmbiance("night"); });
@@ -1142,6 +1192,7 @@ socket.on("dawnResult", data=>{
 
 socket.on("gameEnd", msg=>{
   isGameOver = true;
+  afficherVictoireAttendue(null);   // lancée (ou partie de filet) : le bouton disparaît
   document.getElementById("gameEndBanner").style.display="block";
   document.getElementById("gameEndBanner").innerText=msg;
   stopCountdown(); stopHeartbeat();
@@ -1164,6 +1215,10 @@ socket.on("mjReconnected", state=>{
   mjVoteRunning = mjEtatVote === "vote";
   majBoutonsJour(); refreshDayStateBanner();
   if (state.activeCouncilEvent) { _mjActiveCouncilEvent = state.activeCouncilEvent.id; afficherBandeauEvenement(state.activeCouncilEvent); }
+  if (state.vote) afficherVoteMJ(state.vote);
+  if (state.pause) afficherPauseMJ(state.pause);
+  afficherVictoireAttendue(state.victoireEnAttente);
+  musiqueDeLaPhase(currentPhaseForBar);
   _mjActionEnAttente = state.actionMJ || null;
   afficherAnnonceMatin(state.matin || null);
   { const lnc = document.getElementById("lancerNuitCard"); if (lnc) lnc.style.display = state.nuitEnAttente ? "flex" : "none"; }
@@ -1367,6 +1422,8 @@ socket.on("gameReset", data=>{
   closeDayRecapCard();
   closeMjVoteDeathCard();
   _mjPendingCouncilEvent = null;
+  afficherRepriseMJ();
+  afficherVictoireAttendue(null);
   stopCountdown(); stopHeartbeat(); stopAmbiance();
   if(data.players){ players=data.players; renderPlayers(); }
   renderRoles();
@@ -1381,8 +1438,9 @@ socket.on("deadChatMsg", msg=>{
 
 // ===== VOTE TIMER =====
 let countdownInterval=null, mjEndsAt=null, mjTotalMs=null;
-socket.on("voteStarted", data=>{
-  mjEndsAt=data.endsAt; mjTotalMs=data.duration;
+// Vote en cours (à son lancement, ou pour une tablette rechargée) : mode, durée, compte à rebours
+function afficherVoteMJ(data) {
+  mjEndsAt=finDuVote(data); mjTotalMs=data.duration;
   const labels={1:"⏱️ Mode Libre",2:"⚖️ Le Jugement — verrouillé",4:"⚡ La Panique — express",5:"🖤 L'Émeute — vote anonyme"};
   let label = labels[data.mode] || "Vote en cours";
   if (_mjActiveCouncilEvent === "voteMute") label = "🤐 Le Vote Muet — silence total";
@@ -1392,8 +1450,9 @@ socket.on("voteStarted", data=>{
   document.getElementById("mjTimerBar").style.display="block";
   startCountdown();
   mjVoteRunning = true; changerEtatVote("vote");
-});
-socket.on("voteStartedMJ", data=>{ mjEndsAt=data.endsAt; mjTotalMs=data.duration; startCountdown(); mjVoteRunning = true; changerEtatVote("vote"); });
+}
+socket.on("voteStarted", afficherVoteMJ);
+socket.on("voteStartedMJ", data=>{ mjEndsAt=finDuVote(data); mjTotalMs=data.duration; startCountdown(); mjVoteRunning = true; changerEtatVote("vote"); });
 socket.on("voteTimerEnd",()=>{
   if (currentPhaseForBar === "day") mjEtatVote = "resultat";
   majBoutonsJour();
@@ -1486,6 +1545,7 @@ function afficherAnnonceMatin(matin) {
 // Toujours en haut de l'écran (demande d'Alexandre, 2026-10-26) : un seul gros bouton quand
 // c'est au MJ de cliquer, rien sinon. Le crépuscule et les pauses de nuit ont déjà leur carte.
 function actionSuivanteMJ() {
+  if (_mjVictoireAttendue) return null;   // le bouton du bas : « Lancer la victoire »
   const p = currentPhaseForBar;
   // Chasseur, maire mourant : c'est le MJ qui lance l'action, quand il a raconté la mort
   if (_mjActionEnAttente && _mjActionEnAttente.type === p) return p === "chasseur"
@@ -1506,6 +1566,24 @@ function actionSuivanteMJ() {
   if (mjEtatVote === "vote") return { libelle: "⏹️ Terminer le vote", action: lockDay };
   return null;
 }
+// ===== VICTOIRE À LANCER =====
+// Victoire constatée (aube, vote, tir, Ange) : le gros bouton du bas de l'écran, par-dessus les
+// cartes, jusqu'au clic du MJ — il raconte d'abord (demande d'Alexandre, 2026-11-01)
+const CAMP_VICTOIRE = { wolves: "des Loups", villagers: "du village", lovers: "des Amoureux", ange: "de l'Ange" };
+let _mjVictoireAttendue = null;
+function afficherVictoireAttendue(camp) {
+  _mjVictoireAttendue = camp || null;
+  const b = document.getElementById("mjVictoireBouton");
+  b.textContent = camp ? `🏆 Lancer la victoire ${CAMP_VICTOIRE[camp] || ""}` : "";
+  b.style.display = camp ? "block" : "none";
+  majActionSuivante();
+}
+socket.on("victoireEnAttente", d => afficherVictoireAttendue(d && d.camp));
+function mjLancerVictoire() {
+  socket.emit("mjLancerVictoire");
+  afficherVictoireAttendue(null);
+}
+
 // Tir du Chasseur ou transmission d'écharpe en attente du clic du MJ : { type, nom } ou null
 let _mjActionEnAttente = null;
 socket.on("actionMJEnAttente", d => { _mjActionEnAttente = d || null; majActionSuivante(); });
@@ -1515,6 +1593,7 @@ function mjOuvrirAction() {
   majActionSuivante();
 }
 function majActionSuivante() {
+  majBoutonsAube();   // la carte de l'aube montre les mêmes actions, dans l'ordre
   const barre = document.getElementById("mjActionSuivante"), btn = document.getElementById("mjBtnActionSuivante");
   if (!barre || !btn) return;
   const a = actionSuivanteMJ();
@@ -1528,13 +1607,16 @@ function majActionSuivante() {
   btn.onclick = () => a.action();
 }
 socket.on("matinEnAttente", d => afficherAnnonceMatin(d || {}));
+let _mjAnnonceDemandee = false;
 function mjAnnoncerEvenement() {
+  _mjAnnonceDemandee = true;
   socket.emit("mjAnnoncerEvenement");
   afficherAnnonceMatin({ evenement: null });
 }
 function mjLancerDebat() {
   socket.emit("mjFinAnnonceMatin");
   afficherAnnonceMatin(null);
+  closeDayRecapCard();
 }
 
 function mjEtapeSuivante(){
@@ -1601,6 +1683,11 @@ function retirerJoueur(id) {
 function addBot()     { socket.emit("addBot"); }
 function removeBot()  { socket.emit("removeBot"); }
 function resetGame()  { socket.emit("reset"); }
+// « 🏠 Salon » (en partie) : arrêter la partie — un bug, un rôle montré par erreur — et revenir au
+// salon ; les joueurs restent inscrits, la partie arrêtée ne compte pas au classement de la soirée
+function retourAuSalon() {
+  if (confirm("Arrêter la partie et revenir au salon ?\nLes rôles seront perdus ; les joueurs restent inscrits.")) resetGame();
+}
 function setPhase(p)  { socket.emit("setPhase",p); }
 function resolveNight(){ socket.emit("resolveNight"); }
 function skipDayVote(){ socket.emit("skipDayVote"); }
@@ -1648,7 +1735,7 @@ const MJ_CHEATSHEET = {
   petiteFille:  { title:"👧 Petite Fille",         lines:["« Petite Fille, ouvre les yeux »", "Elle désigne 3 joueurs sur son téléphone (pas elle-même)", "Son écran lui dit s'il y a au moins un Loup parmi eux — la réponse s'affiche aussi chez toi", "La nuit attend son « OK, j'ai vu »", "« Petite Fille, ferme les yeux »"] },
   corbeau:      { title:"🪶 Corbeau",              lines:["« Corbeau, ouvre les yeux »", "Il choisit un joueur sur son téléphone (ou passe) : 2 votes contre lui demain", "« Corbeau, ferme les yeux »"] },
   witch:        { title:"🧪 Sorcière",             lines:["« Sorcière, ouvre les yeux. Voici la victime des Loups »", "Elle peut : sauver (potion vie), tuer (potion mort), ou rien", "« Sorcière, ferme les yeux »"] },
-  day:          { title:"☀️ Le jour — à toi de jouer", lines:["1. Annonce les morts de la nuit à voix haute (carte récap = ton support)", "2. Clique « ▶ Lancer le débat » en haut : « Le village se réveille… à vous de parler »", "3. Laisse les joueurs discuter — ils n'ont PAS leur écran, c'est voulu", "4. Quand le débat est mûr, clique « 🚀 Lancer le vote » en haut, puis « Terminer le vote »", "5. Le Maire tranche en cas d'égalité — puis « 🌙 Lancer la nuit » quand tu es prêt"] },
+  day:          { title:"☀️ Le jour — à toi de jouer", lines:["1. Annonce les morts de la nuit à voix haute (carte de l'aube = ton support)", "2. Sur la carte de l'aube : le tir du Chasseur, l'écharpe, l'évènement s'il y en a, puis « ▶ Lancer le débat » : « Le village se réveille… à vous de parler »", "3. Laisse les joueurs discuter — ils n'ont PAS leur écran, c'est voulu", "4. Quand le débat est mûr, clique « 🚀 Lancer le vote » en haut, puis « Terminer le vote »", "5. Le Maire tranche en cas d'égalité — puis « 🌙 Lancer la nuit » quand tu es prêt"] },
   chasseur:     { title:"🔫 Chasseur",             lines:["Le Chasseur vient de mourir : raconte sa mort", "Puis clique « 🔫 Le Chasseur tire » en haut — il emporte qui il veut (60 s)"] },
   mayorTransfer:{ title:"🏛️ Transfert d'écharpe", lines:["Le Maire mourant désigne son successeur (60 s)"] },
   lobby:        { title:"⏳ Salon",                lines:["Configure les rôles puis clique « Lancer la partie »"] },

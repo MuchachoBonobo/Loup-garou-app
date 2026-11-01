@@ -50,7 +50,7 @@ const CHAMPS = [
   "autoMode", "autoVoteMode", "gamePaused",
   // Chasseur, transmission d'écharpe
   "currentChasseurShooter", "chasseurPostContext",
-  "dyingMayorId", "mayorTransferPending", "dyingMayorWasChasseur", "mayorTransferContext",
+  "dyingMayorId", "mayorTransferPending", "mayorTransferContext",
 ];
 // Valeur par défaut : celle d'une partie neuve ; la phase est reprise telle quelle
 const defauts = () => ({ ...partieNeuve(), phase: undefined, players: [], playerRegistry: {} });

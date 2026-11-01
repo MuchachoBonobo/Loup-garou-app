@@ -66,6 +66,9 @@ function partieNeuve() {
     // déclenchée après l'annonce de l'aube
     inNightResolution: false, pendingEndGame: null,
     pendingEndGameTimer: null,  // les 7 s avant l'écran de fin : annulées par un reset
+    // Victoire constatée qui attend le « 🏆 Lancer la victoire » du MJ : son camp, la fin de
+    // partie à déclencher, le filet si la tablette ne répond plus (phases.attendreVictoireMJ)
+    victoireEnAttente: null, finEnAttente: null, victoireTimeout: null,
     pendingDayRecap: null,      // récap de la nuit pour le MJ, envoyé au plus tard au début du jour
 
     // Rythme du MJ. Nuit : étape qui démarrera au clic « Passer à l'étape suivante » ("cupid",
@@ -82,17 +85,14 @@ function partieNeuve() {
     // Minuteries des phases (arrêtées par phases.clearPhaseTimeouts)
     seerTimeout: null, petiteFilleTimeout: null, nightPauseTimeout: null, witchTimeout: null, cupidTimeout: null,
     salvateurTimeout: null, sistersTimeout: null, amoureuxTimeout: null, corbeauTimeout: null,
-    chasseurTimeout: null, mayorTransferTimeout: null,
+    chasseurTimeout: null, mayorTransferTimeout: null, annonceMaireTimeout: null,
 
     // Égalité à trancher par le maire
     tiebreakPending: false, tiebreakCandidates: [], tiebreakContext: "",
 
     // Transmission d'écharpe, tir du Chasseur
-    mayorTransferPending: false, dyingMayorId: null, dyingMayorWasChasseur: false, mayorTransferContext: "",
+    mayorTransferPending: false, dyingMayorId: null, mayorTransferContext: "",
     chasseurPostContext: null, currentChasseurShooter: null,
-    // Chasseur amoureux qui tirera après la transmission de l'écharpe (maire et Chasseur,
-    // deux amoureux distincts)
-    pendingChasseurAfterTransfer: null,
 
     // Pause
     gamePaused: false, pausedVoteRemainingMs: null,
@@ -151,11 +151,12 @@ function computeCounts(votes) {
 function joueursAvecRole(r) { return Object.keys(state.roles).filter(id => state.roles[id] === r); }
 function vivantsAvecRole(r) { return joueursAvecRole(r).filter(id => !state.deadPlayers.includes(id)); }
 // Plus de transmission d'écharpe en cours
+// La partie est gagnée et attend son écran de fin (7 s en mode autonome, ou le clic du MJ)
+function partieGagnee() { return !!(state.pendingEndGameTimer || state.victoireEnAttente); }
 function oublierTransfert() {
   state.mayorTransferPending = false;
   state.dyingMayorId = null;
   state.mayorTransferContext = "";
-  state.dyingMayorWasChasseur = false;
 }
 // Ce que le Salvateur doit savoir à son réveil : qui il a protégé la veille (interdit ce soir)
 function infosSalvateur() {
@@ -226,6 +227,7 @@ function buildFullState(socketId) {
     voteTimerEnd: state.voteTimerEnd,
     voteDureeMs:  state.voteDureeMs,
     voteMode:     state.voteMode,
+    pause:        state.gamePaused ? { voteRemainingMs: state.pausedVoteRemainingMs } : null,
     role:         state.roles[socketId],
     wolves:       isWolf ? joueursAvecRole("Loup") : [],
     soeurs:       state.roles[socketId] === "Sœurs" ? joueursAvecRole("Sœurs") : [],
@@ -261,7 +263,7 @@ function idActuel(id) {
 // Reconnexion : partout où l'ancien identifiant de connexion du joueur le désigne, le nouveau
 // le remplace (rôle, listes, votes, champs, journal des morts, anciens identifiants)
 const CHAMPS_JOUEUR = ["mayor", "currentChasseurShooter", "dyingMayorId", "corbeauTarget", "nightTarget", "witchKillTarget",
-  "protectedTarget", "lastProtectedTarget", "pendingChasseurAfterTransfer", "angeVainqueur"];
+  "protectedTarget", "lastProtectedTarget", "angeVainqueur"];
 function remplacerIdentifiant(ancien, nouveau, role) {
   if (role) { state.roles[nouveau] = role; delete state.roles[ancien]; }
   [state.lovers, state.deadPlayers, state.tiebreakCandidates].forEach(liste => {
@@ -299,6 +301,6 @@ module.exports = {
   DAY_AUTO_START_DELAY_MS, BOT_MIN_DELAY_MS, BOT_MAX_DELAY_MS,
   // Helpers
   alivePlayers, vivantsSauf, computeCounts, hasRole, isMJ, playerName, fisherYates, auHasard, versMJ,
-  joueursAvecRole, vivantsAvecRole, oublierTransfert, infosSalvateur, infosCorbeau, visionComplete, entreeRegistre,
+  joueursAvecRole, vivantsAvecRole, partieGagnee, oublierTransfert, infosSalvateur, infosCorbeau, visionComplete, entreeRegistre,
   resetActivity, buildFullState,
 };

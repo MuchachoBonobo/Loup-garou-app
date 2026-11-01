@@ -94,6 +94,9 @@ async function partie(num) {
   mj.on("gameEnd", m => {
     fin = m;
     const viv = vivants(), lv = viv.filter(id => roles[id] === "Loup").length, autres = viv.length - lv;
+    // Un couple loup + villageois en vie : seuls les Amoureux peuvent gagner (seuls à deux)
+    const coupleMixte = amoureux.length === 2 && amoureux.every(id => viv.includes(id)) && amoureux.filter(id => roles[id] === "Loup").length === 1;
+    if (coupleMixte && !m.includes("Amoureux")) anomalie("fin de partie alors qu'un couple loup + villageois est en vie : " + m);
     if (m.includes("Ange")) { if (!angeRevele) anomalie("victoire de l'Ange sans révélation"); }
     else if (angeRevele) anomalie("Ange révélé mais autre vainqueur : " + m);
     else if (m.includes("Loups")) { if (!(lv > 0 && lv >= autres)) anomalie(`victoire des Loups injustifiée (loups ${lv}, autres ${autres})`); }

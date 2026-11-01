@@ -6,7 +6,7 @@
 
 const {
   state, alivePlayers, vivantsSauf, playerName, hasRole, isMJ, fisherYates, auHasard, resetActivity, versMJ,
-  joueursAvecRole, vivantsAvecRole, oublierTransfert, infosSalvateur, infosCorbeau, visionComplete,
+  joueursAvecRole, vivantsAvecRole, partieGagnee, oublierTransfert, infosSalvateur, infosCorbeau, visionComplete,
   SISTERS_TIMEOUT_MS, AMOUREUX_TIMEOUT_MS, SEER_ACK_TIMEOUT_MS, PETITE_FILLE_ACK_TIMEOUT_MS,
 } = require('./state');
 
@@ -30,7 +30,8 @@ function buildDeath(id, cause) {
 
 // ===== CHASSEUR ET MAIRE MOURANT : APPEL AUX TÉLÉPHONES =====
 // Avec un MJ, l'appel attend son clic (phases.ouvrirActionMJ, qui l'envoie) ; en mode autonome,
-// il part tout de suite.
+// il part tout de suite. Le maire mourant n'est appelé qu'à l'entrée en phase « mayorTransfer »
+// (phases.setPhase) : un Chasseur mort en même temps tire d'abord.
 function annoncerTir(id) { if (state.autoMode) state.io.emit("chasseurMustShoot", id); }
 function annoncerTransfert(id) { if (state.autoMode) state.io.emit("mayorMustTransfer", id); }
 
@@ -40,7 +41,7 @@ function annoncerTransfert(id) { if (state.autoMode) state.io.emit("mayorMustTra
 // « 🌙 Lancer la nuit » — les téléphones gardent la carte du mort ou du maire jusque-là
 // (demande d'Alexandre, 2026-10-26). En mode autonome, la nuit démarre aussitôt.
 function ouvrirNuit(premiere) {
-  if (state.pendingEndGameTimer) return;
+  if (partieGagnee()) return;
   if (!nuitRythmeeParMJ()) { if (premiere) startFirstNight(); else startNightSequence(); return; }
   state.nuitEnAttente = premiere ? "premiere" : "suivante";
   phases.setPhase("crepuscule");
@@ -83,7 +84,7 @@ function nuitRythmeeParMJ() { return !state.autoMode; }
 function allerEtapeNuit(etape, options) {
   // Partie gagnée à l'aube, écran de fin dans quelques secondes : la nuit est finie.
   // (Sinon un clic tardif — « Valider l'attaque », « J'ai terminé »… — relançait une aube.)
-  if (state.pendingEndGameTimer) return;
+  if (partieGagnee()) return;
   const sansPause = !!(options && options.sansPause);
   if (sansPause || !nuitRythmeeParMJ() || !LIBELLES_ETAPES_NUIT[etape]) { lancerEtapeNuit(etape); return; }
   state.etapeNuitSuivante = etape;
@@ -93,7 +94,7 @@ function allerEtapeNuit(etape, options) {
 
 // Démarre réellement l'étape : messages propres au rôle puis changement de phase.
 function lancerEtapeNuit(etape) {
-  if (state.pendingEndGameTimer) return;  // partie déjà gagnée (voir allerEtapeNuit)
+  if (partieGagnee()) return;  // partie déjà gagnée (voir allerEtapeNuit)
   state.etapeNuitSuivante = null;
   if (etape === "aube") { resoudreNuit(); return; }
   if (etape === "amoureux") {
@@ -202,9 +203,20 @@ function resoudreNuit() {
 
   const deadBeforeNight = new Set(state.deadPlayers);
 
-  // Si killPlayer déclenche un changement de phase (chasseur/mayorTransfer),
-  // on doit interrompre la boucle pour ne pas exécuter la 2e mort hors contexte.
-  for (const d of deaths) {
+  // La victoire se juge sur les survivants du matin, pas mort après mort : à égalité après leur
+  // attaque, les loups ne gagnent pas si la Sorcière empoisonne ensuite l'un d'eux (et l'écharpe
+  // d'un maire tué cette nuit-là est bien transmise). Un Chasseur qui meurt tire d'abord : la
+  // victoire est alors jugée après son tir (apresLeTir).
+  const mourront = new Set(deaths.map(d => d.id));
+  deaths.forEach(d => { if (state.lovers.includes(d.id)) state.lovers.forEach(l => mourront.add(l)); });
+  const unChasseurTire = [...mourront].some(id => state.roles[id] === "Chasseur");
+  victoireAuMatin = !unChasseurTire && !!phases.campGagnant(alivePlayers().filter(p => !mourront.has(p.id)));
+
+  // Si killPlayer déclenche un changement de phase (chasseur/mayorTransfer), on interrompt la
+  // boucle pour ne pas exécuter la 2e mort hors contexte. Les Chasseurs d'abord : un Chasseur mort
+  // tire avant que le maire mort la même nuit ne transmette son écharpe (demande d'Alexandre)
+  const chasseursDAbord = [...deaths].sort((a, b) => (state.roles[b.id] === "Chasseur") - (state.roles[a.id] === "Chasseur"));
+  for (const d of chasseursDAbord) {
     killPlayer(d.id, d.cause);
     if (state.phase === "chasseur" || state.phase === "mayorTransfer") break;
   }
@@ -218,22 +230,12 @@ function resoudreNuit() {
 
   // Boucle interrompue par `mayorTransfer` : les morts restantes (ex. cible de la Sorcière)
   // sont traitées ici, pour ne pas apparaître comme successeurs possibles dans le panneau
-  // de transmission (il s'ouvre plusieurs secondes après la carte de l'aube)
+  // de transmission (il s'ouvre plusieurs secondes après la carte de l'aube). Un Chasseur mort
+  // d'amour parmi elles tire avant la transmission (la branche « chasseur » finit les autres).
   if (state.phase === "mayorTransfer") {
     for (const d of deaths) {
-      if (state.deadPlayers.includes(d.id)) continue; // déjà mort (cascade amour ou 1ère itération)
-      if (state.roles[d.id] === "Chasseur" && !state.pendingChasseurAfterTransfer) {
-        // Le chasseur doit tirer APRÈS le transfert → on le diffère plutôt que de
-        // changer de phase immédiatement (mayorTransfer a priorité).
-        state.pendingChasseurAfterTransfer = d.id;
-        state.chasseurPostContext = "night";
-        state.currentChasseurShooter = d.id;
-        // Mort tout de suite, pour l'exclure des candidats au titre de maire
-        marquerMort(d.id, d.cause);
-      } else {
-        // Mort ordinaire : killPlayer l'ajoute à deadPlayers et gère les cascades.
-        killPlayer(d.id, d.cause);
-      }
+      if (state.phase === "chasseur") break;
+      if (!state.deadPlayers.includes(d.id)) killPlayer(d.id, d.cause);
     }
   }
 
@@ -254,6 +256,11 @@ function resoudreNuit() {
     }
   }
 
+  // Fin de partie posée (state.pendingEndGame) seulement si les survivants du matin la donnent
+  state.pendingEndGame = null;
+  if (victoireAuMatin) phases.checkVictory();
+  victoireAuMatin = false;
+
   state.nightTarget = null;
   state.witchKillTarget = null;
   state.witchSaveActive = false;
@@ -261,8 +268,9 @@ function resoudreNuit() {
   const enChasseur = state.phase === "chasseur";
   // Avec un MJ, la carte des morts reste jusqu'à son clic : « 🔫 Le Chasseur tire », la
   // transmission d'écharpe qu'il lance, ou le réveil qu'il mène
+  const victoireAttendLeMJ = !!state.pendingEndGame && !state.autoMode;
   const annonceParMJ = enChasseur ? !!state.actionMJ
-    : (state.actionMJ === "mayorTransfer" || require('./council').annonceMatinParMJ()) && !state.pendingEndGame;
+    : victoireAttendLeMJ || ((state.actionMJ === "mayorTransfer" || require('./council').annonceMatinParMJ()) && !state.pendingEndGame);
   ajouterMortsDAmour();
   state.io.emit("dawnResult", {
     deaths, saved: savedThisNight, witchKilled: witchKillThisNight,
@@ -292,12 +300,13 @@ function resoudreNuit() {
   }
 
   // Victoire pendant la résolution : endGame a mis sa fonction d'émission dans
-  // state.pendingEndGame. Récap MJ d'abord, puis la fin de partie ~7 s plus tard, le
-  // temps de voir la carte des morts.
+  // state.pendingEndGame. Récap MJ d'abord, puis la fin de partie : au clic du MJ (il raconte
+  // les morts), ou ~7 s plus tard en mode autonome, le temps de voir la carte des morts.
   if (state.pendingEndGame) {
     envoyerRecapMJ();
     const fire = state.pendingEndGame;
     state.pendingEndGame = null;
+    if (!state.autoMode) { phases.attendreVictoireMJ(fire); return; }
     // Minuteur mémorisé : un reset pendant ces 7 s l'annule (sinon la fin de partie
     // tombait au milieu de la partie suivante).
     state.pendingEndGameTimer = setTimeout(() => {
@@ -354,12 +363,12 @@ function contexteDuTransfert() {
   return PHASES_DE_NUIT.includes(state.phase) ? "night" : "day";
 }
 // Le maire meurt : son écharpe est à transmettre. L'appelant passe ensuite en phase
-// « mayorTransfer » (ou la transmission attend le tir du Chasseur en cours).
-function ouvrirTransfert(id, etaitChasseur = false) {
+// « mayorTransfer » (ou la transmission attend le tir du Chasseur en cours : apresLeTir) ; le
+// maire mourant est appelé à l'entrée dans cette phase (phases.setPhase).
+function ouvrirTransfert(id) {
   state.dyingMayorId = id; state.mayorTransferPending = true; state.mayor = null;
-  state.dyingMayorWasChasseur = etaitChasseur;
   state.mayorTransferContext = contexteDuTransfert();
-  state.io.emit("newMayor", null); annoncerTransfert(id);
+  state.io.emit("newMayor", null);
 }
 // Un Chasseur mort va tirer : `contexte` dit ce qui suivra son tir (voir contexteDuTir)
 function faireTirer(id, contexte = contexteDuTir()) {
@@ -369,57 +378,34 @@ function faireTirer(id, contexte = contexteDuTir()) {
   phases.setPhase("chasseur");
 }
 
+// Victoire acquise : jugée tout de suite, sauf en pleine résolution de la nuit, où compte l'état
+// des survivants du matin (resoudreNuit)
+let victoireAuMatin = false;
+const partieFinie = () => state.inNightResolution ? victoireAuMatin : phases.checkVictory();
+
 function killPlayer(id, cause) {
   if (!id || state.deadPlayers.includes(id)) return;
   log.info('killPlayer', playerName(id), `(role=${state.roles[id]})`, 'cause=' + cause, 'phase=' + state.phase);
   marquerMort(id, cause);
+  // Son amoureux meurt de chagrin avec lui
+  const morts = [id];
+  const partenaire = state.lovers.includes(id) && state.lovers.find(l => l !== id);
+  if (partenaire && !state.deadPlayers.includes(partenaire)) { marquerMort(partenaire, "amour"); morts.push(partenaire); }
 
-  const isMayorDying    = (id === state.mayor);
-  const isChasseurDying = (state.roles[id] === "Chasseur");
-  if (!isMayorDying && !isChasseurDying) sendDeadVision(id);
-
-  if (state.lovers.includes(id)) {
-    const partner = state.lovers.find(l => l !== id);
-    if (partner && !state.deadPlayers.includes(partner)) {
-      marquerMort(partner, "amour");
-      sendDeadVision(partner);
-      if (state.roles[partner] === "Chasseur") {
-        if (partner === state.mayor) {
-          // L'amoureux, maire et Chasseur : l'écharpe d'abord, son tir ensuite (performMayorTransfer)
-          ouvrirTransfert(partner, true);
-          phases.setPhase("mayorTransfer"); return;
-        } else if (isMayorDying) {
-          // Le mort est le maire et son amoureux le Chasseur : l'écharpe d'abord, le tir ensuite
-          // (passer directement en phase chasseur faisait refuser la transmission) — le Chasseur
-          // tirera dans performMayorTransfer
-          state.pendingChasseurAfterTransfer = partner;
-          state.chasseurPostContext = contexteDuTir();
-          ouvrirTransfert(id);
-          phases.setPhase("mayorTransfer"); return;
-        }
-        // L'amoureux est Chasseur, ni maire ni objet d'une transmission : il tire tout de suite
-        faireTirer(partner); return;
-      }
-      if (partner === state.mayor && !state.mayorTransferPending) {
-        if (state.phase === "lobby") { phases.checkVictory(); return; }
-        if (phases.checkVictory()) return;
-        ouvrirTransfert(partner);
-        phases.setPhase("mayorTransfer"); return;
-      }
-    }
-  }
-
-  if (isMayorDying && !state.mayorTransferPending) {
+  // Ce que ces morts déclenchent : un Chasseur tire d'abord, le maire transmet son écharpe ensuite
+  // (apresLeTir) — aussi quand le maire est lui-même le Chasseur (choix d'Alexandre) ; sans l'un ni
+  // l'autre, la victoire est jugée. Le Chasseur et le maire voient tout après leur action.
+  const chasseur = morts.find(m => state.roles[m] === "Chasseur");
+  const maire    = morts.find(m => m === state.mayor);
+  morts.filter(m => m !== chasseur && m !== maire).forEach(sendDeadVision);
+  if (maire && !state.mayorTransferPending) {
     if (state.phase === "lobby") { phases.checkVictory(); return; }
-    if (!isChasseurDying && phases.checkVictory()) return;
-    ouvrirTransfert(id, isChasseurDying);
-    phases.setPhase("mayorTransfer"); return;
-  } else if (isMayorDying) {
-    return;
+    if (!chasseur && partieFinie()) return;
+    ouvrirTransfert(maire);
   }
-
-  if (isChasseurDying) { faireTirer(id); return; }
-  phases.checkVictory();
+  if (chasseur) { faireTirer(chasseur); return; }
+  if (maire) { if (state.dyingMayorId === maire) phases.setPhase("mayorTransfer"); return; }
+  if (!state.inNightResolution) phases.checkVictory();
 }
 
 function sendDeadVision(socketId) {
@@ -481,25 +467,13 @@ function performMayorTransfer(targetId) {
 
   const oldDyingId = state.dyingMayorId;
   const ctx = state.mayorTransferContext;
-  const wasChasseur = state.dyingMayorWasChasseur;
   state.mayor = targetId;
   oublierTransfert();
   state.io.emit("newMayor", state.mayor);
   state.io.emit("mayorTransferred", targetId);
   lights.flash("flash.bell");
 
-  // Le maire était le Chasseur : il tire maintenant ; son tir a la même suite que sa mort
-  if (wasChasseur) { faireTirer(oldDyingId, (ctx === "day" || ctx === "chasseurFromDay") ? "day" : "night"); return; }
   sendDeadVision(oldDyingId);
-
-  // Maire et Chasseur, deux amoureux distincts : l'écharpe est transmise, le Chasseur tire
-  // (la suite de son tir a été posée dans killPlayer, au moment de la mort)
-  if (state.pendingChasseurAfterTransfer) {
-    const chasseurId = state.pendingChasseurAfterTransfer;
-    state.pendingChasseurAfterTransfer = null;
-    if (!phases.checkVictory()) faireTirer(chasseurId, state.chasseurPostContext);
-    return;
-  }
 
   if (phases.checkVictory()) return;
   // Maire mort au vote du jour (ou abattu par un Chasseur mort au vote) : la nuit suit
@@ -825,7 +799,7 @@ Object.assign(module.exports, {
   ouvrirNuit, lancerNuitAttendue, finAmoureux, demarrerTimerSoeurs, advanceAfterSeer, advanceAfterPetiteFille,
   montrerPartenaire, informerSorciere, annoncerCorbeau, envoyerRecapMJ,
   // Morts, tir du Chasseur, transmission d'écharpe
-  killPlayer, performChasseurShot, performMayorTransfer, apresLeTir, cibleAuHasard, successeurAuHasard,
+  killPlayer, performChasseurShot, performMayorTransfer, apresLeTir, cibleAuHasard, successeurAuHasard, annoncerTransfert,
   // Attribution
   assignAndStart,
   // Handlers (joueurs, MJ, robots)

@@ -2,7 +2,7 @@
  * tests/scenarios.js — Tests d'intégration du serveur
  *
  * Lance un serveur sur le port 3099, connecte de vrais sockets socket.io-client,
- * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S18) est décrit
+ * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S23) est décrit
  * au-dessus de sa fonction.
  *
  * Usage : npm test   (ou : node tests/scenarios.js)
@@ -209,8 +209,8 @@ const s4 = () => scenario("S4", "Chasseur lynché par vote de jour", async all =
   });
   await sleep(300);
 
-  // Si le Chasseur est AUSSI le maire, son élimination ouvre d'abord la transmission d'écharpe,
-  // puis chasseurMustShoot une fois le successeur désigné : on le choisit sans bloquer.
+  // Si le Chasseur est AUSSI le maire, il tire d'abord, puis transmet l'écharpe : on choisit son
+  // successeur sans bloquer.
   players[0].s.once("mayorMustTransfer", dyingId => {
     if (dyingId !== huntP.s.id) return;
     const cand = players.find(p => !latestDeadPlayers.includes(p.s.id) && p.s.id !== huntP.s.id);
@@ -218,7 +218,6 @@ const s4 = () => scenario("S4", "Chasseur lynché par vote de jour", async all =
   });
 
   // lockDayVotes → 800ms → resolveDayVote → 8200ms → killPlayer(chasseur) → chasseurMustShoot
-  // (ou mayorTransfer → 300ms → mayorTransferChoice → chasseurMustShoot si chasseur==maire)
   const mustShootP = attendre(huntP.s, "chasseurMustShoot", 20000);
   mj.emit("lockDayVotes");
   check("S4-chasseur reçoit chasseurMustShoot après lynchage", await arrive(mustShootP));
@@ -654,8 +653,9 @@ const s17 = () => scenario("S17", "Arrivée en pleine partie, prénom déjà pri
 // S18 — Reconnexion pendant le tour des Sœurs, puis du Salvateur, puis pendant un vote du jour :
 // le serveur renvoie à chacun sa demande (le panneau des Sœurs avec le temps restant, la
 // protection du Salvateur), et l'état complet donne la durée du vote en cours (la page ne la
-// recopie plus)
-const s18 = () => scenario("S18", "Reconnexion des Sœurs, du Salvateur, et pendant un vote", async all => {
+// recopie plus). La tablette du MJ rechargée pendant le vote, puis pendant une pause, retrouve
+// le compte à rebours, puis « Reprendre » ; un téléphone rechargé en pause le sait aussi.
+const s18 = () => scenario("S18", "Reconnexions : Sœurs, Salvateur, vote, pause (joueur et MJ)", async all => {
   const { mj, players, roleOf, avecRole } = await preparerPartie(all, ["s18_A","s18_B","s18_C","s18_D","s18_E"], { loup: 1, salvateur: 1, sisters: 2 });
   const soeurs = avecRole("Sœurs"), [salvP] = avecRole("Salvateur");
   if (soeurs.length !== 2 || !salvP) { ko("S18-setup", JSON.stringify(roleOf)); return; }
@@ -686,6 +686,237 @@ const s18 = () => scenario("S18", "Reconnexion des Sœurs, du Salvateur, et pend
   const etat = await new Promise(res => { players[0].s.once("reconnected", res); players[0].s.emit("register", players[0].name); });
   check("S18-l'état complet donne la durée du vote en cours", !!vote && etat.voteDureeMs === vote.duration,
     `vote=${vote && vote.duration} état=${etat.voteDureeMs}`);
+
+  // La tablette du MJ rechargée pendant le vote retrouve son compte à rebours
+  const { mj: mj2, etat: etatMJ } = await connecterMJ(TEST_PORT); all.push(mj2);
+  check("S18-tablette rechargée : le vote en cours, sa durée, sa fin", !!etatMJ.vote && !!vote && etatMJ.vote.duration === vote.duration
+    && etatMJ.vote.endsAt > etatMJ.vote.serverNow, JSON.stringify(etatMJ.vote));
+  // En pause, la tablette et le téléphone rechargés le savent ; la tablette relance la partie
+  const pauseP = attendre(players[0].s, "gamePaused", 4000).catch(() => null);
+  mj2.emit("pauseGame");
+  await pauseP;
+  const { mj: mj3, etat: etatPause } = await connecterMJ(TEST_PORT); all.push(mj3);
+  check("S18-tablette rechargée en pause : la pause, le vote figé", !!etatPause.pause && etatPause.pause.voteRemainingMs > 0 && etatPause.voteEnCours,
+    JSON.stringify({ pause: etatPause.pause, voteEnCours: etatPause.voteEnCours }));
+  const etatJoueur = await new Promise(res => { players[1].s.once("reconnected", res); players[1].s.emit("register", players[1].name); });
+  check("S18-téléphone rechargé en pause : la pause, le temps restant", !!etatJoueur.pause && etatJoueur.pause.voteRemainingMs > 0, JSON.stringify(etatJoueur.pause));
+  const repriseP = attendre(players[0].s, "voteResumed", 4000).catch(() => null);
+  mj3.emit("resumeGame");
+  check("S18-la tablette rechargée relance la partie", !!(await repriseP));
+});
+
+// S19 — La victoire se juge sur les survivants du matin, pas mort après mort. 2 loups, la
+// Sorcière, 2 villageois : les loups tuent un villageois (égalité 2 contre 2)…
+//   a) … et la Sorcière empoisonne un loup : la partie continue, le jour se lève ;
+//   b) … qui était le maire, et la Sorcière empoisonne un loup : la partie continue, l'écharpe
+//      est transmise (avant, les loups gagnaient sans transmission) ;
+//   c) … qui était le maire, sans poison : les loups gagnent, sans transmission.
+async function nuitDEgalite(all, prefixe, victimeEstMaire, poison) {
+  const villageois = (players, roleOf) => players.filter(p => roleOf[p.name] === "Villageois");
+  const { mj, players, avecRole } = await preparerPartie(all, ["A","B","C","D","E"].map(n => prefixe + n), { loup: 2, sorciere: 1 },
+    (players, roleOf) => villageois(players, roleOf)[victimeEstMaire ? 0 : 1]);
+  const loups = avecRole("Loup"), [sorciere] = avecRole("Sorcière"), [victime] = avecRole("Villageois");
+  const ev = { fin: null, phases: [] };
+  players[0].s.on("gameEnd", m => { ev.fin = m; });
+  players[0].s.on("phase", p => ev.phases.push(p));
+  const victimeP = attendre(sorciere.s, "nightVictim", 10000);
+  loups.forEach(l => l.s.emit("voteWolf", victime.s.id));
+  await sleep(150);
+  mj.emit("lockWolfVotes");
+  await victimeP;
+  if (poison) sorciere.s.emit("witchKill", loups[0].s.id);
+  await sleep(100);
+  sorciere.s.emit("witchDone");
+  await attendre(players[0].s, "dawnResult", 10000);
+  await sleep(8500);   // une fin de partie tombe 7 s après l'aube
+  return ev;
+}
+const s19 = () => scenario("S19", "Victoire jugée sur les survivants du matin (égalité, poison, maire)", async all => {
+  const a =await nuitDEgalite(all, "s19a_", false, true);
+  check("S19a-égalité défaite par le poison : la partie continue", a.fin === null, a.fin);
+  check("S19a-le jour se lève", a.phases.includes("day"), a.phases.join(","));
+  const b = await nuitDEgalite(all, "s19b_", true, true);
+  check("S19b-maire tué, poison sur un loup : la partie continue", b.fin === null, b.fin);
+  check("S19b-l'écharpe est transmise", b.phases.includes("mayorTransfer"), b.phases.join(","));
+  const c = await nuitDEgalite(all, "s19c_", true, false);
+  check("S19c-maire tué sans poison : les loups gagnent", !!c.fin && c.fin.includes("Loups"), c.fin);
+  check("S19c-pas de transmission d'écharpe", !c.phases.includes("mayorTransfer"), c.phases.join(","));
+});
+
+// S20 — Partie relancée (« Relancer » du MJ) dans les 5 s qui suivent l'élection du maire : le vote
+// du maire de la nouvelle partie n'est plus coupé par la nuit de la précédente
+const s20 = () => scenario("S20", "Partie relancée juste après l'élection du maire", async all => {
+  const mj = await nouveauMJ(); all.push(mj);
+  mj.emit("fullReset");
+  await sleep(600);
+  const joueurs = [];
+  for (const n of ["s20_A","s20_B","s20_C","s20_D","s20_E"]) { const s = await connecter(TEST_PORT, n); all.push(s); joueurs.push(s); }
+  await sleep(300);
+  const lancer = async evenement => {
+    const voteP = attendrePhase(joueurs[0], "mayorVote");
+    mj.emit(evenement, { loup: 1, autoMode: false, mjPilotedDay: true });
+    await voteP;
+  };
+  await lancer("assignRoles");
+  joueurs.slice(1).forEach(s => s.emit("voteMayor", joueurs[0].id));
+  await sleep(100);
+  const eluP = attendre(joueurs[0], "newMayor", 6000);
+  mj.emit("lockMayorVote");
+  await eluP;
+  await lancer("replayGame");
+  const phases = [];
+  joueurs[0].on("phase", p => phases.push(p));
+  await sleep(6000);
+  check("S20-la nouvelle partie reste au vote du maire", phases.length === 0, phases.join(","));
+});
+
+// Cupidon unit deux joueurs (tour de Cupidon forcé par le MJ), puis la nuit passe aux Loups
+async function cupidonUnit(mj, cupidon, a, b, temoin) {
+  const tourP = attendrePhase(temoin.s, "cupid", 6000);
+  mj.emit("setPhase", "cupid");
+  await tourP;
+  cupidon.s.emit("cupidChoice", [a.s.id, b.s.id]);
+  await sleep(400);
+  const loupsP = attendrePhase(temoin.s, "wolves", 6000);
+  mj.emit("setPhase", "wolves");
+  await loupsP;
+}
+
+// Un Chasseur et le maire meurent ensemble : on note l'ordre des phases ; le Chasseur tire sur
+// `cible`, puis le maire mourant transmet l'écharpe à `heritier`. Rend l'ordre des phases.
+async function tirPuisTransmission(chasseur, maire, cible, heritier, temoin, declencher) {
+  const phases = [];
+  temoin.s.on("phase", p => phases.push(p));
+  const tirP = attendre(chasseur.s, "chasseurMustShoot", 25000).catch(() => null);
+  await declencher();
+  const tir = await tirP;
+  if (!tir) return { phases, tir: false };
+  const transmissionP = attendre(temoin.s, "mayorMustTransfer", 15000, id => id === maire.s.id).catch(() => null);
+  await sleep(300);
+  chasseur.s.emit("chasseurAction", cible.s.id);
+  const transmission = await transmissionP;
+  if (transmission) { await sleep(300); maire.s.emit("mayorTransferChoice", heritier.s.id); }
+  const nouveauMaireP = attendre(temoin.s, "newMayor", 6000, id => id === heritier.s.id).catch(() => null);
+  return { phases, tir: true, transmission: !!transmission, nouveauMaire: !!(await nouveauMaireP) };
+}
+const avant = (phases, a, b) => phases.includes(a) && phases.includes(b) && phases.indexOf(a) < phases.indexOf(b);
+
+// S21 — Un Chasseur et le maire meurent ensemble : le Chasseur tire d'abord, le maire transmet
+// ensuite (demande d'Alexandre, 2026-11-01).
+//   a) la nuit : les loups tuent le maire, la Sorcière empoisonne le Chasseur (avant : l'écharpe d'abord) ;
+//   b) la nuit : les loups tuent le Chasseur, amoureux du maire (avant : le Chasseur ne tirait jamais) ;
+//   c) le jour : le village élimine le maire, qui est le Chasseur (avant : l'écharpe d'abord).
+const s21 = () => scenario("S21", "Chasseur et maire morts ensemble : le tir d'abord", async all => {
+  const villageois = (players, roleOf) => players.filter(p => roleOf[p.name] === "Villageois");
+  {
+    const { mj, avecRole } = await preparerPartie(all, ["A","B","C","D","E","F","G"].map(n => "s21a_" + n), { loup: 1, sorciere: 1, chasseur: 1 },
+      (players, roleOf) => villageois(players, roleOf)[0]);
+    const [loup] = avecRole("Loup"), [sorciere] = avecRole("Sorcière"), [chasseur] = avecRole("Chasseur"), [maire, v2, v3] = avecRole("Villageois");
+    const r = await tirPuisTransmission(chasseur, maire, v2, v3, loup, async () => {
+      const victimeP = attendre(sorciere.s, "nightVictim", 10000);
+      await attaqueDuLoup(mj, loup, maire);
+      await victimeP;
+      sorciere.s.emit("witchKill", chasseur.s.id);
+      await sleep(100);
+      sorciere.s.emit("witchDone");
+    });
+    check("S21a-nuit : le Chasseur tire avant la transmission", r.tir && avant(r.phases, "chasseur", "mayorTransfer"), r.phases.join(","));
+    check("S21a-puis l'écharpe est transmise", !!r.nouveauMaire, JSON.stringify(r));
+  }
+  {
+    const { mj, avecRole } = await preparerPartie(all, ["A","B","C","D","E","F"].map(n => "s21b_" + n), { loup: 1, cupidon: 1, chasseur: 1 },
+      (players, roleOf) => villageois(players, roleOf)[0]);
+    const [loup] = avecRole("Loup"), [cupidon] = avecRole("Cupidon"), [chasseur] = avecRole("Chasseur"), [maire, v2, v3] = avecRole("Villageois");
+    await cupidonUnit(mj, cupidon, chasseur, maire, loup);
+    const r = await tirPuisTransmission(chasseur, maire, v2, v3, loup, () => attaqueDuLoup(mj, loup, chasseur));
+    check("S21b-Chasseur amoureux du maire : il tire, avant la transmission", r.tir && avant(r.phases, "chasseur", "mayorTransfer"), r.phases.join(","));
+    check("S21b-puis l'écharpe est transmise", !!r.nouveauMaire, JSON.stringify(r));
+  }
+  {
+    const { mj, players, avecRole } = await preparerPartie(all, ["A","B","C","D","E","F"].map(n => "s21c_" + n), { loup: 1, chasseur: 1 },
+      (players, roleOf) => players.find(p => roleOf[p.name] === "Chasseur"));
+    const [loup] = avecRole("Loup"), [chasseur] = avecRole("Chasseur"), [v1, v2, v3] = avecRole("Villageois");
+    await nuitLoupUnique(mj, players, loup, v1);
+    const r = await tirPuisTransmission(chasseur, chasseur, v2, v3, loup, async () => {
+      mj.emit("startVote");
+      await sleep(300);
+      players.filter(p => p !== chasseur && p !== v1).forEach(p => p.s.emit("voteDay", chasseur.s.id));
+      await sleep(300);
+      mj.emit("lockDayVotes");
+    });
+    check("S21c-maire-Chasseur éliminé au vote : il tire, puis transmet", r.tir && avant(r.phases, "chasseur", "mayorTransfer"), r.phases.join(","));
+    check("S21c-puis l'écharpe est transmise", !!r.nouveauMaire, JSON.stringify(r));
+  }
+});
+
+// S22 — Couple d'un loup et d'un villageois (règle d'Alexandre, 2026-11-01) : un camp à part, qui
+// ne gagne que seul à deux. 2 loups, Cupidon, 2 villageois ; Cupidon unit un loup et un villageois.
+// Les loups tuent l'autre villageois : 2 loups contre 2, mais la partie continue (avant : victoire
+// des Loups). Le village élimine l'autre loup, puis le loup amoureux tue Cupidon : le couple,
+// seul, gagne.
+const s22 = () => scenario("S22", "Couple loup + villageois : il ne gagne que seul à deux", async all => {
+  const { mj, avecRole } = await preparerPartie(all, ["A","B","C","D","E"].map(n => "s22_" + n), { loup: 2, cupidon: 1 },
+    (players, roleOf) => players.find(p => roleOf[p.name] === "Cupidon"));
+  const [l1, l2] = avecRole("Loup"), [cupidon] = avecRole("Cupidon"), [v1, v2] = avecRole("Villageois");
+  await cupidonUnit(mj, cupidon, l1, v1, cupidon);
+  let fin = null;
+  cupidon.s.on("gameEnd", m => { fin = m; });
+  const jourP = attendrePhase(cupidon.s, "day", 20000);
+  [l1, l2].forEach(l => l.s.emit("voteWolf", v2.s.id));
+  await sleep(150);
+  mj.emit("lockWolfVotes");
+  await jourP.catch(() => null);
+  await sleep(8500);
+  check("S22-2 loups contre 2 avec le couple en vie : la partie continue", fin === null, fin);
+
+  mj.emit("startVote");
+  await sleep(300);
+  [l1, v1, cupidon].forEach(p => p.s.emit("voteDay", l2.s.id));
+  l2.s.emit("voteDay", cupidon.s.id);
+  await sleep(300);
+  const nuitP = attendrePhase(cupidon.s, "wolves", 30000);
+  mj.emit("lockDayVotes");
+  await nuitP.catch(() => null);
+  check("S22-le couple et Cupidon en vie : la nuit suit", fin === null, fin);
+  const finP = attendre(cupidon.s, "gameEnd", 20000).catch(() => null);
+  l1.s.emit("voteWolf", cupidon.s.id);
+  await sleep(150);
+  mj.emit("lockWolfVotes");
+  const m = await finP;
+  check("S22-le couple seul gagne", !!m && m.includes("Amoureux"), m);
+});
+
+// S23 — Avec un MJ, la victoire attend son « 🏆 Lancer la victoire » (demande d'Alexandre,
+// 2026-11-01) : les loups gagnent à l'aube ; les téléphones gardent la carte des morts, le MJ est
+// prévenu, la partie ne va pas plus loin (un « Lancer le vote » est ignoré) ; son clic lance la fin.
+const s23 = () => scenario("S23", "La victoire attend le clic du MJ", async all => {
+  const villageois = (players, roleOf) => players.filter(p => roleOf[p.name] === "Villageois");
+  const { mj: mjAuto, players, avecRole } = await preparerPartie(all, ["A","B","C","D","E"].map(n => "s23_" + n), { loup: 2, sorciere: 1 },
+    (players, roleOf) => villageois(players, roleOf)[1]);
+  mjAuto.disconnect();
+  const { mj } = await connecterMJ(TEST_PORT); all.push(mj);
+  piloterMJ(mj, { nuit: true, victoire: false });
+  const loups = avecRole("Loup"), [sorciere] = avecRole("Sorcière"), [victime] = avecRole("Villageois");
+  let fin = null;
+  players[0].s.on("gameEnd", m => { fin = m; });
+  const attenteP = attendre(mj, "victoireEnAttente", 15000).catch(() => null);
+  const aubeP = attendre(players[0].s, "dawnResult", 15000).catch(() => null);
+  const victimeP = attendre(sorciere.s, "nightVictim", 10000);
+  loups.forEach(l => l.s.emit("voteWolf", victime.s.id));
+  await sleep(150);
+  mj.emit("lockWolfVotes");
+  await victimeP;
+  sorciere.s.emit("witchDone");
+  const aube = await aubeP, attente = await attenteP;
+  check("S23-le MJ est prévenu de la victoire des loups", !!attente && attente.camp === "wolves", JSON.stringify(attente));
+  check("S23-les téléphones gardent la carte des morts", !!aube && aube.annonceParMJ === true, JSON.stringify(aube && aube.annonceParMJ));
+  mj.emit("startVote");
+  await sleep(9000);
+  check("S23-pas d'écran de fin sans le clic du MJ", fin === null, fin);
+  const finP = attendre(players[0].s, "gameEnd", 5000).catch(() => null);
+  mj.emit("mjLancerVictoire");
+  const m = await finP;
+  check("S23-son clic lance la victoire des loups", !!m && m.includes("Loups"), m);
 });
 
 // Démarrage du serveur et exécution des scénarios
@@ -697,7 +928,7 @@ async function main() {
   const serveur = await demarrerServeur(TEST_PORT);
   console.log("  Serveur test prêt : http://localhost:" + TEST_PORT + "\n");
 
-  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18]) {
+  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23]) {
     await s();
     await sleep(800);
   }

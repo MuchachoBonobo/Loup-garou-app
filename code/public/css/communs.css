@@ -26,7 +26,7 @@
   unicode-range:U+0000-002F, U+003A-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122; }
 body { font-family:Arial, sans-serif; }
 .titre, .intro-title, .card-title, .rc-title, #rcRole, #rfRoleName, #endTitle, #endScreenTitle, #deathTitle, #ddTitre,
-#etapeSuivanteLibelle, #dayRecapTitle, #mjVoteDeathName, #councilEventTitle { font-family:"IM Fell English", "Times New Roman", serif; }
+#etapeSuivanteLibelle, #mjVoteDeathName, #councilEventTitle { font-family:"IM Fell English", "Times New Roman", serif; }
 
 /* Carte plein écran, contenu centré en colonne. Le fond, le z-index et « display:none »
    restent sur chaque carte. Les trois cartes de l'écran des joueurs que le code ouvre par
