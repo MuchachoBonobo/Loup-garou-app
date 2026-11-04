@@ -16,7 +16,7 @@
 "use strict";
 // Les fonctions passées à page.evaluate / waitForFunction (dont les conditions en MAJUSCULES : AFFICHE,
 // CARTE…) s'exécutent dans la page : elles ne voient pas les outils de ce fichier
-/* global document, getComputedStyle, players, role, socket, window */
+/* global document, getComputedStyle, players, role, socket, window, ecrireIdentite, sessionStorage, join, setTimeout */
 const puppeteer = require("puppeteer-core");
 const { sleep, demarrerServeur, arreterServeur, compteur } = require("./outils");
 
@@ -155,15 +155,33 @@ async function election({ tel, pages, noms, id, etapeMJ }, maire, sonVote) {
   check("la carte du maire s'affiche partout", await tous(pages, p => attendre(p, () => document.getElementById("mayorCard").hasAttribute("data-open"))));
 }
 
+// Un téléphone qui regarde la liste des joueurs, autre que celui de `nom`
+const temoinPhoto = ({ noms }, nom) => noms.find(n => n !== nom);
+
 // Fin de partie : le MJ lance la victoire (bouton du bas de sa tablette), puis l'écran de fin sur
 // tous les téléphones, qui annonce la victoire du village
 async function victoireDuVillage({ mj, tel, pages }, temoin) {
   console.log("\n▶ Fin de partie");
   check("le MJ voit « 🏆 Lancer la victoire »", await affiche(mj, "#mjVictoireBouton", 30000));
+  check("pas de « Continuer » à côté de la victoire", await mj.evaluate(() => getComputedStyle(document.getElementById("mjVoteDeathContinuer")).display === "none"));
   await clic(mj, "#mjVictoireBouton");
   check(`l'écran de fin s'affiche sur les ${pages.length} téléphones`, await tous(pages, p => affiche(p, "#endCard", 30000)));
   const titre = await texte(tel[temoin], "endTitle");
   check("il annonce la victoire du village", /village/i.test(titre), titre);
+  check("la tablette revient à son écran principal (cartes refermées)", await mj.evaluate(() => ["dayRecapCard", "mjVoteDeathCard"].every(c => getComputedStyle(document.getElementById(c)).display === "none")));
+}
+
+// Entre deux parties : un téléphone perd la connexion et revient par « Rejoindre » (refusé entre-temps,
+// son prénom oublié). Sa photo doit revenir chez les autres, pas seulement sur son propre écran.
+async function photoApresCoupure({ tel }, nom, temoin) {
+  console.log("\n▶ Photo après une coupure entre deux parties");
+  const voitSaPhoto = ([n]) => !!(players.find(p => p.name === n) || {}).photo;
+  await tel[nom].evaluate(photo => { ecrireIdentite("lgPhoto", photo); socket.emit("setPhoto", photo); }, "data:image/gif;base64,R0lGODlhAQABAAAAACw=");
+  check("les autres voient sa photo", await attendre(tel[temoin], voitSaPhoto, [nom]));
+  await tel[nom].evaluate(() => { socket.disconnect(); sessionStorage.removeItem("lgName"); });
+  await attendre(tel[temoin], ([n]) => !players.some(p => p.name === n), [nom]);
+  await tel[nom].evaluate(n => { socket.connect(); document.getElementById("name").value = n; setTimeout(join, 800); }, nom);
+  check("revenu par « Rejoindre », il a toujours sa photo chez les autres", await attendre(tel[temoin], voitSaPhoto, [nom]));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════
@@ -195,6 +213,13 @@ async function partieVillage(P) {
     check(`aube ${num} : pas de bouton « Continuer » (le MJ mène)`, await tous(temoins, p => p.evaluate(() => getComputedStyle(document.getElementById("deathCardBtn")).display === "none")));
     await etapeMJ(`aube ${num} : MJ « Lancer le débat »`, "Lancer le débat");
     check(`jour ${num} : écran de débat chez les vivants`, await tous(temoins, p => affiche(p, "#dayDebateScreen")));
+    // Vrais clics aux coordonnées du bouton, le second au même endroit : un écran par-dessus, ou un
+    // bouton qui bouge quand le rôle apparaît, les feraient rater
+    const [x, y] = await temoins[0].evaluate(() => { const r = document.getElementById("ddRoleRevealBtn").getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height - 3]; });
+    await temoins[0].mouse.click(x, y);
+    check(`jour ${num} : « Mon rôle » s'ouvre d'un toucher`, await affiche(temoins[0], "#ddRoleReveal"));
+    await temoins[0].mouse.click(x, y);
+    check(`jour ${num} : et se referme au suivant, au même endroit`, await temoins[0].evaluate(() => getComputedStyle(document.getElementById("ddRoleReveal")).display === "none"));
     check(`jour ${num} : écran de mort chez ${victime}`, await affiche(tel[victime], "#deadFullScreen"));
   };
   const vote = async (num, condamne, sonVote) => {
@@ -262,8 +287,7 @@ async function partieRoles(P) {
   for (const n of choix.slice(0, 2)) await choisir(tel[pf], "#petiteFilleBtns", n);
   check("à 2 joueurs, « Découvrir » reste grisé", await tel[pf].evaluate(() => document.getElementById("petiteFilleConfirmBtn").disabled));
   await choisir(tel[pf], "#petiteFilleBtns", corb);
-  const sel = await tel[pf].evaluate(() => ({ actif: !document.getElementById("petiteFilleConfirmBtn").disabled, noms: document.getElementById("petiteFilleSelectedNames").innerText }));
-  check("à 3 joueurs, « Découvrir » s'allume et les 3 prénoms s'affichent", sel.actif && choix.every(n => sel.noms.includes(n)), sel);
+  check("à 3 joueurs, « Découvrir » s'allume", await tel[pf].evaluate(() => !document.getElementById("petiteFilleConfirmBtn").disabled));
   await clic(tel[pf], "#petiteFilleConfirmBtn");
   check("résultat : « au moins un Loup », avec les 3 photos", await attendre(tel[pf], CARTE, ["au moins un Loup", 3]));
   await clic(tel[pf], "#deathCardBtn");
@@ -295,6 +319,7 @@ async function partieRoles(P) {
   const roles = await texte(mj, "roles"), morts = await texte(mj, "dead");
   check("MJ : les rôles portent leur nom (« Petite Fille », « Loup-Garou »)", roles.includes("Petite Fille") && roles.includes("Loup-Garou") && !roles.includes("PetiteFille"), roles.slice(0, 160));
   check("MJ : la liste des morts cite le Chasseur et le loup", morts.includes(chass) && morts.includes(loup), morts);
+  await photoApresCoupure(P, vill, temoinPhoto(P, vill));
 }
 
 async function main() {

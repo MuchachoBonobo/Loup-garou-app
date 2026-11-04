@@ -2,7 +2,7 @@
  * tests/scenarios.js — Tests d'intégration du serveur
  *
  * Lance un serveur sur le port 3099, connecte de vrais sockets socket.io-client,
- * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S23) est décrit
+ * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S24) est décrit
  * au-dessus de sa fonction.
  *
  * Usage : npm test   (ou : node tests/scenarios.js)
@@ -919,6 +919,52 @@ const s23 = () => scenario("S23", "La victoire attend le clic du MJ", async all 
   check("S23-son clic lance la victoire des loups", !!m && m.includes("Loups"), m);
 });
 
+// S24 — Au salon, un téléphone qui décroche garde sa place un moment (2 min en vrai, 1,5 s pour les
+// tests) : pastille rouge chez le MJ, sa photo gardée s'il revient à temps, retiré sinon. Si la
+// partie est lancée entre-temps, il retrouve son rôle à son retour.
+const s24 = () => scenario("S24", "Téléphone qui décroche au salon", async all => {
+  const mj = await nouveauMJ(); all.push(mj);
+  mj.emit("fullReset");
+  await sleep(600);
+  let etats = {}, liste = [];
+  mj.on("connexionsMJ", e => { etats = e; });
+  mj.on("players", l => { liste = l; });
+  const noms = ["s24_A","s24_B","s24_C","s24_D","s24_E"];
+  const joueurs = {};
+  for (const n of noms) { joueurs[n] = await connecter(TEST_PORT, n); all.push(joueurs[n]); }
+  await sleep(300);
+  const a = joueurs.s24_A, ancien = a.id;
+  a.emit("setPhoto", "data:image/gif;base64,R0lGODlhAQABAAAAACw=");
+  await sleep(200);
+
+  a.disconnect();
+  await sleep(400);
+  check("S24-il reste dans la liste, pastille rouge", liste.some(p => p.name === "s24_A") && etats[ancien] === "perdu", JSON.stringify(etats));
+  const a2 = await connecter(TEST_PORT, "s24_A"); all.push(a2);
+  const reconnu = await attendre(a2, "reconnected", 3000).catch(() => null);
+  await sleep(200);
+  const moi = liste.find(p => p.name === "s24_A");
+  check("S24-revenu à temps : sa place, sa photo, pastille verte", !!reconnu && liste.length === 5 && !!moi && !!moi.photo && etats[a2.id] === "ok", JSON.stringify({ etats, nb: liste.length }));
+
+  a2.disconnect();
+  await sleep(2000);
+  check("S24-pas revenu à temps : retiré de la liste", !liste.some(p => p.name === "s24_A"), liste.map(p => p.name).join());
+  const a3 = await connecter(TEST_PORT, "s24_A"); all.push(a3);
+  await sleep(300);
+  check("S24-il peut toujours revenir", liste.some(p => p.name === "s24_A" && p.id === a3.id), liste.map(p => p.name).join());
+
+  a3.disconnect();
+  await sleep(200);
+  const voteP = attendrePhase(joueurs.s24_B, "mayorVote");
+  mj.emit("assignRoles", { loup: 1, autoMode: false, mjPilotedDay: true });
+  await voteP;
+  await sleep(1800);   // le délai du salon passe pendant la partie : il ne retire personne
+  check("S24-partie lancée pendant son absence : il est dans la partie", liste.some(p => p.name === "s24_A"), liste.map(p => p.name).join());
+  const a4 = await connecter(TEST_PORT, "s24_A"); all.push(a4);
+  const etat = await attendre(a4, "reconnected", 3000).catch(() => null);
+  check("S24-à son retour, il a son rôle", !!etat && !!etat.role, JSON.stringify(etat && etat.role));
+});
+
 // Démarrage du serveur et exécution des scénarios
 async function main() {
   console.log("═".repeat(62));
@@ -928,7 +974,7 @@ async function main() {
   const serveur = await demarrerServeur(TEST_PORT);
   console.log("  Serveur test prêt : http://localhost:" + TEST_PORT + "\n");
 
-  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23]) {
+  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24]) {
     await s();
     await sleep(800);
   }

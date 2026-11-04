@@ -22,7 +22,7 @@ function demarrerServeur(port, { viderDossier = true, surLigne } = {}) {
   return new Promise((res, rej) => {
     const srv = spawn(process.execPath, ["server.js"], {
       cwd: path.join(__dirname, ".."),
-      env: { ...process.env, PORT: String(port), LIGHTS_ENABLED: "false", SNAPSHOT_DIR: dossier },
+      env: { ...process.env, PORT: String(port), LIGHTS_ENABLED: "false", SNAPSHOT_DIR: dossier, RETRAIT_SALON_MS: "1500" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let pret = false;

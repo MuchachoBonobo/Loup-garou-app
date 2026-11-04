@@ -121,7 +121,10 @@ const ALLOWED_DURING_PAUSE = new Set([
 // (connexion coupée). Une coupure n'est signalée par une alerte qu'au bout de
 // DELAI_ALERTE_DECONNEXION_MS : un rechargement de page ne dérange pas le MJ.
 const DELAI_ALERTE_DECONNEXION_MS = 5000;
-const alertesDeconnexion = {};   // prénom en minuscules → minuteur de l'alerte
+const alertesDeconnexion = {};   // prénom en minuscules → minuteur de l'alerte (ou du retrait du salon)
+// Au salon, un téléphone qui décroche (écran verrouillé…) garde sa place 2 min, pastille rouge chez
+// le MJ : il n'est pas parti (RETRAIT_SALON_MS : pour raccourcir ce délai dans les tests)
+const DELAI_RETRAIT_SALON_MS = parseInt(process.env.RETRAIT_SALON_MS) || 2 * 60 * 1000;
 function etatConnexions() {
   const etats = {};
   state.players.forEach(p => {
@@ -306,7 +309,9 @@ io.on("connection", socket => {
       // Reconnexion au salon : le nouveau socket apprend qu'il est reconnu
       if (existing) {
         reprendrePlace(state.playerRegistry[key], existing, socket.id);
+        if (alertesDeconnexion[key]) { clearTimeout(alertesDeconnexion[key]); delete alertesDeconnexion[key]; }
         io.emit("players", state.players);
+        envoyerConnexionsMJ();
         socket.emit("reconnected", buildFullState(socket.id));
         return;
       }
@@ -488,21 +493,21 @@ io.on("connection", socket => {
     if (p) {
       log.info('joueur déconnecté', p.name, 'phase=' + state.phase);
       const key = p.name.toLowerCase();
-      if (state.phase === "lobby") {
-        retirerDuSalon(p);
-      } else {
-        // En partie, le joueur garde sa place : pastille rouge chez le MJ, alerte si la
-        // coupure dure (un rechargement de page revient avant)
-        if (state.playerRegistry[key]) state.playerRegistry[key].oldId = socket.id;
-        p.connecte = false;
-        envoyerConnexionsMJ();
-        if (alertesDeconnexion[key]) clearTimeout(alertesDeconnexion[key]);
-        alertesDeconnexion[key] = setTimeout(() => {
-          delete alertesDeconnexion[key];
-          const q = state.players.find(x => x.name.toLowerCase() === key);
-          if (q && q.connecte === false && state.phase !== "lobby") versMJ("joueurPerdu", { name: q.name });
-        }, DELAI_ALERTE_DECONNEXION_MS);
-      }
+      // Le joueur garde sa place, pastille rouge chez le MJ. En partie : alerte si la coupure dure
+      // (un rechargement de page revient avant). Au salon : il en sort s'il n'est pas revenu à temps
+      // (lancée entre-temps, la partie lui donne un rôle, qu'il retrouve à son retour).
+      if (state.playerRegistry[key]) state.playerRegistry[key].oldId = socket.id;
+      p.connecte = false;
+      envoyerConnexionsMJ();
+      if (alertesDeconnexion[key]) clearTimeout(alertesDeconnexion[key]);
+      const auSalon = state.phase === "lobby";
+      alertesDeconnexion[key] = setTimeout(() => {
+        delete alertesDeconnexion[key];
+        const q = state.players.find(x => x.name.toLowerCase() === key);
+        if (!q || q.connecte !== false) return;
+        if (auSalon && state.phase === "lobby") retirerDuSalon(q);
+        if (!auSalon && state.phase !== "lobby") versMJ("joueurPerdu", { name: q.name });
+      }, auSalon ? DELAI_RETRAIT_SALON_MS : DELAI_ALERTE_DECONNEXION_MS);
     }
     if (state.mjSocketId === socket.id) { log.warn('MJ déconnecté'); state.mjSocketId = null; }
   });
@@ -547,7 +552,10 @@ function resynchroniserApresReconnexion(socket) {
   if (state.phase === "amoureux" && state.lovers.includes(id) && state.amoureuxFin) roles.montrerPartenaire(id);
   // Chasseur ou maire mourant dont l'action est ouverte (tout le monde sait qui transmet l'écharpe)
   if (state.phase === "chasseur" && state.currentChasseurShooter === id && !state.actionMJ) socket.emit("chasseurMustShoot", id);
-  if (state.phase === "mayorTransfer" && state.dyingMayorId === id && !state.actionMJ) io.emit("mayorMustTransfer", id);
+  if (state.phase === "mayorTransfer" && !state.actionMJ) {
+    if (state.dyingMayorId === id) io.emit("mayorMustTransfer", id);
+    else socket.emit("mayorMustTransfer", state.dyingMayorId);
+  }
   // Conseil des Morts en cours : le mort reconnecté retrouve son vote
   if (state.councilOptions && !vivant) socket.emit("councilStart", council.optionsDuConseil());
 }
