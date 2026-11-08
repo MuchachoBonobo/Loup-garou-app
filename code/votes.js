@@ -302,6 +302,7 @@ function startDayVote(mode) {
   if (effet.forceVoteMode) mode = effet.forceVoteMode;
 
   arreterDebat();   // Sablier ou tour de parole en cours : le vote les remplace
+  voteRaccourci = false;
   clearVoteTimer(); state.lockedVoters.clear(); state.voteMode = mode;
   state.fastResolveTriggered = false;
   // Modes de vote :
@@ -430,10 +431,25 @@ function handleVoteDay(socket, id) {
   }
 }
 
+// « Terminer le vote » du MJ (Alexandre, 2026-11-08) : il reste DERNIERES_SECONDES_MS pour voter, sur
+// tous les écrans (le cœur bat, on peut encore changer son vote), puis le vote se ferme comme à la
+// fin normale. Un 2ᵉ appui pendant ces secondes est ignoré.
+const DERNIERES_SECONDES_MS = parseInt(process.env.DERNIERES_SECONDES_MS) || 5000;
+let voteRaccourci = false;
 function handleLockDayVotes(socket) {
   if (!isMJ(socket.id) || state.phase !== "day") return;
   if (state.resolutionJourEnCours) { voteDejaClos(); return; }
   if (state.dayResolutionPending) return;
+  if (voteRaccourci) { versMJ("autoResolve", "⏳ Le vote se ferme dans quelques secondes."); return; }
+  if (state.voteTimer && state.voteTimerEnd && state.voteTimerEnd - Date.now() > DERNIERES_SECONDES_MS) {
+    voteRaccourci = true;
+    clearVoteTimer();
+    state.voteTimerEnd = Date.now() + DERNIERES_SECONDES_MS;
+    state.voteTimer = setTimeout(() => { resolveDayVote(); }, DERNIERES_SECONDES_MS);
+    state.io.emit("voteResumed", { endsAt: state.voteTimerEnd, durationMs: state.voteDureeMs, serverNow: Date.now() });
+    return;
+  }
+  // Pas de vote en cours, ou déjà dans ses dernières secondes : il se ferme tout de suite
   state.dayResolutionPending = true;
   clearVoteTimer();
   setTimeout(() => {

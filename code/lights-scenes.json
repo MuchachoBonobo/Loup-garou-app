@@ -271,6 +271,56 @@
     "bri": 120,
     "transition": 1200
   },
+  "council.luneRousse": {
+    "xy": [
+      0.6,
+      0.37
+    ],
+    "bri": 70,
+    "transition": 3000
+  },
+  "council.nuee": {
+    "xy": [
+      0.29,
+      0.3
+    ],
+    "bri": 110,
+    "transition": 2000
+  },
+  "council.coeur": {
+    "xy": [
+      0.64,
+      0.31
+    ],
+    "bri": 90,
+    "transition": 1500,
+    "effect": "slow_pulse"
+  },
+  "council.motMaudit": {
+    "xy": [
+      0.4,
+      0.5
+    ],
+    "bri": 130,
+    "transition": 1500
+  },
+  "council.sort": {
+    "xy": [
+      0.48,
+      0.42
+    ],
+    "bri": 200,
+    "transition": 1000
+  },
+  "council.annonce": {
+    "xy": [
+      0.24,
+      0.1
+    ],
+    "bri": 60,
+    "transition": 1500,
+    "effect": "slow_pulse"
+  },
   "flash.death": {
     "xy": [
       0.7,
@@ -411,5 +461,23 @@
     "bri": 230,
     "duration": 400,
     "repeat": 2
+  },
+  "vague.hurlement": {
+    "xy": [
+      0.67,
+      0.31
+    ],
+    "bri": 170,
+    "montee": 2500,
+    "duree": 7000
+  },
+  "vague.ombre": {
+    "xy": [
+      0.29,
+      0.3
+    ],
+    "bri": 8,
+    "montee": 250,
+    "duree": 1800
   }
 }

@@ -1,7 +1,8 @@
 // council.js — Conseil des Morts : événements, vote, résolution, effets sonores.
 // L'état partagé (councilOptions, councilVotes, pendingCouncilEvent, activeCouncilEvent,
 // councilUsedEvents) vit dans state.js pour que votes.js puisse lire activeCouncilEvent.
-// Seuls les timers d'ambiance (cloche, murmures, tonnerre) restent privés ici.
+// Seuls l'annonce en cours et les sons d'ambiance qui reviennent (tonnerre, cloche, loups,
+// corbeaux) restent privés ici.
 // Chaque évènement porte ses effets (`technical`) : votes.js lit le mode et la durée du vote, le
 // Sablier, le Tour de parole et la Main levée par effetDuJour(). Sa `regle` est ce que le MJ applique
 // et annonce ; son `resume`, ce que les morts lisent en votant (une ligne).
@@ -9,7 +10,7 @@
 // issue. Un évènement est neutre pour les deux camps, visible, appliqué par le jeu de préférence, et
 // ne désigne jamais un joueur (le choix des morts, qui savent tout, trahirait un innocent).
 
-const { state, isMJ, vivantsSauf, playerName, fisherYates, auHasard, versMJ } = require('./state');
+const { state, isMJ, alivePlayers, vivantsSauf, playerName, fisherYates, auHasard, versMJ } = require('./state');
 const lights = require('./lights');
 const log    = require('./logger');
 
@@ -179,23 +180,93 @@ const COUNCIL_EVENTS = {
     narrative: "Un bal masqué a laissé ses traces : plus personne ne dit « je ». Chacun parle de lui comme d'un autre.",
     regle: "Chaque joueur parle de lui à la troisième personne (« Bob pense que… »). (À faire respecter.)",
     technical: null
+  },
+  // Nouveaux (2026-11-08, choix d'Alexandre) : trois ambiances menées par la tablette et les
+  // lumières, un jeu de table, un tirage au sort
+  luneRousse: {
+    id: "luneRousse",
+    resume: "Lumière rousse ; des loups hurlent au loin.",
+    title: "🐺 La Lune Rousse",
+    narrative: "Cette nuit, la lune s'est levée rousse, couleur de braise. Les anciens disent que les loups ne dorment pas sous une telle lune : toute la journée, on les entendra hurler quelque part au-delà des bois.",
+    regle: "Ambiance seulement : lumière rousse, et des loups hurlent au loin de temps en temps. Aucun effet de règle.",
+    technical: { hurlements: true }
+  },
+  nuee: {
+    id: "nuee",
+    resume: "Des corbeaux passent ; la lumière s'assombrit.",
+    title: "🐦‍⬛ La Nuée de Corbeaux",
+    narrative: "Une nuée de corbeaux s'est abattue sur le village. Ils tournent au-dessus des toits en croassant, et chaque fois qu'ils passent, leur ombre glace la place.",
+    regle: "Ambiance seulement : des corbeaux passent en croassant, et la lumière s'assombrit un instant à chaque passage. Aucun effet de règle.",
+    technical: { corbeaux: true }
+  },
+  coeur: {
+    id: "coeur",
+    resume: "Un cœur bat de plus en plus vite pendant le débat.",
+    title: "💓 Le Cœur du Village",
+    narrative: "Le village retient son souffle. Dans le silence, on entend battre un cœur, le cœur du village. Plus le débat dure, plus il s'affole.",
+    regle: "Ambiance seulement : un cœur bat pendant le débat, de plus en plus vite, jusqu'au verdict ; la musique du jour se fait plus douce. Aucun effet de règle.",
+    technical: { coeur: true }
+  },
+  motMaudit: {
+    id: "motMaudit",
+    resume: "Qui dit « loup » se tait jusqu'au suivant.",
+    title: "🙊 Le Mot Maudit",
+    narrative: "Un mot est maudit aujourd'hui : « loup ». Quiconque le prononce perd la parole, jusqu'à ce qu'un autre villageois le prononce à son tour.",
+    regle: "Le mot « loup » est maudit (« loup-garou » compris) : qui le dit se tait jusqu'à ce qu'un autre joueur le dise à son tour. Se taire n'empêche pas de voter. (À faire respecter : les joueurs se surveillent entre eux.)",
+    technical: null
+  },
+  // Tiré par le hasard, jamais par les morts (ils trahiraient un innocent). Le nom remplace la
+  // phrase générale dès l'annonce (apresTirage), sur la carte et le bandeau du MJ.
+  sort: {
+    id: "sort",
+    resume: "Le hasard désigne qui ouvre le débat.",
+    title: "🎲 Le Sort",
+    narrative: "Les anciens ont jeté les osselets sur la place du village. Le sort désignera qui ouvre le débat.",
+    regle: "La tablette tire au sort un vivant, qui ouvre le débat : annonce son nom au village.",
+    apresTirage: nom => ({
+      narrative: `Les anciens ont jeté les osselets sur la place du village. Le sort a parlé : ${nom} ouvrira le débat.`,
+      regle: `Le sort désigne ${nom}, qui ouvre le débat.`
+    }),
+    technical: { tirage: true },
+    avecMJ: true
   }
 };
 
 // Évènements proposés en premier, pour les tests (CONSEIL_OPTIONS=mainLevee,sablier…)
 const OPTIONS_IMPOSEES = (process.env.CONSEIL_OPTIONS || "").split(",").filter(id => COUNCIL_EVENTS[id]);
 
-// Timers d'ambiance privés au module
-let councilBellTimer    = null;
-let councilMurmursTimer = null;
-let councilThunderTimer = null;
+// L'annonce d'un évènement (« 📜 Annoncer l'évènement ») : un éclair violet, puis la lumière de
+// l'annonce (council.annonce, un violet sombre qui respire) et les murmures sur la tablette, le
+// temps que le MJ lise. L'évènement ne prend ses lumières et ses sons qu'à la fin de l'annonce :
+// « Lancer le débat » ou le vote lancé (finAnnonceMatin) ; sans MJ, ANNONCE_SANS_MJ_MS plus tard.
+const ANNONCE_SANS_MJ_MS = 8000;
+let annonceEnCours = null;   // l'évènement annoncé, qui attend la fin de l'annonce
+let annonceTimer   = null;
+
+// Les sons qui reviennent pendant le jour (tonnerre, cloche, loups, corbeaux) : chacun à un
+// intervalle tiré entre deux bornes, muet pendant la pause, arrêté en quittant le jour.
+// CONSEIL_RYTHME les accélère pour les tests (0,05 : vingt fois plus souvent).
+const RYTHME = parseFloat(process.env.CONSEIL_RYTHME) || 1;
+let ambiancesDuJour = [];
+function revenirPendantLeJour([premierMin, premierMax], [ensuiteMin, ensuiteMax], f) {
+  const a = { t: null };
+  const attendre = (min, max) => {
+    a.t = setTimeout(() => {
+      if (state.phase !== "day") return;
+      if (!state.gamePaused) f();
+      attendre(ensuiteMin, ensuiteMax);
+    }, (min + Math.random() * (max - min)) * RYTHME);
+  };
+  ambiancesDuJour.push(a);
+  attendre(premierMin, premierMax);
+}
 
 function pickRandomCouncilOptions(count = 3) {
   // Sans MJ qui mène le jour, les évènements qui ont besoin de lui ne sont pas proposés
   const jouables = Object.keys(COUNCIL_EVENTS).filter(id => !COUNCIL_EVENTS[id].avecMJ || annonceMatinParMJ());
   let available = jouables.filter(id => !state.councilUsedEvents.includes(id));
   // Second cycle : tous les événements ont déjà été proposés — on repart de zéro.
-  // Possible dans les longues parties (19 évènements, 3 proposés par séance : 6 séances avant épuisement).
+  // Possible dans les longues parties (24 évènements, 3 proposés par séance : 8 séances avant épuisement).
   if (available.length === 0) {
     state.councilUsedEvents = [];
     available = jouables;
@@ -255,10 +326,13 @@ function resolveCouncil() {
   state.io.emit("councilResolved", { winner });
 }
 
-// L'évènement tel que les écrans le reçoivent ({ id, title, narrative, regle }), ou null
+// L'évènement tel que les écrans le reçoivent ({ id, title, narrative, regle }), ou null. Le Sort,
+// une fois annoncé : avec le nom tiré
 function evenementPublic(id) {
   const ev = id && COUNCIL_EVENTS[id];
-  return ev ? { id: ev.id, title: ev.title, narrative: ev.narrative, regle: ev.regle } : null;
+  if (!ev) return null;
+  const tire = ev.apresTirage && state.tirageDuSort ? ev.apresTirage(playerName(state.tirageDuSort)) : {};
+  return { id: ev.id, title: ev.title, narrative: ev.narrative, regle: ev.regle, ...tire };
 }
 
 // Effets de l'évènement du jour (`technical`), ou aucun
@@ -267,59 +341,59 @@ function effetDuJour() {
   return (ev && ev.technical) || {};
 }
 
+// Les rendez-vous de l'aube (réunion du Conseil, annonce sans MJ) : si le jour s'achève avant, ou si
+// la partie est relancée, ils sont annulés — sans quoi celui d'une partie à peine quittée ouvrait un
+// second Conseil dans la suivante, qui effaçait le vote des morts (trouvé le 2026-11-08)
+let rendezVous = [];
+function dansLaJournee(ms, f) {
+  rendezVous.push(setTimeout(() => { if (state.phase === "day") f(); }, ms));
+}
+
+// À l'aube et en quittant le jour : plus d'annonce, de rendez-vous, de sons qui reviennent, ni de
+// nom tiré
 function clearCouncilEffects() {
-  if (councilBellTimer)    { clearInterval(councilBellTimer);    councilBellTimer    = null; }
-  if (councilMurmursTimer) { clearTimeout(councilMurmursTimer);  councilMurmursTimer = null; }
-  if (councilThunderTimer) { clearTimeout(councilThunderTimer);  councilThunderTimer = null; }
-  if (abdicationTimeout)   { clearTimeout(abdicationTimeout);    abdicationTimeout   = null; }
+  rendezVous.forEach(t => clearTimeout(t));
+  rendezVous = [];
+  ambiancesDuJour.forEach(a => clearTimeout(a.t));
+  ambiancesDuJour = [];
+  if (annonceTimer)      { clearTimeout(annonceTimer);      annonceTimer      = null; }
+  if (abdicationTimeout) { clearTimeout(abdicationTimeout); abdicationTimeout = null; }
+  annonceEnCours = null;
+  state.tirageDuSort = null;
+}
+
+// La scène à rétablir en plein jour (fin de pause) : le vote s'il est ouvert, l'annonce en cours,
+// l'évènement du jour, ou le jour
+function sceneDuJour() {
+  if (state.voteTimer) return "dayVote";
+  if (annonceEnCours) return "council.annonce";
+  if (state.activeCouncilEvent && state.evenementAnnonce) return "council." + state.activeCouncilEvent;
+  return "day";
 }
 
 function applyCouncilEvent(eventId) {
   if (!eventId || !COUNCIL_EVENTS[eventId]) return;
   const ev = COUNCIL_EVENTS[eventId];
+  const effet = ev.technical || {};
   log.info('applyCouncilEvent', eventId, '-', ev.title);
+  // Le Sort : un vivant tiré au hasard, que le MJ annonce
+  state.tirageDuSort = effet.tirage ? ((auHasard(alivePlayers()) || {}).id || null) : null;
   state.io.emit("councilEventActive", {
     ...evenementPublic(eventId),
     // Annoncé par le MJ : les téléphones referment la carte des morts et l'affichent tout de suite
     parMJ: annonceMatinParMJ()
   });
-  // Scène lumineuse spécifique à l'évènement (recouvre la scène "day"), et l'annonce elle-même :
-  // un éclair violet et un souffle de murmures, le moment où le Conseil se manifeste
-  lights.applyScene("council." + ev.id);
-  lights.flash("flash.conseil");
+  // L'annonce : l'éclair violet, puis sa lumière et les murmures jusqu'à la fin de l'annonce
+  annonceEnCours = eventId;
+  if (!state.gamePaused) { lights.applyScene("council.annonce"); lights.flash("flash.conseil"); }
   versMJ("annonceConseil");
-  // Effets d'ambiance. La cloche et le tonnerre continuent toute la journée, même si la
-  // tablette du MJ se recharge entre-temps (les lumières, elles, ne dépendent pas d'elle).
-  const effet = ev.technical || {};
+  if (!state.annonceMatinEnCours) annonceTimer = setTimeout(debutEvenement, ANNONCE_SANS_MJ_MS);
+  // La musique propre à l'évènement : la tablette l'attend elle aussi jusqu'à la fin de l'annonce
   if (effet.dayMusic === "night") versMJ("councilMusicOverride", "night");
   if (effet.musiqueFeutree) versMJ("councilMusicOverride", "feutree");
-  if (effet.stormSound) {
-    versMJ("councilStormStart");
-    // Tonnerre toutes les 30 secondes pendant le jour
-    const tickThunder = () => {
-      councilThunderTimer = setTimeout(() => {
-        if (state.phase === "day") {
-          versMJ("soundPlay", "thunder");
-          lights.flash("flash.lightning");
-          tickThunder();
-        } else {
-          councilThunderTimer = null;
-        }
-      }, 30000);
-    };
-    tickThunder();
-  }
-  if (effet.bellInterval) {
-    // La cloche sonne immédiatement à l'apparition de l'événement, puis toutes les 45 s
-    const sonner = () => { versMJ("soundPlay", "church_bell"); lights.flash("flash.bell"); };
-    sonner();
-    councilBellTimer = setInterval(() => {
-      if (state.phase === "day") sonner();
-      else { clearInterval(councilBellTimer); councilBellTimer = null; }
-    }, 45000);
-  }
-  // Murmures : remplace la musique du jour par « murmures.mp3 » en boucle
-  if (effet.murmurSound) versMJ("councilMurmursStart");
+  if (effet.stormSound) versMJ("councilStormStart");      // la pluie à la place de la musique du jour
+  if (effet.murmurSound) versMJ("councilMurmursStart");   // les murmures à la place de la musique du jour
+  if (effet.coeur) versMJ("councilCoeurStart");           // le cœur par-dessus la musique, plus douce
   if (effet.abdication) triggerAbdicationPrompt();
   if (effet.dayChat) {
     // Les Voix Étouffées : on (re)initialise l'historique pour la séance et
@@ -327,6 +401,29 @@ function applyCouncilEvent(eventId) {
     state.silentDayChatHistory = [];
     state.io.emit("silentDayChatStart");
   }
+}
+
+// Fin de l'annonce : l'évènement prend sa lumière, et ses sons qui reviennent commencent. Ils
+// continuent toute la journée, même si la tablette du MJ se recharge entre-temps.
+function debutEvenement() {
+  if (annonceTimer) { clearTimeout(annonceTimer); annonceTimer = null; }
+  const id = annonceEnCours;
+  annonceEnCours = null;
+  if (!id || state.phase !== "day" || state.activeCouncilEvent !== id) return;
+  versMJ("finAnnonceConseil");
+  if (!state.gamePaused) lights.applyScene("council." + id);
+  const effet = COUNCIL_EVENTS[id].technical || {};
+  if (effet.stormSound) revenirPendantLeJour([30000, 30000], [30000, 30000], () => { versMJ("soundPlay", "thunder"); lights.flash("flash.lightning"); });
+  if (effet.bellInterval) {
+    // La cloche sonne tout de suite, puis toutes les 45 s
+    const sonner = () => { versMJ("soundPlay", "church_bell"); lights.flash("flash.bell"); };
+    if (!state.gamePaused) sonner();
+    revenirPendantLeJour([45000, 45000], [45000, 45000], sonner);
+  }
+  // La Lune Rousse : un hurlement au loin, la lumière rougit puis revient
+  if (effet.hurlements) revenirPendantLeJour([15000, 35000], [45000, 90000], () => { versMJ("soundPlay", "hurlement"); lights.vague("vague.hurlement"); });
+  // La Nuée de Corbeaux : des croassements, et leur ombre passe sur la pièce
+  if (effet.corbeaux) revenirPendantLeJour([8000, 20000], [25000, 60000], () => { versMJ("soundPlay", "crow"); lights.vague("vague.ombre"); });
 }
 
 // ===== ANNONCE DU MATIN (rythme du MJ) =====
@@ -348,6 +445,7 @@ function finAnnonceMatin(fermerEvenement) {
   if (!state.annonceMatinEnCours) return;
   state.annonceMatinEnCours = false;
   state.io.emit("finAnnonceMatin", { fermerEvenement: !!fermerEvenement });
+  debutEvenement();   // l'évènement annoncé prend ses lumières et ses sons
 }
 
 // ===== ABDICATION =====
@@ -438,10 +536,10 @@ function handleSilentDayChatHistory(socket) {
 
 module.exports = {
   evenementPublic, effetDuJour, optionsDuConseil,
-  COUNCIL_TRIGGER_THRESHOLD,
+  COUNCIL_EVENTS, COUNCIL_TRIGGER_THRESHOLD,
   startCouncil,
   resolveCouncil,
-  clearCouncilEffects,
+  clearCouncilEffects, sceneDuJour, dansLaJournee,
   annonceMatinParMJ, annoncerEvenement, finAnnonceMatin,
   handleCouncilVote,
   handleAbdicationChoice,

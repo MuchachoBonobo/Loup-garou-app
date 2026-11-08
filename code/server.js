@@ -407,6 +407,7 @@ io.on("connection", socket => {
   socket.on("mjOuvrirAction",    ()  => { if (isMJ(socket.id)) phases.ouvrirActionMJ(); });
   socket.on("mjLancerVictoire",  ()  => { if (isMJ(socket.id)) phases.lancerVictoire(); });
   socket.on("mjAnnoncerEvenement", () => { if (isMJ(socket.id)) council.annoncerEvenement(); });
+  require("./essai-evenements").brancher(socket);   // OUTIL D'ESSAI TEMPORAIRE (essai-evenements) : à retirer après la partie d'essai
   socket.on("mjFinAnnonceMatin", ()  => {
     if (!isMJ(socket.id) || state.phase !== "day") return;
     // Évènement pas encore annoncé : il l'est maintenant et reste à lire ; sinon sa carte se ferme avec celle des morts

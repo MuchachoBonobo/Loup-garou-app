@@ -4,16 +4,20 @@
  * (avec une pause) et le Sablier, chacun choisi par le mort de la première nuit et joué le jour 2.
  *
  * Serveur à part (port 3108) : ces trois évènements y sont proposés en premier (CONSEIL_OPTIONS), le
- * Sablier dure 1,5 s et chaque prise de parole 0,4 s.
+ * Sablier dure 1,5 s et chaque prise de parole 0,4 s. C5 : « Terminer le vote » laisse 5 s pour voter.
+ * Second serveur (port 3109) : Le Sort et la fin de l'annonce (C6), puis la Lune Rousse, ses loups
+ * vingt fois plus fréquents (CONSEIL_RYTHME), qui attendent la fin de l'annonce et se taisent en
+ * pause (C7).
  *
- * Usage : node tests/conseil.js   (~2 min, lumières coupées ; lancé aussi par npm test)
+ * Usage : node tests/conseil.js   (~3 min, lumières coupées ; lancé aussi par npm test)
  */
 "use strict";
 const { sleep, demarrerServeur, arreterServeur, connecter, connecterMJ, attendre, attendrePhase, piloterMJ, compteur } = require("./outils");
 
-const PORT = 3108;
+let PORT = 3108;
 const { check, bilan, arret } = compteur();
 const AVEC_MJ = ["mainLevee", "sablier", "tourParole"];
+const RESERVES_AU_MJ = [...AVEC_MJ, "sort"];   // proposés seulement quand le MJ mène le jour
 
 // Une partie à 7 (un loup), MJ qui mène le jour ou mode autonome ; tout le monde élit le premier
 // joueur, puis droit au tour des loups
@@ -89,11 +93,12 @@ async function annonce(mj, temoin, evenement, code) {
   const actif = await actifP;
   check(`${code}-l'évènement du jour est « ${evenement} »`, actif && actif.id === evenement, actif && actif.id);
   check(`${code}-son annonce a sa scène (souffle de murmures chez le MJ)`, await souffleP);
+  return actif;
 }
 
 async function main() {
   console.log("═".repeat(62) + "\n🪦 Conseil des Morts — port " + PORT + "\n" + "═".repeat(62));
-  const serveur = await demarrerServeur(PORT, { env: { CONSEIL_OPTIONS: AVEC_MJ.join(","), SABLIER_MS: "1500", TOUR_PAROLE_MS: "400" } });
+  const serveur = await demarrerServeur(PORT, { env: { CONSEIL_OPTIONS: AVEC_MJ.join(","), SABLIER_MS: "1500", TOUR_PAROLE_MS: "400", DERNIERES_SECONDES_MS: "5000" } });
 
   console.log("\n▶ C1 — Mode autonome : pas d'évènement qui a besoin du MJ");
   {
@@ -103,7 +108,7 @@ async function main() {
     await nuit(mj, joueurs, loup, villageois[0], true);
     const c = await conseilP;
     check("C1-le mort reçoit 3 évènements", !!c && c.options.length === 3, c && c.options.map(o => o.id));
-    check("C1-aucun n'a besoin du MJ (Main Levée, Sablier, Tour de Parole)", !!c && c.options.every(o => !AVEC_MJ.includes(o.id)), c && c.options.map(o => o.id));
+    check("C1-aucun n'a besoin du MJ (Main Levée, Sablier, Tour de Parole, Sort)", !!c && c.options.every(o => !RESERVES_AU_MJ.includes(o.id)), c && c.options.map(o => o.id));
     all.forEach(s => s.disconnect());
     await sleep(800);
   }
@@ -185,11 +190,78 @@ async function main() {
     check("C4-le sablier part avec « Lancer le débat »", !!(await sablierP));
     const delai = await voteP;
     check("C4-à la fin du sablier, le vote s'ouvre tout seul", delai !== null && delai >= 1300 && delai < 4000, delai);
+
+    console.log("\n▶ C5 — « Terminer le vote » : les 5 dernières secondes");
+    const repriseP = attendre(vivants[0].s, "voteResumed", 3000).catch(() => null);
+    const t1 = Date.now();
+    mj.emit("lockDayVotes");
+    const reprise = await repriseP;
+    check("C5-le minuteur passe à 5 s sur les écrans", !!reprise && Math.abs(reprise.endsAt - reprise.serverNow - 5000) < 300, reprise);
+    const changementP = attendre(mj, "votesDayMJ", 3000, v => v[vivants[0].s.id] === vivants[1].s.id).then(() => true, () => false);
+    vivants[0].s.emit("voteDay", vivants[1].s.id);
+    check("C5-pendant ces 5 s, on peut encore voter", await changementP);
+    let doubles = 0;
+    mj.on("autoResolve", m => { if (/quelques secondes/.test(m)) doubles++; });
+    const verdictP = attendre(vivants[0].s, "dayVoteResult", 12000).then(() => Date.now() - t1, () => null);
+    await sleep(500);
+    mj.emit("lockDayVotes");
+    const fin = await verdictP;
+    check("C5-un 2ᵉ « Terminer » ne raccourcit pas plus", doubles === 1, doubles);
+    check("C5-le vote se ferme au bout des 5 s", fin !== null && fin >= 5000, fin);
+    all.forEach(s => s.disconnect());
+    await sleep(500);
+  }
+  await arreterServeur(serveur);
+
+  // Second serveur : les nouveaux évènements en tête, leurs sons vingt fois plus fréquents
+  PORT = 3109;
+  const serveur2 = await demarrerServeur(PORT, { env: { CONSEIL_OPTIONS: "sort,luneRousse,coeur", CONSEIL_RYTHME: "0.05" } });
+
+  console.log("\n▶ C6 — Le Sort, et la fin de l'annonce");
+  {
+    const all = [];
+    const { mj, matin, vivants } = await jusquAuJour2(all, "ce_", "sort");
+    check("C6-le MJ trouve le Sort à annoncer", matin.evenement.id === "sort", matin.evenement.id);
+    let fins = 0;
+    mj.on("finAnnonceConseil", () => fins++);
+    const actif = await annonce(mj, vivants[0], "sort", "C6");
+    const tire = actif && vivants.find(v => actif.regle.includes(v.nom));
+    check("C6-le sort désigne un vivant, nommé sur la carte du MJ", !!tire && actif.narrative.includes(tire.nom), actif && actif.regle);
+    await sleep(1000);
+    check("C6-l'annonce dure tant que le MJ lit", fins === 0, fins);
+    const finP = attendre(mj, "finAnnonceConseil", 3000).then(() => true, () => false);
+    mj.emit("mjFinAnnonceMatin");
+    check("C6-« Lancer le débat » termine l'annonce", await finP);
+    all.forEach(s => s.disconnect());
+    await sleep(800);
+  }
+
+  console.log("\n▶ C7 — La Lune Rousse : les loups après l'annonce, muets en pause");
+  {
+    const all = [];
+    const { mj, vivants } = await jusquAuJour2(all, "cf_", "luneRousse");
+    const hurlements = [];
+    mj.on("soundPlay", k => { if (k === "hurlement") hurlements.push(Date.now()); });
+    await annonce(mj, vivants[0], "luneRousse", "C7");
+    await sleep(2500);
+    check("C7-pas de loups pendant l'annonce", hurlements.length === 0, hurlements.length);
+    const t0 = Date.now();
+    mj.emit("mjFinAnnonceMatin");
+    await sleep(6500);
+    check("C7-ensuite, ils hurlent de temps en temps", hurlements.length >= 2, hurlements.map(t => t - t0));
+    mj.emit("pauseGame");
+    await sleep(200);
+    const avant = hurlements.length;
+    await sleep(5000);
+    check("C7-en pause, ils se taisent", hurlements.length === avant, hurlements.length - avant);
+    mj.emit("resumeGame");
+    await sleep(5000);
+    check("C7-à la reprise, ils reviennent", hurlements.length > avant, hurlements.length - avant);
     all.forEach(s => s.disconnect());
     await sleep(500);
   }
 
-  await arreterServeur(serveur);
+  await arreterServeur(serveur2);
   process.exit(bilan());
 }
 

@@ -75,9 +75,7 @@ function setPhase(p) {
       state.activeCouncilEvent = state.pendingCouncilEvent;
       state.pendingCouncilEvent = null;
       // Avec un MJ, l'évènement attend son « 📜 Annoncer l'évènement » ; sinon, 3 s après l'aube
-      if (!council.annonceMatinParMJ()) {
-        setTimeout(() => { if (state.phase === "day" && state.activeCouncilEvent) council.annoncerEvenement(); }, 3000);
-      }
+      if (!council.annonceMatinParMJ()) council.dansLaJournee(3000, council.annoncerEvenement);
     } else {
       state.activeCouncilEvent = null;
     }
@@ -88,9 +86,7 @@ function setPhase(p) {
     // COUNCIL_TRIGGER_THRESHOLD mort(s) (1 aujourd'hui). Un nouveau vote est proposé à chaque
     // jour suivant. Les événements déjà proposés (choisis ou non) ne réapparaissent pas.
     if (state.conseilActif && state.deadPlayers.length >= council.COUNCIL_TRIGGER_THRESHOLD) {
-      setTimeout(() => {
-        if (state.phase === "day") council.startCouncil();
-      }, 4000);
+      council.dansLaJournee(4000, council.startCouncil);
     }
   }
   // Quand on QUITTE le jour : on résout le conseil en cours
@@ -629,7 +625,8 @@ function resumeGame() {
   if (PHASES_SURVEILLEES.includes(state.phase)) startStuckTimer();
 
   state.io.emit("gameResumed", { phase: state.phase });
-  lights.applyScene(state.phase);
+  // En plein jour : la lumière du moment (vote, annonce ou évènement du Conseil), pas celle du matin
+  lights.applyScene(state.phase === "day" ? council.sceneDuJour() : state.phase);
 }
 
 // ===== RESET =====

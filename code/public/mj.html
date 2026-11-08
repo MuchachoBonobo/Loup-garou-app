@@ -545,13 +545,15 @@ function testNarration() {
 let stormAudio = null;
 
 socket.on("councilMusicOverride", which => {
-  // Éclipse : on remplace la musique du jour par la musique de nuit
-  if (which === "night" && audioEnabled) {
-    stopAmbiance();
-    playAmbiance("night");
-  }
-  // La Veillée : la musique du jour continue, plus douce
-  if (which === "feutree" && ambianceAudio && ambianceName === "day") adoucir(ambianceAudio);
+  apresAnnonce(() => {
+    // Éclipse : on remplace la musique du jour par la musique de nuit
+    if (which === "night" && audioEnabled) {
+      stopAmbiance();
+      playAmbiance("night");
+    }
+    // La Veillée : la musique du jour continue, plus douce
+    if (which === "feutree" && ambianceAudio && ambianceName === "day") adoucir(ambianceAudio);
+  });
 });
 const VOLUME_FEUTRE = 0.4;   // −8 dB
 function adoucir(a) {
@@ -570,18 +572,34 @@ function fonduDeSortie(a, ms = 1500) {
     if (i >= pas) { clearInterval(id); try { a.pause(); } catch (_) {} }
   }, ms / pas);
 }
-// Annonce d'un évènement du Conseil : un souffle de murmures de quelques secondes (les lumières
-// font leur éclair violet, flash.conseil)
+// Annonce d'un évènement du Conseil (les lumières : l'éclair violet, puis le violet de l'annonce) :
+// seuls les murmures jouent, la musique du jour en pause, jusqu'à la fin de l'annonce que donne le
+// serveur (« Lancer le débat », ou 8 s sans MJ) ; ils s'éteignent alors en douceur et la musique
+// reprend. L'ambiance propre à l'évènement (Tempête, Éclipse, Murmures, Veillée, Cœur) attend elle
+// aussi la fin de l'annonce (apresAnnonce).
+let _annonce = null;   // { murmures, enPause, apres }
 socket.on("annonceConseil", () => {
+  finAnnonceConseil(false);
   if (!audioEnabled) return;
-  try {
-    const a = sonAuNiveau("murmures", "fin");
-    a.play().catch(() => {});
-    setTimeout(() => fonduDeSortie(a), 5000);
-  } catch (_) {}
+  const enPause = ambianceAudio && !ambianceAudio.paused ? ambianceAudio : null;
+  if (enPause) enPause.pause();
+  let murmures = null;
+  try { murmures = sonAuNiveau("murmures", "ambiance"); murmures.loop = true; murmures.play().catch(() => {}); } catch (_) {}
+  _annonce = { murmures, enPause, apres: [] };
 });
+function finAnnonceConseil(enDouceur = true) {
+  const a = _annonce;
+  if (!a) return;
+  _annonce = null;
+  if (a.murmures) { if (enDouceur) fonduDeSortie(a.murmures); else a.murmures.pause(); }
+  a.apres.forEach(f => f());
+  // La musique du jour reprend, sauf si l'ambiance de l'évènement l'a remplacée
+  if (a.enPause && ambianceAudio === a.enPause && audioEnabled) a.enPause.play().catch(() => {});
+}
+function apresAnnonce(f) { if (_annonce) _annonce.apres.push(f); else f(); }
+socket.on("finAnnonceConseil", () => finAnnonceConseil(true));
 
-socket.on("councilStormStart", () => {
+socket.on("councilStormStart", () => apresAnnonce(() => {
   // Tempête : remplace la musique du jour par "rainynight.mp3" en boucle.
   // Le tonnerre (effet ponctuel) est joué toutes les 30 s par le serveur.
   if (!audioEnabled) return;
@@ -591,9 +609,9 @@ socket.on("councilStormStart", () => {
     stormAudio.loop = true;
     stormAudio.play().then(()=>{ dotSet(true); lblSet("⛈️ La Tempête"); }).catch(()=>dotSet(false,true));
   } catch(e) {}
-});
+}));
 
-socket.on("councilMurmursStart", () => {
+socket.on("councilMurmursStart", () => apresAnnonce(() => {
   // Les Morts Murmurent : remplace la musique du jour par « murmures.mp3 » en boucle
   if (!audioEnabled) return;
   stopAmbiance();
@@ -602,10 +620,43 @@ socket.on("councilMurmursStart", () => {
     stormAudio.loop = true;
     stormAudio.play().then(()=>{ dotSet(true); lblSet("👻 Les Morts Murmurent"); }).catch(()=>dotSet(false,true));
   } catch(e) {}
-});
+}));
+
+// Le Cœur du Village : un cœur bat pendant le débat, par-dessus la musique du jour plus douce. Il
+// accélère et bat plus fort à mesure que le débat dure (jusqu'à COEUR_MONTEE_S), s'emballe dans les
+// dernières secondes du vote (startHeartbeat) et s'arrête au verdict (stopHeartbeat du serveur).
+const COEUR_MONTEE_S = 240, COEUR_VITESSE_MAX = 1.5, COEUR_EMBALLE = 1.7;
+let _coeur = null;   // { audio, secondes, emballe, regler, minuterie }
+socket.on("councilCoeurStart", () => apresAnnonce(demarrerCoeur));
+function demarrerCoeur() {
+  if (_coeur || !audioEnabled) return;
+  let audio;
+  try { audio = sonAuNiveau("heartbeat", "ambiance"); audio.loop = true; audio.play().catch(() => {}); } catch (_) { return; }
+  const base = audio._facteurVolume;
+  if (ambianceAudio && ambianceName === "day") adoucir(ambianceAudio);
+  const c = { audio, secondes: 0, emballe: false };
+  c.regler = () => {
+    const p = c.emballe ? 1 : Math.min(1, c.secondes / COEUR_MONTEE_S);
+    audio.playbackRate = c.emballe ? COEUR_EMBALLE : 1 + (COEUR_VITESSE_MAX - 1) * p;
+    audio._facteurVolume = Math.min(1, base * (0.7 + 0.5 * p));
+    audio.volume = Math.min(1, masterVolume * audio._facteurVolume);
+  };
+  c.minuterie = setInterval(() => { if (!isPausedMJ) { c.secondes++; c.regler(); } }, 1000);
+  c.regler();
+  _coeur = c;
+}
+function arreterCoeur() {
+  const c = _coeur;
+  if (!c) return;
+  _coeur = null;
+  clearInterval(c.minuterie);
+  fonduDeSortie(c.audio, 800);
+}
 
 socket.on("councilEventEnd", () => {
   // Fin du jour avec événement actif → coupe les effets
+  finAnnonceConseil(false);
+  arreterCoeur();
   if (stormAudio) { stormAudio.pause(); stormAudio.currentTime = 0; stormAudio = null; }
   afficherBandeauEvenement(null);
   // Cache la carte narrative si encore affichée
@@ -895,7 +946,7 @@ const SOUNDS = {
   endgame_loups:"sounds/endgame_loups.mp3",
   endgame_amoureux:"sounds/endgame_amoureux.mp3",
   endgame_ange:"sounds/endgame_ange.mp3",
-  wolves:"sounds/wolves_attack.mp3", witch:"sounds/witch.mp3",
+  wolves:"sounds/wolves_attack.mp3", hurlement:"sounds/wolves_attack.mp3", witch:"sounds/witch.mp3",
   seer:"sounds/seer.mp3", death:"sounds/death.mp3",
   heartbeat:"sounds/heartbeat.mp3", gun:"sounds/gun.mp3",
   crow:"sounds/crow.mp3", thunder:"sounds/thunder.mp3", church_bell:"sounds/church_bell.mp3",
@@ -916,12 +967,13 @@ const SOUNDS = {
 const MESURES = {
   lobby:[-14,-0.2], night:[-18.7,-3.6], day:[-24.5,-4.8], rainynight:[-21.1,-0.5], murmures:[-24.2,-5.3],
   endgame_village:[-11.5,-2.9], endgame_loups:[-19.1,-3.4], endgame_amoureux:[-13.4,0.3], endgame_ange:[-16.5,-3.1],
-  wolves:[-5.9,-2.7], witch:[-14.3,-0.4], seer:[-16,-12.4], death:[-14,-3.8], heartbeat:[-24.7,-8],
+  wolves:[-5.9,-2.7], hurlement:[-5.9,-2.7], witch:[-14.3,-0.4], seer:[-16,-12.4], death:[-14,-3.8], heartbeat:[-24.7,-8],
   crow:[-19.8,-0.7], thunder:[-4.1,0.2], church_bell:[-8.1,-0.4], cupid:[-13.3,-0.5], gun:[-10.9,0.1],
   sisters:[-24.8,-12.2], shield:[-32.7,-14.7], petite_fille:[-20.5,-6.6]
 };
-// Sonie visée : la musique de nuit garde son volume et sert de repère
-const CIBLES = { ambiance: -26, fin: -21, effet: -14 };
+// Sonie visée : la musique de nuit garde son volume et sert de repère. « lointain » : un effet qui
+// vient de loin (les loups de la Lune Rousse), 10 dB sous un effet
+const CIBLES = { ambiance: -26, fin: -21, effet: -14, lointain: -24 };
 function facteurDuSon(cle, categorie) {
   const [sonie, crete] = MESURES[cle] || [CIBLES[categorie], -1];
   return Math.min(Math.pow(10, (CIBLES[categorie] - sonie) / 20), Math.pow(10, (-1 - crete) / 20));
@@ -953,13 +1005,14 @@ let heartbeatAudio=null;
 
 function setVolume(v){
   masterVolume=parseFloat(v);
-  for (const a of [ambianceAudio, stormAudio, _sistersLoopAudio, heartbeatAudio]) if (a) a.volume = Math.min(1, masterVolume * a._facteurVolume);
+  for (const a of [ambianceAudio, stormAudio, _sistersLoopAudio, heartbeatAudio, _coeur && _coeur.audio]) if (a) a.volume = Math.min(1, masterVolume * a._facteurVolume);
 }
 function toggleAudio(){
   audioEnabled=!audioEnabled;
   document.getElementById("audioToggle").textContent = audioEnabled ? "🔈" : "🔇";
   if(!audioEnabled && ambianceAudio){ ambianceAudio.pause(); dotSet(false); lblSet("Muet"); }
   stopHeartbeat();
+  if (!audioEnabled) arreterCoeur();
 }
 function dotSet(on,err){ ['dotAmbiance2'].forEach(id=>{ const d=document.getElementById(id); if(d) d.className="audio-dot"+(on?" on":err?" err":""); }); }
 function lblSet(t){ const e=document.getElementById("audioLabel2"); if(e) e.innerText=t; }
@@ -971,7 +1024,7 @@ function playAmbiance(k){
     const labels={lobby:"⏳ Salon",night:"🌙 Nuit",day:"☀️ Jour",endgame_village:"🏆 Victoire du village",endgame_loups:"🐺 Victoire des Loups",endgame_amoureux:"💘 Victoire des Amoureux",endgame_ange:"👼 Victoire de l'Ange"};
     ambianceAudio=sonAuNiveau(k, k.startsWith("endgame") ? "fin" : "ambiance");
     ambianceAudio.loop=true; ambianceName=k;
-    if (k === "day" && _mjActiveCouncilEvent === "veillee") adoucir(ambianceAudio);
+    if (k === "day" && ["veillee", "coeur"].includes(_mjActiveCouncilEvent)) adoucir(ambianceAudio);
     ambianceAudio.play().then(()=>{dotSet(true);lblSet(labels[k]||("🔊 "+k));}).catch(()=>dotSet(false,true));
   }catch(e){}
 }
@@ -1038,13 +1091,24 @@ function stopSistersLoop() {
   }
 }
 function startHeartbeat(){
+  if (_coeur) { _coeur.emballe = true; _coeur.regler(); return; }   // le Cœur du Village bat déjà : il s'emballe
   if(heartbeatAudio||!audioEnabled)return;
   try{ heartbeatAudio=sonAuNiveau("heartbeat", "effet"); heartbeatAudio.loop=true; heartbeatAudio.play().catch(()=>{heartbeatAudio=null;}); }catch(e){heartbeatAudio=null;}
 }
 function stopHeartbeat(){ if(heartbeatAudio){heartbeatAudio.pause();heartbeatAudio.currentTime=0;heartbeatAudio=null;} }
 
+// La Lune Rousse : des loups qui hurlent au loin, et s'éloignent au bout de quelques secondes
+function hurlementAuLoin() {
+  if (!audioEnabled) return;
+  try {
+    const a = sonAuNiveau("hurlement", "lointain");
+    a.play().catch(() => {});
+    setTimeout(() => fonduDeSortie(a, 2500), 9000);
+  } catch (_) {}
+}
 socket.on("soundPlay", k=>{
   if (k === "heartbeat") startHeartbeat();
+  else if (k === "hurlement") hurlementAuLoin();
   else if (SOUNDS[k]) playEffect(k);
 });
 // Petite Fille : ses 3 joueurs et la réponse (avec, pour le MJ seul, le nom des loups)
@@ -1058,7 +1122,7 @@ socket.on("corbeauMJInfo", data=>{
   if(data.id) showAlert(`🪶 Corbeau cible : ${data.name} — 2 votes supplémentaires demain`, "warn");
   else showAlert(`🪶 Corbeau passe son tour`, "info");
 });
-socket.on("stopHeartbeat", ()=> stopHeartbeat());
+socket.on("stopHeartbeat", ()=> { stopHeartbeat(); arreterCoeur(); });   // le verdict tombe
 
 // Rappel discret au MJ : noms des Sœurs qui se réveillent cette nuit.
 socket.on("sistersInfoMJ", data => {
@@ -1128,7 +1192,7 @@ updateMJLayout("lobby"); // état initial au chargement de la page
 
 socket.on("phase", p=>{
   currentPhaseForBar = p;
-  if (p !== "day") { _mjDebat = null; fermerMainLevee(); }
+  if (p !== "day") { _mjDebat = null; fermerMainLevee(); finAnnonceConseil(false); arreterCoeur(); }
   document.getElementById("mjPhaseDisplay").innerText = phaseLabel(p);
   updateCheatSheet(p);
   // Entrée dans le jour : débat d'abord, pas de vote
@@ -1212,7 +1276,7 @@ socket.on("gameEnd", msg=>{
   closeDayRecapCard(); closeMjVoteDeathCard();
   document.getElementById("gameEndBanner").style.display="block";
   document.getElementById("gameEndBanner").innerText=msg;
-  stopCountdown(); stopHeartbeat();
+  stopCountdown(); stopHeartbeat(); arreterCoeur();
   // Le camp gagnant vient du résumé de fin, que le serveur envoie juste avant
   playAmbiance({ wolves:"endgame_loups", lovers:"endgame_amoureux", ange:"endgame_ange" }[dernierVainqueur] || "endgame_village");
   document.getElementById("nightPhaseBar").classList.remove("active");
@@ -1969,5 +2033,6 @@ function closeQRFullscreen(){
   if (overlay) overlay.style.display = "none";
 }
 </script>
+<script src="/js/essai-evenements.js"></script><!-- OUTIL D'ESSAI TEMPORAIRE (essai-evenements) : à retirer après la partie d'essai -->
 </body>
 </html>

@@ -239,6 +239,23 @@ function flash(key) {
 }
 
 /**
+ * Vague : la lumière glisse vers une couleur (montée en fondu, `montee` ms), y reste, puis revient
+ * à la scène en cours au bout de `duree` ms. Le hurlement de la Lune Rousse (un rouge qui monte),
+ * l'ombre des corbeaux (une pénombre soudaine). Comme un flash, sans clignoter.
+ */
+function vague(key) {
+  const v = SCENES[key];
+  if (!v) { _log("vague absente:", key); return; }
+  const restore = currentSceneKey;
+  stopEffect();
+  callHue(_sceneBody(v, { duration: v.montee || 1500 }));
+  effectTimeouts.push(setTimeout(() => {
+    if (restore && SCENES[restore]) applyScene(restore);
+  }, v.duree || 5000));
+  _log("vague →", key);
+}
+
+/**
  * Séquence de N flashs de mort espacés — pour plusieurs morts la même nuit.
  * Contrairement à `flash`, n'est appelé qu'une fois avec le compte total,
  * ce qui évite que chaque flash annule le précédent via stopEffect().
@@ -300,6 +317,6 @@ if (_ready()) {
 // Une erreur des lumières ne doit jamais interrompre le jeu : elle s'arrête ici
 const sansErreur = f => (...args) => { try { return f(...args); } catch (e) { _log("err:", e.message); } };
 module.exports = {
-  applyScene: sansErreur(applyScene), flash: sansErreur(flash), flashSequence: sansErreur(flashSequence),
+  applyScene: sansErreur(applyScene), flash: sansErreur(flash), flashSequence: sansErreur(flashSequence), vague: sansErreur(vague),
   reset: sansErreur(reset), status,
 };

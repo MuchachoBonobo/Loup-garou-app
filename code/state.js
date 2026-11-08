@@ -104,9 +104,9 @@ function partieNeuve() {
 
     // Conseil des Morts (les minuteries d'ambiance restent dans council.js). Les évènements
     // déjà proposés au vote (choisis ou non) ne réapparaissent pas ; Les Voix Étouffées :
-    // le chat écrit du jour (les vivants seuls écrivent).
+    // le chat écrit du jour (les vivants seuls écrivent) ; Le Sort : le vivant tiré au sort.
     councilOptions: null, councilVotes: {}, pendingCouncilEvent: null, activeCouncilEvent: null,
-    councilUsedEvents: [], silentDayChatHistory: [],
+    councilUsedEvents: [], silentDayChatHistory: [], tirageDuSort: null,
 
     // Journal de la partie : médailles et écrans de fin
     gameStats: {
