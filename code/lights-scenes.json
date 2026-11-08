@@ -113,23 +113,6 @@
     "bri": 220,
     "transition": 800
   },
-  "council.riot": {
-    "xy": [
-      0.6,
-      0.3
-    ],
-    "bri": 180,
-    "transition": 600,
-    "effect": "slow_pulse"
-  },
-  "council.paranoia": {
-    "xy": [
-      0.35,
-      0.3
-    ],
-    "bri": 100,
-    "transition": 1500
-  },
   "council.madness": {
     "xy": [
       0.3,
@@ -163,15 +146,6 @@
     "bri": 70,
     "transition": 2500
   },
-  "council.fire": {
-    "xy": [
-      0.62,
-      0.35
-    ],
-    "bri": 200,
-    "transition": 600,
-    "effect": "fire_flicker"
-  },
   "council.whispers": {
     "xy": [
       0.4,
@@ -203,14 +177,6 @@
     ],
     "bri": 140,
     "transition": 1200
-  },
-  "council.wind": {
-    "xy": [
-      0.32,
-      0.4
-    ],
-    "bri": 130,
-    "transition": 1500
   },
   "council.murmurs": {
     "xy": [
@@ -262,6 +228,48 @@
     "bri": 200,
     "transition": 800,
     "effect": "slow_pulse"
+  },
+  "council.mainLevee": {
+    "xy": [
+      0.45,
+      0.41
+    ],
+    "bri": 200,
+    "transition": 800
+  },
+  "council.sablier": {
+    "xy": [
+      0.5,
+      0.42
+    ],
+    "bri": 150,
+    "transition": 800,
+    "effect": "slow_pulse"
+  },
+  "council.tourParole": {
+    "xy": [
+      0.4,
+      0.39
+    ],
+    "bri": 170,
+    "transition": 800
+  },
+  "council.veillee": {
+    "xy": [
+      0.56,
+      0.4
+    ],
+    "bri": 55,
+    "transition": 2500,
+    "effect": "candle_flicker"
+  },
+  "council.masques": {
+    "xy": [
+      0.33,
+      0.2
+    ],
+    "bri": 120,
+    "transition": 1200
   },
   "flash.death": {
     "xy": [
@@ -394,5 +402,14 @@
     "bri": 254,
     "duration": 400,
     "repeat": 5
+  },
+  "flash.conseil": {
+    "xy": [
+      0.25,
+      0.12
+    ],
+    "bri": 230,
+    "duration": 400,
+    "repeat": 2
   }
 }

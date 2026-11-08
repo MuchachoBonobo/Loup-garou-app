@@ -16,13 +16,13 @@ const erreursServeur = [];
 // Serveur jetable : lumières coupées, sauvegardes dans un dossier temporaire (vidé au départ,
 // sauf `viderDossier: false` pour une reprise après plantage). `surLigne(texte)` reçoit tout ce
 // que le serveur écrit ; ses erreurs JavaScript s'affichent toujours et restent dans `srv.erreurs`.
-function demarrerServeur(port, { viderDossier = true, surLigne } = {}) {
+function demarrerServeur(port, { viderDossier = true, surLigne, env = {} } = {}) {
   const dossier = path.join(os.tmpdir(), "loupgarou-test-" + port);
   if (viderDossier) try { fs.rmSync(dossier, { recursive: true, force: true }); } catch { /* dossier temporaire : tant pis s'il résiste */ }
   return new Promise((res, rej) => {
     const srv = spawn(process.execPath, ["server.js"], {
       cwd: path.join(__dirname, ".."),
-      env: { ...process.env, PORT: String(port), LIGHTS_ENABLED: "false", SNAPSHOT_DIR: dossier, RETRAIT_SALON_MS: "1500" },
+      env: { ...process.env, PORT: String(port), LIGHTS_ENABLED: "false", SNAPSHOT_DIR: dossier, RETRAIT_SALON_MS: "1500", ...env },
       stdio: ["ignore", "pipe", "pipe"],
     });
     let pret = false;

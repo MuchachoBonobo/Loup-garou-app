@@ -96,6 +96,7 @@ function setPhase(p) {
   // Quand on QUITTE le jour : on résout le conseil en cours
   if (previousPhase === "day" && p !== "day") {
     state.annonceMatinEnCours = false;
+    votes.arreterDebat();
     if (state.councilOptions) council.resolveCouncil();
     state.activeCouncilEvent = null;
     council.clearCouncilEffects();
@@ -577,6 +578,7 @@ function pauseGame() {
   if (state.gamePaused) return;
   state.gamePaused = true;
 
+  votes.suspendreDebat();   // Sablier, tour de parole : le temps restant est gelé
   // Sauvegarde le temps restant du vote du jour, puis l'arrête
   if (state.voteTimer && state.voteTimerEnd) {
     state.pausedVoteRemainingMs = Math.max(0, state.voteTimerEnd - Date.now());
@@ -612,6 +614,7 @@ function resumeGame() {
 
   installPhaseTimeouts(state.phase);
   armerMinuteriesAutomatiques(state.phase);
+  votes.reprendreDebat();
 
   // Réponse de nuit en attente de « OK » : renvoyée au joueur (un « OK » tapé pendant la
   // pause a été ignoré, sa carte s'était fermée)
@@ -636,6 +639,7 @@ function resetGameState(keepPlayers) {
   clearPhaseTimeouts();
   votes.clearVoteTimer();
   votes.oublierEgalite();
+  votes.arreterDebat();
   council.clearCouncilEffects();
   clearTimeout(state.pendingEndGameTimer);
   Object.assign(state, partieNeuve());

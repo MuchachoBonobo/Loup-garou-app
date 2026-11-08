@@ -158,6 +158,14 @@ function startEffect(name, scene) {
       }, 350);
       break;
     }
+    case "candle_flicker": {
+      // Bougies : lumière chaude et basse qui vacille doucement (La Veillée)
+      effectInterval = setInterval(() => {
+        const flamme = { xy: [0.55 + Math.random() * 0.03, 0.40 + Math.random() * 0.02], bri: Math.max(15, scene.bri - 15 + Math.floor(Math.random() * 30)) };
+        callHue(_sceneBody(flamme, { duration: 450 }));
+      }, 700);
+      break;
+    }
     case "fast_pulse": {
       // Pulsation rapide pour Panique
       let high = true;

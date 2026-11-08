@@ -53,12 +53,6 @@ function resolveVoteWithTiebreak(counts, context, onResolved) {
   if (context === "mayor" || !state.mayor || state.deadPlayers.includes(state.mayor)) {
     return onResolved(auHasard(tied));
   }
-  // CONSEIL DES MORTS — Incendie : le maire perd son pouvoir, c'est le hasard qui tranche
-  if (context === "day" && council.effetDuJour().mayorPowerless) {
-    state.io.emit("autoResolve", "🔥 L'écharpe du maire a brûlé — c'est le hasard qui tranche.");
-    return onResolved(auHasard(tied));
-  }
-
   state.tiebreakPending    = true;
   state.tiebreakCandidates = tied;
   state.tiebreakContext    = context;
@@ -302,18 +296,19 @@ function startDayVote(mode) {
   const vientDEtreAnnonce = council.annoncerEvenement();
   council.finAnnonceMatin(!vientDEtreAnnonce);
   log.info('startDayVote', 'mode=' + mode, 'event=' + (state.activeCouncilEvent || 'none'));
-  // Conseil des Morts : l'évènement du jour peut imposer son mode de vote (Émeute, Jugement,
-  // Panique) et sa durée (Vote Muet) ; sinon, le mode passé en argument (autoVoteMode en mode autonome)
+  // Conseil des Morts : l'évènement du jour peut imposer son mode de vote (Jugement, Panique) et
+  // sa durée (Vote Muet) ; sinon, le mode passé en argument (autoVoteMode en mode autonome)
   const effet = council.effetDuJour();
   if (effet.forceVoteMode) mode = effet.forceVoteMode;
 
+  arreterDebat();   // Sablier ou tour de parole en cours : le vote les remplace
   clearVoteTimer(); state.lockedVoters.clear(); state.voteMode = mode;
   state.fastResolveTriggered = false;
   // Modes de vote :
   //   1 = libre 60 s (défaut)
   //   2 = Jugement verrouillé 60 s (vote définitif dès qu'il tombe)
   //   4 = Panique express 30 s
-  //   5 = Émeute anonyme 60 s
+  //   5 = anonyme 60 s (mode autonome, choix « Anonyme »)
   const durations = { 1: 60000, 2: 60000, 4: 30000, 5: 60000 };
   const duration = effet.voteDurationMs || durations[mode] || 60000;
   const endsAt = Date.now() + duration + 800;
@@ -341,7 +336,7 @@ function votesDuVillage() {
   return Object.fromEntries(Object.entries(state.votesDay).filter(([votant]) => !votant.startsWith("__corbeau")));
 }
 // Le détail (qui vote pour qui) va au seul MJ ; les téléphones voient les voix, sauf pendant
-// l'Émeute (vote anonyme)
+// le vote anonyme
 function publierVotesDuJour() {
   versMJ("votesDayMJ", state.votesDay);
   if (state.voteMode === 5) return;
@@ -411,7 +406,7 @@ function handleVoteDay(socket, id) {
   state.votesDay[socket.id] = id;
   if (state.voteMode === 2) state.lockedVoters.add(socket.id);
   publierVotesDuJour();
-  // Émeute : seul le votant apprend pour qui il a voté
+  // Vote anonyme : seul le votant apprend pour qui il a voté
   if (state.voteMode === 5) socket.emit("hasVotedConfirm", { targetName: playerName(id) });
   // Sprint final de 30 s quand tout le monde a voté — mode autonome seulement : avec un
   // MJ, le vote dure 60 s et le battement de cœur final doit aller au bout
@@ -479,6 +474,92 @@ function handleTiebreakChoice(socket, targetId) {
   if (state.tiebreakCandidates.includes(targetId)) trancherEgalite(targetId);
 }
 
+// ===== DÉBAT RYTHMÉ PAR LE CONSEIL : Sablier, Tour de parole, Main levée =====
+// Une seule minuterie à la fois (fin du sablier, ou fin d'une prise de parole). `debat` :
+// { sablierFin } ou { tour, rang, total, fin } ; `restant` : le temps gelé par la pause. Hors de
+// l'état sauvegardé : après un plantage, le MJ relance simplement le vote.
+const SABLIER_MS = parseInt(process.env.SABLIER_MS) || 3 * 60 * 1000;
+const PAROLE_MS  = parseInt(process.env.TOUR_PAROLE_MS) || 15000;
+const TOURS_DE_PAROLE = 2;
+let minuterieDebat = null, debat = null;
+
+function etatDebat() { return debat ? { ...debat, serverNow: Date.now() } : null; }
+function publierDebat() { versMJ("debatMJ", etatDebat()); }
+function armerDebat(ms, suite) { clearTimeout(minuterieDebat); minuterieDebat = setTimeout(suite, ms); }
+function arreterDebat() {
+  clearTimeout(minuterieDebat); minuterieDebat = null;
+  if (debat) { debat = null; publierDebat(); }
+}
+// Le débat est encore ouvert : jour, pas de vote lancé ni de verdict
+function debatOuvert() { return state.phase === "day" && !state.resolutionJourEnCours && !state.voteTimer && !state.dayResolutionPending; }
+
+function finDuDebat() {
+  minuterieDebat = null; debat = null; publierDebat();
+  if (debatOuvert() && !state.gamePaused) startDayVote(1);
+}
+
+// Le Sablier part à « Lancer le débat »
+function demarrerSablier() {
+  if (!council.effetDuJour().sablier || !debatOuvert() || debat) return;
+  debat = { sablierFin: Date.now() + SABLIER_MS };
+  armerDebat(SABLIER_MS, finDuDebat);
+  publierDebat();
+}
+
+// Tour de parole : le MJ désigne à voix haute qui commence, puis clique ; chaque vivant parle
+// PAROLE_MS à son tour (le son de la tablette marque le passage), deux fois, puis le vote s'ouvre
+function handleCommencerTour(socket) {
+  if (!isMJ(socket.id) || state.gamePaused || !council.effetDuJour().tourDeParole || !debatOuvert() || debat) return;
+  debat = { tour: 1, rang: 1, total: alivePlayers().length, fin: Date.now() + PAROLE_MS };
+  armerDebat(PAROLE_MS, paroleSuivante);
+  publierDebat();
+}
+function paroleSuivante() {
+  if (!debat || !debat.tour) return;
+  if (debat.rang < debat.total) debat.rang++;
+  else if (debat.tour < TOURS_DE_PAROLE) { debat.tour++; debat.rang = 1; }
+  else return finDuDebat();
+  debat.fin = Date.now() + PAROLE_MS;
+  armerDebat(PAROLE_MS, paroleSuivante);
+  publierDebat();
+}
+// « Parole suivante » : un joueur qui n'a rien à dire passe la main
+function handleParoleSuivante(socket) {
+  if (isMJ(socket.id) && !state.gamePaused && debat && debat.tour && debatOuvert()) paroleSuivante();
+}
+
+// Pause : le temps restant est gelé, puis repris
+function suspendreDebat() {
+  if (!debat || debat.restant != null) return;
+  debat.restant = Math.max(0, (debat.tour ? debat.fin : debat.sablierFin) - Date.now());
+  clearTimeout(minuterieDebat); minuterieDebat = null;
+  publierDebat();
+}
+function reprendreDebat() {
+  if (!debat || debat.restant == null) return;
+  const ms = debat.restant;
+  delete debat.restant;
+  if (debat.tour) debat.fin = Date.now() + ms; else debat.sablierFin = Date.now() + ms;
+  armerDebat(ms, debat.tour ? paroleSuivante : finDuDebat);
+  publierDebat();
+}
+
+// La Main Levée : le village a voté à main levée, le MJ touche le condamné. Le verdict suit le
+// même chemin qu'un vote (Ange au premier vote, Idiot, Chasseur, amoureux, victoire).
+function handleMainLevee(socket, cibleId) {
+  if (!isMJ(socket.id) || state.gamePaused || !council.effetDuJour().mainLevee || !debatOuvert()) return;
+  if (!cibleId || state.deadPlayers.includes(cibleId) || !state.players.some(p => p.id === cibleId)) return;
+  const vientDEtreAnnonce = council.annoncerEvenement();
+  council.finAnnonceMatin(!vientDEtreAnnonce);
+  arreterDebat();
+  state.resolutionJourEnCours = true;
+  versMJ("voteClosMJ");
+  state.nbVotesJour++;
+  state.corbeauTarget = null;   // ses 2 voix ont été comptées par le MJ, à main levée
+  log.info('mainLevee', 'condamné=', playerName(cibleId));
+  executerVerdict(cibleId);
+}
+
 // IMPORTANT : on MUTE l'objet module.exports (pas de réassignation) pour ne pas
 // invalider les références capturées par phases.js et roles.js pendant la phase
 // de chargement circulaire.
@@ -493,4 +574,7 @@ Object.assign(module.exports, {
   handleStartVote, handleVoteDay, handleLockDayVotes, handleSkipDayVote,
   handleVoteWolf, handleLockWolfVotes,
   handleTiebreakChoice,
+  // Débat rythmé par le Conseil (Sablier, Tour de parole, Main levée)
+  etatDebat, arreterDebat, demarrerSablier, suspendreDebat, reprendreDebat,
+  handleCommencerTour, handleParoleSuivante, handleMainLevee,
 });

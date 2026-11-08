@@ -134,14 +134,13 @@ async function decouvrirRoles({ tel, pages }, [loup, compagnon] = [], [soeur, au
   check("la carte retournée montre le rôle", await tous(pages, p => attendre(p, () => document.getElementById("rfRoleName").innerText.trim().length > 0)));
   if (compagnon) { const t = await texte(tel[loup], "rfSecrets"); check("un loup voit son compagnon sur la carte retournée", t.includes(compagnon), t); }
   if (autreSoeur) { const t = await texte(tel[soeur], "rfSecrets"); check("une Sœur voit sa sœur sur la carte retournée", t.includes(autreSoeur), t); }
-  check("« Voir les détails » apparaît", await tous(pages, p => affiche(p, "#roleFlipContinue")));
+  check("la carte retournée donne la règle du rôle", await tous(pages, p => p.evaluate(() => document.getElementById("rfRegle").innerText.trim().length > 0)));
+  check("« J'ai lu » apparaît", await tous(pages, p => affiche(p, "#roleFlipContinue")));
+  check("le nom du rôle n'est pas précédé de son pictogramme (déjà en grand)", await tous(pages, p => p.evaluate(() => !/\p{Extended_Pictographic}/u.test(document.getElementById("rfRoleName").innerText))));
+  if (compagnon) { const t = await texte(tel[loup], "rfRegle"); check("la règle du rôle ne cite pas les compagnons", !t.includes(compagnon), t.slice(0, 120)); }
+  if (autreSoeur) { const t = await texte(tel[soeur], "rfRegle"); check("la règle du rôle ne cite pas la sœur", !t.includes(autreSoeur), t.slice(0, 120)); }
   for (const p of pages) await clic(p, "#roleFlipContinue");
-  check("la carte de rôle détaillée s'ouvre", await tous(pages, p => attendre(p, () => document.getElementById("roleCard").className === "show")));
-  check("le nom du rôle n'est pas précédé de son pictogramme (déjà en grand)", await tous(pages, p => p.evaluate(() => !/\p{Extended_Pictographic}/u.test(document.getElementById("rcRole").innerText + document.getElementById("rfRoleName").innerText))));
-  if (compagnon) { const t = await texte(tel[loup], "roleCard"); check("la description du rôle ne cite pas les compagnons", !t.includes(compagnon), t.slice(0, 120)); }
-  if (autreSoeur) { const t = await texte(tel[soeur], "roleCard"); check("la description du rôle ne cite pas la sœur", !t.includes(autreSoeur), t.slice(0, 120)); }
-  for (const p of pages) await clic(p, '#roleCard button[onclick="closeRoleCard()"]');
-  check("la carte de rôle se referme", await tous(pages, p => attendre(p, () => document.getElementById("roleCard").className === "")));
+  check("la carte de rôle se referme", await tous(pages, p => attendre(p, () => getComputedStyle(document.getElementById("roleRevealCover")).display === "none")));
 }
 
 // Élection du maire : tout le monde vote pour `maire`, qui vote pour `sonVote`
@@ -204,6 +203,7 @@ async function partieVillage(P) {
     check(`nuit ${num} : les villageois vivants ont le voile de nuit`, await tous(vivants().filter(n => !tueurs.includes(n)).map(n => tel[n]), p => affiche(p, "#nightCoverScreen", 30000)));
     const attaque = boutonJoueur("voteWolf", await id(victime));
     check(`nuit ${num} : les loups ont leurs boutons « Attaquer »`, await tous(tueurs.map(n => tel[n]), p => attendre(p, PRESENT, attaque)));
+    check(`nuit ${num} : plus de « Vote terminé ! » sur leur écran`, await tous(tueurs.map(n => tel[n]), p => p.evaluate(() => document.getElementById("status").innerText === "")));
     for (const n of tueurs) await clic(tel[n], attaque);
     check(`nuit ${num} : le MJ voit les votes des loups en haut`, await attendre(mj, v => document.getElementById("wolfVotes").innerText.includes(v), victime));
     await etapeMJ(`nuit ${num} : MJ « Valider l'attaque des loups »`, "Valider l'attaque");
@@ -228,18 +228,27 @@ async function partieVillage(P) {
     const votants = vivants(), autres = votants.filter(n => n !== condamne).map(n => tel[n]);
     const contre = boutonJoueur("voteDay", await id(condamne)), sien = boutonJoueur("voteDay", await id(sonVote));
     check(`jour ${num} : boutons « Voter » chez les vivants`, await tous(autres, p => attendre(p, PRESENT, contre)));
-    for (const n of votants) await clic(tel[n], n === condamne ? sien : contre);
+    // Le dernier votant regarde : les votes qui arrivent s'écrivent sur les lignes sans bouger son bouton
+    const dernier = votants.filter(n => n !== condamne).at(-1), idCondamne = await id(condamne);
+    const hauteur = () => tel[dernier].evaluate(s => document.querySelector(s).getBoundingClientRect().top, contre);
+    const hauteurAvant = await hauteur();
+    for (const n of votants) if (n !== dernier) await clic(tel[n], n === condamne ? sien : contre);
+    check(`jour ${num} : le nombre de voix est sur la ligne du joueur`, await attendre(tel[dernier], ([j, nb]) => document.querySelector(`.voix-ligne[data-joueur="${j}"]`).textContent.trim() === String(nb), [idCondamne, votants.length - 2]));
+    const hauteurApres = await hauteur();
+    check(`jour ${num} : les votes reçus ne déplacent pas le bouton « Voter »`, Math.abs(hauteurApres - hauteurAvant) < 1, `${hauteurAvant} puis ${hauteurApres}`);
+    await clic(tel[dernier], contre);
     await etapeMJ(`jour ${num} : MJ « Terminer le vote »`, "Terminer le vote");
     morts.push(condamne);
     check(`jour ${num} : la carte du vote nomme ${condamne}`, await tous(autres, p => attendre(p, CARTE, [condamne, 1])));
   };
 
+  check("Sœurs : au réveil, le prénom de l'autre sœur", await attendre(tel[soeurs[0]], n => getComputedStyle(document.getElementById("sistersPanel")).display !== "none" && document.getElementById("sistersNom").innerText === n, soeurs[1], 30000));
   await nuit(1, [L1, L2], V1);
   console.log("\n▶ Tablette du MJ rechargée en plein jour");
-  const mortsAvant = await texte(mj, "dead");
+  const mortsAvant = await texte(mj, "mjDeathLogList");
   mj.once("dialog", d => d.accept());   // « Une partie est en cours — vraiment quitter ? »
   await mj.reload({ waitUntil: "domcontentloaded" });
-  check("MJ rechargé : la liste des morts est la même qu'avant", await attendre(mj, t => document.getElementById("dead").innerText === t && t.includes("☠️"), mortsAvant), mortsAvant);
+  check("MJ rechargé : la chronique des morts est la même qu'avant", await attendre(mj, t => document.getElementById("mjDeathLogList").innerText === t && t.length > 0, mortsAvant), mortsAvant);
   check("MJ rechargé : les personnages sont là", await attendre(mj, ns => ns.every(n => document.getElementById("roles").innerText.includes(n)), noms));
   await vote(1, L1, V3);
   await nuit(2, [L2], V2);
@@ -278,7 +287,7 @@ async function partieRoles(P) {
   check("Voyante : la liste des 8 autres vivants, avec photos", await attendre(tel[voy], LISTE, ["#seerTargets", 8], 30000));
   check("pendant son choix, la liste des joueurs est cachée", !(await tel[voy].evaluate(AFFICHE, "#playersSection")));
   await choisir(tel[voy], "#seerTargets", loup);
-  check("vision : la carte nomme le loup, avec sa photo", await attendre(tel[voy], CARTE, [loup + " est…", 1]));
+  check("vision : la carte nomme le loup, avec sa photo", await attendre(tel[voy], CARTE, [loup + " est Loup-Garou", 1]));
   await clic(tel[voy], "#deathCardBtn");
 
   console.log("\n▶ Nuit 1 — Petite Fille");
@@ -289,7 +298,7 @@ async function partieRoles(P) {
   await choisir(tel[pf], "#petiteFilleBtns", corb);
   check("à 3 joueurs, « Découvrir » s'allume", await tel[pf].evaluate(() => !document.getElementById("petiteFilleConfirmBtn").disabled));
   await clic(tel[pf], "#petiteFilleConfirmBtn");
-  check("résultat : « au moins un Loup », avec les 3 photos", await attendre(tel[pf], CARTE, ["au moins un Loup", 3]));
+  check("résultat : « Au moins un Loup », avec les 3 photos", await attendre(tel[pf], CARTE, ["Au moins un Loup", 3]));
   await clic(tel[pf], "#deathCardBtn");
 
   console.log("\n▶ Nuit 1 — Corbeau");
@@ -316,9 +325,9 @@ async function partieRoles(P) {
   await choisir(tel[chass], "#chasseurTargets", loup);
   check("tous voient « Le Chasseur a tiré » sur le loup, avec sa photo", await tous(temoins, p => attendre(p, l => (window.__tir || "").includes("Le Chasseur a tiré") && window.__tir.includes(l) && window.__tir.endsWith("|1"), loup)));
   await victoireDuVillage(P, vill);
-  const roles = await texte(mj, "roles"), morts = await texte(mj, "dead");
+  const roles = await texte(mj, "roles"), morts = await texte(mj, "mjDeathLogList");
   check("MJ : les rôles portent leur nom (« Petite Fille », « Loup-Garou »)", roles.includes("Petite Fille") && roles.includes("Loup-Garou") && !roles.includes("PetiteFille"), roles.slice(0, 160));
-  check("MJ : la liste des morts cite le Chasseur et le loup", morts.includes(chass) && morts.includes(loup), morts);
+  check("MJ : la chronique cite le Chasseur et le loup", morts.includes(chass) && morts.includes(loup), morts);
   await photoApresCoupure(P, vill, temoinPhoto(P, vill));
 }
 

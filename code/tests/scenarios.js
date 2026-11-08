@@ -752,18 +752,18 @@ const s20 = () => scenario("S20", "Partie relancée juste après l'élection du 
   const joueurs = [];
   for (const n of ["s20_A","s20_B","s20_C","s20_D","s20_E"]) { const s = await connecter(TEST_PORT, n); all.push(s); joueurs.push(s); }
   await sleep(300);
-  const lancer = async evenement => {
+  const lancer = async () => {
     const voteP = attendrePhase(joueurs[0], "mayorVote");
-    mj.emit(evenement, { loup: 1, autoMode: false, mjPilotedDay: true });
+    mj.emit("assignRoles", { loup: 1, autoMode: false, mjPilotedDay: true });
     await voteP;
   };
-  await lancer("assignRoles");
+  await lancer();
   joueurs.slice(1).forEach(s => s.emit("voteMayor", joueurs[0].id));
   await sleep(100);
   const eluP = attendre(joueurs[0], "newMayor", 6000);
   mj.emit("lockMayorVote");
   await eluP;
-  await lancer("replayGame");
+  await lancer();
   const phases = [];
   joueurs[0].on("phase", p => phases.push(p));
   await sleep(6000);

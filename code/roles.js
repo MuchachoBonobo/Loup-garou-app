@@ -104,7 +104,7 @@ function lancerEtapeNuit(etape) {
   }
   if (etape === "sisters") {
     const aliveSisters = vivantsAvecRole("Sœurs");
-    // Pas de prénoms : elles savent depuis la révélation des rôles qui est leur sœur.
+    // Pas de prénoms ici : chaque téléphone connaît déjà sa sœur (yourRole).
     aliveSisters.forEach(sid => state.io.to(sid).emit("sistersTurn", { count: aliveSisters.length }));
     // Le MJ reçoit l'info détaillée pour pouvoir rappeler qui doit se réveiller.
     versMJ("sistersInfoMJ", { sisters: aliveSisters.map(id => ({ id, name: playerName(id) })) });
@@ -347,6 +347,7 @@ function marquerMort(id, cause) {
   state.io.emit("deadPlayers", state.deadPlayers);
   if (cause === "amour") state.io.emit("loversDeathInfo", { id, name, role });
   state.io.emit("playerDied", { id, role, name });
+  versMJ("chroniqueMJ", state.gameStats.deathLog);   // la cause reste côté MJ
 }
 
 // Où reprend la partie après le tir d'un Chasseur qui meurt maintenant : « day » (mort au vote :

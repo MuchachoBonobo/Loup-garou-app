@@ -21,8 +21,6 @@
     <span id="mjConnDot">🔴</span>
     <span id="mjPhaseDisplay">Salon</span>
     <span id="mjMaireAffiche" title="Maire du village" style="display:none;font-size:12px;color:rgb(var(--or-vif));background:rgb(var(--or-fond));border:1px solid rgb(var(--or-base));border-radius:4px;padding:2px 8px;"></span>
-    <div class="audio-dot" id="dotAmbiance"></div>
-    <span id="audioLabel" style="font-size:11px;">Silence</span>
     <button id="salonBtn" onclick="retourAuSalon()" title="Arrêter la partie et revenir au salon" style="display:none;background:rgb(var(--sang-fond));border:1px solid rgb(var(--sang-base));color:rgb(var(--sang-vif));font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;font-weight:bold;">🏠 Salon</button>
     <button id="pauseBtn" onclick="togglePause()" title="Mettre en pause" style="background:rgb(var(--or-fond));border:1px solid rgb(var(--or-vif));color:rgb(var(--or-vif));font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;font-weight:bold;">⏸️ Pause</button>
     <button id="narrationBtn" onclick="toggleNarration()" title="Narration vocale" style="background:rgb(var(--lune-fond));border:1px solid rgb(var(--lune-base));color:rgb(var(--lune-vif));font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer;">🎙️</button>
@@ -58,12 +56,8 @@
   ⏸️ Partie en pause — appuie sur "Reprendre" pour continuer
 </div>
 
-<!-- Cheat sheet MJ contextuelle (mise à jour à chaque changement de phase) -->
-<div id="mjCheatSheet" style="display:none;background:rgb(var(--vert-fond));border:1px solid rgb(var(--vert-sombre));border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:12px;color:rgb(var(--vert-vif));">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-    <span style="font-weight:bold;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:rgb(var(--vert-base));" id="mjCheatTitle">📜 Pense à dire</span>
-    <button onclick="document.getElementById('mjCheatSheet').style.display='none';" style="background:transparent;border:none;color:rgb(var(--vert-base));font-size:14px;cursor:pointer;padding:0 4px;">✕</button>
-  </div>
+<!-- Phrases à dire à voix haute pendant cette phase (les boutons guident le reste) -->
+<div id="mjCheatSheet" style="display:none;background:rgb(var(--vert-fond));border:1px solid rgb(var(--vert-sombre));border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:14px;color:rgb(var(--vert-vif));">
   <div id="mjCheatLines" style="line-height:1.7;"></div>
 </div>
 
@@ -74,15 +68,11 @@
 
 <!-- Nuit rythmée par le MJ : entre deux rôles, la grande carte « Passer à l'étape suivante » -->
 <div id="etapeSuivanteCard" class="plein-ecran" style="display:none;z-index:9995;background:radial-gradient(ellipse at center,rgb(var(--lune-sombre)) 0%,rgb(var(--n0)) 100%);">
-  <div style="font-size:11px;color:rgb(var(--lune-vif));letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px;">Nuit — entre deux rôles</div>
   <div style="font-size:64px;margin-bottom:12px;line-height:1;">🌙</div>
-  <div style="font-size:15px;color:rgb(var(--lune-clair));margin-bottom:6px;">Étape suivante</div>
-  <div id="etapeSuivanteLibelle" style="font-size:28px;font-weight:bold;color:rgb(var(--lune-clair));margin-bottom:16px;">…</div>
-  <div style="font-size:14px;color:rgb(var(--lune-clair));margin-bottom:28px;line-height:1.5;max-width:380px;">Vérifie que tout le monde a bien les yeux fermés.</div>
-  <button onclick="mjEtapeSuivante()" style="padding:22px 44px;border-radius:14px;border:2px solid rgb(var(--lune-vif));background:rgba(var(--lune-vif),0.22);color:rgb(var(--blanc));font-size:22px;font-weight:bold;cursor:pointer;">
-    ▶ Passer à l'étape suivante
+  <div id="etapeSuivanteLibelle" style="font-size:28px;font-weight:bold;color:rgb(var(--lune-clair));margin-bottom:26px;">…</div>
+  <button onclick="mjEtapeSuivante()" aria-label="Passer à l'étape suivante" style="padding:22px 72px;border-radius:14px;border:2px solid rgb(var(--lune-vif));background:rgba(var(--lune-vif),0.22);color:rgb(var(--blanc));font-size:30px;font-weight:bold;cursor:pointer;">
+    ▶
   </button>
-  <div style="font-size:11px;color:rgb(var(--lune-base));margin-top:18px;">Filet de sécurité : la nuit continue d'elle-même après 3 min sans clic.</div>
 </div>
 
 <!-- Crépuscule : la nuit ne démarre qu'au clic du MJ (2026-10-26) -->
@@ -92,7 +82,6 @@
   <button onclick="mjLancerNuit()" style="padding:22px 44px;border-radius:14px;border:2px solid rgb(var(--braise-vif));background:rgba(var(--braise-vif),0.22);color:rgb(var(--blanc));font-size:22px;font-weight:bold;cursor:pointer;">
     🌙 Lancer la nuit
   </button>
-  <div style="font-size:11px;color:rgb(var(--braise-base));margin-top:18px;">Filet de sécurité : la nuit démarre d'elle-même après 3 min sans clic.</div>
 </div>
 
 <!-- Carte récap MJ : ce qui s'est passé pendant le jour et la nuit -->
@@ -118,6 +107,15 @@
   <button id="mjVoteDeathContinuer" onclick="closeMjVoteDeathCard()" style="margin-top:4px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--or-vif),0.45);background:rgba(var(--or-vif),0.1);color:rgb(var(--or-vif));font-size:14px;cursor:pointer;">
     Continuer
   </button>
+</div>
+
+<!-- La Main Levée (évènement du Conseil) : après avoir compté les mains, le MJ touche le condamné -->
+<div id="mainLeveeCard" class="plein-ecran" style="display:none;z-index:9996;overflow-y:auto;background:radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--n0)) 100%);">
+  <div style="font-size:56px;margin-bottom:10px;">🙋</div>
+  <div class="titre" style="font-size:24px;font-weight:bold;color:rgb(var(--or-clair));margin-bottom:6px;">Qui le village élimine-t-il ?</div>
+  <div id="mainLeveeCorbeau" style="font-size:15px;color:rgb(var(--or-vif));margin-bottom:14px;min-height:18px;"></div>
+  <div id="mainLeveeJoueurs" style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:420px;margin-bottom:16px;"></div>
+  <button onclick="fermerMainLevee()" style="padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--or-vif),0.45);background:rgba(var(--or-vif),0.1);color:rgb(var(--or-vif));font-size:14px;cursor:pointer;">Annuler</button>
 </div>
 
 <!-- Bandeau de reprise après crash : visible uniquement si un snapshot est en attente -->
@@ -179,27 +177,10 @@
   <div id="nightPhaseSteps"></div>
 </div>
 
-<!-- REJOUER -->
+<!-- Après une partie : le classement ; on relance depuis « Démarrage », juste en dessous -->
 <div id="replayPanel">
   <div class="section-title">🏆 Classement de la soirée</div>
-  <div id="mjClassement" style="font-size:13px;margin-bottom:12px;"></div>
-  <div class="section-title">🔄 Relancer (mêmes joueurs)</div>
-  <div class="config-row">
-    <div class="config-item">💘 <input id="rp_cupidon" type="number" value="1" min="0"></div>
-    <div class="config-item">🔮 <input id="rp_voyante" type="number" value="1" min="0"></div>
-    <div class="config-item">🧪 <input id="rp_sorciere" type="number" value="1" min="0"></div>
-    <div class="config-item">🔫 <input id="rp_chasseur" type="number" value="1" min="0"></div>
-    <div class="config-item">🐺 <input id="rp_loup" type="number" value="2" min="1"></div>
-    <div class="config-item">👧 <input id="rp_petiteFille" type="number" value="0" min="0"></div>
-    <div class="config-item">🤡 <input id="rp_idiot" type="number" value="0" min="0"></div>
-    <div class="config-item">👼 <input id="rp_ange" type="number" value="0" min="0"></div>
-    <div class="config-item">🪶 <input id="rp_corbeau" type="number" value="0" min="0"></div>
-    <div class="config-item">🛡️ <input id="rp_salvateur" type="number" value="0" min="0"></div>
-    <div class="config-item">👯‍♀️ <input id="rp_sisters" type="number" value="0" min="0" max="2" step="2" title="0 ou 2 sœurs"></div>
-    <div class="config-item">🪦 <input id="rp_conseil" type="checkbox" checked> Conseil</div>
-  </div>
-  <div class="mj-absents"></div>
-  <button class="btn primary" onclick="replayGame()" style="width:100%;">🚀 Relancer la partie</button>
+  <div id="mjClassement" style="font-size:13px;"></div>
 </div>
 
 <!-- ① DÉMARRAGE — visible en lobby uniquement (cockpit contextuel) -->
@@ -222,7 +203,7 @@
 
   <!-- Classement de la soirée : cumulé sur les parties ; remis à zéro au début d'une prestation -->
   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-size:12px;color:rgb(var(--n6));">
-    <span id="mjSoireeInfo">🏆 Classement de la soirée : aucune partie</span>
+    <span id="mjSoireeInfo">🏆 Aucune partie</span>
     <button class="btn" onclick="nouvelleSoiree()" style="padding:5px 10px;font-size:12px;">🔄 Nouvelle soirée</button>
   </div>
 
@@ -230,11 +211,11 @@
   <div style="margin-top:6px;padding:10px 12px;background:rgb(var(--vert-fond));border:1px solid rgb(var(--vert-sombre));border-radius:8px;">
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgb(var(--vert-vif));cursor:pointer;">
       <input id="autoMode" type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:rgb(var(--vert-base));">
-      <strong>🤖 Mode autonome</strong> <span style="color:rgb(var(--n5));font-size:11px;">(plus besoin de cliquer après le start)</span>
+      <strong>🤖 Mode autonome</strong>
     </label>
     <div id="autoModeOptions" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgb(var(--vert-sombre));">
       <label style="font-size:12px;color:rgb(var(--n7));display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span>🗳️ Mode du vote du jour (fixe pour toute la partie) :</span>
+        <span>🗳️ Vote du jour</span>
         <select id="autoVoteMode" style="background:rgb(var(--n0));border:1px solid rgb(var(--vert-sombre));color:rgb(var(--vert-vif));padding:4px 8px;border-radius:5px;font-size:12px;">
           <option value="1">⏱️ Libre (60s)</option>
           <option value="2">🔒 Verrouillé (60s)</option>
@@ -242,11 +223,6 @@
           <option value="5">🖤 Anonyme (60s)</option>
         </select>
       </label>
-      <div style="margin-top:6px;font-size:11px;color:rgb(var(--n5));line-height:1.5;">
-        ✅ Vote du maire auto-validé quand tous votent (ou 90s max)<br>
-        ✅ Vote des loups auto-validé si <strong>100% consensus</strong> sur la même cible (3s de grâce)<br>
-        ✅ Vote du jour démarre automatiquement à chaque jour
-      </div>
     </div>
   </div>
 
@@ -254,12 +230,8 @@
   <div style="margin-top:6px;padding:10px 12px;background:rgb(var(--or-fond));border:1px solid rgb(var(--or-sombre));border-radius:8px;">
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:rgb(var(--or-vif));cursor:pointer;">
       <input id="mjPilotedDay" type="checkbox" checked style="width:16px;height:16px;cursor:pointer;accent-color:rgb(var(--or-base));">
-      <strong>🎭 Pilotage MJ du jour</strong> <span style="color:rgb(var(--n5));font-size:11px;">(épuration, moins d'écran joueur)</span>
+      <strong>🎭 Pilotage MJ du jour</strong>
     </label>
-    <div style="margin-top:6px;font-size:11px;color:rgb(var(--or-base));line-height:1.5;">
-      Le vote ne démarre pas automatiquement — c'est toi qui le lances. Les joueurs voient seulement une carte de jour puis un écran de débat épuré (pas d'interface de vote tant que tu n'as pas cliqué « Lancer le vote »).<br>
-      <span style="color:rgb(var(--braise-base));">Décoche pour retrouver le comportement classique (vote lancé automatiquement 2 s après l'aube, durée 60 s).</span>
-    </div>
   </div>
 
   <div class="mj-absents"></div>
@@ -271,10 +243,6 @@
   <!-- Mode entraînement : bots pour tester seul -->
   <div style="margin-top:12px;padding-top:12px;border-top:1px solid rgb(var(--n2));">
     <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:rgb(var(--lune-base));margin-bottom:6px;">🤖 Mode entraînement</div>
-    <div style="font-size:11px;color:rgb(var(--n5));margin-bottom:8px;line-height:1.5;">
-      Ajoute des bots pour tester seul. Ils votent automatiquement avec un délai aléatoire (2–8s).
-      <br><span style="color:rgb(var(--n4));">⚠️ Ajout possible uniquement avant le lancement de la partie.</span>
-    </div>
     <div style="display:flex;align-items:center;gap:8px;">
       <button class="btn" onclick="removeBot()" style="padding:6px 14px;background:rgb(var(--sang-fond));border-color:rgb(var(--sang-base));color:rgb(var(--sang-vif));">− Bot</button>
       <span id="botCount" style="font-size:13px;color:rgb(var(--n7));min-width:80px;text-align:center;">0 bot</span>
@@ -316,23 +284,18 @@
 <div class="section" id="mjSectionMayor">
   <div class="section-title">Vote du Maire</div>
   <div id="mayorVotes" style="margin-bottom:8px;min-height:20px;"><span style="color:rgb(var(--n4));font-size:12px;">—</span></div>
-  <button class="btn yellow" onclick="lockMayor()">✅ Valider le Maire</button>
 </div>
 
 <!-- ⑤ LE JOUR — visible pendant la phase day uniquement -->
 <div class="section" id="mjSectionDay">
-  <div class="section-title">Le Jour — Débat &amp; Vote</div>
-  <!-- Indicateur du jour : débat ou vote -->
-  <div id="dayStateBanner" style="display:none;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:13px;line-height:1.5;text-align:center;"></div>
-  <div id="voteModeLabel" style="font-size:12px;color:rgb(var(--n6));">Mode libre 60 s. En pilotage MJ, tu lances le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).</div>
-  <div class="btn-group" style="margin-top:8px;">
-    <button class="btn primary" id="mjBtnLancerVote" onclick="launchVote()" style="flex:1;">🚀 Lancer le vote</button>
-    <button class="btn"         id="mjBtnTerminerVote" onclick="lockDay()">⏹️ Terminer</button>
-  </div>
+  <!-- Où en est le jour : un badge (les boutons sont en haut, mjActionSuivante) -->
+  <div id="dayStateBanner" style="display:none;border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:15px;font-weight:bold;text-align:center;"></div>
+  <!-- Le mode du vote, s'il n'est pas le mode libre habituel -->
+  <div id="voteModeLabel" style="font-size:13px;color:rgb(var(--n6));text-align:center;"></div>
   <div id="timerDisplay">--</div>
   <div id="mjTimerBar"><div id="mjTimerBarFill" style="width:100%"></div></div>
-  <div style="margin-top:10px;"><div class="section-title" style="margin-bottom:6px;">Votes (LIVE)</div>
-    <div id="dayVotes"><span style="color:rgb(var(--n4));font-size:12px;">—</span></div>
+  <div style="margin-top:10px;"><div class="section-title" style="margin-bottom:6px;">Votes</div>
+    <div id="dayVotes"></div>
     <div id="dayCounts" style="margin-top:8px;"></div>
     <div id="missingVoters" style="margin-top:8px;font-size:12px;color:rgb(var(--n6));display:none;"></div>
   </div>
@@ -358,22 +321,16 @@
     <summary style="font-size:11px;color:rgb(var(--n5));cursor:pointer;">🎧 Écouter tous les sons</summary>
     <div id="mjEcouteSons" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;"></div>
   </details>
-  <div style="font-size:10px;color:rgb(var(--n4));margin-top:8px;line-height:1.6;">
-    Fichiers dans <code>public/sounds/</code>
-  </div>
 </div>
 
 <!-- ⑦ INFO LIVE -->
 <div class="grid2">
-  <div class="section">
-    <div class="section-title">☠️ Morts</div>
-    <div id="dead"><span style="color:rgb(var(--n4));font-size:12px;">Aucun mort</span></div>
-    <div id="mjDeathLogPanel" style="display:none;margin-top:8px;">
-      <div class="section-title" style="margin-top:8px;">Chronique</div>
-      <div id="mjDeathLogList"></div>
-    </div>
+  <div class="section" id="mjDeathLogPanel" style="display:none;">
+    <div class="section-title">☠️ Chronique</div>
+    <div id="mjDeathLogList"></div>
   </div>
-  <div class="section">
+  <!-- Au salon seulement : en partie, « Personnages » porte déjà les pastilles de connexion -->
+  <div class="section" id="mjSectionConnectes">
     <div class="section-title">👥 Joueurs connectés</div>
     <div id="players"><span style="color:rgb(var(--n4));font-size:12px;">En attente…</span></div>
   </div>
@@ -399,12 +356,10 @@
 
 <!-- QR code seul, en plein écran, le temps que tout le monde scanne -->
 <div id="qrFullscreen" class="plein-ecran" style="display:none;z-index:10000;background:radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--n0)) 100%);">
-  <div style="font-size:15px;color:rgb(var(--lune-vif));letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;">Rejoignez la partie</div>
   <div class="titre" style="font-size:26px;font-weight:bold;color:rgb(var(--lune-clair));margin-bottom:24px;">Scannez pour entrer dans le village</div>
   <div id="qrFullscreenCode" style="background:rgb(var(--blanc));padding:20px;border-radius:16px;box-shadow:0 16px 50px rgba(var(--noir),0.6);"></div>
   <div id="qrFullscreenUrl" style="font-size:14px;color:rgb(var(--lune-base));margin-top:18px;letter-spacing:1px;"></div>
-  <div style="margin-top:30px;font-size:16px;color:rgb(var(--or-vif));display:flex;align-items:center;gap:8px;">🔇 Pensez à mettre vos téléphones en silencieux</div>
-  <div style="margin-top:6px;font-size:12px;color:rgb(var(--lune-base));max-width:340px;line-height:1.5;">Pour préserver l'ambiance, aucun son ni vibration ne doit trahir un rôle pendant la nuit.</div>
+  <div style="margin-top:30px;font-size:16px;color:rgb(var(--or-vif));display:flex;align-items:center;gap:8px;">🔇 Téléphones en silencieux</div>
   <button onclick="closeQRFullscreen()" style="margin-top:34px;padding:12px 34px;border-radius:8px;border:1px solid rgba(var(--lune-vif),0.4);background:rgba(var(--lune-vif),0.12);color:rgb(var(--lune-clair));font-size:14px;cursor:pointer;">✕ Fermer</button>
 </div>
 
@@ -595,6 +550,35 @@ socket.on("councilMusicOverride", which => {
     stopAmbiance();
     playAmbiance("night");
   }
+  // La Veillée : la musique du jour continue, plus douce
+  if (which === "feutree" && ambianceAudio && ambianceName === "day") adoucir(ambianceAudio);
+});
+const VOLUME_FEUTRE = 0.4;   // −8 dB
+function adoucir(a) {
+  if (a._feutre) return;
+  a._feutre = true;
+  a._facteurVolume *= VOLUME_FEUTRE;
+  a.volume = Math.min(1, masterVolume * a._facteurVolume);
+}
+// Un son qui s'éteint en douceur
+function fonduDeSortie(a, ms = 1500) {
+  const depart = a.volume, pas = 15;
+  let i = 0;
+  const id = setInterval(() => {
+    i++;
+    try { a.volume = Math.max(0, depart * (1 - i / pas)); } catch (_) {}
+    if (i >= pas) { clearInterval(id); try { a.pause(); } catch (_) {} }
+  }, ms / pas);
+}
+// Annonce d'un évènement du Conseil : un souffle de murmures de quelques secondes (les lumières
+// font leur éclair violet, flash.conseil)
+socket.on("annonceConseil", () => {
+  if (!audioEnabled) return;
+  try {
+    const a = sonAuNiveau("murmures", "fin");
+    a.play().catch(() => {});
+    setTimeout(() => fonduDeSortie(a), 5000);
+  } catch (_) {}
 });
 
 socket.on("councilStormStart", () => {
@@ -977,8 +961,8 @@ function toggleAudio(){
   if(!audioEnabled && ambianceAudio){ ambianceAudio.pause(); dotSet(false); lblSet("Muet"); }
   stopHeartbeat();
 }
-function dotSet(on,err){ ['dotAmbiance','dotAmbiance2'].forEach(id=>{ const d=document.getElementById(id); if(d) d.className="audio-dot"+(on?" on":err?" err":""); }); }
-function lblSet(t){ ['audioLabel','audioLabel2'].forEach(id=>{ const e=document.getElementById(id); if(e) e.innerText=t; }); }
+function dotSet(on,err){ ['dotAmbiance2'].forEach(id=>{ const d=document.getElementById(id); if(d) d.className="audio-dot"+(on?" on":err?" err":""); }); }
+function lblSet(t){ const e=document.getElementById("audioLabel2"); if(e) e.innerText=t; }
 function playAmbiance(k){
   if(!audioEnabled)return;
   if(ambianceName===k && ambianceAudio && !ambianceAudio.paused)return;
@@ -987,6 +971,7 @@ function playAmbiance(k){
     const labels={lobby:"⏳ Salon",night:"🌙 Nuit",day:"☀️ Jour",endgame_village:"🏆 Victoire du village",endgame_loups:"🐺 Victoire des Loups",endgame_amoureux:"💘 Victoire des Amoureux",endgame_ange:"👼 Victoire de l'Ange"};
     ambianceAudio=sonAuNiveau(k, k.startsWith("endgame") ? "fin" : "ambiance");
     ambianceAudio.loop=true; ambianceName=k;
+    if (k === "day" && _mjActiveCouncilEvent === "veillee") adoucir(ambianceAudio);
     ambianceAudio.play().then(()=>{dotSet(true);lblSet(labels[k]||("🔊 "+k));}).catch(()=>dotSet(false,true));
   }catch(e){}
 }
@@ -1129,6 +1114,7 @@ function updateMJLayout(phase) {
   };
   // Lobby uniquement : configuration de partie + QR code de connexion
   set("mjSectionStart", !inGame);
+  set("mjSectionConnectes", !inGame);
   set("mjSectionQR",    !inGame);
   // En partie uniquement : contrôles d'urgence, chat des morts, retour au salon
   set("mjSectionUrgency",  inGame);
@@ -1142,10 +1128,16 @@ updateMJLayout("lobby"); // état initial au chargement de la page
 
 socket.on("phase", p=>{
   currentPhaseForBar = p;
+  if (p !== "day") { _mjDebat = null; fermerMainLevee(); }
   document.getElementById("mjPhaseDisplay").innerText = phaseLabel(p);
   updateCheatSheet(p);
   // Entrée dans le jour : débat d'abord, pas de vote
-  if (p === "day") { mjVoteRunning = false; mjEtatVote = "debat"; majBoutonsJour(); }
+  if (p === "day") {
+    mjVoteRunning = false; mjEtatVote = "debat"; majBoutonsJour();
+    // Le minuteur du vote de la veille (« 0s ») ne reste pas affiché pendant le débat
+    document.getElementById("timerDisplay").style.display = "none";
+    document.getElementById("mjTimerBar").style.display = "none";
+  }
   refreshDayStateBanner();
   if(p!=="chasseur") document.getElementById("chasseurPanel").style.display="none";
   updateNightBar(p);
@@ -1224,11 +1216,6 @@ socket.on("gameEnd", msg=>{
   // Le camp gagnant vient du résumé de fin, que le serveur envoie juste avant
   playAmbiance({ wolves:"endgame_loups", lovers:"endgame_amoureux", ange:"endgame_ange" }[dernierVainqueur] || "endgame_village");
   document.getElementById("nightPhaseBar").classList.remove("active");
-  ROLES_COMPO.forEach(k=>{
-    const src=document.getElementById(k), dst=document.getElementById("rp_"+k);
-    if(src&&dst) dst.value=src.value;
-  });
-  document.getElementById("rp_conseil").checked = document.getElementById("conseil").checked;
   document.getElementById("replayPanel").style.display="block";
 });
 
@@ -1241,6 +1228,7 @@ socket.on("mjReconnected", state=>{
   majBoutonsJour(); refreshDayStateBanner();
   if (state.activeCouncilEvent) { _mjActiveCouncilEvent = state.activeCouncilEvent.id; afficherBandeauEvenement(state.activeCouncilEvent); }
   if (state.vote) afficherVoteMJ(state.vote);
+  _mjDebat = state.debat ? { ...state.debat, decalage: Date.now() - state.debat.serverNow } : null;
   if (state.pause) afficherPauseMJ(state.pause);
   afficherVictoireAttendue(state.victoireEnAttente);
   musiqueDeLaPhase(currentPhaseForBar);
@@ -1253,7 +1241,6 @@ socket.on("mjReconnected", state=>{
   updateMJLayout(state.phase||"lobby");
   if(state.deadPlayers){
     deadIds=state.deadPlayers.map(d=>d.id);
-    afficherMortsMJ(state.deadPlayers);
   }
   if(state.gameStats&&state.gameStats.deathLog) updateMJDeathLog(state.gameStats.deathLog);
   // Cible nuit : si les loups ont déjà choisi et qu'on est en phase seer/corbeau/witch
@@ -1291,7 +1278,7 @@ function afficherMaireMJ() {
 }
 socket.on("mayorVotesMJ",  votes=>{ renderVotes("mayorVotes", votes); renderMissingVoters(votes); });
 socket.on("wolfVotesMJ",   votes=>renderVotes("wolfVotes",  votes, ""));
-socket.on("votesDayMJ",    votes=>{ renderVotes("dayVotes", votes); renderDayCounts(computeCounts(votes)); renderMissingVoters(votes); });
+socket.on("votesDayMJ",    votes=>{ renderVotes("dayVotes", votes, ""); renderDayCounts(computeCounts(votes)); renderMissingVoters(votes); });
 socket.on("dayCountsPublic", counts=>renderDayCounts(counts));
 socket.on("corbeauVotesPublic", data=>{ corbeauTarget=data.targetId; renderDayCounts(lastDayCounts||{}); });
 
@@ -1332,7 +1319,7 @@ function renderDayCounts(counts){
   const div=document.getElementById("dayCounts"); if(!div) return;
   const allCounts=voixAvecCorbeau(counts, corbeauTarget, deadIds);
   const entries=Object.entries(allCounts).filter(([,v])=>v>0).sort((a,b)=>b[1]-a[1]);
-  if(!entries.length){ div.innerHTML="<span style='color:rgb(var(--n4));font-size:11px;'>—</span>"; return; }
+  if(!entries.length){ div.innerHTML=""; return; }
   const max=entries[0][1];
   div.innerHTML=entries.map(([id,n])=>{
     const p=players.find(x=>x.id===id);
@@ -1354,7 +1341,7 @@ function renderDayCounts(counts){
 
 socket.on("deadPlayers", dead=>{
   deadIds=dead; renderRoles();
-  afficherMortsMJ(dead.map(id => players.find(x => x.id === id)).filter(Boolean).map(p => ({ name: p.name, role: roles[p.id] })));
+  renderDayCounts(lastDayCounts||{});
 });
 
 socket.on("chasseurMustShoot", hunterId=>{
@@ -1426,6 +1413,7 @@ socket.on("stuckGame", data=>{
 });
 let dernierVainqueur = null;
 socket.on("gameSummary", data=>{ dernierVainqueur = data.winner; if(data.deathLog) updateMJDeathLog(data.deathLog); });
+socket.on("chroniqueMJ", updateMJDeathLog);
 
 socket.on("gameReset", data=>{
   isGameOver = false; // Remis à false EN PREMIER pour éviter toute race condition
@@ -1437,13 +1425,13 @@ socket.on("gameReset", data=>{
   document.getElementById("tiebreakMJBanner").style.display="none";
   document.getElementById("timerDisplay").style.display="none";
   document.getElementById("mjTimerBar").style.display="none";
-  afficherMortsMJ([]);
   document.getElementById("mjDeathLogPanel").style.display="none";
   document.getElementById("replayPanel").style.display="none";
   document.getElementById("alertBanner").style.display="none";
   document.getElementById("nightPhaseBar").classList.remove("active");
   updateMJLayout("lobby");
-  document.getElementById("voteModeLabel").innerText="Mode libre 60 s. En pilotage MJ, tu lances le vote manuellement avec le bouton ci-dessous. Le Conseil des Morts peut forcer un autre mode (Émeute · Jugement · Panique).";
+  document.getElementById("voteModeLabel").innerText="";
+  _mjDebat = null; fermerMainLevee();
   closeDayRecapCard();
   closeMjVoteDeathCard();
   _mjPendingCouncilEvent = null;
@@ -1466,11 +1454,11 @@ let countdownInterval=null, mjEndsAt=null, mjTotalMs=null;
 // Vote en cours (à son lancement, ou pour une tablette rechargée) : mode, durée, compte à rebours
 function afficherVoteMJ(data) {
   mjEndsAt=finDuVote(data); mjTotalMs=data.duration;
-  const labels={1:"⏱️ Mode Libre",2:"⚖️ Le Jugement — verrouillé",4:"⚡ La Panique — express",5:"🖤 L'Émeute — vote anonyme"};
-  let label = labels[data.mode] || "Vote en cours";
+  const labels={2:"⚖️ Le Jugement — verrouillé",4:"⚡ La Panique — express",5:"🖤 Vote anonyme"};
+  let label = labels[data.mode] || "";
   if (_mjActiveCouncilEvent === "voteMute") label = "🤐 Le Vote Muet — silence total";
   // La durée est celle du serveur (le Vote Muet, par exemple, la rallonge)
-  document.getElementById("voteModeLabel").innerText = `${label} (${Math.round(data.duration / 1000)} s)`;
+  document.getElementById("voteModeLabel").innerText = label ? `${label} (${Math.round(data.duration / 1000)} s)` : "";
   document.getElementById("timerDisplay").style.display="block";
   document.getElementById("mjTimerBar").style.display="block";
   startCountdown();
@@ -1482,7 +1470,7 @@ socket.on("voteTimerEnd",()=>{
   if (currentPhaseForBar === "day") mjEtatVote = "resultat";
   majBoutonsJour();
   stopCountdown();
-  document.getElementById("voteModeLabel").innerText="✅ Vote résolu";
+  document.getElementById("voteModeLabel").innerText="";
   document.getElementById("timerDisplay").innerText="0s";
   document.getElementById("timerDisplay").classList.remove("urgent");
   mjVoteRunning = false; refreshDayStateBanner();
@@ -1512,19 +1500,19 @@ function showAlert(msg, type="info"){
 }
 
 // ===== ACTIONS =====
-// Les rôles de la préparation, dans l'ordre des cases (« Lancer » : id ; « Relancer » : rp_id)
+// Les rôles de la préparation, dans l'ordre des cases
 const ROLES_COMPO = ["cupidon","voyante","sorciere","chasseur","loup","petiteFille","idiot","ange","corbeau","salvateur","sisters"];
-function lireComposition(prefixe){
+function lireComposition(){
   return {
-    ...Object.fromEntries(ROLES_COMPO.map(k => [k, +v(prefixe + k) || 0])),
-    conseil: !!document.getElementById(prefixe + "conseil")?.checked,
+    ...Object.fromEntries(ROLES_COMPO.map(k => [k, +v(k) || 0])),
+    conseil: !!document.getElementById("conseil")?.checked,
     // Mode autonome et mode du jour : les mêmes cases pour une partie et la suivante
     autoMode: document.getElementById("autoMode")?.checked||false,
     autoVoteMode: +(document.getElementById("autoVoteMode")?.value||1),
     mjPilotedDay: document.getElementById("mjPilotedDay")?.checked||false
   };
 }
-function startGame(){ socket.emit("assignRoles", lireComposition("")); }
+function startGame(){ socket.emit("assignRoles", lireComposition()); }
 
 // Affiche/masque les options du mode autonome
 document.addEventListener("DOMContentLoaded", () => {
@@ -1537,11 +1525,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 function v(id){return document.getElementById(id)?.value||0;}
-// Le décompte des Sœurs démarre seul à leur réveil : le MJ en est simplement informé.
-socket.on("sistersTimerStart", data => {
-  const s = Math.round(((data && data.durationMs) || 20000) / 1000);
-  showAlert(`👯‍♀️ Les Sœurs jumelles ont ${s} secondes pour se reconnaître.`, "info");
-});
 // Nuit rythmée par le MJ : libellé de l'étape qui démarrera au clic
 // Carte « Passer à l'étape suivante » : à l'annonce de l'étape comme après un rechargement
 function afficherEtapeSuivante(libelle) {
@@ -1585,12 +1568,69 @@ function actionSuivanteMJ() {
     : { libelle: "▶ Lancer le débat", action: mjLancerDebat };
   if (mjEtatVote === "debat") {
     const attente = Math.ceil((_mjLaunchVoteUnlocksAt - Date.now()) / 1000);
-    return attente > 0 ? { libelle: `🚀 Lancer le vote (dans ${attente} s)`, action: launchVote, inactif: true }
-                       : { libelle: "🚀 Lancer le vote", action: launchVote };
+    const a = actionDuDebat();
+    return attente > 0 ? { libelle: `${a.libelle} (dans ${attente} s)`, action: a.action, inactif: true } : a;
   }
   if (mjEtatVote === "vote") return { libelle: "⏹️ Terminer le vote", action: lockDay };
   return null;
 }
+// Le débat selon l'évènement du jour : vote à main levée, tour de parole, ou le vote habituel
+function actionDuDebat() {
+  if (_mjActiveCouncilEvent === "mainLevee") return { libelle: "🙋 Vote à main levée", action: ouvrirMainLevee };
+  if (_mjActiveCouncilEvent === "tourParole") return _mjDebat && _mjDebat.tour
+    ? { libelle: "⏭️ Parole suivante", action: () => socket.emit("mjParoleSuivante") }
+    : { libelle: "🔄 Commencer le tour de parole", action: () => socket.emit("mjCommencerTour") };
+  return { libelle: "🚀 Lancer le vote", action: launchVote };
+}
+// Sablier ou tour de parole en cours (serveur, debatMJ) : { sablierFin } ou { tour, rang, total, fin },
+// `restant` en pause ; `decalage` : l'écart entre l'horloge de la tablette et celle du PC
+let _mjDebat = null;
+socket.on("debatMJ", d => {
+  const avant = _mjDebat;
+  _mjDebat = d ? { ...d, decalage: Date.now() - (d.serverNow || Date.now()) } : null;
+  // Un son à chaque passage de parole
+  if (_mjDebat && _mjDebat.tour && _mjDebat.restant == null && (!avant || avant.tour !== _mjDebat.tour || avant.rang !== _mjDebat.rang)) bipDeParole();
+  majActionSuivante(); refreshDayStateBanner();
+});
+function texteDuDebat() {
+  const d = _mjDebat;
+  if (!d) return "🗣️ Débat";
+  const restant = d.restant != null ? d.restant : (d.tour ? d.fin : d.sablierFin) + d.decalage - Date.now();
+  const s = Math.max(0, Math.ceil(restant / 1000)), pause = d.restant != null ? " ⏸️" : "";
+  if (d.tour) return `🔄 Tour ${d.tour}/2 · ${d.rang}/${d.total} · ${s} s${pause}`;
+  return `⏳ Débat · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}${pause}`;
+}
+// Le « ding » du tour de parole, fabriqué sur place (pas de fichier son)
+function bipDeParole() {
+  if (!audioEnabled || !_contexteAudio) return;
+  try {
+    const t = _contexteAudio.currentTime, o = _contexteAudio.createOscillator(), g = _contexteAudio.createGain();
+    o.type = "sine"; o.frequency.value = 880;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.001, 0.5 * masterVolume), t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    o.connect(g).connect(_contexteAudio.destination);
+    o.start(t); o.stop(t + 0.65);
+  } catch (_) {}
+}
+// La Main Levée : le MJ compte les mains (et les 2 voix du Corbeau), puis touche le condamné
+function ouvrirMainLevee() {
+  const zone = document.getElementById("mainLeveeJoueurs");
+  zone.innerHTML = "";
+  players.filter(p => !deadIds.includes(p.id)).forEach(p => {
+    const b = document.createElement("button");
+    b.className = "btn";
+    b.style.cssText = "padding:14px;font-size:17px;";
+    b.textContent = p.name;
+    b.onclick = () => { if (confirm(`Éliminer ${p.name} ?`)) { socket.emit("mjMainLevee", p.id); fermerMainLevee(); } };
+    zone.appendChild(b);
+  });
+  const corbeau = corbeauTarget && !deadIds.includes(corbeauTarget) && players.find(p => p.id === corbeauTarget);
+  document.getElementById("mainLeveeCorbeau").textContent = corbeau ? `🪶 +2 voix contre ${corbeau.name}` : "";
+  document.getElementById("mainLeveeCard").style.display = "flex";
+}
+function fermerMainLevee() { const c = document.getElementById("mainLeveeCard"); if (c) c.style.display = "none"; }
+
 // ===== VICTOIRE À LANCER =====
 // Victoire constatée (aube, vote, tir, Ange) : le gros bouton du bas de l'écran, par-dessus les
 // cartes, jusqu'au clic du MJ — il raconte d'abord (demande d'Alexandre, 2026-11-01)
@@ -1699,7 +1739,7 @@ function renderClassementMJ(classement) {
 socket.on("soireeMJ", d => {
   const info = document.getElementById("mjSoireeInfo");
   const n = (d && d.parties) || 0;
-  if (info) info.innerText = n ? `🏆 Classement de la soirée : ${n} partie${n > 1 ? "s" : ""} jouée${n > 1 ? "s" : ""}` : "🏆 Classement de la soirée : aucune partie";
+  if (info) info.innerText = n ? `🏆 ${n} partie${n > 1 ? "s" : ""} jouée${n > 1 ? "s" : ""}` : "🏆 Aucune partie";
   renderClassementMJ(d && d.classement);
 });
 
@@ -1733,11 +1773,6 @@ function launchVote() {
   playEffect("church_bell");
 }
 function mjSendDeadChat(){ const inp=document.getElementById("mjDeadChatText"); const t=inp.value.trim(); if(!t)return; socket.emit("deadChat",{text:t}); inp.value=""; }
-function replayGame(){
-  socket.emit("replayGame", lireComposition("rp_"));
-  document.getElementById("replayPanel").style.display="none";
-}
-
 // Conservé pour compatibilité (les boutons mode ont été retirés : seul le mode 1 est lançable manuellement,
 // les modes 2/4/5 sont déclenchés uniquement par un évènement du Conseil des Morts).
 
@@ -1749,35 +1784,26 @@ function phaseLabel(p){
          chasseur:r("Chasseur"),day:"☀️ Jour",mayorTransfer:r("Maire", "Transfert Maire")}[p]||p;
 }
 
-// ===== CHEAT SHEET MJ — aide-mémoire contextuel par phase =====
-const MJ_CHEATSHEET = {
-  crepuscule:   { title:"🌆 Crépuscule",           lines:["Les téléphones montrent encore le résultat", "Laisse le village réagir", "Puis « 🌙 Lancer la nuit » : « Le village s'endort »"] },
-  nightPause:   { title:"🌙 Entre deux rôles",     lines:["« … ferme les yeux »", "Vérifie que tout le monde a bien les yeux fermés", "Puis clique sur « Passer à l'étape suivante »"] },
-  mayorVote:    { title:"🏛️ Vote du Maire",     lines:["Demande au village d'élire son Maire", "Le Maire tranche en cas d'égalité", "Quand tout le monde a voté, clique sur « Valider le Maire »"] },
-  cupid:        { title:"💘 Cupidon",             lines:["« Cupidon, ouvre les yeux »", "Il choisit les 2 amoureux sur son téléphone", "« Cupidon, ferme les yeux »"] },
-  amoureux:     { title:"💞 Les Amoureux",         lines:["« Amoureux, ouvrez les yeux et regardez-vous »", "Chacun voit l'autre sur son téléphone — 15 s qui démarrent seules", "« Amoureux, fermez les yeux »"] },
-  sisters:      { title:"👯‍♀️ Sœurs jumelles",  lines:["Vérifie que tout le monde dort", "« Sœurs jumelles, ouvrez les yeux »", "Les 20 s démarrent toutes seules à leur réveil", "À la fin, la nuit marque une pause comme pour les autres rôles"] },
-  salvateur:    { title:"🛡️ Salvateur",            lines:["« Salvateur, ouvre les yeux »", "Il choisit sur son téléphone qui il protège (pas le même qu'hier)", "« Salvateur, ferme les yeux »"] },
-  wolves:       { title:"🐺 Loups-Garous",         lines:["« Loups-Garous, ouvrez les yeux »", "Ils désignent une proie en silence", "Quand ils sont d'accord, clique « Valider l'attaque »", "« Loups-Garous, fermez les yeux »"] },
-  seer:         { title:"🔮 Voyante",              lines:["« Voyante, ouvre les yeux »", "Elle choisit un joueur sur son téléphone, qui lui montre son rôle", "La nuit attend son « OK, j'ai vu »", "« Voyante, ferme les yeux »"] },
-  petiteFille:  { title:"👧 Petite Fille",         lines:["« Petite Fille, ouvre les yeux »", "Elle désigne 3 joueurs sur son téléphone (pas elle-même)", "Son écran lui dit s'il y a au moins un Loup parmi eux — la réponse s'affiche aussi chez toi", "La nuit attend son « OK, j'ai vu »", "« Petite Fille, ferme les yeux »"] },
-  corbeau:      { title:"🪶 Corbeau",              lines:["« Corbeau, ouvre les yeux »", "Il choisit un joueur sur son téléphone (ou passe) : 2 votes contre lui demain", "« Corbeau, ferme les yeux »"] },
-  witch:        { title:"🧪 Sorcière",             lines:["« Sorcière, ouvre les yeux. Voici la victime des Loups »", "Elle peut : sauver (potion vie), tuer (potion mort), ou rien", "« Sorcière, ferme les yeux »"] },
-  day:          { title:"☀️ Le jour — à toi de jouer", lines:["1. Annonce les morts de la nuit à voix haute (carte de l'aube = ton support)", "2. Sur la carte de l'aube : le tir du Chasseur, l'écharpe, l'évènement s'il y en a, puis « ▶ Lancer le débat » : « Le village se réveille… à vous de parler »", "3. Laisse les joueurs discuter — ils n'ont PAS leur écran, c'est voulu", "4. Quand le débat est mûr, clique « 🚀 Lancer le vote » en haut, puis « Terminer le vote »", "5. Le Maire tranche en cas d'égalité — puis « 🌙 Lancer la nuit » quand tu es prêt"] },
-  chasseur:     { title:"🔫 Chasseur",             lines:["Le Chasseur vient de mourir : raconte sa mort", "Puis clique « 🔫 Le Chasseur tire » en haut — il emporte qui il veut (60 s)"] },
-  mayorTransfer:{ title:"🏛️ Transfert d'écharpe", lines:["Le Maire mourant désigne son successeur (60 s)"] },
-  lobby:        { title:"⏳ Salon",                lines:["Configure les rôles puis clique « Lancer la partie »"] },
+// ===== AIDE-MÉMOIRE : les phrases à dire à voix haute, par phase =====
+const reveil = (qui, tu = true) => [`« ${qui}, ${tu ? "ouvre" : "ouvrez"} les yeux »`, `« ${qui}, ${tu ? "ferme" : "fermez"} les yeux »`];
+const MJ_PHRASES = {
+  mayorVote:   ["« Élisez votre Maire : il tranchera les égalités »"],
+  cupid:       reveil("Cupidon"),
+  amoureux:    ["« Amoureux, ouvrez les yeux et regardez-vous »", "« Amoureux, fermez les yeux »"],
+  sisters:     reveil("Sœurs jumelles", false),
+  salvateur:   reveil("Salvateur"),
+  wolves:      reveil("Loups-Garous", false),
+  seer:        reveil("Voyante"),
+  petiteFille: reveil("Petite Fille"),
+  corbeau:     reveil("Corbeau"),
+  witch:       ["« Sorcière, ouvre les yeux. Voici la victime des Loups »", "« Sorcière, ferme les yeux »"],
 };
 function updateCheatSheet(p) {
-  const sheet = MJ_CHEATSHEET[p];
-  const wrap  = document.getElementById("mjCheatSheet");
-  const title = document.getElementById("mjCheatTitle");
-  const lines = document.getElementById("mjCheatLines");
-  if (!wrap || !title || !lines) return;
-  if (!sheet) { wrap.style.display = "none"; return; }
-  title.innerText = "📜 " + sheet.title;
-  lines.innerHTML = sheet.lines.map(l => `<div>• ${l}</div>`).join("");
-  wrap.style.display = "block";
+  const wrap = document.getElementById("mjCheatSheet"), lines = document.getElementById("mjCheatLines");
+  if (!wrap || !lines) return;
+  const phrases = MJ_PHRASES[p];
+  wrap.style.display = phrases ? "block" : "none";
+  if (phrases) lines.innerHTML = phrases.map(l => `<div>${l}</div>`).join("");
 }
 
 // Indicateur du jour : DÉBAT (téléphones posés, le MJ raconte) ou VOTE (téléphones en main)
@@ -1788,28 +1814,11 @@ let mjVoteRunning = false;
 let mjEtatVote = "debat";
 function changerEtatVote(etat) { mjEtatVote = etat; majBoutonsJour(); refreshDayStateBanner(); }
 function majBoutonsJour() {
-  const lancer = document.getElementById("mjBtnLancerVote");
-  const terminer = document.getElementById("mjBtnTerminerVote");
   const passer = document.getElementById("mjBtnPasserVote");
-  if (!lancer || !terminer) return;
-  const attente = Math.ceil((_mjLaunchVoteUnlocksAt - Date.now()) / 1000);
-  if (mjEtatVote === "vote") {
-    lancer.disabled = true;  lancer.textContent = "🗳️ Vote en cours…";
-    terminer.disabled = false;
-  } else if (mjEtatVote === "resultat") {
-    lancer.disabled = true;  lancer.textContent = "⏳ Résultat en cours…";
-    terminer.disabled = true;
-  } else {
-    // Débat : « Terminer » ne sert à rien (il n'y a pas de vote à clore) ; « Lancer » attend
-    // que les joueurs aient fermé la carte de l'aube, ou la fin du réveil (« Lancer le débat »)
-    lancer.disabled = attente > 0 || _mjMatinEnCours;
-    lancer.textContent = attente > 0 ? `🚀 Lancer le vote (dans ${attente} s)` : "🚀 Lancer le vote";
-    terminer.disabled = true;
-  }
   if (passer) passer.disabled = (mjEtatVote === "resultat");
-  majActionSuivante();
+  majActionSuivante();   // « Lancer le vote (dans N s) » : le décompte du bouton du haut
 }
-setInterval(() => { if (currentPhaseForBar === "day" && mjEtatVote === "debat") majBoutonsJour(); }, 500);
+setInterval(() => { if (currentPhaseForBar === "day" && mjEtatVote === "debat") { majBoutonsJour(); refreshDayStateBanner(); } }, 500);
 socket.on("voteClosMJ", () => { mjVoteRunning = false; changerEtatVote("resultat"); });
 function refreshDayStateBanner() {
   const b = document.getElementById("dayStateBanner");
@@ -1820,22 +1829,22 @@ function refreshDayStateBanner() {
     b.style.background = "rgba(var(--lune-vif),0.1)";
     b.style.border     = "1px solid rgba(var(--lune-vif),0.4)";
     b.style.color      = "rgb(var(--lune-clair))";
-    b.innerHTML = "🌅 <strong>RÉVEIL</strong><br>Annonce les morts de la nuit.";
+    b.textContent = "🌅 Réveil";
   } else if (mjEtatVote === "resultat") {
     b.style.background = "rgba(var(--n7),0.1)";
     b.style.border     = "1px solid rgba(var(--n7),0.4)";
     b.style.color      = "rgb(var(--lune-clair))";
-    b.innerHTML = "⚖️ <strong>VOTE CLOS</strong><br>Le résultat s'affiche chez les joueurs. Ensuite : « 🌙 Lancer la nuit ».";
+    b.textContent = "⚖️ Vote clos";
   } else if (mjVoteRunning) {
     b.style.background = "rgba(var(--sang-vif),0.12)";
     b.style.border     = "1px solid rgba(var(--sang-vif),0.45)";
     b.style.color      = "rgb(var(--sang-clair))";
-    b.innerHTML = "🗳️ <strong>VOTE EN COURS</strong><br>Les joueurs votent sur leur téléphone. Laisse le temps filer.";
+    b.textContent = "🗳️ Vote";
   } else {
     b.style.background = "rgba(var(--or-vif),0.12)";
     b.style.border     = "1px solid rgba(var(--or-vif),0.45)";
     b.style.color      = "rgb(var(--or-vif))";
-    b.innerHTML = "🗣️ <strong>DÉBAT EN COURS</strong><br>Les joueurs discutent, écran posé. Anime, relance — puis clique « 🚀 Lancer le vote » quand c'est mûr.";
+    b.textContent = texteDuDebat();
   }
 }
 
@@ -1915,13 +1924,6 @@ function renderVotes(id,votes,vide="<span style='color:rgb(var(--n4));font-size:
     const a=players.find(p=>p.id===from), b=players.find(p=>p.id===to);
     return a&&b?`<div class="vote-entry">${a.name} → ${b.name}</div>`:"";
   }).join("") : vide;
-}
-
-// Liste « ☠️ Morts » ({ name, role }) : la même pendant la partie et après un rechargement
-function afficherMortsMJ(morts){
-  document.getElementById("dead").innerHTML = morts.length
-    ? morts.map(d => `<div class="dead-entry">☠️ ${d.name} ${emojiDuRole(d.role)}</div>`).join("")
-    : "<span style='color:rgb(var(--n4));font-size:12px;'>Aucun mort</span>";
 }
 
 function updateMJDeathLog(log){

@@ -51,43 +51,27 @@
 <div id="pauseOverlay" class="plein-ecran" style="display:none;z-index:99998;background:rgba(var(--noir),0.85);backdrop-filter:blur(4px);">
   <div style="font-size:80px;margin-bottom:20px;animation:pulse 1.5s infinite alternate;">⏸️</div>
   <div style="font-size:24px;color:rgb(var(--or-vif));margin-bottom:12px;font-weight:bold;">Partie en pause</div>
-  <div style="font-size:14px;color:rgba(var(--blanc),0.6);max-width:320px;line-height:1.6;">Le MJ a mis le jeu en pause.<br>Reprise dans quelques instants…</div>
 </div>
 
-<!-- Carte à retourner : « Découvre ton rôle » se retourne au toucher (flip 3D), puis
-     « Voir les détails » ouvre la carte de rôle complète. -->
-<div id="roleRevealCover" style="display:none;position:fixed;inset:0;z-index:10000;background:radial-gradient(ellipse at center,rgb(var(--lune-nuit)) 0%,rgb(var(--n0)) 100%);align-items:center;justify-content:center;flex-direction:column;padding:30px;">
-  <div style="font-size:13px;color:rgb(var(--voyance-vif));letter-spacing:2px;text-transform:uppercase;margin-bottom:20px;">La partie commence</div>
-  <div id="roleFlip" style="width:240px;height:336px;perspective:1200px;cursor:pointer;">
+<!-- Carte à retourner : un toucher la retourne (flip 3D). La face avant porte le rôle, sa règle en une
+     phrase et ce que le joueur sait déjà (compagnons, sœur) ; « J'ai lu » la referme. -->
+<div id="roleRevealCover" style="display:none;position:fixed;inset:0;z-index:10000;background:radial-gradient(ellipse at center,rgb(var(--lune-nuit)) 0%,rgb(var(--n0)) 100%);align-items:center;justify-content:center;flex-direction:column;padding:24px;">
+  <div id="roleFlip" style="width:min(290px,84vw);height:min(420px,72vh);perspective:1200px;cursor:pointer;">
     <div id="roleFlipInner" style="position:relative;width:100%;height:100%;transition:transform 0.85s cubic-bezier(.2,.8,.25,1);transform-style:preserve-3d;">
       <div id="roleFlipBack" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;border-radius:18px;background:linear-gradient(160deg,rgb(var(--voyance-sombre)) 0%,rgb(var(--voyance-fond)) 100%);border:2px solid rgb(var(--voyance-base));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;box-shadow:0 14px 44px rgba(var(--noir),0.65);">
         <div style="font-size:74px;animation:emojiHover 3s ease-in-out infinite;">🎴</div>
-        <div class="titre" style="font-size:19px;font-weight:bold;color:rgb(var(--voyance-clair));">Découvre ton rôle</div>
-        <div style="font-size:12px;color:rgb(var(--voyance-vif));">👆 Touche la carte</div>
+        <div class="titre" style="font-size:19px;font-weight:bold;color:rgb(var(--voyance-clair));">👆 Touche la carte</div>
       </div>
-      <div id="roleFlipFront" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);border-radius:18px;background:radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--lune-nuit)) 100%);border:2px solid rgba(var(--blanc),0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;box-shadow:0 14px 44px rgba(var(--noir),0.65);">
-        <div style="font-size:11px;color:rgba(var(--blanc),0.5);letter-spacing:2px;text-transform:uppercase;">Ton rôle</div>
+      <div id="roleFlipFront" style="position:absolute;inset:0;backface-visibility:hidden;-webkit-backface-visibility:hidden;transform:rotateY(180deg);border-radius:18px;background:radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--lune-nuit)) 100%);border:2px solid rgba(var(--blanc),0.18);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:22px;box-shadow:0 14px 44px rgba(var(--noir),0.65);">
         <div id="rfRoleEmoji" style="font-size:76px;">🎭</div>
-        <div id="rfRoleName" style="font-size:23px;font-weight:bold;text-align:center;"></div>
+        <div id="rfRoleName" style="font-size:25px;font-weight:bold;text-align:center;"></div>
+        <div id="rfRegle" style="font-size:15px;color:rgba(var(--blanc),0.88);text-align:center;line-height:1.5;"></div>
         <div id="rfSecrets" style="display:none;font-size:14px;color:rgb(var(--or-clair));text-align:center;line-height:1.5;"></div>
       </div>
     </div>
   </div>
-  <button id="roleFlipContinue" onclick="closeRoleReveal()" style="display:none;margin-top:28px;padding:12px 34px;border-radius:8px;border:1px solid rgba(var(--voyance-clair),0.45);background:rgba(var(--voyance-clair),0.12);color:rgb(var(--voyance-clair));font-size:14px;cursor:pointer;">
-    Voir les détails →
-  </button>
-</div>
-
-<div id="roleCard">
-  <img id="rcPhoto" style="display:none;width:80px;height:80px;border-radius:50%;object-fit:cover;border:2px solid rgba(var(--blanc),0.4);margin-bottom:14px;animation:cardPop 0.5s ease 0.1s both;">
-  <div class="rc-emoji" id="rcEmoji"></div>
-  <div class="rc-title" id="rcTitle">Ton rôle</div>
-  <div class="rc-role"  id="rcRole"></div>
-  <div class="rc-text"  id="rcText"></div>
-  <div class="rc-mission" id="rcMission"></div>
-  <div class="rc-win"     id="rcWin"></div>
-  <button onclick="closeRoleCard()" style="margin-top:22px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--blanc),0.3);background:rgba(var(--blanc),0.1);color:rgb(var(--blanc));font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.7s both;">
-    ✅ J'ai lu mon rôle
+  <button id="roleFlipContinue" onclick="closeRoleReveal()" style="display:none;margin-top:24px;padding:12px 34px;border-radius:8px;border:1px solid rgba(var(--voyance-clair),0.45);background:rgba(var(--voyance-clair),0.12);color:rgb(var(--voyance-clair));font-size:15px;cursor:pointer;">
+    ✅ J'ai lu
   </button>
 </div>
 
@@ -135,16 +119,12 @@
 </div>
 
 <!-- Carte plein écran : évènement actif du Conseil des Morts. Les joueurs n'en voient que
-     l'icône et le titre ; le MJ explique la règle à voix haute (récit masqué). -->
-<div id="councilEventCard" class="plein-ecran" style="display:none;z-index:9998;background:radial-gradient(ellipse at center,rgb(var(--ame-fond)) 0%,rgb(var(--ame-nuit)) 100%);">
+     l'icône et le titre ; le MJ explique la règle à voix haute (récit masqué). « Lancer le débat »
+     la referme ; un toucher aussi, pour un téléphone rechargé en plein vote. -->
+<div id="councilEventCard" class="plein-ecran" onclick="closeCouncilEventCard()" style="display:none;z-index:9998;cursor:pointer;background:radial-gradient(ellipse at center,rgb(var(--ame-fond)) 0%,rgb(var(--ame-nuit)) 100%);">
   <div style="font-size:72px;margin-bottom:14px;">🪦</div>
-  <div style="font-size:14px;color:rgb(var(--ame-vif));letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
-  <div id="councilEventTitle" style="font-size:30px;font-weight:bold;color:rgb(var(--ame-clair));margin-bottom:18px;animation:cardSlide 0.5s ease 0.3s both;"></div>
+  <div id="councilEventTitle" style="font-size:30px;font-weight:bold;color:rgb(var(--ame-clair));animation:cardSlide 0.5s ease 0.3s both;"></div>
   <div id="councilEventNarrative" style="display:none;"></div>
-  <div style="max-width:340px;color:rgba(var(--ame-clair),0.65);line-height:1.6;font-size:13px;font-style:italic;animation:cardSlide 0.5s ease 0.5s both;margin-bottom:16px;">Le Maître du Jeu t'en expliquera la règle.</div>
-  <button onclick="closeCouncilEventCard()" style="margin-top:12px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--ame-clair),0.4);background:rgba(var(--ame-clair),0.1);color:rgb(var(--ame-clair));font-size:14px;cursor:pointer;animation:cardSlide 0.5s ease 0.7s both;">
-    🪦 J'ai compris
-  </button>
 </div>
 
 <div id="lobby" style="margin:20px auto;">
@@ -158,10 +138,9 @@
       <img id="photoPreview" style="display:none;width:96px;height:96px;border-radius:50%;object-fit:cover;border:2px solid rgb(var(--lune-vif));">
     </div>
     <label for="photoInput" style="display:inline-block;padding:8px 16px;background:rgb(var(--lune-fond));border:1px solid rgb(var(--lune-base));border-radius:6px;color:rgb(var(--lune-vif));font-size:13px;cursor:pointer;">
-      📸 <span id="photoBtnLabel">Ajouter ma photo (optionnel)</span>
+      📸 <span id="photoBtnLabel">Ajouter ma photo</span>
     </label>
     <input id="photoInput" type="file" accept="image/*" capture="user" style="display:none;" onchange="handlePhotoSelected(event)">
-    <div style="font-size:11px;color:rgb(var(--n5));margin-top:6px;">Apparaîtra sur ta carte de rôle et à ta mort.</div>
   </div>
 
   <div style="margin-top:12px;">
@@ -199,13 +178,8 @@
 
 <!-- ===== CONSEIL DES MORTS — panneau de vote (visible uniquement par les morts) ===== -->
 <div id="councilPanel" class="panneau" style="display:none;background:rgb(var(--ame-fond));border:2px solid rgb(var(--ame-base));">
-  <h3 style="color:rgb(var(--ame-vif));margin:0 0 8px;font-size:14px;text-align:center;">🪦 Conseil des Morts</h3>
-  <p style="font-size:12px;color:rgb(var(--n6));margin-bottom:12px;text-align:center;line-height:1.5;">
-    Le village ne compte plus que quelques vivants…<br>
-    Choisis un évènement à infliger demain. <em style="color:rgb(var(--ame-base));">Tu ne sais pas ce qu'il fait — laisse-toi guider par ton instinct.</em>
-  </p>
+  <h3 style="color:rgb(var(--ame-vif));margin:0 0 12px;font-size:14px;text-align:center;">🪦 Choisis l'évènement de demain</h3>
   <div id="councilOptions" style="display:flex;flex-direction:column;gap:8px;"></div>
-  <div id="councilVoteStatus" style="margin-top:10px;font-size:12px;color:rgb(var(--ame-base));text-align:center;"></div>
 </div>
 
 <div id="deadChatPanel" class="panneau">
@@ -229,18 +203,17 @@
   <div id="silentDayChatDeadHint" style="display:none;font-size:11px;color:rgb(var(--n6));text-align:center;margin-top:6px;font-style:italic;">⚰️ Tu es mort — tu peux lire mais pas écrire.</div>
 </div>
 
-<div id="votesPanel" class="panneau"><h3 id="votesPanelTitle">Votes</h3><div id="votesContent"></div></div>
-
 <div id="voteTimerBox" class="panneau">
-  <div class="timer-label">Temps restant</div>
-  <div id="timerVal">--</div>
-  <div id="timerBar"><div id="timerBarFill" style="width:100%"></div></div>
+  <div class="timer-ligne">
+    <div id="timerVal">--</div>
+    <div id="timerBar"><div id="timerBarFill" style="width:100%"></div></div>
+  </div>
   <div class="timer-mode" id="timerMode"></div>
 </div>
 <div id="voteWaitBox" class="panneau">🗳️ Tu peux déjà voter — le MJ choisira le mode et lancera le minuteur.</div>
 
 <div id="seerPanel" class="panneau" style="display:none;background:rgb(var(--voyance-fond));border:2px solid rgb(var(--voyance-base));">
-  <p style="font-size:12px;color:rgb(var(--voyance-vif));margin-bottom:10px;">Choisis un joueur : son vrai rôle te sera révélé.</p>
+  <h3 style="color:rgb(var(--voyance-vif));margin:0 0 10px;font-size:14px;">🔮 Qui veux-tu découvrir ?</h3>
   <div id="seerTargets"></div>
 </div>
 
@@ -254,16 +227,14 @@
 </div>
 
 <div id="corbeauPanel" class="panneau" style="display:none;background:rgb(var(--n0));border:2px solid rgb(var(--n5));">
-  <h3 style="color:rgb(var(--n7));margin:0 0 8px;font-size:14px;">🪶 Le Corbeau désigne sa cible</h3>
-  <p style="font-size:12px;color:rgb(var(--n5));margin-bottom:10px;">Choisis un joueur qui recevra 2 votes supplémentaires demain, ou passe ton tour.</p>
+  <h3 style="color:rgb(var(--n7));margin:0 0 10px;font-size:14px;">🪶 Qui reçoit 2 votes demain ?</h3>
   <div id="corbeauTargets"></div>
   <button onclick="corbeauSkip()" style="margin-top:8px;width:100%;padding:9px;background:rgb(var(--n1));border:1px solid rgb(var(--n4));border-radius:6px;color:rgb(var(--n5));font-size:13px;cursor:pointer;">⏭️ Passer mon tour</button>
 </div>
 
 <!-- Petite Fille : désigne 3 joueurs, apprend s'il y a au moins un loup parmi eux -->
 <div id="petiteFillePanel" class="panneau" style="display:none;background:rgb(var(--voyance-fond));border:2px solid rgb(var(--voyance-vif));">
-  <h3 style="color:rgb(var(--voyance-vif));margin:0 0 8px;font-size:14px;">👧 La Petite Fille enquête</h3>
-  <p style="font-size:12px;color:rgb(var(--voyance-vif));margin-bottom:10px;">Désigne 3 joueurs. Tu sauras s'il y a au moins un Loup parmi eux — mais pas lequel.</p>
+  <h3 style="color:rgb(var(--voyance-vif));margin:0 0 10px;font-size:14px;">👧 Désigne 3 joueurs</h3>
   <div id="petiteFilleBtns" style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;"></div>
   <button id="petiteFilleConfirmBtn" onclick="confirmPetiteFille()" disabled
     style="width:100%;margin-top:12px;padding:12px;background:rgb(var(--voyance-fond));border:2px solid rgb(var(--voyance-vif));border-radius:8px;color:rgb(var(--voyance-vif));font-size:14px;cursor:pointer;opacity:0.4;">
@@ -272,9 +243,7 @@
 </div>
 
 <div id="salvateurPanel" class="panneau" style="display:none;background:rgb(var(--lune-fond));border:2px solid rgb(var(--lune-base));">
-  <h3 style="color:rgb(var(--lune-vif));margin:0 0 8px;font-size:14px;">🛡️ Le Salvateur protège un villageois</h3>
-  <p style="font-size:12px;color:rgb(var(--lune-vif));margin-bottom:6px;">Choisis la personne que tu protèges cette nuit. Si les Loups l'attaquent, elle survit.</p>
-  <p id="salvateurLastInfo" style="font-size:11px;color:rgb(var(--lune-vif));margin-bottom:10px;display:none;"></p>
+  <h3 style="color:rgb(var(--lune-vif));margin:0 0 10px;font-size:14px;">🛡️ Qui protèges-tu ?</h3>
   <div id="salvateurTargets"></div>
 </div>
 
@@ -286,14 +255,12 @@
   <div id="amoureuxTimer" style="font-size:48px;font-weight:bold;color:rgb(var(--amour-clair));font-variant-numeric:tabular-nums;">00:15</div>
 </div>
 
-<!-- ===== SŒURS JUMELLES (signal seul + décompte de 20 s) ===== -->
+<!-- ===== SŒURS JUMELLES : comme les Amoureux, la photo et le prénom de l'autre + décompte de 20 s ===== -->
 <div id="sistersPanel" class="plein-ecran" style="display:none;z-index:9700;background:radial-gradient(ellipse at center,rgb(var(--amour-sombre)) 0%,rgb(var(--amour-fond)) 100%);">
-  <div style="font-size:11px;color:rgb(var(--amour-vif));letter-spacing:1.5px;text-transform:uppercase;margin-bottom:18px;">La nuit</div>
-  <div style="font-size:72px;margin-bottom:18px;line-height:1;">👯‍♀️</div>
-  <div style="font-size:22px;font-weight:bold;color:rgb(var(--amour-clair));margin-bottom:10px;">Réveille-toi</div>
-  <div style="font-size:14px;color:rgb(var(--amour-clair));margin-bottom:32px;line-height:1.5;max-width:320px;">Cherche ta sœur du regard.<br><span style="font-size:12px;color:rgb(var(--amour-vif));">En silence. Fais-lui signe.</span></div>
-  <div id="sistersTimer" style="font-size:54px;font-weight:bold;color:rgb(var(--amour-clair));font-variant-numeric:tabular-nums;letter-spacing:2px;">00:20</div>
-  <div id="sistersAliveCount" style="font-size:12px;color:rgb(var(--amour-vif));margin-top:12px;"></div>
+  <div style="font-size:64px;margin-bottom:14px;line-height:1;">👯‍♀️</div>
+  <img id="sistersPhoto" src="" alt="" style="display:none;width:120px;height:120px;border-radius:50%;object-fit:cover;border:3px solid rgb(var(--amour-vif));margin-bottom:12px;">
+  <div id="sistersNom" style="font-size:24px;font-weight:bold;color:rgb(var(--amour-clair));margin-bottom:22px;"></div>
+  <div id="sistersTimer" style="font-size:48px;font-weight:bold;color:rgb(var(--amour-clair));font-variant-numeric:tabular-nums;">00:20</div>
 </div>
 
 <div id="chasseurPanel"></div>
@@ -321,8 +288,10 @@
   <div id="players"></div>
 </div>
 
+<!-- Qui vote pour qui : sous la liste, pour que les boutons « Voter » ne bougent pas -->
+<div id="votesPanel" class="panneau"><div id="votesContent"></div></div>
+
 <div id="infoPanel" class="panneau">
-  <h3>Ton identité</h3>
   <!-- Bouton anti-triche jour : un toucher révèle, un autre cache (boutonPourVoir) -->
   <button id="infoRevealBtn" style="display:none;width:100%;margin-bottom:10px;padding:14px;background:rgb(var(--lune-nuit));border:1px solid rgb(var(--lune-base));border-radius:8px;color:rgb(var(--lune-vif));font-size:14px;cursor:pointer;">
     🎴 <strong>Voir mon rôle</strong>
@@ -524,90 +493,59 @@ const ROLE_DISPLAY = Object.fromEntries(Object.keys(ROLES).map(k => [k, emojiDuR
 
 const ROLE_EXPLAIN = {
   "Loup": {
-    desc:    "Chaque nuit, concerte-toi en silence avec tes complices pour désigner une victime. Le jour, bluffe, sème le doute, accuse les autres.",
-    mission: "Élimine suffisamment de villageois pour que la meute soit aussi nombreuse qu'eux.",
-    win:     "Tu gagnes avec les Loups-Garous.",
+    desc: "Chaque nuit, choisis une victime avec la meute. Le jour, fais-toi passer pour un villageois.",
     bg: "radial-gradient(ellipse at center,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 100%)", color: "rgb(var(--sang-vif))"
   },
   "Voyante": {
-    desc:    "Chaque nuit, désigne secrètement un joueur : son vrai rôle t'est révélé. Utilise cette connaissance pour guider le village… sans te démasquer.",
-    mission: "Identifie les loups et aide le village à les éliminer.",
-    win:     "Tu gagnes avec les Villageois.",
+    desc: "Chaque nuit, découvre le vrai rôle d'un joueur.",
     bg: "radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--voyance-nuit)) 100%)", color: "rgb(var(--voyance-vif))"
   },
   "Sorcière": {
-    desc:    "Tu possèdes deux potions uniques : une de VIE pour sauver la victime des loups cette nuit, une de MORT pour éliminer n'importe qui. Chacune ne peut être utilisée qu'une seule fois.",
-    mission: "Sers-toi de tes potions au bon moment pour renverser le cours du jeu.",
-    win:     "Tu gagnes avec les Villageois.",
+    desc: "Une potion pour sauver la victime des loups, une pour tuer qui tu veux. Chacune ne sert qu'une fois.",
     bg: "radial-gradient(ellipse at center,rgb(var(--vert-fond)) 0%,rgb(var(--vert-nuit)) 100%)", color: "rgb(var(--vert-vif))"
   },
   "Chasseur": {
-    desc:    "Tu n'as aucun pouvoir la nuit. Mais si tu meurs — que ce soit par les loups, la Sorcière ou le vote — tu peux emporter un joueur avec toi.",
-    mission: "Observe attentivement. Ta mort doit coûter cher à tes ennemis.",
-    win:     "Tu gagnes avec les Villageois.",
+    desc: "Si tu meurs, tu emportes un joueur avec toi.",
     bg: "radial-gradient(ellipse at center,rgb(var(--braise-fond)) 0%,rgb(var(--braise-nuit)) 100%)", color: "rgb(var(--braise-vif))"
   },
   "Cupidon": {
-    desc:    "Lors de la première nuit, tu lies deux joueurs par un amour irrésistible. S'ils survivent seuls jusqu'à la fin, ils gagnent ensemble. Mais si l'un meurt, l'autre mourant de chagrin le suivra immédiatement.",
-    mission: "Choisis tes amoureux avec sagesse — ce lien peut sauver ou perdre le village.",
-    win:     "Tu gagnes avec les Villageois (sauf si tu es un Amoureux survivant).",
+    desc: "La première nuit, unis deux joueurs : si l'un meurt, l'autre le suit. S'ils restent seuls tous les deux, ils gagnent.",
     bg: "radial-gradient(ellipse at center,rgb(var(--amour-fond)) 0%,rgb(var(--amour-nuit)) 100%)", color: "rgb(var(--amour-vif))"
   },
   "Villageois": {
-    desc:    "Tu n'as aucun pouvoir particulier. Ta force est collective : observe les comportements, détecte les incohérences, et vote avec conviction.",
-    mission: "Débusque les loups cachés dans le village avant qu'il ne soit trop tard.",
-    win:     "Tu gagnes avec les Villageois.",
+    desc: "Pas de pouvoir : observe, débats et vote pour démasquer les loups.",
     bg: "radial-gradient(ellipse at center,rgb(var(--n2)) 0%,rgb(var(--n0)) 100%)", color: "rgb(var(--n8))"
   },
-  "Maire": {
-    desc:    "Le village t'a élu. Ta voix est décisive : en cas d'égalité lors d'un vote, c'est toi qui tranches. Si tu meurs, tu choisis ton successeur.",
-    mission: "Guide le village avec sagesse. Ta décision peut tout changer.",
-    win:     "Tu gagnes avec les Villageois.",
-    bg: "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%)", color: "rgb(var(--or-vif))"
-  },
   "PetiteFille": {
-    desc:    "Chaque nuit, après la Voyante, tu désignes 3 joueurs (jamais toi-même). Tu apprends s'il y a au moins un Loup parmi eux, ou aucun — mais pas lequel. Pendant le tour des Loups, garde les yeux fermés comme tout le monde.",
-    mission: "Recoupe tes réponses nuit après nuit pour isoler les loups. Partage-les intelligemment pour aider le village.",
-    win:     "Tu gagnes avec les Villageois.",
+    desc: "Chaque nuit, désigne 3 joueurs : tu sauras s'il y a au moins un Loup parmi eux, mais pas lequel.",
     bg: "radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--voyance-nuit)) 100%)", color: "rgb(var(--voyance-vif))"
   },
   "Idiot": {
-    desc:    "Si le village vote pour t'éliminer, ton rôle est révélé à tous — mais tu restes en vie ! Tu perds cependant le droit de voter pour le reste de la partie. Ce pouvoir ne peut être utilisé qu'une seule fois.",
-    mission: "Survis en jouant la carte de l'innocent. Si tu es découvert, ton immunité te sauve une fois.",
-    win:     "Tu gagnes avec les Villageois.",
+    desc: "Si le village vote contre toi, tu survis une fois, mais tu ne votes plus.",
     bg: "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%)", color: "rgb(var(--or-vif))"
   },
   "Ange": {
-    desc:    "Tu n'as qu'un seul but : te faire éliminer par le village lors du tout premier vote, au lendemain de la première nuit. Si le village te désigne à ce moment-là, tu gagnes seul ! Sinon, tu deviens un simple villageois.",
-    mission: "Attire les soupçons dès le premier jour… sans que le village devine ton jeu.",
-    win:     "Tu gagnes seul si le village t'élimine au 1er vote, sinon avec les Villageois.",
+    desc: "Fais-toi éliminer au premier vote et tu gagnes seul. Sinon, tu deviens un simple villageois.",
     bg: "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--n0)) 100%)", color: "rgb(var(--or-clair))"
   },
   "Corbeau": {
-    desc:    "Chaque nuit après la Voyante, tu peux désigner un joueur qui commencera le vote du jour suivant avec 2 votes contre lui. Tu peux aussi te cibler toi-même ou passer ton tour.",
-    mission: "Dirige les soupçons du village vers les loups — ou sème la confusion pour mieux te protéger.",
-    win:     "Tu gagnes avec les Villageois.",
+    desc: "Chaque nuit, donne 2 votes contre un joueur pour le lendemain, ou passe ton tour.",
     bg: "radial-gradient(ellipse at center,rgb(var(--n0)) 0%,rgb(var(--n0)) 100%)", color: "rgb(var(--n7))"
   },
   "Salvateur": {
-    desc:    "Chaque nuit avant les Loups, tu désignes secrètement un joueur que tu protèges : si les Loups attaquent cette personne, elle survit. Tu peux te protéger toi-même, mais jamais la même personne deux nuits de suite.",
-    mission: "Devine qui les Loups voudront frapper et protège le bon villageois — ton choix peut sauver le village.",
-    win:     "Tu gagnes avec les Villageois.",
+    desc: "Chaque nuit, protège un joueur des loups, toi compris. Jamais le même deux nuits de suite.",
     bg: "radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--lune-nuit)) 100%)", color: "rgb(var(--lune-vif))"
   },
   "Sœurs": {
-    desc:    "Tu es une Sœur jumelle. Chaque nuit, tu te réveilles en silence avec ta sœur pendant 20 secondes. Tu ne peux pas parler — seulement la regarder et lui faire signe pour partager vos soupçons.",
-    mission: "Aide ta sœur à survivre et à démasquer les Loups, en gardant votre lien secret pour le village.",
-    win:     "Tu gagnes avec les Villageois.",
+    desc: "Chaque nuit, vous vous regardez 20 secondes en silence pour partager vos soupçons.",
     bg: "radial-gradient(ellipse at center,rgb(var(--amour-sombre)) 0%,rgb(var(--amour-fond)) 100%)", color: "rgb(var(--amour-vif))"
   }
 };
 
 const VOTE_MODE_CARDS = {
-  1:"⏱️ Mode Libre — tu peux changer ton vote",
   2:"⚖️ Le Jugement — premier vote définitif",
   4:"⚡ La Panique — vote vite !",
-  5:"🖤 L'Émeute — vote anonyme"
+  5:"🖤 Vote anonyme"
 };
 
 let _renderPending = false;
@@ -681,8 +619,7 @@ socket.on("connect_error", () => {
 
 socket.on("idiotRevealed", data => {
   idiotRevealed = true; idiotId = data.id;
-  carteAnnonce("🤡", data.name + " est… l'Idiot du village !",
-    "Le village a voté — mais l'Idiot du village ne peut pas être éliminé ainsi ! Il reste en vie… mais perd son droit de vote.",
+  carteAnnonce("🤡", data.name + " est l'Idiot du village", "Il survit, mais ne vote plus.",
     "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%)", [data.name]);
   fermerCarteAuRythme(fermerCarteMortSiOuverte, 6000, ["day", "crepuscule"]);
   scheduleRender();
@@ -801,8 +738,6 @@ socket.on("gameEnd", msg=>{
    "deadChatPanel","deadVisionPanel","playersSection",
    "dayDebateScreen","deadFullScreen","actionPendingBanner","roleRevealCover"
   ].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display="none"; });
-  // Carte de rôle encore ouverte (pas retournée, page rechargée) : elle masquait la victoire
-  const carteRole = document.getElementById("roleCard"); if (carteRole) carteRole.className = "";
   const lobby = document.getElementById("lobby"); if(lobby) lobby.style.display="none";
 
   document.getElementById("endScreen").className="visible";
@@ -847,10 +782,10 @@ function populateEndScreen(data, winner) {
     const isSurv = winner==="ange" ? r==="Ange" : data.survivors?.some(s=>s.name===p.name);
     let rowClass="end-role-row"; if(isWolf)rowClass+=" wolf-row"; else if(isSurv)rowClass+=" winner-row"; if(isDead)rowClass+=" dead-row";
     let badges=""; if(isDead)badges+="☠️"; if(isMayor)badges+="🏛️"; if(lovers.includes(p.id))badges+="❤️";
-    // Avatar : photo si dispo, sinon emoji du rôle
+    // Avatar : la photo, ou l'initiale (le rôle est écrit à droite)
     const avatar = p.photo
       ? `<img src="${p.photo}" ${attrZoom(p.name)} style="width:32px;height:32px;border-radius:50%;object-fit:cover;cursor:zoom-in;${isDead?'filter:grayscale(0.7);':''}">`
-      : `<span style="font-size:22px;width:32px;text-align:center;display:inline-block;">${emojiDuRole(r) || "❓"}</span>`;
+      : playerAvatar(p, 32);
     return `<div class="${rowClass}">${avatar}<span class="ern">${p.name}</span><span class="err">${rd[r]||r}</span><span class="erbadge">${badges}</span></div>`;
   }).join("");
 
@@ -1095,7 +1030,7 @@ function renderDeathPhotos(victims) {
 function showDeathCard(name, role, narrative) {
   // Carte de mort côté joueur : la photo, jamais le rôle (le MJ a l'info complète pour
   // raconter) ; role et narrative restent dans la signature pour les appelants
-  carteAnnonce("⚖️", "Le village a tranché", "Le village a désigné " + name + ".", "", [name]);
+  carteAnnonce("⚖️", "Le village a tranché", name, "", [name]);
   // La nuit pourra être signalée après cette carte (si la cascade du serveur — Chasseur,
   // transmission, amoureux — ne finit pas la partie)
   nightCardShownThisNight = false;
@@ -1325,7 +1260,7 @@ function rafraichirPanneauPetiteFille(){
 socket.on("players", p=>{ traduireIdsApresReconnexion(p); players=p; renvoyerMaPhoto(p); rafraichirPanneauPetiteFille(); renderInfoPanel(); scheduleRender(); });
 socket.on("mayorCountsPublic", c=>{ mayorCounts=c; renderVotesPanel(); scheduleRender(); });
 socket.on("mayorVoted", voterId=>{ mayorVotedSet.add(voterId); scheduleRender(); });
-socket.on("dayCountsPublic",   c=>{ dayCounts=c;   renderVotesPanel(); updateDeadVoteView(); });
+socket.on("dayCountsPublic",   c=>{ dayCounts=c;   renderVotesPanel(); majVoixSurLesLignes(); updateDeadVoteView(); });
 socket.on("votesDayPublic",    d=>{
   // Vibration discrète si quelqu'un vient de voter contre moi (jour uniquement)
   const previousVoters = new Set(Object.keys(votesDayDetail||{}).filter(v => votesDayDetail[v] === socket.id));
@@ -1336,7 +1271,7 @@ socket.on("votesDayPublic",    d=>{
   renderVotesPanel();
   updateDeadVoteView();  // morts : rafraîchit la vue du vote
 });
-socket.on("corbeauVotesPublic",d=>{ corbeauVotesTarget=d.targetId; renderVotesPanel(); updateDeadVoteView(); });
+socket.on("corbeauVotesPublic",d=>{ corbeauVotesTarget=d.targetId; renderVotesPanel(); majVoixSurLesLignes(); updateDeadVoteView(); });
 socket.on("wolfVotesUpdate",   v=>{
   wolfVotes=v;
   renderVotesPanel();
@@ -1361,7 +1296,7 @@ function isActiveDuringPhase(p, r) {
 // Le voile de nuit cède la place aux cartes : une carte est ouverte si elle a la classe
 // « show » ou data-open="1" (carte du maire)
 function isAnyNarrativeCardOpen() {
-  const ids = ['roleCard','dayDeathCard','councilEventCard','mayorCard','sistersPanel','amoureuxPanel'];
+  const ids = ['roleRevealCover','dayDeathCard','councilEventCard','mayorCard','sistersPanel','amoureuxPanel'];
   for (const id of ids) {
     const el = document.getElementById(id);
     if (!el) continue;
@@ -1478,7 +1413,7 @@ function updateDeadVoteView() {
   if (!show) { box.style.display = "none"; return; }
   box.style.display = "block";
   content.innerHTML = "";
-  // Mode 5 (Émeute) : vote anonyme — aucun détail public
+  // Mode 5 : vote anonyme — aucun détail public
   if (currentVoteMode === 5) {
     content.innerHTML = '<div style="text-align:center;color:rgb(var(--sang-vif));font-size:13px;font-style:italic;">🖤 Vote dans l\'ombre — les bulletins restent secrets.</div>';
     return;
@@ -1516,8 +1451,8 @@ function updateDeadVoteView() {
     });
     content.appendChild(list);
   }
-  // Badge corbeau
-  if (corbeauVotesTarget) {
+  // Badge corbeau (sa cible morte n'a plus ces voix)
+  if (corbeauVotesTarget && !deadPlayers.includes(corbeauVotesTarget)) {
     const t = players.find(x=>x.id===corbeauVotesTarget);
     if (t) {
       const badge = document.createElement("div");
@@ -1659,6 +1594,7 @@ socket.on("phase", p=>{
   // immédiatement (guard mayorCard) — c'est la callback de showMayorCard qui la rappellera
   // à la fermeture de la carte (~5 s après l'élection).
   if(NIGHT_PHASES_FOR_COVER.includes(p)) {
+    document.getElementById("status").innerText = "";   // « Vote terminé ! », etc. : périmés à la nuit
     entrerDansLaNuit();
   }
   if(p==="day"){
@@ -1709,50 +1645,19 @@ function afficherSecrets(el) {
   el.style.display = lignes.length ? "block" : "none";
 }
 
-function showRoleCard(r) {
-  const card = document.getElementById("roleCard");
-  const info  = ROLE_EXPLAIN[r] || {};
-  // Photo perso si on en a une
-  const me = players.find(p => p.id === socket.id);
-  const myPhoto = me?.photo || (lireIdentite("lgPhoto") || null);
-  const photoEl = document.getElementById("rcPhoto");
-  if (photoEl) {
-    if (myPhoto) { photoEl.src = myPhoto; photoEl.style.display = "block"; }
-    else         { photoEl.style.display = "none"; }
-  }
-  document.getElementById("rcEmoji").innerText   = emojiDuRole(r) || "🎭";
-  document.getElementById("rcTitle").innerText   = "Ton rôle :";
-  document.getElementById("rcRole").innerText    = nomDuRole(r);   // le pictogramme est déjà en grand au-dessus
-  document.getElementById("rcText").innerText    = info.desc    || "";
-  document.getElementById("rcMission").innerText = info.mission ? "🎯 " + info.mission : "";
-  document.getElementById("rcWin").innerText     = info.win     ? "🏆 " + info.win    : "";
-  card.style.background = info.bg || "radial-gradient(ellipse at center,rgb(var(--lune-fond)) 0%,rgb(var(--lune-nuit)) 100%)";
-  document.getElementById("rcRole").style.color  = info.color  || "rgb(var(--lune-clair))";
-  card.className = "show";
-}
-
-function closeRoleCard() {
-  const card = document.getElementById("roleCard");
-  card.classList.add("hiding");
-  // Une fois la carte refermée, on réaffiche ce qu'elle masquait (écran de débat du jour,
-  // voile de nuit) : sans ce rendu, l'écran de débat restait caché et laissait voir la liste.
-  setTimeout(() => { card.className=""; card.style.display=""; card.style.background=""; scheduleRender(); }, 600);
-  renderInfoPanel();
-}
-
-// Carte à retourner : « Découvre ton rôle » se retourne au toucher, puis « Voir les
-// détails » ouvre la carte de rôle complète
+// Carte à retourner : un toucher la retourne ; le rôle, sa règle et ce que le joueur sait déjà
 function showRoleReveal(r) {
   const cover = document.getElementById("roleRevealCover");
   const inner = document.getElementById("roleFlipInner");
   const flip  = document.getElementById("roleFlip");
   const cont  = document.getElementById("roleFlipContinue");
-  if (!cover || !inner || !flip || !cont) { showRoleCard(r); return; }  // fallback robuste
+  if (!cover || !inner || !flip || !cont) return;
   const info = ROLE_EXPLAIN[r] || {};
   document.getElementById("rfRoleEmoji").innerText = emojiDuRole(r) || "🎭";
   const nameEl = document.getElementById("rfRoleName");
   nameEl.innerText  = nomDuRole(r);
   nameEl.style.color = info.color || "rgb(var(--voyance-clair))";
+  document.getElementById("rfRegle").innerText = info.desc || "";
   afficherSecrets(document.getElementById("rfSecrets"));
   document.getElementById("roleFlipFront").style.background = info.bg || "radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--lune-nuit)) 100%)";
   // Reset : carte face cachée
@@ -1772,7 +1677,9 @@ function showRoleReveal(r) {
 function closeRoleReveal() {
   const cover = document.getElementById("roleRevealCover");
   if (cover) cover.style.display = "none";
-  showRoleCard(role);  // ouvre la carte de rôle détaillée
+  // Une fois la carte refermée, on réaffiche ce qu'elle masquait (écran de débat, voile de nuit)
+  renderInfoPanel();
+  scheduleRender();
 }
 
 socket.on("yourRole", data=>{
@@ -1804,13 +1711,6 @@ socket.on("salvateurTurn", data => {
   salvateurLastProtectedId = data?.lastProtectedId || null;
   const panel = document.getElementById("salvateurPanel");
   panel.style.display = "block";
-  const info = document.getElementById("salvateurLastInfo");
-  if (data && data.lastProtectedName) {
-    info.style.display = "block";
-    info.innerText = "⛔ Hier, tu as protégé " + data.lastProtectedName + " : choisis quelqu'un d'autre cette nuit.";
-  } else {
-    info.style.display = "none";
-  }
   renderSalvateurTargets();
 });
 
@@ -1874,14 +1774,17 @@ function closeSistersPanel() {
   if (_sistersCountdownInterval) { clearInterval(_sistersCountdownInterval); _sistersCountdownInterval = null; }
 }
 function _sistersFmt(s) { return "00:" + (s < 10 ? "0" + s : s); }
-socket.on("sistersTurn", data => {
+socket.on("sistersTurn", () => {
   if (role !== "Sœurs") return;
   const panel = document.getElementById("sistersPanel");
   if (!panel) return;
   panel.style.display = "flex";
-  // Nombre de sœurs vivantes
-  const aliveTxt = document.getElementById("sistersAliveCount");
-  if (aliveTxt) aliveTxt.innerText = (data && data.count ? data.count : 2) + " sœurs en vie";
+  // Sa sœur, connue depuis la distribution des rôles (☠️ si elle est morte)
+  const autre = players.find(p => soeurs.includes(p.id) && p.id !== socket.id);
+  const img = document.getElementById("sistersPhoto");
+  if (autre && autre.photo) { img.src = autre.photo; img.style.display = "block"; img.onclick = () => ouvrirPhotoZoom(autre.name); }
+  else img.style.display = "none";
+  document.getElementById("sistersNom").innerText = autre ? (deadPlayers.includes(autre.id) ? "☠️ " : "") + autre.name : "";
   // Affiche 00:20 en attendant sistersTimerStart, qui arrive juste après
   const timerEl = document.getElementById("sistersTimer");
   if (timerEl) timerEl.innerText = _sistersFmt(20);
@@ -1976,8 +1879,7 @@ socket.on("deadVision", data=>{
 socket.on("seerResult", data=>{
   const isWolf = data.role === "Loup";
   // Le pictogramme du rôle en grand ; le texte ne le répète pas.
-  carteAnnonce(emojiDuRole(data.role) || "✨", "Vision de la Voyante",
-    `${data.name} est… ${nomDuRole(data.role)}.${isWolf ? " Danger !" : " Cette personne est inoffensive."}`,
+  carteAnnonce(emojiDuRole(data.role) || "✨", `${data.name} est ${nomDuRole(data.role)}`, "",
     isWolf ? "radial-gradient(ellipse at center,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 100%)" : "radial-gradient(ellipse at center,rgb(var(--lune-nuit)) 0%,rgb(var(--lune-nuit)) 100%)",
     [data.name]);
   // La nuit attend que la Voyante confirme : son bouton ferme tout de suite, sinon la
@@ -2018,9 +1920,7 @@ socket.on("petiteFilleError", msg => {
 });
 socket.on("petiteFilleResult", data=>{
   closePetiteFillePanel();
-  const noms = (data.names || []).join(", ");
-  carteAnnonce(data.auMoinsUnLoup ? "🐺" : "✨", "Ce qu'a découvert la Petite Fille",
-    data.auMoinsUnLoup ? `Parmi ${noms}, il y a au moins un Loup.` : `Parmi ${noms}, il n'y a aucun Loup.`,
+  carteAnnonce(data.auMoinsUnLoup ? "🐺" : "✨", data.auMoinsUnLoup ? "Au moins un Loup" : "Aucun Loup", "",
     data.auMoinsUnLoup ? "radial-gradient(ellipse at center,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 100%)" : "radial-gradient(ellipse at center,rgb(var(--voyance-fond)) 0%,rgb(var(--voyance-nuit)) 100%)",
     data.names || []);
   // Comme la Voyante : en pleine nuit, pas de fermeture automatique — la nuit attend son « OK »
@@ -2123,7 +2023,7 @@ socket.on("chasseurMustShoot", hunterId=>{
 // raconte (jusqu'au débat le matin, jusqu'à la nuit après un vote)
 socket.on("chasseurATire", d => {
   if (!d || gameIsOver) return;
-  carteAnnonce("🔫", "Le Chasseur a tiré", `Le Chasseur emporte ${d.name}.`, FOND_CHASSEUR, [d.name]);
+  carteAnnonce("🔫", "Le Chasseur a tiré", d.name, FOND_CHASSEUR, [d.name]);
   if (d.nuit) { _aubeAttendLeMJ = nuitParMJ && mjPilotedDay; if (!_aubeAttendLeMJ) setTimeout(fermerCarteMortSiOuverte, 7000); }
   else fermerCarteAuRythme(fermerCarteMortSiOuverte, 5000, ["chasseur", "day", "crepuscule"]);
 });
@@ -2168,20 +2068,24 @@ socket.on("councilStart", data => {
   councilHasVoted = false;
   const panel = document.getElementById("councilPanel");
   const optsDiv = document.getElementById("councilOptions");
-  const status = document.getElementById("councilVoteStatus");
   if (!panel || !optsDiv) return;
   optsDiv.innerHTML = "";
   councilCurrentOptions.forEach(opt => {
     const btn = document.createElement("button");
     btn.id = "councilOpt_" + opt.id;
     btn.textContent = opt.title;
+    if (opt.resume) {
+      const resume = document.createElement("small");
+      resume.textContent = opt.resume;
+      resume.style.cssText = "display:block;margin-top:4px;font-size:12px;opacity:0.75;";
+      btn.appendChild(resume);
+    }
     btn.onclick = () => voteCouncil(opt.id);
     btn.style.cssText = "padding:14px 18px;background:rgb(var(--ame-sombre));border:2px solid rgb(var(--ame-base));border-radius:8px;color:rgb(var(--ame-clair));font-size:15px;cursor:pointer;width:100%;text-align:center;transition:all 0.15s;";
     btn.addEventListener("mouseenter", () => { btn.style.background = "rgb(var(--ame-sombre))"; btn.style.borderColor = "rgb(var(--ame-base))"; });
     btn.addEventListener("mouseleave", () => { if (!btn.classList.contains("voted")) { btn.style.background = "rgb(var(--ame-sombre))"; btn.style.borderColor = "rgb(var(--ame-base))"; } });
     optsDiv.appendChild(btn);
   });
-  if (status) status.innerText = "🗳️ Choisis un évènement…";
   panel.style.display = "block";
 });
 
@@ -2198,13 +2102,13 @@ function voteCouncil(eventId) {
       btn.style.background = "rgb(var(--ame-sombre))";
       btn.style.borderColor = "rgb(var(--ame-vif))";
       btn.style.color = "rgb(var(--ame-clair))";
+      btn.style.opacity = "1";   // l'option choisie reste allumée (button:disabled l'éteindrait)
+      btn.firstChild.textContent = "✓ " + opt.title;
     } else {
       btn.style.opacity = "0.4";
     }
     btn.disabled = true;
   });
-  const status = document.getElementById("councilVoteStatus");
-  if (status) status.innerText = "✅ Ton choix est enregistré. En attente des autres morts…";
 }
 
 
@@ -2529,7 +2433,6 @@ socket.on("voteStarted", data=>{
   document.getElementById("voteTimerBox").style.display="block";
   document.getElementById("timerMode").innerText=VOTE_MODE_CARDS[data.mode]||"";
   if(voteEndsAt) startCountdown();
-  if(data.mode===5) document.getElementById("status").innerText="🖤 Vote dans l'ombre — votez sans voir les résultats !";
   updateDayDebateScreen();
   updateDeadVoteView();
   scheduleRender();
@@ -2584,7 +2487,7 @@ socket.on("gameReset", data => {
   if(_councilEventCardAutoClose) { clearTimeout(_councilEventCardAutoClose); _councilEventCardAutoClose=null; }
   _pendingCouncilEventData = null;
   councilCurrentOptions = []; councilHasVoted = false;
-  ["roleCard","dayDeathCard"].forEach(id=>{
+  ["dayDeathCard"].forEach(id=>{
     const el=document.getElementById(id);
     if(el){ el.className=""; el.style.display=""; el.style.background=""; el.removeAttribute("data-open"); }
   });
@@ -2711,60 +2614,43 @@ function renderDeadVision(){
   });
 }
 
-function renderVotesPanel(){
-  const panel=document.getElementById("votesPanel"),title=document.getElementById("votesPanelTitle"),content=document.getElementById("votesContent");
-  content.innerHTML="";
-  let counts={},barClass="",show=false,wolfDetail=false;
-  if(phase==="mayorVote"&&Object.keys(mayorCounts).length>0){
-    title.innerText="🏛️ Votes Maire"; counts=mayorCounts; barClass="mayor-bar"; show=true;
-  } else if(phase==="day"&&currentVoteMode!==5&&(Object.keys(dayCounts).length>0||corbeauVotesTarget)){
-    title.innerText="☀️ Votes du jour"; show=true;
-  } else if(phase==="wolves"&&role==="Loup"&&Object.keys(wolfVotes).length>0){
-    title.innerText="🐺 Votes loups";
-    Object.values(wolfVotes).forEach(t=>{counts[t]=(counts[t]||0)+1;});
-    barClass="wolf-bar"; show=true; wolfDetail=true;
+// Voix de la phase, écrites sur la ligne de chaque joueur (sans refaire la liste : un vote qui
+// arrive ne doit ni déplacer ni remplacer le bouton qu'on est en train de toucher)
+function voixDeLaPhase() {
+  if (phase === "mayorVote") return mayorCounts;
+  if (phase === "day" && currentVoteMode !== 5) return voixAvecCorbeau(dayCounts, corbeauVotesTarget, deadPlayers);
+  if (phase === "wolves" && role === "Loup") {
+    const voix = {};
+    Object.values(wolfVotes).forEach(t => { voix[t] = (voix[t] || 0) + 1; });
+    return voix;
   }
-  if(!show){panel.style.display="none";return;}
-  panel.style.display="block";
-  if(phase==="day"&&currentVoteMode!==5){
-    const allCounts = voixAvecCorbeau(dayCounts, corbeauVotesTarget, deadPlayers);
-    const total = Object.values(allCounts).reduce((a,b)=>a+b,0)||1;
-    Object.entries(allCounts).sort((a,b)=>b[1]-a[1]).forEach(([pid,c])=>{
-      const p=players.find(x=>x.id===pid); if(!p) return;
-      const row=document.createElement("div"); row.className="vote-row";
-      const realVotes = dayCounts[pid]||0;
-      const countLabel = c > realVotes ? realVotes+" + 🪶×"+VOIX_DU_CORBEAU : c+" voix";
-      row.innerHTML=`<span class="vote-name">${p.name}</span><div class="vote-bar-wrap"><div class="vote-bar ${barClass}" style="width:${Math.round((c/total)*100)}%"></div></div><span class="vote-count">${countLabel}</span>`;
-      content.appendChild(row);
-    });
-    const detailEntries = Object.entries(votesDayDetail);
-    if(detailEntries.length>0){
-      const list=document.createElement("div"); list.className="vote-detail-list";
-      detailEntries.forEach(([voterId,targetId])=>{
-        const voter=players.find(x=>x.id===voterId);
-        const target=players.find(x=>x.id===targetId);
-        if(!voter||!target) return;
-        const row=document.createElement("div"); row.className="vote-detail-row";
-        const isMe=voterId===socket.id, votedForMe=targetId===socket.id, votedSelf=voterId===targetId;
-        row.innerHTML=`<span class="vdr-voter${isMe?" is-me":""}">${isMe?"👤 Toi":voter.name}</span><span class="vdr-arrow">→</span><span class="vdr-target${votedForMe?" voted-me":votedSelf?" voted-self":""}">${target.name}${votedForMe?" ⚠️":""}</span>`;
-        list.appendChild(row);
-      });
-      content.appendChild(list);
-    }
-    if(corbeauVotesTarget){
-      const target=players.find(x=>x.id===corbeauVotesTarget);
-      if(target){ const badge=document.createElement("div"); badge.className="corbeau-badge"; badge.innerHTML=`🪶 2 votes mystérieux sur <strong>${target.name}</strong>`; content.appendChild(badge); }
-    }
-    return;
-  }
-  const total=Object.values(counts).reduce((a,b)=>a+b,0)||1;
-  Object.entries(counts).sort((a,b)=>b[1]-a[1]).forEach(([pid,c])=>{
-    const p=players.find(x=>x.id===pid);if(!p)return;
-    const row=document.createElement("div");row.className="vote-row";
-    row.innerHTML=`<span class="vote-name">${p.name}</span><div class="vote-bar-wrap"><div class="vote-bar ${barClass}" style="width:${Math.round((c/total)*100)}%"></div></div><span class="vote-count">${c}</span>`;
-    content.appendChild(row);
+  return {};
+}
+function majVoixSurLesLignes() {
+  const voix = voixDeLaPhase();
+  const corbeau = phase === "day" && currentVoteMode !== 5 && !deadPlayers.includes(corbeauVotesTarget) ? corbeauVotesTarget : null;
+  document.querySelectorAll("#players .voix-ligne").forEach(s => {
+    const n = voix[s.dataset.joueur] || 0;
+    s.textContent = n ? n + (s.dataset.joueur === corbeau ? " 🪶" : "") : "";
   });
-  if(wolfDetail){const d=document.createElement("div");d.className="vote-detail";Object.entries(wolfVotes).forEach(([vid,tid])=>{const a=players.find(x=>x.id===vid),b=players.find(x=>x.id===tid);if(a&&b)d.innerHTML+="🐺 "+a.name+" → "+b.name+"<br>";});content.appendChild(d);}
+}
+
+// Sous la liste : qui vote pour qui (vote du jour, attaque des loups)
+function renderVotesPanel(){
+  const panel = document.getElementById("votesPanel"), content = document.getElementById("votesContent");
+  content.innerHTML = "";
+  const detail = phase === "day" && currentVoteMode !== 5 ? votesDayDetail : phase === "wolves" && role === "Loup" ? wolfVotes : {};
+  const list = document.createElement("div");
+  Object.entries(detail).forEach(([voterId, targetId]) => {
+    const voter = players.find(x => x.id === voterId), target = players.find(x => x.id === targetId);
+    if (!voter || !target) return;
+    const row = document.createElement("div"); row.className = "vote-detail-row";
+    const isMe = voterId === socket.id, votedForMe = targetId === socket.id, votedSelf = voterId === targetId;
+    row.innerHTML = `<span class="vdr-voter${isMe ? " is-me" : ""}">${isMe ? "👤 Toi" : voter.name}</span><span class="vdr-arrow">→</span><span class="vdr-target${votedForMe ? " voted-me" : votedSelf ? " voted-self" : ""}">${target.name}${votedForMe ? " ⚠️" : ""}</span>`;
+    list.appendChild(row);
+  });
+  content.appendChild(list);
+  panel.style.display = list.children.length ? "block" : "none";
 }
 
 function voteMayor(id) { if(gameIsOver) return; socket.emit("voteMayor",id); myMayorVote=id; scheduleRender(); }
@@ -2780,9 +2666,7 @@ function chasseurShoot(id){
   panel.style.cssText = "display:none;";
   document.getElementById("status").innerText="🔫 Tu as tiré !";
   // Carte narrative avant la vision spectateur
-  carteAnnonce("🔫", "Ta dernière balle…",
-    (target ? `Tu as tiré sur ${target.name}. ` : "") + "Ton devoir est accompli. Tu rejoins les rangs des morts.",
-    FOND_CHASSEUR, target ? [target.name] : []);
+  carteAnnonce("🔫", "Ta dernière balle…", target ? target.name : "", FOND_CHASSEUR, target ? [target.name] : []);
   nightCardShownThisNight = false;
   setTimeout(() => closeDawnCard(), 5000);
 }
@@ -2901,7 +2785,7 @@ function render(){
       deathInfo = ` <span style="color:rgb(var(--n6));font-size:11px;margin-left:6px;">☠️</span>`;
     }
     const row=document.createElement("div");row.className="player-row"+(isDead?" dead-row":"")+(hasActiveBtn?" actionable-row":"");
-    row.innerHTML=`${playerAvatar(p,32)}<div class="player-name${isDead?" mort":""}">${p.name}${deathInfo}${voteInfo}${noirBadge}</div><div class="player-tags">${tags}</div><div class="player-btns">${btn}</div>`;
+    row.innerHTML=`${playerAvatar(p,32)}<div class="player-name${isDead?" mort":""}">${p.name}${deathInfo}${voteInfo}${noirBadge}</div><span class="voix-ligne" data-joueur="${p.id}"></span><div class="player-tags">${tags}</div><div class="player-btns">${btn}</div>`;
     // Séparateur vivants/morts — utilise idx au lieu de indexOf (O(1))
     const prevP = idx > 0 ? sorted[idx-1] : null;
     if(isDead && prevP && !deadPlayers.includes(prevP.id)){
@@ -2912,6 +2796,7 @@ function render(){
     }
     div.appendChild(row);
   });
+  majVoixSurLesLignes();
   // À chaque rendu, l'écran de mort est réaffirmé : un mort ne voit jamais la liste ni
   // les boutons de vote, même après un évènement manqué
   updateDeadFullScreen();

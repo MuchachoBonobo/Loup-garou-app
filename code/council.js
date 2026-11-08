@@ -2,8 +2,12 @@
 // L'état partagé (councilOptions, councilVotes, pendingCouncilEvent, activeCouncilEvent,
 // councilUsedEvents) vit dans state.js pour que votes.js puisse lire activeCouncilEvent.
 // Seuls les timers d'ambiance (cloche, murmures, tonnerre) restent privés ici.
-// Chaque évènement porte ses effets (`technical`) : votes.js lit le mode et la durée du vote
-// et le pouvoir du maire par effetDuJour(). Sa `regle` est ce que le MJ applique et annonce.
+// Chaque évènement porte ses effets (`technical`) : votes.js lit le mode et la durée du vote, le
+// Sablier, le Tour de parole et la Main levée par effetDuJour(). Sa `regle` est ce que le MJ applique
+// et annonce ; son `resume`, ce que les morts lisent en votant (une ligne).
+// Principe (Alexandre, 2026-11-08) : les morts choisissent la couleur de la journée, jamais son
+// issue. Un évènement est neutre pour les deux camps, visible, appliqué par le jeu de préférence, et
+// ne désigne jamais un joueur (le choix des morts, qui savent tout, trahirait un innocent).
 
 const { state, isMJ, vivantsSauf, playerName, fisherYates, auHasard, versMJ } = require('./state');
 const lights = require('./lights');
@@ -17,15 +21,9 @@ let abdicationTimeout = null;
 const COUNCIL_TRIGGER_THRESHOLD = 1;
 
 const COUNCIL_EVENTS = {
-  riot: {
-    id: "riot",
-    title: "🖤 L'Émeute",
-    narrative: "Un grondement traverse la place du village. La méfiance brouille les regards, les voix se confondent. Personne ne saura qui aura voté pour qui : ce vote sera entièrement anonyme.",
-    regle: "Le vote du village est ANONYME : personne ne voit qui vote pour qui. Durée 60 s.",
-    technical: { forceVoteMode: 5 }
-  },
   judgment: {
     id: "judgment",
+    resume: "Une fois donné, un vote ne peut plus changer.",
     title: "⚖️ Le Jugement",
     narrative: "Une fois prononcé, un vote ne peut plus être changé. Que chacun pèse ses mots — la sentence est définitive dès qu'elle tombe.",
     regle: "Vote VERROUILLÉ : une fois qu'un joueur a voté, il ne peut plus changer son choix. Durée 60 s.",
@@ -33,20 +31,15 @@ const COUNCIL_EVENTS = {
   },
   panic: {
     id: "panic",
+    resume: "Le vote ne dure que 30 secondes.",
     title: "⚡ La Panique",
     narrative: "Le village sombre dans la précipitation. Plus le temps de réfléchir : il faut trancher, et vite.",
     regle: "Vote EXPRESS : durée réduite à 30 s — les joueurs doivent trancher très vite.",
     technical: { forceVoteMode: 4 }
   },
-  paranoia: {
-    id: "paranoia",
-    title: "😰 La Paranoïa",
-    narrative: "Une étrange angoisse étreint les villageois. Les mots se coincent dans la gorge. Aucun discours ne pourra durer plus de 20 secondes — au-delà, le silence reprend ses droits.",
-    regle: "Aucun joueur ne peut parler plus de 20 secondes d'affilée. Au-delà, il se tait. (À faire respecter à l'oral.)",
-    technical: null
-  },
   madness: {
     id: "madness",
+    resume: "Chaque phrase commence par « Je pense que… » ou « Je jure que… ».",
     title: "🌀 La Folie",
     narrative: "Un voile étrange descend sur les esprits. Plus personne ne sait ce qu'il croit vraiment. Toute parole devra commencer par « Je pense que… » ou « Je jure que… »",
     regle: "Toute phrase d'un joueur doit commencer par « Je pense que… » ou « Je jure que… ». (À faire respecter.)",
@@ -54,6 +47,7 @@ const COUNCIL_EVENTS = {
   },
   eclipse: {
     id: "eclipse",
+    resume: "La musique et la pénombre de la nuit en plein jour.",
     title: "🌑 L'Éclipse",
     narrative: "Le soleil se voile. Un crépuscule étrange recouvre la place du village en plein jour. La nuit semble refuser de s'effacer.",
     regle: "Ambiance seulement : la musique de nuit joue en plein jour. Aucun effet de règle — annonce l'atmosphère.",
@@ -61,6 +55,7 @@ const COUNCIL_EVENTS = {
   },
   storm: {
     id: "storm",
+    resume: "L'orage gronde toute la journée.",
     title: "⛈️ La Tempête",
     narrative: "Le ciel s'assombrit. Au loin, le tonnerre gronde. Une pluie froide commence à fouetter les visages. Le village vivra cette journée sous l'orage.",
     regle: "Ambiance seulement : un orage gronde toute la journée. Aucun effet de règle.",
@@ -70,20 +65,15 @@ const COUNCIL_EVENTS = {
   // l'évènement s'appelait « Le Brouillard » avant de devenir « La Paralysie ».
   fog: {
     id: "fog",
+    resume: "Interdit de bouger les bras pour parler.",
     title: "🧊 La Paralysie",
     narrative: "Un froid étrange engourdit les villageois. Leurs bras pèsent comme de la pierre. Aujourd'hui, personne ne pourra bouger les bras pour s'exprimer : seuls les mots pourront convaincre.",
     regle: "Interdit de bouger les bras pour s'exprimer : pas de gestes, pas de doigt pointé, les bras restent immobiles. (À faire respecter.)",
     technical: null
   },
-  fire: {
-    id: "fire",
-    title: "🔥 L'Incendie",
-    narrative: "Une fumée âcre monte de la grange du Maire. Son écharpe brûle avec ses derniers privilèges. Aujourd'hui, en cas d'égalité, c'est le hasard — et non lui — qui tranchera.",
-    regle: "Le maire PERD son pouvoir d'arbitrage : en cas d'égalité au vote, c'est le hasard qui tranche (automatique).",
-    technical: { mayorPowerless: true }
-  },
   whispers: {
     id: "whispers",
+    resume: "Tout le monde parle à voix basse.",
     title: "🤫 Les Chuchotements",
     narrative: "Une étrange retenue s'installe. Les villageois n'osent plus élever la voix. Toute la journée, ils ne pourront parler qu'à voix basse.",
     regle: "Les joueurs ne peuvent parler qu'à VOIX BASSE toute la journée. (À faire respecter.)",
@@ -91,6 +81,7 @@ const COUNCIL_EVENTS = {
   },
   tribunal: {
     id: "tribunal",
+    resume: "Pour parler, il faut se lever.",
     title: "🧍 Le Tribunal",
     narrative: "Une vieille tradition refait surface. Les anciens insistent : pour parler, il faut se lever. Quiconque souhaite s'exprimer devra se mettre debout face à l'assemblée.",
     regle: "Pour parler, un joueur doit se LEVER face à l'assemblée. Assis = pas de parole. (À faire respecter.)",
@@ -98,6 +89,7 @@ const COUNCIL_EVENTS = {
   },
   bell: {
     id: "bell",
+    resume: "Toutes les 45 s, la cloche impose le silence.",
     title: "⛪ La Cloche du village",
     narrative: "La vieille cloche de l'église s'est mise à sonner sans raison. Toutes les 45 secondes, elle retentira — et chacun devra se taire quelques instants pour l'écouter.",
     regle: "Une cloche sonne automatiquement toutes les 45 s. À chaque sonnerie, tout le monde se tait quelques instants.",
@@ -105,20 +97,15 @@ const COUNCIL_EVENTS = {
   },
   last_words: {
     id: "last_words",
+    resume: "Avant le vote, chacun dit « Si je meurs aujourd'hui… ».",
     title: "🕯️ Les Dernières Volontés",
     narrative: "Une coutume oubliée resurgit : avant le vote, chaque villageois doit lever la main et déclarer ce qu'il souhaite, au cas où il mourrait aujourd'hui : « Si je meurs aujourd'hui… »",
     regle: "Avant de lancer le vote, chaque joueur lève la main et déclare « Si je meurs aujourd'hui… » suivi de son souhait.",
     technical: null
   },
-  wind: {
-    id: "wind",
-    title: "🌬️ Le Vent",
-    narrative: "Un vent persistant traverse la place. Il pousse les regards vers le sol. Aujourd'hui, plus personne ne pourra fixer un autre dans les yeux en parlant.",
-    regle: "Interdit de regarder un autre joueur dans les yeux en parlant — regards vers le sol. (À faire respecter.)",
-    technical: null
-  },
   murmurs: {
     id: "murmurs",
+    resume: "Des murmures de morts toute la journée.",
     title: "👻 Les Morts Murmurent",
     narrative: "Un souffle étrange traverse la foule. Par moments, on jurerait entendre des voix… des plaintes… des mots imperceptibles. Les morts ne sont peut-être pas si loin.",
     regle: "Ambiance seulement : des murmures de morts se font entendre. Aucun effet de règle.",
@@ -126,6 +113,7 @@ const COUNCIL_EVENTS = {
   },
   voteMute: {
     id: "voteMute",
+    resume: "Le vote se fait en silence, en 90 secondes.",
     title: "🤐 Le Vote Muet",
     narrative: "Le village se tait. Plus aucun mot ne sera prononcé — ni accusation, ni plaidoyer, ni murmure. Que chacun médite, juge en silence, et trace son verdict. 90 secondes pour voter, sans débat.",
     regle: "VOTE MUET : aucune parole pendant le vote — ni débat, ni accusation, ni plaidoyer. 90 s pour voter en silence.",
@@ -133,6 +121,7 @@ const COUNCIL_EVENTS = {
   },
   silencedVoices: {
     id: "silencedVoices",
+    resume: "Personne ne parle : on s'écrit sur les téléphones.",
     title: "💬 Les Voix Étouffées",
     narrative: "Une étrange paralysie saisit les gorges. Plus personne ne pourra parler à voix haute aujourd'hui. Mais sur la place du village, un parchemin s'est déroulé : les vivants pourront y inscrire leurs pensées, et tous — vivants comme morts — pourront les lire.",
     regle: "Interdit de parler à voix haute. Un chat écrit s'ouvre : les vivants y écrivent, tous (vivants et morts) peuvent lire.",
@@ -140,12 +129,61 @@ const COUNCIL_EVENTS = {
   },
   abdication: {
     id: "abdication",
+    resume: "Le maire choisit lui-même son successeur.",
     title: "👑 L'Abdication",
     narrative: "L'écharpe pèse trop lourd. Le Maire renonce à ses insignes et désigne, ici et maintenant, celui ou celle qui portera la responsabilité pour ce jour et les suivants.",
     regle: "Le maire ABDIQUE : il désigne lui-même son successeur, sans vote du village. Une carte de choix apparaît au maire.",
     technical: { abdication: true }
+  },
+  // Nouveaux (2026-11-08). `avecMJ` : seulement quand le MJ mène le jour (il lance le tour de
+  // parole, désigne le condamné ; sans lui le vote démarre seul à l'aube)
+  mainLevee: {
+    id: "mainLevee",
+    resume: "Pas de téléphone : le village vote à main levée.",
+    title: "🙋 La Main Levée",
+    narrative: "Les anciens se méfient des écrans et des messes basses. Aujourd'hui, le village votera comme autrefois : à main levée, sous le regard de tous.",
+    regle: "Pas de vote sur les téléphones : au signal, chacun lève la main contre un joueur. Compte les mains (et les 2 voix du Corbeau), puis touche le condamné sur ta tablette. Une égalité : le maire tranche à voix haute.",
+    technical: { mainLevee: true },
+    avecMJ: true
+  },
+  sablier: {
+    id: "sablier",
+    resume: "Le débat dure 3 minutes, puis le vote s'ouvre tout seul.",
+    title: "⏳ Le Sablier",
+    narrative: "Le sablier est retourné. Quand le dernier grain tombera, le village devra voter, prêt ou pas.",
+    regle: "Le débat dure 3 minutes à partir de « Lancer le débat » ; le vote s'ouvre alors tout seul. Tu peux le lancer plus tôt.",
+    technical: { sablier: true },
+    avecMJ: true
+  },
+  tourParole: {
+    id: "tourParole",
+    resume: "Deux tours de parole de 15 s chacun, puis le vote.",
+    title: "🔄 Le Tour de Parole",
+    narrative: "Les anciens imposent l'ordre : chacun parlera à son tour, deux fois, et pas plus longtemps que la flamme d'une allumette.",
+    regle: "Deux tours de table : chaque vivant parle 15 s à son tour, un son marque le passage. Désigne qui commence, puis « Commencer le tour de parole ». Le vote s'ouvre tout seul à la fin du 2ᵉ tour.",
+    technical: { tourDeParole: true },
+    avecMJ: true
+  },
+  veillee: {
+    id: "veillee",
+    resume: "Lumières basses et vacillantes, musique feutrée.",
+    title: "🕯️ La Veillée",
+    narrative: "Le village s'est rassemblé à la lueur des bougies. Les flammes vacillent, les visages se creusent, et chacun baisse la voix sans y penser.",
+    regle: "Ambiance seulement : lumières basses et vacillantes, musique du jour plus douce. Aucun effet de règle.",
+    technical: { musiqueFeutree: true }
+  },
+  masques: {
+    id: "masques",
+    resume: "Chacun parle de lui à la troisième personne.",
+    title: "🎭 Les Masques",
+    narrative: "Un bal masqué a laissé ses traces : plus personne ne dit « je ». Chacun parle de lui comme d'un autre.",
+    regle: "Chaque joueur parle de lui à la troisième personne (« Bob pense que… »). (À faire respecter.)",
+    technical: null
   }
 };
+
+// Évènements proposés en premier, pour les tests (CONSEIL_OPTIONS=mainLevee,sablier…)
+const OPTIONS_IMPOSEES = (process.env.CONSEIL_OPTIONS || "").split(",").filter(id => COUNCIL_EVENTS[id]);
 
 // Timers d'ambiance privés au module
 let councilBellTimer    = null;
@@ -153,17 +191,20 @@ let councilMurmursTimer = null;
 let councilThunderTimer = null;
 
 function pickRandomCouncilOptions(count = 3) {
-  let available = Object.keys(COUNCIL_EVENTS).filter(id => !state.councilUsedEvents.includes(id));
+  // Sans MJ qui mène le jour, les évènements qui ont besoin de lui ne sont pas proposés
+  const jouables = Object.keys(COUNCIL_EVENTS).filter(id => !COUNCIL_EVENTS[id].avecMJ || annonceMatinParMJ());
+  let available = jouables.filter(id => !state.councilUsedEvents.includes(id));
   // Second cycle : tous les événements ont déjà été proposés — on repart de zéro.
-  // Possible dans les longues parties (18 évènements, 3 proposés par séance : 6 séances avant épuisement).
+  // Possible dans les longues parties (19 évènements, 3 proposés par séance : 6 séances avant épuisement).
   if (available.length === 0) {
     state.councilUsedEvents = [];
-    available = Object.keys(COUNCIL_EVENTS);
+    available = jouables;
     log.info('council', 'pool épuisé — second cycle, réinitialisation de councilUsedEvents');
     versMJ("autoResolve",
       "👻 Le Conseil reprend — les esprits ont épuisé leurs requêtes et reviennent de plus loin.");
   }
-  return fisherYates(available).slice(0, count);
+  const imposees = OPTIONS_IMPOSEES.filter(id => available.includes(id));
+  return [...imposees, ...fisherYates(available.filter(id => !imposees.includes(id)))].slice(0, count);
 }
 
 function startCouncil() {
@@ -182,7 +223,7 @@ function startCouncil() {
 
 // Les évènements soumis au vote des morts, tels que les écrans les reçoivent (ouverture, reconnexion)
 function optionsDuConseil() {
-  return { options: state.councilOptions.map(id => ({ id, title: COUNCIL_EVENTS[id].title })) };
+  return { options: state.councilOptions.map(id => ({ id, title: COUNCIL_EVENTS[id].title, resume: COUNCIL_EVENTS[id].resume })) };
 }
 
 function resolveCouncil() {
@@ -242,12 +283,16 @@ function applyCouncilEvent(eventId) {
     // Annoncé par le MJ : les téléphones referment la carte des morts et l'affichent tout de suite
     parMJ: annonceMatinParMJ()
   });
-  // Scène lumineuse spécifique à l'évènement (recouvre la scène "day")
+  // Scène lumineuse spécifique à l'évènement (recouvre la scène "day"), et l'annonce elle-même :
+  // un éclair violet et un souffle de murmures, le moment où le Conseil se manifeste
   lights.applyScene("council." + ev.id);
+  lights.flash("flash.conseil");
+  versMJ("annonceConseil");
   // Effets d'ambiance. La cloche et le tonnerre continuent toute la journée, même si la
   // tablette du MJ se recharge entre-temps (les lumières, elles, ne dépendent pas d'elle).
   const effet = ev.technical || {};
   if (effet.dayMusic === "night") versMJ("councilMusicOverride", "night");
+  if (effet.musiqueFeutree) versMJ("councilMusicOverride", "feutree");
   if (effet.stormSound) {
     versMJ("councilStormStart");
     // Tonnerre toutes les 30 secondes pendant le jour

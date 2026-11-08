@@ -195,6 +195,7 @@ io.on("connection", socket => {
       matin: (state.phase === "day" && state.annonceMatinEnCours)
         ? { evenement: state.evenementAnnonce ? null : council.evenementPublic(state.activeCouncilEvent) } : null,
       activeCouncilEvent: (state.phase === "day" && state.evenementAnnonce) ? council.evenementPublic(state.activeCouncilEvent) : null,
+      debat: votes.etatDebat(),   // Sablier ou tour de parole en cours
     });
     if (state.tiebreakPending) socket.emit("tiebreakMJ", votes.egaliteEnCours());
     // Reprise après plantage : proposée au MJ si une sauvegarde est en attente
@@ -354,7 +355,6 @@ io.on("connection", socket => {
 
   // ===== LANCEMENT DE LA PARTIE (« 🚀 Lancer la partie », « Relancer ») =====
   socket.on("assignRoles", config => phases.handleLancerPartie(socket, config));
-  socket.on("replayGame",  config => phases.handleLancerPartie(socket, config));
 
   // ===== BOTS (mode entraînement) =====
   socket.on("addBot", () => {
@@ -412,7 +412,11 @@ io.on("connection", socket => {
     // Évènement pas encore annoncé : il l'est maintenant et reste à lire ; sinon sa carte se ferme avec celle des morts
     const vientDEtreAnnonce = council.annoncerEvenement();
     council.finAnnonceMatin(!vientDEtreAnnonce);
+    votes.demarrerSablier();   // le Sablier du Conseil part avec le débat
   });
+  socket.on("mjCommencerTour",  ()  => votes.handleCommencerTour(socket));
+  socket.on("mjParoleSuivante", ()  => votes.handleParoleSuivante(socket));
+  socket.on("mjMainLevee",      id  => votes.handleMainLevee(socket, actuel(id)));
   socket.on("voteWolf",        id       => votes.handleVoteWolf(socket, actuel(id)));
   socket.on("lockWolfVotes",   ()       => votes.handleLockWolfVotes(socket));
   socket.on("seerChoice",      id       => roles.handleSeerChoice(socket, actuel(id)));
