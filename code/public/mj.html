@@ -978,6 +978,21 @@ function facteurDuSon(cle, categorie) {
   const [sonie, crete] = MESURES[cle] || [CIBLES[categorie], -1];
   return Math.min(Math.pow(10, (CIBLES[categorie] - sonie) / 20), Math.pow(10, (-1 - crete) / 20));
 }
+// L'écran de la tablette reste allumé tant que la page du MJ est ouverte (Screen Wake Lock ; le
+// navigateur ne l'accorde qu'à une page « sûre », comme http://localhost:3000/mj sur la tablette qui
+// fait tourner le jeu). Rendu par Android quand la page passe en arrière-plan : redemandé au retour.
+let _ecranAllume = null;
+async function garderEcranAllume() {
+  if (_ecranAllume || !("wakeLock" in navigator) || document.visibilityState !== "visible") return;
+  try {
+    _ecranAllume = await navigator.wakeLock.request("screen");
+    _ecranAllume.addEventListener("release", () => { _ecranAllume = null; });
+  } catch (_) { /* refusé (page non sûre, batterie faible) : l'écran suit les réglages d'Android */ }
+}
+document.addEventListener("visibilitychange", garderEcranAllume);
+document.addEventListener("click", garderEcranAllume);
+setInterval(garderEcranAllume, 30000);
+garderEcranAllume();
 // Au-delà du volume 1, un amplificateur Web Audio. Le navigateur ne l'autorise qu'après un geste
 // sur la page : il est créé au premier clic du MJ, et sans lui le son joue simplement au volume 1.
 let _contexteAudio = null;
