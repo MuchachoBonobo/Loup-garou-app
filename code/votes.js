@@ -191,6 +191,11 @@ function executerVerdict(cible, angePossible = true) {
     versMJ("soundPlay", "death");
     lights.flash("flash.death");
     state.io.emit("dayVoteResult", { id: cible, name: nom, role, narrative: buildDeathNarrative({ role, cause: "vote", name: nom }) });
+    // Son amoureux mourra de chagrin avec lui : le MJ l'annonce dans la foulée, sur la même carte
+    const partenaire = state.lovers.includes(cible) && state.lovers.find(l => l !== cible);
+    if (partenaire && !state.deadPlayers.includes(partenaire)) {
+      versMJ("verdictChagrinMJ", { name: playerName(partenaire), role: state.roles[partenaire] });
+    }
   }, 2700);
   setTimeout(() => {
     if (!state.resolutionJourEnCours) return;

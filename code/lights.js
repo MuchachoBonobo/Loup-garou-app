@@ -194,7 +194,7 @@ function startEffect(name, scene) {
  * Applique une scène (clé du JSON). Restaure l'éclairage en transition fluide
  * et démarre l'éventuel effet associé.
  */
-function applyScene(key) {
+function applyScene(key, transitionForcee) {
   const scene = SCENES[key];
   if (!scene) { _log("scène absente:", key); return; }
   currentSceneKey = key;
@@ -202,7 +202,7 @@ function applyScene(key) {
   // changement de phase qui le suit aussitôt l'annulait (les morts de l'aube, la proie des loups).
   if (Date.now() < finEclair) { _log("scène après l'éclair →", key); return; }
   stopEffect();
-  callHue(_sceneBody(scene));
+  callHue(_sceneBody(scene, transitionForcee != null ? { duration: transitionForcee } : {}));
   if (scene.effect) {
     // Petit délai pour laisser la transition s'établir avant l'effet
     setTimeout(() => { if (currentSceneKey === key && Date.now() >= finEclair) startEffect(scene.effect, scene); }, scene.transition || 800);
@@ -210,12 +210,15 @@ function applyScene(key) {
   _log("scène →", key);
 }
 
-// Éclair qui finit dans `delai` ms : il posera alors la scène retenue entre-temps (applyScene).
+// Éclair qui finit dans `delai` ms : il posera alors la scène retenue entre-temps (applyScene), vite —
+// avec la lente transition du vote (5 s), le rouge de la mort traînait dans la pièce (Alexandre, 2026-11-10).
+const RETOUR_APRES_ECLAIR_MS = 800;
 function apresEclair(delai) {
   finEclair = Date.now() + delai;
   effectTimeouts.push(setTimeout(() => {
     finEclair = 0;
-    if (currentSceneKey && SCENES[currentSceneKey]) applyScene(currentSceneKey);
+    const s = currentSceneKey && SCENES[currentSceneKey];
+    if (s) applyScene(currentSceneKey, Math.min(s.transition || RETOUR_APRES_ECLAIR_MS, RETOUR_APRES_ECLAIR_MS));
   }, delai));
 }
 

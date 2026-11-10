@@ -179,6 +179,24 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 
 Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOURNAL-ARCHIVE.md`.
 
+### 2026-11-10 (suite) — Retours de la partie sur la tablette : cartes du MJ, sons des Sœurs, intensités
+Retours d'Alexandre après une partie sur la tablette (la Voyante s'allume bien au clic).
+- **Carte du verdict (tablette du MJ)** :
+  - l'amoureux qui meurt de chagrin avec le condamné y figure, avec son rôle. Le serveur l'envoie au MJ dès le verdict (`verdictChagrinMJ`, `votes.executerVerdict`), puis `loversDeathInfo` complète la carte (tir du Chasseur) sans doublon (`ajouterChagrinCarte`). Avant, il n'y avait qu'une alerte, cachée sous la carte ;
+  - quand une action suit la mort (Chasseur voté ou amoureux d'un Chasseur, maire voté), « Continuer » laisse la place au bouton de l'action (« 🔫 Le Chasseur tire — X », « 🏛️ Transmettre l'écharpe — X »), grisé tant que le serveur ne l'a pas ouverte (le Chasseur voté meurt 5 s après l'annonce), actif à `actionMJEnAttente`, et le toucher la lance puis ferme la carte (`_mjCarteMortAction`, `majBoutonsCarteMort`). Pas d'action finalement (partie finie, filet du serveur) : « Continuer » revient ;
+  - l'Idiot désigné par le village a sa carte, comme une mort (🤡, « démasqué, il reste en vie, mais ne vote plus »).
+- **Carte de l'évènement pendant l'annonce du matin** : elle reste (plus de fermeture au bout de 30 s) et porte « ▶ Lancer le débat » à la place de « J'ai compris » ; elle se ferme quand le débat est lancé, d'où que ce soit (`annonceDuMatinEnCours`, `_mjCarteAnnonce`). Hors annonce (l'évènement de demain), rien ne change.
+- **Sons** :
+  - la musique des Sœurs remplace la musique de nuit, au même niveau (catégorie « ambiance », 12 dB plus bas qu'avant). Fondu croisé de 1,5 s à l'entrée ; à la sortie, la même musique de nuit reprend là où elle en était (`BOUCLES_DE_ROLE`, `fonduVers`). La boucle passe désormais avant la musique de nuit dans le changement de phase, et `playAmbiance("night")` ne joue pas par-dessus les Sœurs ;
+  - porte de la Petite Fille −6 dB (`A_L_OREILLE`, réglage à l'oreille par-dessus la mesure) ;
+  - les Sœurs s'écoutent dans le panneau d'écoute comme une musique.
+- **Lumières** :
+  - l'éclair d'une mort repasse en 0,8 s à la scène suivante (`RETOUR_APRES_ECLAIR_MS`). Avant, il reprenait la transition du vote (5 s) : le rouge restait dans la pièce pendant le verdict ;
+  - intensités : annonce d'un évènement 24 → 43 %, vote et verdict (`dayVote`) 43 → 67 %, Tempête 35 → 59 %, éclairs de victoire 100 → 79 % (avec `flash.ange`, le même éclair), salon 79 → 63 % (la scène qui suit la victoire), Cupidon 91 → 75 %, Sœurs 91 → 75 %, Corbeau 87 → 71 % ;
+  - règle d'Alexandre : une scène modifiée entraîne ses jumelles (même couleur, autre moment).
+- Luminosité de l'écran de la tablette qui baisse par moments : la luminosité adaptative d'Android (réglage d'Alexandre).
+- Vérifié : Chrome, 25 vérifications sur la tablette du MJ (cartes, annonce, sons) ; simulation d'un vote avec faux Bridge (éclair de 0,5 s, puis le vote à 67 %) ; ESLint propre ; `npm test` 12/12, 100/100 et 43/43 ; `npm run test:rythme` 26/26 et 14/14 ; `npm run test:navigateur` 104/104.
+
 ### 2026-11-10 — Lumières de la nuit vérifiées rôle par rôle, éclairs rétablis, cœur des Amoureux
 Retours d'Alexandre après sa première partie sur la tablette (« maire très sombre », « réveil trop sombre », « la Voyante s'allume à la fin de son rôle », « pas de musique pour les Amoureux »).
 - **Vérifié rôle par rôle** (partie de robots, faux Bridge qui enregistre chaque commande avec l'heure) : chaque scène de rôle s'allume au clic du MJ (« Passer à l'étape suivante ») et le bleu de nuit (`nightPause`) revient quand le rôle ferme les yeux — Cupidon, Amoureux, Sœurs, Salvateur, Loups, Voyante, Petite Fille, Corbeau, Sorcière. Côté serveur, la Voyante s'allume bien à son réveil. Ce qu'Alexandre a vu reste inexpliqué : pas de Petite Fille dans sa partie, alors que c'était la piste (elle se réveille juste après la Voyante, dans un violet presque identique). À observer à la prochaine partie : la lumière change-t-elle dès le clic, pour la Voyante et pour les autres ? Si toutes arrivent en retard, regarder le délai entre la tablette et le Bridge (une connexion chiffrée neuve par commande, `lights.js`). La Petite Fille passe quand même en **jaune pâle** ([0.44, 0.45]) pour qu'aucun rôle de nuit ne ressemble à un autre (fiche `gestion/3` mise à jour).

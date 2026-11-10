@@ -104,6 +104,10 @@
   <div id="mjVoteDeathName" style="font-size:26px;font-weight:bold;color:rgb(var(--or-vif));margin-bottom:6px;"></div>
   <div id="mjVoteDeathRole" style="font-size:16px;color:rgb(var(--or-vif));margin-bottom:14px;"></div>
   <div id="mjVoteDeathNarr" style="max-width:480px;color:rgba(var(--blanc),0.82);line-height:1.6;font-size:14px;font-style:italic;margin-bottom:18px;"></div>
+  <!-- L'amoureux qui meurt de chagrin avec lui (ajouterChagrinCarte) -->
+  <div id="mjVoteDeathChagrin" style="display:none;max-width:480px;margin:-6px 0 18px;padding:10px 16px;border-radius:10px;border:1px solid rgba(var(--amour-vif),0.5);background:rgba(var(--amour-vif),0.12);color:rgb(var(--blanc));font-size:16px;line-height:1.6;"></div>
+  <!-- L'action qui suit cette mort (tir du Chasseur, écharpe du maire) : elle remplace « Continuer » -->
+  <button id="mjVoteDeathAction" onclick="lancerActionCarteMort()" style="display:none;margin-top:4px;padding:16px 36px;border-radius:12px;border:2px solid rgb(var(--or-vif));background:rgba(var(--or-vif),0.2);color:rgb(var(--blanc));font-size:20px;font-weight:bold;cursor:pointer;"></button>
   <button id="mjVoteDeathContinuer" onclick="closeMjVoteDeathCard()" style="margin-top:4px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--or-vif),0.45);background:rgba(var(--or-vif),0.1);color:rgb(var(--or-vif));font-size:14px;cursor:pointer;">
     Continuer
   </button>
@@ -148,7 +152,10 @@
     <div style="color:rgb(var(--ame-clair));font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">📋 Règle à appliquer</div>
     <div id="councilEventRule" style="color:rgb(var(--ame-clair));font-size:14px;line-height:1.55;"></div>
   </div>
-  <button onclick="closeCouncilEventCard()" style="margin-top:4px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--ame-clair),0.4);background:rgba(var(--ame-clair),0.1);color:rgb(var(--ame-clair));font-size:14px;cursor:pointer;">
+  <button id="councilEventLancerDebat" onclick="mjLancerDebat()" style="display:none;margin-top:4px;padding:16px 36px;border-radius:12px;border:2px solid rgb(var(--ame-clair));background:rgba(var(--ame-clair),0.2);color:rgb(var(--blanc));font-size:20px;font-weight:bold;cursor:pointer;">
+    ▶ Lancer le débat
+  </button>
+  <button id="councilEventCompris" onclick="closeCouncilEventCard()" style="margin-top:4px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--ame-clair),0.4);background:rgba(var(--ame-clair),0.1);color:rgb(var(--ame-clair));font-size:14px;cursor:pointer;">
     🪦 J'ai compris
   </button>
 </div>
@@ -597,7 +604,7 @@ function finAnnonceConseil(enDouceur = true) {
   if (a.enPause && ambianceAudio === a.enPause && audioEnabled) a.enPause.play().catch(() => {});
 }
 function apresAnnonce(f) { if (_annonce) _annonce.apres.push(f); else f(); }
-socket.on("finAnnonceConseil", () => finAnnonceConseil(true));
+socket.on("finAnnonceConseil", () => { finAnnonceConseil(true); if (_mjCarteAnnonce) closeCouncilEventCard(); });
 
 socket.on("councilStormStart", () => apresAnnonce(() => {
   // Tempête : remplace la musique du jour par "rainynight.mp3" en boucle.
@@ -673,6 +680,7 @@ let _mjActiveCouncilEvent = null;
 let _mjCouncilEventCardAutoClose = null;
 function closeCouncilEventCard(){
   if (_mjCouncilEventCardAutoClose) { clearTimeout(_mjCouncilEventCardAutoClose); _mjCouncilEventCardAutoClose = null; }
+  _mjCarteAnnonce = false;
   const card = document.getElementById("councilEventCard");
   if (!card) return;
   card.style.display = "none";
@@ -687,7 +695,7 @@ function closeDayRecapCard(){
   if (_mjPendingCouncilEvent) {
     const ev = _mjPendingCouncilEvent;
     _mjPendingCouncilEvent = null;
-    showMjCouncilEventCard(ev);
+    showMjCouncilEventCard(ev, annonceDuMatinEnCours());
   }
 }
 
@@ -780,17 +788,23 @@ socket.on("mjDayRecap", data => {
 
 // Affiche la carte évènement MJ : titre + narratif immersif + RÈGLE explicite.
 // Remplit et ouvre la carte de l'évènement : titre, récit, règle à appliquer
-function ouvrirCarteEvenement(data) {
+// Pendant l'annonce du matin menée par le MJ (`annonce`), la carte de l'évènement du jour reste
+// jusqu'à son « ▶ Lancer le débat », qu'elle porte elle-même (demande d'Alexandre, 2026-11-10).
+let _mjCarteAnnonce = false;
+function ouvrirCarteEvenement(data, annonce = false) {
+  _mjCarteAnnonce = !!annonce;
   document.getElementById("councilEventTitle").innerText = data.title || "";
   document.getElementById("councilEventNarrative").innerText = data.narrative || "";
   document.getElementById("councilEventRule").innerText = data.regle || "(Règle non répertoriée — voir le récit ci-dessus.)";
+  document.getElementById("councilEventLancerDebat").style.display = annonce ? "" : "none";
+  document.getElementById("councilEventCompris").style.display = annonce ? "none" : "";
   document.getElementById("councilEventCard").style.display = "flex";
 }
-function showMjCouncilEventCard(data) {
+function showMjCouncilEventCard(data, annonce = false) {
   if (!data) return;
-  ouvrirCarteEvenement(data);
+  ouvrirCarteEvenement(data, annonce);
   if (_mjCouncilEventCardAutoClose) clearTimeout(_mjCouncilEventCardAutoClose);
-  _mjCouncilEventCardAutoClose = setTimeout(closeCouncilEventCard, 30000);  // filet de sécurité
+  _mjCouncilEventCardAutoClose = annonce ? null : setTimeout(closeCouncilEventCard, 30000);  // filet de sécurité
   // Narration TTS : titre + règle explicite (le MJ doit savoir quoi annoncer)
   try { speakNarration(data.title + ". " + (data.regle || data.narrative || "")); } catch(_) {}
 }
@@ -812,7 +826,7 @@ function afficherBandeauEvenement(data) {
 }
 // Rouvre la carte complète, sans relancer la voix du narrateur.
 function revoirCarteEvenement() {
-  if (_mjEvenementDuJour) ouvrirCarteEvenement(_mjEvenementDuJour);
+  if (_mjEvenementDuJour) ouvrirCarteEvenement(_mjEvenementDuJour, annonceDuMatinEnCours());
 }
 
 // Évènement du Conseil mis en attente tant que la carte récap de nuit est ouverte.
@@ -832,7 +846,7 @@ socket.on("councilEventActive", data => {
     return;
   }
   _mjAnnonceDemandee = false;
-  showMjCouncilEventCard(data);
+  showMjCouncilEventCard(data, annonceDuMatinEnCours());
 });
 
 socket.on("councilStartMJ", data => {
@@ -974,9 +988,13 @@ const MESURES = {
 // Sonie visée : la musique de nuit garde son volume et sert de repère. « lointain » : un effet qui
 // vient de loin (les loups de la Lune Rousse), 10 dB sous un effet
 const CIBLES = { ambiance: -26, fin: -21, effet: -14, lointain: -24 };
+// Réglages à l'oreille, en dB, par-dessus la mesure : la porte de la Petite Fille, trop présente
+// pour un bruit de fond (Alexandre, 2026-11-10)
+const A_L_OREILLE = { petite_fille: -6 };
 function facteurDuSon(cle, categorie) {
   const [sonie, crete] = MESURES[cle] || [CIBLES[categorie], -1];
-  return Math.min(Math.pow(10, (CIBLES[categorie] - sonie) / 20), Math.pow(10, (-1 - crete) / 20));
+  return Math.min(Math.pow(10, (CIBLES[categorie] - sonie) / 20), Math.pow(10, (-1 - crete) / 20))
+    * Math.pow(10, (A_L_OREILLE[cle] || 0) / 20);
 }
 // L'écran de la tablette reste allumé tant que la page du MJ est ouverte (Screen Wake Lock ; le
 // navigateur ne l'accorde qu'à une page « sûre », comme http://localhost:3000/mj sur la tablette qui
@@ -1027,12 +1045,13 @@ function toggleAudio(){
   document.getElementById("audioToggle").textContent = audioEnabled ? "🔈" : "🔇";
   if(!audioEnabled && ambianceAudio){ ambianceAudio.pause(); dotSet(false); lblSet("Muet"); }
   stopHeartbeat();
-  if (!audioEnabled) arreterCoeur();
+  if (!audioEnabled) { arreterCoeur(); arreterBoucleRole(null); }
 }
 function dotSet(on,err){ ['dotAmbiance2'].forEach(id=>{ const d=document.getElementById(id); if(d) d.className="audio-dot"+(on?" on":err?" err":""); }); }
 function lblSet(t){ const e=document.getElementById("audioLabel2"); if(e) e.innerText=t; }
 function playAmbiance(k){
   if(!audioEnabled)return;
+  if (k === "night" && _boucleRoleAudio && _boucleRoleAudio._remplaceLaNuit) return;   // les Sœurs jouent à sa place
   if(ambianceName===k && ambianceAudio && !ambianceAudio.paused)return;
   stopAmbiance();
   try{
@@ -1059,7 +1078,7 @@ const NOMS_DES_SONS = { lobby:"Salon", night:"Nuit", day:"Jour", rainynight:"Tem
   endgame_village:"Fin village", endgame_loups:"Fin Loups", endgame_amoureux:"Fin Amoureux", endgame_ange:"Fin Ange",
   wolves:"Loups", witch:"Sorcière", seer:"Voyante", death:"Glas", heartbeat:"Cœur", gun:"Coup de feu", crow:"Corbeau",
   thunder:"Tonnerre", church_bell:"Cloche", cupid:"Cupidon", sisters:"Sœurs", shield:"Bouclier", petite_fille:"Petite Fille" };
-const estUneMusique = k => k.startsWith("endgame") || ["lobby", "night", "day", "rainynight", "murmures"].includes(k);
+const estUneMusique = k => k.startsWith("endgame") || ["lobby", "night", "day", "rainynight", "murmures", "sisters"].includes(k);
 function ecouterSon(k) {
   if (!estUneMusique(k)) return playEffect(k);
   if (ambianceName === k) stopAmbiance(); else playAmbiance(k);
@@ -1070,42 +1089,62 @@ function playEffect(k){
   if(!audioEnabled)return;
   try{ sonAuNiveau(k, "effet").play().catch(()=>{}); }catch(e){}
 }
-// ===== Boucles de rôle — canal audio dédié, en boucle, fondu à la sortie =====
-// Par-dessus l'ambiance night.mp3, pendant TOUTE la phase du rôle : la musique des Sœurs, le cœur
-// qui bat pendant que les Amoureux se regardent. Fondu de sortie (1 s) dès qu'on quitte la phase.
-const BOUCLES_DE_ROLE = { sisters: "sisters", amoureux: "heartbeat" };
+// ===== Boucles de rôle — canal audio dédié, en boucle, pendant toute la phase du rôle =====
+// La musique des Sœurs REMPLACE la musique de nuit, au même niveau : la nuit s'éteint en fondu pendant
+// qu'elle monte, puis reprend là où elle en était quand les Sœurs referment les yeux (demande
+// d'Alexandre, 2026-11-10). Le cœur des Amoureux bat PAR-DESSUS la musique de nuit.
+const BOUCLES_DE_ROLE = {
+  sisters:  { cle: "sisters",   categorie: "ambiance", remplaceLaNuit: true },
+  amoureux: { cle: "heartbeat", categorie: "effet" },
+};
+const FONDU_BOUCLE_MS = 1500;
 let _boucleRoleAudio = null;
-function jouerBoucleRole(cle) {
-  if (_boucleRoleAudio && _boucleRoleAudio._cle === cle) return; // déjà en cours
-  arreterBoucleRole();
+// Fondu d'un son jusqu'à `cible` (un volume, ou une fonction qui le donne : le réglage général peut
+// bouger pendant le fondu), puis `fin`. Un nouveau fondu sur le même son remplace le précédent.
+function fonduVers(a, cible, ms, fin) {
+  if (a._fonduId) clearInterval(a._fonduId);
+  const depart = a.volume, pas = 15;
+  let i = 0;
+  a._fonduId = setInterval(() => {
+    i++;
+    const c = typeof cible === "function" ? cible() : cible;
+    try { a.volume = Math.max(0, Math.min(1, depart + (c - depart) * i / pas)); } catch (_) {}
+    if (i >= pas) { clearInterval(a._fonduId); a._fonduId = null; if (fin) fin(); }
+  }, ms / pas);
+}
+const volumeDuSon = a => () => Math.min(1, masterVolume * a._facteurVolume);
+function jouerBoucleRole(p) {
+  const b = BOUCLES_DE_ROLE[p];
+  if (_boucleRoleAudio && _boucleRoleAudio._cle === b.cle) return; // déjà en cours
+  arreterBoucleRole(p);
   if (!audioEnabled) return;
   try {
-    const a = sonAuNiveau(cle, "effet");
+    const a = sonAuNiveau(b.cle, b.categorie);
     a.loop = true;
-    a._cle = cle;
+    a._cle = b.cle;
+    a._remplaceLaNuit = !!b.remplaceLaNuit;
+    a.volume = 0;
     a.play().catch(()=>{});
+    fonduVers(a, volumeDuSon(a), FONDU_BOUCLE_MS);
+    if (b.remplaceLaNuit && ambianceAudio && ambianceName === "night" && !ambianceAudio.paused) {
+      const nuit = ambianceAudio;
+      a._nuitEnPause = nuit;
+      fonduVers(nuit, 0, FONDU_BOUCLE_MS, () => nuit.pause());
+    }
     _boucleRoleAudio = a;
   } catch (e) {}
 }
-function arreterBoucleRole() {
+// Fin de la boucle (`p` : la phase qui commence) : elle s'éteint en fondu, et la musique de nuit
+// qu'elle avait remplacée reprend en fondu si la nuit continue
+function arreterBoucleRole(p) {
   const a = _boucleRoleAudio;
   if (!a) return;
   _boucleRoleAudio = null;
-  // Fondu de sortie 1 s pour ne pas couper sec
-  try {
-    const steps = 12;
-    const startVol = a.volume;
-    let i = 0;
-    const id = setInterval(() => {
-      i++;
-      try { a.volume = Math.max(0, startVol * (1 - i / steps)); } catch(_){}
-      if (i >= steps) {
-        clearInterval(id);
-        try { a.pause(); a.currentTime = 0; } catch(_){}
-      }
-    }, 80);
-  } catch (e) {
-    try { a.pause(); } catch(_){}
+  fonduVers(a, 0, FONDU_BOUCLE_MS, () => { try { a.pause(); a.currentTime = 0; } catch (_) {} });
+  const nuit = a._nuitEnPause;
+  if (nuit && nuit === ambianceAudio && audioEnabled && MJ_PHASES_NUIT.includes(p)) {
+    nuit.play().catch(()=>{});
+    fonduVers(nuit, volumeDuSon(nuit), FONDU_BOUCLE_MS);
   }
 }
 function startHeartbeat(){
@@ -1235,6 +1274,11 @@ socket.on("phase", p=>{
     corbeauTarget=null; lastDayCounts={};
     const dc=document.getElementById("dayCounts"); if(dc) dc.innerHTML="";
   }
+  // Boucle du rôle (Sœurs, Amoureux) : démarre dès l'entrée dans sa phase, s'arrête en fondu à la
+  // sortie. Avant la musique de nuit : la nuit que les Sœurs avaient remplacée reprend où elle en était.
+  if (BOUCLES_DE_ROLE[p]) jouerBoucleRole(p);
+  else                    arreterBoucleRole(p);
+
   // Musique de nuit : dès que la nuit commence (cupid en 1ʳᵉ nuit, sisters ensuite),
   // et tout au long des phases nocturnes. La phase sisters joue sisters.mp3 PAR-DESSUS
   // (canal audio séparé) sans interrompre l'ambiance.
@@ -1249,10 +1293,6 @@ socket.on("phase", p=>{
     playAmbiance("night");
   }
 
-  // Boucle du rôle (Sœurs, Amoureux) : démarre dès l'entrée dans sa phase, s'arrête en
-  // fondu à la sortie.
-  if (BOUCLES_DE_ROLE[p]) jouerBoucleRole(BOUCLES_DE_ROLE[p]);
-  else                    arreterBoucleRole();
 
   // Grande carte « Passer à l'étape suivante » : visible uniquement entre deux rôles de nuit
   const esc = document.getElementById("etapeSuivanteCard");
@@ -1261,6 +1301,10 @@ socket.on("phase", p=>{
   if (lnc) lnc.style.display = (p === "crepuscule") ? "flex" : "none";
   if (p !== "day" && _mjMatinEnCours) afficherAnnonceMatin(null);
   if (_mjActionEnAttente && p !== _mjActionEnAttente.type) _mjActionEnAttente = null;
+  // L'action de la carte d'un mort n'a pas eu lieu (pas de tir, partie finie) ou s'est faite sans
+  // elle (filet du serveur) : « Continuer » revient
+  const ac = _mjCarteMortAction;
+  if (ac && p !== ac.type && (p !== "day" || ac.pret)) { _mjCarteMortAction = null; majBoutonsCarteMort(); }
   majActionSuivante();
 });
 
@@ -1458,13 +1502,56 @@ function showMjDeathCard(emoji, subtitle, name, role, narrative) {
   if (nameEl)  nameEl.innerText  = name || "?";
   if (roleEl)  roleEl.innerText  = "Rôle : " + (role || "?");
   if (narrEl)  narrEl.innerText  = narrative || "";
+  const chagrin = document.getElementById("mjVoteDeathChagrin");
+  chagrin.innerHTML = ""; chagrin.style.display = "none";
+  _mjCarteMortAction = null;
+  majBoutonsCarteMort();
   card.style.display = "flex";
-  if (_mjVoteDeathAutoClose) clearTimeout(_mjVoteDeathAutoClose);
-  _mjVoteDeathAutoClose = _mjVictoireAttendue ? null : setTimeout(closeMjVoteDeathCard, 25000);  // filet de sécurité
 }
+// L'action qui suit la mort annoncée (« 🔫 Le Chasseur tire », « 🏛️ Transmettre l'écharpe ») prend la
+// place de « Continuer » sur la carte : grisée tant que le serveur ne l'a pas ouverte (le Chasseur
+// voté est encore en vie pendant l'annonce), active ensuite. { type, nom, pret } ou null.
+let _mjCarteMortAction = null;
+function attendreActionCarteMort(type, nom) {
+  if (!_mjCarteMortAction) _mjCarteMortAction = { type, nom, pret: false };
+  majBoutonsCarteMort();
+}
+function majBoutonsCarteMort() {
+  const a = _mjCarteMortAction, bouton = document.getElementById("mjVoteDeathAction");
+  document.getElementById("mjVoteDeathContinuer").style.display = (a || _mjVictoireAttendue) ? "none" : "";
+  bouton.style.display = a ? "" : "none";
+  if (a) {
+    bouton.textContent = a.type === "chasseur" ? `🔫 Le Chasseur tire — ${a.nom}` : `🏛️ Transmettre l'écharpe — ${a.nom}`;
+    bouton.disabled = !a.pret;
+    bouton.style.opacity = a.pret ? "1" : "0.45";
+  }
+  // Le filet de sécurité ne ferme pas une carte qui porte une action ou attend la victoire
+  if (_mjVoteDeathAutoClose) { clearTimeout(_mjVoteDeathAutoClose); _mjVoteDeathAutoClose = null; }
+  if (!a && !_mjVictoireAttendue) _mjVoteDeathAutoClose = setTimeout(closeMjVoteDeathCard, 25000);
+}
+function lancerActionCarteMort() {
+  if (_mjCarteMortAction && _mjCarteMortAction.pret) mjOuvrirAction();
+}
+// L'amoureux qui meurt de chagrin avec le mort annoncé : sur sa carte, avec son rôle
+function ajouterChagrinCarte(d) {
+  const card = document.getElementById("mjVoteDeathCard"), zone = document.getElementById("mjVoteDeathChagrin");
+  if (!d || !d.name || card.style.display !== "flex") return;
+  if ([...zone.children].some(l => l.dataset.nom === d.name)) return;
+  const ligne = document.createElement("div");
+  ligne.dataset.nom = d.name;
+  ligne.innerHTML = `💔 <strong></strong> meurt de chagrin — <span></span>`;
+  ligne.querySelector("strong").textContent = d.name;
+  ligne.querySelector("span").textContent = nomDuRole(d.role);
+  zone.appendChild(ligne);
+  zone.style.display = "block";
+  if (d.role === "Chasseur") attendreActionCarteMort("chasseur", d.name);
+}
+socket.on("verdictChagrinMJ", ajouterChagrinCarte);
 socket.on("dayVoteResult", data=>{
   showAlert(`☠️ ${data.name} éliminé — ${nomDuRole(data.role)}`, "info");
   showMjDeathCard("⚖️", "Le verdict du village", data.name, nomDuRole(data.role), data.narrative);
+  if (data.role === "Chasseur") attendreActionCarteMort("chasseur", data.name);
+  else if (data.id === mayorId) attendreActionCarteMort("mayorTransfer", data.name);
   // Empêche le MJ de lancer le vote suivant avant que les joueurs aient vu la carte de mort (5 s + 0,6 s fermeture + marge)
   _mjLaunchVoteUnlocksAt = Date.now() + 6500;
   try { speakNarration(`Le village a désigné ${data.name}. Rôle : ${nomDuRole(data.role)}.`); } catch(_) {}
@@ -1480,13 +1567,19 @@ socket.on("mjChasseurShot", data=>{
 });
 function closeMjVoteDeathCard(){
   if (_mjVoteDeathAutoClose) { clearTimeout(_mjVoteDeathAutoClose); _mjVoteDeathAutoClose = null; }
+  _mjCarteMortAction = null;
   const card = document.getElementById("mjVoteDeathCard");
   if (card) card.style.display = "none";
 }
 socket.on("daySkipped",    ()=>{ showAlert("⏭️ Vote du jour passé.", "info"); changerEtatVote("resultat"); });
 socket.on("randomElim",    ()=>showAlert("⚠️ Aucun vote — élimination aléatoire !", "warn"));
-socket.on("loversDeathInfo", data=>{ if(data.name) showAlert(`💔 ${data.name} meurt de chagrin.`,"warn"); });
-socket.on("idiotRevealed", data=>showAlert(`🤡 ${data.name} est l'Idiot du village !`, "info"));
+socket.on("loversDeathInfo", data=>{ if(data.name) { showAlert(`💔 ${data.name} meurt de chagrin.`,"warn"); ajouterChagrinCarte(data); } });
+// L'Idiot désigné par le village : sa carte, comme une mort, mais il reste en vie
+socket.on("idiotRevealed", data=>{
+  showAlert(`🤡 ${data.name} est l'Idiot du village !`, "info");
+  showMjDeathCard("🤡", "Le verdict du village", data.name, nomDuRole("Idiot"),
+    `${data.name} est l'Idiot du village : démasqué, il reste en vie, mais ne vote plus.`);
+});
 socket.on("angeRevele", data=>showAlert(`👼 ${data.name} était l'Ange : il gagne seul !`, "success"));
 socket.on("stuckGame", data=>{
   const label={wolves:"Les Loups",seer:"La Voyante",petiteFille:"La Petite Fille",corbeau:"Le Corbeau",witch:"La Sorcière",cupid:"Cupidon"};
@@ -1720,12 +1813,12 @@ const CAMP_VICTOIRE = { wolves: "des Loups", villagers: "du village", lovers: "d
 let _mjVictoireAttendue = null;
 function afficherVictoireAttendue(camp) {
   _mjVictoireAttendue = camp || null;
+  if (camp && _mjCarteMortAction && !_mjCarteMortAction.pret) _mjCarteMortAction = null;   // la partie finit avant l'action
   const b = document.getElementById("mjVictoireBouton");
   b.textContent = camp ? `🏆 Lancer la victoire ${CAMP_VICTOIRE[camp] || ""}` : "";
   b.style.display = camp ? "block" : "none";
   // Ce bouton est la seule suite : la carte d'un mort reste affichée, sans « Continuer », jusqu'au clic
-  document.getElementById("mjVoteDeathContinuer").style.display = camp ? "none" : "";
-  if (camp && _mjVoteDeathAutoClose) { clearTimeout(_mjVoteDeathAutoClose); _mjVoteDeathAutoClose = null; }
+  majBoutonsCarteMort();
   majActionSuivante();
 }
 socket.on("victoireEnAttente", d => afficherVictoireAttendue(d && d.camp));
@@ -1736,10 +1829,19 @@ function mjLancerVictoire() {
 
 // Tir du Chasseur ou transmission d'écharpe en attente du clic du MJ : { type, nom } ou null
 let _mjActionEnAttente = null;
-socket.on("actionMJEnAttente", d => { _mjActionEnAttente = d || null; majActionSuivante(); });
+socket.on("actionMJEnAttente", d => {
+  _mjActionEnAttente = d || null;
+  // Carte d'un mort ouverte : l'action s'y lance, à la place de « Continuer »
+  if (d && document.getElementById("mjVoteDeathCard").style.display === "flex") {
+    _mjCarteMortAction = { type: d.type, nom: d.nom, pret: true };
+    majBoutonsCarteMort();
+  }
+  majActionSuivante();
+});
 function mjOuvrirAction() {
   socket.emit("mjOuvrirAction");
   _mjActionEnAttente = null;
+  if (_mjCarteMortAction) closeMjVoteDeathCard();
   majActionSuivante();
 }
 function majActionSuivante() {
@@ -1767,7 +1869,10 @@ function mjLancerDebat() {
   socket.emit("mjFinAnnonceMatin");
   afficherAnnonceMatin(null);
   closeDayRecapCard();
+  if (_mjCarteAnnonce) closeCouncilEventCard();
 }
+// L'évènement du jour est annoncé, le débat pas encore lancé
+function annonceDuMatinEnCours() { return _mjMatinEnCours && !_mjEvenementAAnnoncer; }
 
 function mjEtapeSuivante(){
   socket.emit("mjEtapeSuivante");
