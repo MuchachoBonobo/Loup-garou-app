@@ -1020,7 +1020,7 @@ let heartbeatAudio=null;
 
 function setVolume(v){
   masterVolume=parseFloat(v);
-  for (const a of [ambianceAudio, stormAudio, _sistersLoopAudio, heartbeatAudio, _coeur && _coeur.audio]) if (a) a.volume = Math.min(1, masterVolume * a._facteurVolume);
+  for (const a of [ambianceAudio, stormAudio, _boucleRoleAudio, heartbeatAudio, _coeur && _coeur.audio]) if (a) a.volume = Math.min(1, masterVolume * a._facteurVolume);
 }
 function toggleAudio(){
   audioEnabled=!audioEnabled;
@@ -1070,24 +1070,27 @@ function playEffect(k){
   if(!audioEnabled)return;
   try{ sonAuNiveau(k, "effet").play().catch(()=>{}); }catch(e){}
 }
-// ===== Sister music — canal audio dédié, en boucle, fondu à la sortie =====
-// Joue par-dessus l'ambiance night.mp3 pendant TOUTE la phase sisters et
-// s'arrête en fade-out (1s) dès qu'on quitte la phase.
-let _sistersLoopAudio = null;
-function playSistersLoop() {
+// ===== Boucles de rôle — canal audio dédié, en boucle, fondu à la sortie =====
+// Par-dessus l'ambiance night.mp3, pendant TOUTE la phase du rôle : la musique des Sœurs, le cœur
+// qui bat pendant que les Amoureux se regardent. Fondu de sortie (1 s) dès qu'on quitte la phase.
+const BOUCLES_DE_ROLE = { sisters: "sisters", amoureux: "heartbeat" };
+let _boucleRoleAudio = null;
+function jouerBoucleRole(cle) {
+  if (_boucleRoleAudio && _boucleRoleAudio._cle === cle) return; // déjà en cours
+  arreterBoucleRole();
   if (!audioEnabled) return;
-  if (_sistersLoopAudio) return; // déjà en cours
   try {
-    const a = sonAuNiveau("sisters", "effet");
+    const a = sonAuNiveau(cle, "effet");
     a.loop = true;
+    a._cle = cle;
     a.play().catch(()=>{});
-    _sistersLoopAudio = a;
+    _boucleRoleAudio = a;
   } catch (e) {}
 }
-function stopSistersLoop() {
-  const a = _sistersLoopAudio;
+function arreterBoucleRole() {
+  const a = _boucleRoleAudio;
   if (!a) return;
-  _sistersLoopAudio = null;
+  _boucleRoleAudio = null;
   // Fondu de sortie 1 s pour ne pas couper sec
   try {
     const steps = 12;
@@ -1246,10 +1249,10 @@ socket.on("phase", p=>{
     playAmbiance("night");
   }
 
-  // Sister music : démarre dès l'entrée en phase sisters (avant même que le MJ
-  // lance le timer), s'arrête en fade-out à la sortie de phase.
-  if (p === "sisters") playSistersLoop();
-  else                 stopSistersLoop();
+  // Boucle du rôle (Sœurs, Amoureux) : démarre dès l'entrée dans sa phase, s'arrête en
+  // fondu à la sortie.
+  if (BOUCLES_DE_ROLE[p]) jouerBoucleRole(BOUCLES_DE_ROLE[p]);
+  else                    arreterBoucleRole();
 
   // Grande carte « Passer à l'étape suivante » : visible uniquement entre deux rôles de nuit
   const esc = document.getElementById("etapeSuivanteCard");

@@ -38,6 +38,7 @@ const agent = new https.Agent({ rejectUnauthorized: false });
 let currentSceneKey = null;
 let effectInterval  = null;
 let effectTimeouts  = [];
+let finEclair       = 0;  // fin de l'éclair en cours (horodatage) : jusque-là, applyScene retient la scène
 let lastCallAt      = 0;
 const MIN_GAP_MS    = 100; // anti rate-limit Hue (~10 cmd/sec/groupe)
 
@@ -196,24 +197,35 @@ function startEffect(name, scene) {
 function applyScene(key) {
   const scene = SCENES[key];
   if (!scene) { _log("scène absente:", key); return; }
-  stopEffect();
   currentSceneKey = key;
+  // Un éclair en cours va jusqu'au bout : c'est lui qui posera cette scène en finissant. Sinon le
+  // changement de phase qui le suit aussitôt l'annulait (les morts de l'aube, la proie des loups).
+  if (Date.now() < finEclair) { _log("scène après l'éclair →", key); return; }
+  stopEffect();
   callHue(_sceneBody(scene));
   if (scene.effect) {
     // Petit délai pour laisser la transition s'établir avant l'effet
-    setTimeout(() => { if (currentSceneKey === key) startEffect(scene.effect, scene); }, scene.transition || 800);
+    setTimeout(() => { if (currentSceneKey === key && Date.now() >= finEclair) startEffect(scene.effect, scene); }, scene.transition || 800);
   }
   _log("scène →", key);
 }
 
+// Éclair qui finit dans `delai` ms : il posera alors la scène retenue entre-temps (applyScene).
+function apresEclair(delai) {
+  finEclair = Date.now() + delai;
+  effectTimeouts.push(setTimeout(() => {
+    finEclair = 0;
+    if (currentSceneKey && SCENES[currentSceneKey]) applyScene(currentSceneKey);
+  }, delai));
+}
+
 /**
- * Flash ponctuel (mort, victoire). Sauvegarde la scène courante, lance N pulses
- * vers la couleur du flash, puis restaure la scène.
+ * Flash ponctuel (mort, victoire). Lance N pulses vers la couleur du flash, puis pose la scène
+ * en cours : celle d'avant, ou celle qu'un changement de phase a demandée pendant l'éclair.
  */
 function flash(key) {
   const f = SCENES[key];
   if (!f) { _log("flash absent:", key); return; }
-  const restore = currentSceneKey;
   const repeat  = f.repeat   || 2;
   const dur     = f.duration || 250;
 
@@ -228,13 +240,7 @@ function flash(key) {
       callHue(_sceneBody({ xy: f.xy, bri: Math.max(5, Math.floor(f.bri*0.1)) }, { duration: 0 }));
     }, i * dur + Math.floor(dur/2)));
   }
-  // Restaure la scène précédente
-  effectTimeouts.push(setTimeout(() => {
-    if (restore && SCENES[restore]) {
-      applyScene(restore);
-    }
-  }, repeat * dur + 150));
-
+  apresEclair(repeat * dur + 150);
   _log("flash →", key, "(" + repeat + "x)");
 }
 
@@ -246,11 +252,11 @@ function flash(key) {
 function vague(key) {
   const v = SCENES[key];
   if (!v) { _log("vague absente:", key); return; }
-  const restore = currentSceneKey;
-  stopEffect();
+  stopEffect();   // coupe aussi un éclair en cours : la vague reposera la scène en finissant
+  finEclair = 0;
   callHue(_sceneBody(v, { duration: v.montee || 1500 }));
   effectTimeouts.push(setTimeout(() => {
-    if (restore && SCENES[restore]) applyScene(restore);
+    if (currentSceneKey && SCENES[currentSceneKey]) applyScene(currentSceneKey);
   }, v.duree || 5000));
   _log("vague →", key);
 }
@@ -265,7 +271,6 @@ function flashSequence(key, count) {
   if (!f) { _log("flash absent:", key); return; }
   if (count <= 0) return;
   if (count === 1) { flash(key); return; }
-  const restore = currentSceneKey;
   const dur  = f.duration || 250;
   const gap  = 400; // silence entre deux morts
   stopEffect();
@@ -278,9 +283,7 @@ function flashSequence(key, count) {
       callHue(_sceneBody({ xy: f.xy, bri: Math.max(5, Math.floor(f.bri * 0.1)) }, { duration: 0 }));
     }, base + Math.floor(dur / 2)));
   }
-  effectTimeouts.push(setTimeout(() => {
-    if (restore && SCENES[restore]) applyScene(restore);
-  }, count * (dur + gap) + 150));
+  apresEclair(count * (dur + gap) + 150);
   _log("flashSequence →", key, "×" + count);
 }
 
@@ -289,6 +292,7 @@ function flashSequence(key, count) {
  */
 function reset() {
   stopEffect();
+  finEclair = 0;
   currentSceneKey = null;
   if (_ready()) applyScene("lobby");
 }
