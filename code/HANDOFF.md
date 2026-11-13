@@ -179,6 +179,13 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 
 Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOURNAL-ARCHIVE.md`.
 
+### 2026-11-13 (suite) — Un seul MJ, l'onglet regardé ; Pixel 9 qui ne joint pas la tablette
+- **Bug** (Alexandre : « je clique sur les évènements, rien ne se lance ») : chaque « Lancer le jeu » de la tablette ouvre un onglet Chrome de plus (`termux-open-url`). Au redémarrage du jeu, tous les onglets se reconnectent et le **dernier** reconnecté devenait le MJ (`state.mjSocketId`), parfois un vieil onglet caché. Les touchers de l'onglet visible étaient alors ignorés sans un mot, puisque le serveur répond seulement au MJ.
+  - Corrigé côté page : seul l'onglet visible s'enregistre (`devenirMJ`) ; un onglet caché attend d'être regardé.
+  - Côté serveur : l'ancienne page reçoit `mjRemplace` et affiche « 📱 La page du MJ est ouverte ailleurs », avec « Reprendre la main ici ».
+- **Pixel 9 (ouvert)** : le téléphone d'un proche n'ouvre pas `http://192.168.8.232:3000` (bonne adresse, bon Wi-Fi, données coupées, pas de VPN, « Toujours utiliser des connexions sécurisées » désactivé) : `ERR_TOO_MANY_RETRIES` (Chrome a joint quelque chose mais la connexion est coupée à chaque essai). Les autres appareils y arrivent (le téléphone d'Alexandre, le PC). Pistes demandées : autorisation « Appareils à proximité / réseau local » de Chrome (Android 16 récent), `http://192.168.8.1` depuis le Pixel, Firefox sur le Pixel.
+- Vérifié : Chrome, deux onglets et un second appareil (8 vérifications, dont un redémarrage du jeu avec les deux onglets ouverts) ; `npm run test:navigateur` 104/104 ; `npm run test:rythme` 26/26 et 14/14 ; `npm test` 12/12, 100/100 et 43/43.
+
 ### 2026-11-13 — Salon du MJ : musique au premier toucher, rôles réglés avec − / +
 - **Musique du salon** : la page la lançait déjà à l'ouverture, mais Chrome refuse le son tant que personne n'a touché la page, et la tablette ouvre le salon toute seule (« Lancer le jeu »). La musique refusée part maintenant au premier toucher, où que ce soit sur la page (`_musiqueEnAttenteDuToucher`). Ça vaut aussi pour une tablette rechargée en pleine partie.
 - **Nombre de chaque rôle** : boutons − et + autour du chiffre, au doigt, au lieu d'un champ à taper (le clavier de la tablette s'ouvrait). Le chiffre reste le champ que lit `lireComposition`, en lecture seule ; min, max et pas viennent du champ (au moins 1 loup ; les Sœurs passent de 0 à 2). Fait par le script de la page, sans réécrire les douze champs.

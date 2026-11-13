@@ -167,6 +167,8 @@ io.on("connection", socket => {
   // ===== ENREGISTREMENT MJ =====
   socket.on("registerMJ", () => {
     log.info('MJ connecté', socket.id);
+    // L'ancienne page du MJ (autre onglet, autre appareil) sait qu'elle n'a plus la main
+    if (state.mjSocketId && state.mjSocketId !== socket.id) io.to(state.mjSocketId).emit("mjRemplace");
     state.mjSocketId = socket.id;
     socket.emit("rolesMJ", { roles: state.roles, players: state.players });
     socket.emit("connexionsMJ", etatConnexions());

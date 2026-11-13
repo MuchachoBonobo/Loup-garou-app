@@ -10,6 +10,8 @@
 <body>
 
 <!-- Tablette coupée de l'ordinateur du jeu (Wi-Fi perdu, ordinateur passé sur un autre réseau) -->
+<!-- Cet onglet n'est plus le MJ : la page du MJ a été ouverte ailleurs (devenirMJ) -->
+<div id="mjRemplace" style="display:none;position:fixed;top:0;left:0;right:0;z-index:10001;background:rgb(var(--or-fond));border-bottom:2px solid rgb(var(--or-vif));color:rgb(var(--or-clair));text-align:center;padding:14px;font-weight:bold;">📱 La page du MJ est ouverte ailleurs.<br><button class="btn" onclick="devenirMJ()" style="margin-top:8px;padding:10px 22px;">Reprendre la main ici</button></div>
 <div id="mjHorsLigne">🔴 La tablette ne joint plus l'ordinateur du jeu.<br><span style="font-weight:normal;font-size:13px;">Vérifie que les deux sont sur le Wi-Fi « La nuit du village ».</span></div>
 
 <!-- Victoire constatée : le MJ la lance quand il a raconté (afficherVictoireAttendue) -->
@@ -344,7 +346,22 @@
 <script src="/js/communs.js"></script>
 <script>
 const socket = io();
-socket.emit("registerMJ");
+// Un seul MJ pour le jeu : l'onglet qu'on regarde (2026-11-13). « Lancer le jeu » ouvre un onglet de
+// plus à chaque fois, et au redémarrage du jeu tous se reconnectent : le dernier reconnecté devenait
+// le MJ, parfois un vieil onglet caché, et les touchers de l'onglet visible étaient ignorés. Un onglet
+// caché attend d'être regardé ; un onglet remplacé (autre onglet, autre appareil) le dit.
+let _mjEnregistre = false;
+function devenirMJ() {
+  if (document.visibilityState !== "visible" || !socket.connected) return;
+  socket.emit("registerMJ");
+  _mjEnregistre = true;
+  document.getElementById("mjRemplace").style.display = "none";
+}
+document.addEventListener("visibilitychange", () => { if (!_mjEnregistre) devenirMJ(); });
+socket.on("mjRemplace", () => {
+  _mjEnregistre = false;
+  if (document.visibilityState === "visible") document.getElementById("mjRemplace").style.display = "block";
+});
 
 // Connexion perdue : la pastille du haut, et au bout de 3 s le bandeau rouge (une reconnexion
 // éclair ne l'affiche pas) — la nuit attend les clics du MJ, qui n'arrivent plus
@@ -357,7 +374,7 @@ function setMJConnected(ok) {
   if (ok) bandeau.style.display = "none";
   else _horsLigneTimer = setTimeout(() => { bandeau.style.display = "block"; }, 3000);
 }
-socket.on("connect",    () => { setMJConnected(true); socket.emit("registerMJ"); });
+socket.on("connect",    () => { setMJConnected(true); _mjEnregistre = false; devenirMJ(); });
 socket.on("disconnect", () => setMJConnected(false));
 // Retour sur l'onglet / réveil de la tablette : reconnexion immédiate.
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && !socket.connected) socket.connect(); });
