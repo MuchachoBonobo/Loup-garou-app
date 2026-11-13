@@ -7,8 +7,8 @@ Ce document décrit le **pourquoi** et le **pour qui** du projet, du point de vu
 Offrir aux joueurs un **moment interactif, immersif et mémorable** autour du jeu du Loup-Garou. Avant toute considération technique ou commerciale, la question à se poser sur chaque décision est : **est-ce que ça aide les joueurs à passer un bon moment ?**
 
 L'immersion passe par :
-- Une **mise en scène** soignée (narration vocale, lumières connectées Hue, cartes plein écran, sons d'ambiance).
-- Une **mécanique fluide** qui efface autant que possible la friction du MJ humain (transitions de phase, minuteries, narration assistée, récaps) — tout en lui laissant la main sur le rythme : il valide l'élection et l'attaque des loups, lance la nuit et chaque réveil, le débat et le vote, pour pouvoir raconter.
+- Une **mise en scène** soignée (lumières connectées Hue, cartes plein écran, sons d'ambiance).
+- Une **mécanique fluide** qui efface autant que possible la friction du MJ humain (transitions de phase, minuteries, phrases à dire affichées, récaps) — tout en lui laissant la main sur le rythme : il valide l'élection et l'attaque des loups, lance la nuit et chaque réveil, le débat et le vote, pour pouvoir raconter.
 - Des **moments forts** dramatisés (Conseil des Morts, évènements narratifs, battement de cœur des 10 dernières secondes de vote, voile de nuit en filet de sécurité).
 - Des **cartes narratives plein écran** (récap de nuit, évènements du Conseil des Morts) qui jouent un double rôle : **renforcer l'ambiance** pour les joueurs, et **soulager le MJ** en lui donnant un support visuel et un texte de synthèse à raconter — il n'a pas à tout improviser.
 

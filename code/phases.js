@@ -13,7 +13,6 @@ const {
 } = require('./state');
 
 const lights    = require('./lights');
-const narration = require('./narration');
 const council   = require('./council');
 const roles     = require('./roles');
 const votes     = require('./votes');
@@ -57,8 +56,6 @@ function setPhase(p) {
   state.resolutionJourEnCours = false;
   log.info('setPhase', previousPhase, '->', p);
   state.io.emit("phase", state.phase);
-  // Narration IA : annonce la transition (jouée sur le MJ via TTS)
-  narration.narrate(previousPhase, p);
 
   if (p === "day") {
     // Récap de la nuit pour le MJ, s'il n'est pas déjà parti à l'aube

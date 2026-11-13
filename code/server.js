@@ -34,7 +34,6 @@ const { state, isMJ, playerName, buildFullState, idActuel, joueursAvecRole, vers
 // Choix reçus des téléphones : un identifiant de joueur périmé (écran construit avant une
 // reconnexion) est traduit vers le joueur actuel. Fonctionne aussi pour une liste.
 const actuel = x => Array.isArray(x) ? x.map(idActuel) : idActuel(x);
-const narration = require("./narration");
 const council   = require("./council");
 const roles     = require("./roles");
 const phases    = require("./phases");
@@ -164,7 +163,6 @@ io.on("connection", socket => {
   socket.on("pauseGame",     ()       => phases.handlePauseGame(socket));
   socket.on("resumeGame",    ()       => phases.handleResumeGame(socket));
   socket.on("setPhase",      p        => phases.handleSetPhase(socket, p));
-  socket.on("setNarration",  enabled  => { if (isMJ(socket.id)) narration.setNarrationEnabled(enabled); });
 
   // ===== ENREGISTREMENT MJ =====
   socket.on("registerMJ", () => {

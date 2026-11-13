@@ -48,10 +48,14 @@ body { background:rgb(var(--n0)); color:rgb(var(--n8)); font-size:14px; max-widt
 
 .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px; }
 
-.config-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; }
-.config-item { display:flex; align-items:center; gap:5px; font-size:13px; color:rgb(var(--n6)); }
-.config-item input[type="number"] { width:52px; background:rgb(var(--n0)); border:1px solid rgb(var(--n4)); border-radius:5px; color:rgb(var(--n8)); padding:4px 6px; text-align:center; }
+.config-row { display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center; margin-bottom:10px; }
+.config-item { display:flex; align-items:center; gap:4px; font-size:18px; color:rgb(var(--n6)); }
+.config-item input[type="number"] { width:40px; font-size:16px; -moz-appearance:textfield; background:rgb(var(--n0)); border:1px solid rgb(var(--n4)); border-radius:5px; color:rgb(var(--n8)); padding:4px 6px; text-align:center; }
 .config-item input[type="checkbox"] { width:16px; height:16px; cursor:pointer; accent-color:rgb(var(--lune-base)); }
+.config-item input[type="number"]::-webkit-inner-spin-button, .config-item input[type="number"]::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+.compo-pas { width:36px; height:36px; padding:0; border-radius:8px; border:1px solid rgb(var(--n4)); background:rgb(var(--n2)); color:rgb(var(--n8)); font-size:20px; font-weight:bold; line-height:1; cursor:pointer; }
+.compo-pas:active { transform:scale(0.92); background:rgb(var(--n3)); }
+.config-item:has(input[type="checkbox"]) { font-size:14px; }
 
 
 #timerDisplay { display:none; font-size:44px; font-weight:900; text-align:center; color:rgb(var(--or-vif)); margin:6px 0; line-height:1; }
@@ -65,11 +69,6 @@ body { background:rgb(var(--n0)); color:rgb(var(--n8)); font-size:14px; max-widt
 .audio-dot.on  { background:rgb(var(--vert-vif)); box-shadow:0 0 5px rgb(var(--vert-vif)); animation:pulse 1s infinite alternate; }
 .audio-dot.err { background:rgb(var(--sang-base)); }
 
-.sfx-btn { padding:10px 6px; border-radius:8px; border:1px solid rgb(var(--n3)); background:rgb(var(--n0)); color:rgb(var(--n6)); cursor:pointer; font-size:11px; text-align:center; transition:all 0.15s; display:flex; flex-direction:column; align-items:center; gap:3px; }
-.sfx-btn:hover { border-color:rgb(var(--n5)); color:rgb(var(--n8)); background:rgb(var(--n2)); }
-.sfx-btn:active { transform:scale(0.95); }
-.sfx-btn .sfx-emoji { font-size:22px; }
-.sfx-btn .sfx-name  { font-size:10px; }
 
 .role-row { display:flex; align-items:center; justify-content:space-between; padding:5px 8px; margin:2px 0; border:1px solid rgb(var(--n2)); border-radius:6px; background:rgb(var(--n0)); font-size:13px; }
 .role-row.dead { opacity:0.35; }
@@ -87,7 +86,7 @@ body { background:rgb(var(--n0)); color:rgb(var(--n8)); font-size:14px; max-widt
 /* Tablette coupée de l'ordinateur du jeu : en haut de l'écran, impossible à manquer */
 #mjHorsLigne { display:none; position:fixed; top:0; left:0; right:0; z-index:10000; background:rgb(var(--sang-fond)); border-bottom:2px solid rgb(var(--sang-vif)); color:rgb(var(--sang-clair)); padding:12px 16px; text-align:center; font-size:15px; font-weight:bold; line-height:1.5; }
 /* Victoire en attente du MJ : en bas de l'écran, par-dessus les cartes, jusqu'à son clic */
-#mjVictoireBouton { display:none; position:fixed; left:50%; bottom:24px; transform:translateX(-50%); z-index:9999; padding:16px 28px; border-radius:12px; border:2px solid rgb(var(--or-vif)); background:rgb(var(--or-fond)); color:rgb(var(--or-clair)); font-size:17px; font-weight:bold; cursor:pointer; box-shadow:0 6px 24px rgba(var(--noir),0.6); max-width:calc(100% - 32px); }
+#mjVictoireBouton { display:none; position:fixed; left:50%; top:16px; transform:translateX(-50%); z-index:9999; padding:16px 28px; border-radius:12px; border:2px solid rgb(var(--or-vif)); background:rgb(var(--or-fond)); color:rgb(var(--or-clair)); font-size:17px; font-weight:bold; cursor:pointer; box-shadow:0 6px 24px rgba(var(--noir),0.6); max-width:calc(100% - 32px); }
 /* Téléphones décrochés, juste au-dessus de « Lancer la partie » */
 .mj-absents { display:none; margin-top:8px; font-size:13px; font-weight:bold; color:rgb(var(--sang-vif)); }
 /* « Votes » : le titre n'apparaît que lorsqu'il y a des votes à montrer */
