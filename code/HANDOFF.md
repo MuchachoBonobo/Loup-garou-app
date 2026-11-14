@@ -191,6 +191,7 @@ Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOUR
   - le script entier est entre accolades, pour pouvoir se relancer depuis le dépôt (`bash ~/loupgarou/code/outils/installer-tablette.sh`) même s'il se met à jour lui-même.
   - Les raccourcis existants ne changent qu'en relançant l'installateur une fois.
 - **Radio Hue** : le Bridge est sur le **canal Zigbee 11**, qui chevauche le canal Wi-Fi 1. La bande décroche par moments (`connectivity_issue`), mais quand la liaison tient, elle suit exactement les ampoules : vérifié par une commande à la pièce, puis par le jeu qui les a passées toutes les trois au vert de la Sorcière. Conseillé à Alexandre : « Changer de canal » dans l'appli Hue, et éloigner le Bridge du routeur. Un « Hue Smart button » de la maison est aussi injoignable (sans rapport avec le jeu).
+- **Vérifié après coup** : Alexandre a changé le canal (Zigbee 11 → 20) et relancé l'installateur ; la tablette fait tourner la nouvelle version (au démarrage, le salon à 53 % sur les trois lampes, bande comprise).
 
 ### 2026-11-14 — Lumières envoyées une par une, cœur du vote dès l'ouverture, Cupidon plus doux
 - **Lumière de nuit qui ne revenait pas après les Amoureux** (Alexandre) : côté jeu, la commande partait bien à la fin des 15 s (vérifié), mais toutes les commandes partaient en parallèle, chacune par sa connexion. Une pulsation rose envoyée juste avant pouvait arriver au Bridge après le bleu de la nuit, et rester. C'est plus probable depuis la tablette, dont le Wi-Fi est plus lent.
