@@ -49,27 +49,38 @@ function _ready() {
 }
 
 /**
- * Appel HTTPS PUT au Bridge. Fire-and-forget : timeout 1.5s, jamais d'await,
- * jamais de throw. Si ça plante, on log en mode debug et c'est tout.
+ * Envoi au Bridge, UNE commande à la fois, dans l'ordre (2026-11-14). Envoyées en parallèle, chacune
+ * par sa propre connexion, une commande partie juste avant (une pulsation rose des Amoureux) pouvait
+ * arriver au Bridge APRÈS la suivante (le bleu de la nuit) et rester : la pièce restait rose. La
+ * suivante part quand la précédente a répondu (ou échoué) ; si plusieurs attendent, seule la plus
+ * récente part, c'est l'état voulu. Une commande perdue (Wi-Fi) est renvoyée une fois si rien ne l'a
+ * remplacée. Jamais d'await, jamais de throw : au pire, on le note en mode debug.
  */
-function callHue(payload) {
+let occupe = false, prochaine = null;
+function callHue(payload, essai = 1) {
   if (!_ready()) return;
-
-  // Throttle minimal pour respecter le rate-limit du Bridge
-  const now = Date.now();
-  const gap = now - lastCallAt;
-  if (gap < MIN_GAP_MS) {
-    setTimeout(() => callHue(payload), MIN_GAP_MS - gap);
-    return;
-  }
-  lastCallAt = now;
-
-  // Souvent appelé depuis un minuteur : une erreur (réglage du .env illisible…) y
-  // arrêterait le serveur
-  try { envoyerAuBridge(payload); } catch (e) { _log("err:", e.message); }
+  if (occupe) { prochaine = { payload, essai }; return; }
+  occupe = true;
+  const attente = Math.max(0, MIN_GAP_MS - (Date.now() - lastCallAt));   // anti rate-limit Hue
+  setTimeout(() => {
+    lastCallAt = Date.now();
+    let fini = false;
+    const suite = ok => {
+      if (fini) return;
+      fini = true;
+      occupe = false;
+      if (!ok && !prochaine && essai < 2) prochaine = { payload, essai: essai + 1 };
+      const p = prochaine;
+      prochaine = null;
+      if (p) callHue(p.payload, p.essai);
+    };
+    // Souvent appelé depuis un minuteur : une erreur (réglage du .env illisible…) y arrêterait le serveur
+    try { envoyerAuBridge(payload, suite); } catch (e) { _log("err:", e.message); suite(true); }
+  }, attente);
 }
 
-function envoyerAuBridge(payload) {
+// `fin(ok)` est appelée une fois, à la réponse du Bridge ou à l'échec (erreur, 1,5 s sans réponse)
+function envoyerAuBridge(payload, fin) {
   const body = JSON.stringify(payload);
   const req = https.request({
     hostname: CONFIG.bridgeIp,
@@ -84,16 +95,17 @@ function envoyerAuBridge(payload) {
     },
     timeout: 1500
   }, res => {
-    if (CONFIG.debug && res.statusCode >= 400) {
-      let buf = '';
-      res.on('data', c => buf += c);
-      res.on('end',  () => _log("HTTP", res.statusCode, buf.slice(0, 200)));
-    } else {
-      res.resume();
-    }
+    let buf = '';
+    res.on('data', c => { if (CONFIG.debug) buf += c; });
+    res.on('end', () => {
+      if (CONFIG.debug && res.statusCode >= 400) _log("HTTP", res.statusCode, buf.slice(0, 200));
+      fin(res.statusCode < 500);   // 4xx : la commande est refusée, la renvoyer n'y changerait rien
+    });
+    res.on('error', () => fin(false));
   });
-  req.on('error',   e => _log("err:", e.message));
-  req.on('timeout', () => { _log("timeout"); req.destroy(); });
+  req.on('error',   e => { _log("err:", e.message); fin(false); });
+  req.on('timeout', () => { _log("timeout"); req.destroy(); fin(false); });
+  req.on('close',   () => fin(false));   // sans réponse complète ; sans effet si `fin` est déjà passée
   req.write(body);
   req.end();
 }

@@ -165,6 +165,7 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 
 - **Deux Chasseurs morts la même nuit** (ou un Chasseur mort d'amour la nuit où un autre Chasseur meurt) : seul le premier tire — `resoudreNuit` marque les autres morts sans tir quand la boucle s'arrête sur le premier Chasseur (branche « chasseur »), et `killPlayer` ne fait tirer qu'un Chasseur quand deux amoureux Chasseurs meurent ensemble. Une file de tireurs en attente le réglerait. Ne concerne que les parties à deux Chasseurs.
 - Mode autonome + bots : chevauchement possible des sons si les phases s'enchaînent vite.
+- **Suite de scénarios arrêtée net** (2026-11-14) : une passe de `npm test` s'est arrêtée au scénario S19 sans message d'erreur (code 127) ; relancée seule juste après, elle est passée en entier (100/100). Si ça se reproduit, regarder S19 (victoire jugée sur les survivants du matin).
 
 ## Comment reprendre
 
@@ -179,11 +180,25 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 
 Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOURNAL-ARCHIVE.md`.
 
+### 2026-11-14 — Lumières envoyées une par une, cœur du vote dès l'ouverture, Cupidon plus doux
+- **Lumière de nuit qui ne revenait pas après les Amoureux** (Alexandre) : côté jeu, la commande partait bien à la fin des 15 s (vérifié), mais toutes les commandes partaient en parallèle, chacune par sa connexion. Une pulsation rose envoyée juste avant pouvait arriver au Bridge après le bleu de la nuit, et rester. C'est plus probable depuis la tablette, dont le Wi-Fi est plus lent.
+  - `callHue` envoie désormais une commande à la fois : la suivante part à la réponse de la précédente ; s'il en attend plusieurs, seule la plus récente part.
+  - Une commande perdue (erreur, 1,5 s sans réponse, erreur 5xx) est renvoyée une fois, si rien ne l'a remplacée.
+  - Vérifié avec un faux Bridge qui répond en 50 à 450 ms : sur une nuit complète, la pièce est en bleu nuit à chacune des 10 pauses, et 0 commande sur 62 n'arrive dans le désordre.
+- **Cœur du vote** : il bat dès l'ouverture du vote, lent et doux (vitesse ×0,85, 30 % du volume), puis accélère et monte jusqu'à la fin du minuteur (×1,6, plein volume) ; il continue pendant le suspense et s'arrête au verdict (`reglerCoeurDuVote`).
+  - La progression se compte sur la durée d'origine : une pause ou « Terminer le vote » ne le fait pas repartir lentement.
+  - Il se tait en pause et quand on quitte le jour.
+  - Pendant le Cœur du Village, c'est toujours son cœur qui s'emballe dans les 10 dernières secondes.
+  - Avant, il battait seulement dans les 10 dernières secondes.
+- **Cupidon** : 75 → 60 % (`cupid`, bri 152), aucune autre scène de même couleur.
+- **Bande lumineuse qui ne s'allume pas** (les 2 ampoules oui) : le jeu ne commande que la pièce « Loup-Garou » de l'appli Hue (`HUE_GROUP_ID`). Pistes données à Alexandre : la bande absente de cette pièce, injoignable, ou installée en Bluetooth seulement, sans le Bridge. Inventaire du Bridge (lecture seule, PC passé sur « La nuit du village », reliée à la box) : la bande (Hue Lightstrip Plus, LCL001) était bien dans la pièce, mais en **« problème de liaison »** (Zigbee) ; les deux ampoules étaient reliées. Rebranchée, elle s'est reconnectée. Si ça revient : alimentation, distance au Bridge ou aux ampoules, Bridge trop près du routeur Wi-Fi.
+- Vérifié : Chrome, cœur du vote (8 vérifications : ouverture, montée, pause et reprise, « Terminer le vote », suspense, verdict) ; ordre des lumières avec un Bridge lent ; ESLint propre ; `npm test` : réseau 12/12, scénarios 100/100 et Conseil 43/43 (une première passe s'était arrêtée net au scénario S19, sans message, code 127 ; relancés seuls, tout vert) ; `npm run test:navigateur` 104/104 ; `npm run test:rythme` 26/26 et 14/14.
+
 ### 2026-11-13 (suite) — Un seul MJ, l'onglet regardé ; Pixel 9 qui ne joint pas la tablette
 - **Bug** (Alexandre : « je clique sur les évènements, rien ne se lance ») : chaque « Lancer le jeu » de la tablette ouvre un onglet Chrome de plus (`termux-open-url`). Au redémarrage du jeu, tous les onglets se reconnectent et le **dernier** reconnecté devenait le MJ (`state.mjSocketId`), parfois un vieil onglet caché. Les touchers de l'onglet visible étaient alors ignorés sans un mot, puisque le serveur répond seulement au MJ.
   - Corrigé côté page : seul l'onglet visible s'enregistre (`devenirMJ`) ; un onglet caché attend d'être regardé.
   - Côté serveur : l'ancienne page reçoit `mjRemplace` et affiche « 📱 La page du MJ est ouverte ailleurs », avec « Reprendre la main ici ».
-- **Pixel 9 (ouvert)** : le téléphone d'un proche n'ouvre pas `http://192.168.8.232:3000` (bonne adresse, bon Wi-Fi, données coupées, pas de VPN, « Toujours utiliser des connexions sécurisées » désactivé) : `ERR_TOO_MANY_RETRIES` (Chrome a joint quelque chose mais la connexion est coupée à chaque essai). Les autres appareils y arrivent (le téléphone d'Alexandre, le PC). Pistes demandées : autorisation « Appareils à proximité / réseau local » de Chrome (Android 16 récent), `http://192.168.8.1` depuis le Pixel, Firefox sur le Pixel.
+- **Pixel 9 (résolu)** : le téléphone d'un proche n'ouvre pas `http://192.168.8.232:3000` (bonne adresse, bon Wi-Fi, données coupées, pas de VPN, « Toujours utiliser des connexions sécurisées » désactivé) : `ERR_TOO_MANY_RETRIES` (Chrome a joint quelque chose mais la connexion est coupée à chaque essai). Les autres appareils y arrivent (le téléphone d'Alexandre, le PC). **Cause : l'autorisation « Appareils à proximité » de Chrome**, refusée sur ce téléphone. Une fois accordée, ça marche. Ajouté à la fiche `gestion/2`, dans les pannes « Site inaccessible ».
 - Vérifié : Chrome, deux onglets et un second appareil (8 vérifications, dont un redémarrage du jeu avec les deux onglets ouverts) ; `npm run test:navigateur` 104/104 ; `npm run test:rythme` 26/26 et 14/14 ; `npm test` 12/12, 100/100 et 43/43.
 
 ### 2026-11-13 — Salon du MJ : musique au premier toucher, rôles réglés avec − / +

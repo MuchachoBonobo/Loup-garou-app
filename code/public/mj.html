@@ -772,6 +772,7 @@ function afficherPauseMJ(data) {
   }
   document.getElementById("pauseBanner").style.display = "block";
   stopCountdown();
+  if (heartbeatAudio) heartbeatAudio.pause();   // le cœur du vote reprend avec le minuteur
   if (data && data.voteRemainingMs) {
     document.getElementById("timerDisplay").innerText = Math.ceil(data.voteRemainingMs/1000) + "s ⏸️";
     document.getElementById("timerDisplay").style.display = "block";
@@ -1024,6 +1025,24 @@ function startHeartbeat(){
   try{ heartbeatAudio=sonAuNiveau("heartbeat", "effet"); heartbeatAudio.loop=true; heartbeatAudio.play().catch(()=>{heartbeatAudio=null;}); }catch(e){heartbeatAudio=null;}
 }
 function stopHeartbeat(){ if(heartbeatAudio){heartbeatAudio.pause();heartbeatAudio.currentTime=0;heartbeatAudio=null;} }
+// Le vote du jour : le cœur bat dès l'ouverture, lent et doux, puis de plus en plus vite et fort jusqu'à
+// la fin du minuteur (demande d'Alexandre, 2026-11-14), et jusqu'au verdict (stopHeartbeat du serveur).
+// `p` : 0 à l'ouverture, 1 à la fin ; une pause ou « Terminer le vote » ne le fait pas revenir en arrière.
+// Pendant le Cœur du Village, c'est son cœur à lui qui s'emballe, dans les 10 dernières secondes.
+const COEUR_VOTE_VITESSE = [0.85, 1.6], COEUR_VOTE_VOLUME = [0.3, 1];
+let _coeurVoteTotal = 0;
+function reglerCoeurDuVote(p) {
+  p = Math.max(0, Math.min(1, p));
+  if (_coeur) { if ((1 - p) * _coeurVoteTotal <= 10000) startHeartbeat(); return; }
+  if (!audioEnabled || isPausedMJ) return;
+  if (!heartbeatAudio) { startHeartbeat(); if (!heartbeatAudio) return; }
+  const a = heartbeatAudio;
+  if (a._base === undefined) a._base = a._facteurVolume;
+  a.playbackRate = COEUR_VOTE_VITESSE[0] + (COEUR_VOTE_VITESSE[1] - COEUR_VOTE_VITESSE[0]) * p;
+  a._facteurVolume = a._base * (COEUR_VOTE_VOLUME[0] + (COEUR_VOTE_VOLUME[1] - COEUR_VOTE_VOLUME[0]) * p);
+  a.volume = Math.min(1, masterVolume * a._facteurVolume);
+  if (a.paused) a.play().catch(() => {});
+}
 
 // La Lune Rousse : des loups qui hurlent au loin, et s'éloignent au bout de quelques secondes
 function hurlementAuLoin() {
@@ -1120,7 +1139,7 @@ updateMJLayout("lobby"); // état initial au chargement de la page
 
 socket.on("phase", p=>{
   currentPhaseForBar = p;
-  if (p !== "day") { _mjDebat = null; fermerMainLevee(); finAnnonceConseil(false); arreterCoeur(); }
+  if (p !== "day") { _mjDebat = null; fermerMainLevee(); finAnnonceConseil(false); arreterCoeur(); stopHeartbeat(); }
   document.getElementById("mjPhaseDisplay").innerText = phaseLabel(p);
   updateCheatSheet(p);
   // Entrée dans le jour : débat d'abord, pas de vote
@@ -1497,7 +1516,7 @@ socket.on("deadChatMsg", msg=>{
 let countdownInterval=null, mjEndsAt=null, mjTotalMs=null;
 // Vote en cours (à son lancement, ou pour une tablette rechargée) : mode, durée, compte à rebours
 function afficherVoteMJ(data) {
-  mjEndsAt=finDuVote(data); mjTotalMs=data.duration;
+  mjEndsAt=finDuVote(data); mjTotalMs=data.duration; _coeurVoteTotal=data.duration;
   const labels={2:"⚖️ Le Jugement — verrouillé",4:"⚡ La Panique — express",5:"🖤 Vote anonyme"};
   let label = labels[data.mode] || "";
   if (_mjActiveCouncilEvent === "voteMute") label = "🤐 Le Vote Muet — silence total";
@@ -1509,8 +1528,9 @@ function afficherVoteMJ(data) {
   mjVoteRunning = true; changerEtatVote("vote");
 }
 socket.on("voteStarted", afficherVoteMJ);
-socket.on("voteStartedMJ", data=>{ mjEndsAt=finDuVote(data); mjTotalMs=data.duration; startCountdown(); mjVoteRunning = true; changerEtatVote("vote"); });
+socket.on("voteStartedMJ", data=>{ if (!mjVoteRunning) _coeurVoteTotal = data.duration; mjEndsAt=finDuVote(data); mjTotalMs=data.duration; startCountdown(); mjVoteRunning = true; changerEtatVote("vote"); });
 socket.on("voteTimerEnd",()=>{
+  stopHeartbeat();   // filet : le verdict l'a d'habitude déjà arrêté
   if (currentPhaseForBar === "day") mjEtatVote = "resultat";
   majBoutonsJour();
   stopCountdown();
@@ -1528,8 +1548,8 @@ function startCountdown(){
     const d=document.getElementById("timerDisplay"),f=document.getElementById("mjTimerBarFill");
     d.innerText=rem+"s"; d.classList.toggle("urgent",rem<=5);
     f.style.width=pct+"%"; f.style.background=rem<=5?"rgb(var(--sang-vif))":"rgb(var(--or-vif))";
-    if(rem<=10&&rem>0) startHeartbeat();
-    if(rem<=0){ stopHeartbeat(); stopCountdown(); }
+    if (rem > 0) reglerCoeurDuVote(1 - (mjEndsAt - Date.now()) / (_coeurVoteTotal || mjTotalMs || 1));
+    else stopCountdown();   // le cœur bat jusqu'au verdict : le serveur l'arrête (stopHeartbeat)
   },200);
 }
 function stopCountdown(){ if(countdownInterval){clearInterval(countdownInterval);countdownInterval=null;} const d=document.getElementById("timerDisplay");if(d)d.classList.remove("urgent"); }
