@@ -5,11 +5,17 @@
 #   termux-setup-storage                          (autoriser l'accès aux fichiers)
 #   bash ~/storage/downloads/installer-tablette.sh
 #
+# Pour mettre à jour les raccourcis eux-mêmes (après une amélioration de ce fichier), on le relance :
+#   bash ~/loupgarou/code/outils/installer-tablette.sh
+#
 # Il installe Node.js et git, récupère le jeu depuis GitHub, copie les réglages des lumières
 # (lumieres.env, posé dans « Téléchargements » depuis l'ordinateur), écrit l'adresse de la tablette,
 # et crée les raccourcis de l'écran d'accueil (Termux:Widget) : « Lancer le jeu », « Mettre à jour
 # le jeu ». Relançable sans risque : il met à jour ce qui est déjà là.
 set -e
+# Tout le script est lu avant de commencer (accolades) : il peut se mettre à jour lui-même (git pull)
+# sans que bash lise la nouvelle version en plein milieu.
+{
 DEPOT="https://github.com/MuchachoBonobo/Loup-garou-app.git"
 DOSSIER="$HOME/loupgarou"
 TELECHARGEMENTS="$HOME/storage/downloads"
@@ -21,11 +27,12 @@ yes | pkg upgrade -y
 
 echo
 echo "== 2/5 Node.js et git"
-pkg install -y nodejs-lts git
+pkg install -y nodejs-lts git procps   # procps : pkill, pour arrêter un ancien jeu
 
 echo
 echo "== 3/5 Le jeu"
 if [ -d "$DOSSIER/.git" ]; then
+  git -C "$DOSSIER" checkout -- .   # npm retouche parfois package-lock.json : sans ça, la mise à jour se bloque
   git -C "$DOSSIER" pull --ff-only
 else
   git clone --depth 1 "$DEPOT" "$DOSSIER"
@@ -56,6 +63,9 @@ mkdir -p "$HOME/.shortcuts"
 cat > "$HOME/.shortcuts/Lancer le jeu" <<'FIN'
 #!/data/data/com.termux/files/usr/bin/bash
 # Le jeu tourne tant que cette fenêtre reste ouverte ; la page du MJ s'ouvre seule.
+# Un ancien jeu encore ouvert dans une autre fenêtre Termux garderait la place (et son ancienne
+# version) : on l'arrête d'abord.
+pkill -f "node server.js" 2>/dev/null && sleep 1
 termux-wake-lock
 cd "$HOME/loupgarou/code"
 echo "Loup-Garou : le jeu démarre. Laisse cette fenêtre ouverte (la fermer arrête le jeu)."
@@ -66,9 +76,11 @@ read -r -p "Le jeu s'est arrêté. Appuie sur Entrée pour fermer."
 FIN
 cat > "$HOME/.shortcuts/Mettre à jour le jeu" <<'FIN'
 #!/data/data/com.termux/files/usr/bin/bash
-# Récupère la dernière version du jeu sur GitHub (Wi-Fi avec Internet nécessaire)
-cd "$HOME/loupgarou" && git pull --ff-only && cd code && npm install --omit=dev --no-audit --no-fund \
-  && echo "Jeu à jour." || echo "La mise à jour a échoué (Internet ?). L'ancienne version reste en place."
+# Récupère la dernière version du jeu sur GitHub (Wi-Fi avec Internet nécessaire). Le jeu en cours
+# s'arrête : il ne prend la nouvelle version qu'en redémarrant (« Lancer le jeu »).
+pkill -f "node server.js" 2>/dev/null && echo "Jeu arrêté."
+cd "$HOME/loupgarou" && git checkout -- . && git pull --ff-only && cd code && npm install --omit=dev --no-audit --no-fund \
+  && echo "Jeu à jour. Relance-le avec « Lancer le jeu »." || echo "La mise à jour a échoué (Internet ?). L'ancienne version reste en place."
 read -r -p "Appuie sur Entrée pour fermer."
 FIN
 chmod 700 "$HOME/.shortcuts" "$HOME/.shortcuts/"*
@@ -76,3 +88,5 @@ chmod 700 "$HOME/.shortcuts" "$HOME/.shortcuts/"*
 echo
 echo "Installation terminée."
 echo "Ajoute le widget « Termux:Widget » sur l'écran d'accueil : il montre « Lancer le jeu »."
+exit 0
+}

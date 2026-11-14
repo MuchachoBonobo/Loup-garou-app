@@ -180,6 +180,18 @@ Rappel du principe d'Alexandre (voir `CLAUDE.md`) : l'application s'efface derri
 
 Les entrées d'avant octobre 2026 (construction initiale de mai) sont dans `JOURNAL-ARCHIVE.md`.
 
+### 2026-11-14 (suite) — Tablette : l'ancien jeu restait en marche ; raccourcis qui l'arrêtent ; radio Hue
+- **La tablette faisait tourner une ancienne version du jeu** : le Bridge montrait les Sœurs à 91 % (réglage d'avant le 2026-11-10), alors que les fichiers de la tablette étaient à jour. La page, lue sur le disque à chaque fois, était neuve ; le serveur en mémoire était ancien.
+  - Explication : chaque raccourci Termux ouvre une nouvelle fenêtre. Un ancien `node server.js` resté dans une autre fenêtre gardait le port 3000, et « Lancer le jeu » échouait en silence.
+  - C'est sans doute aussi la vraie cause des évènements qui « ne se lançaient pas » le 2026-11-13 : l'ancien serveur ne connaissait pas le mode essai depuis le salon.
+  - Dépannage donné : Paramètres › Applis › Termux › Forcer l'arrêt, puis les deux raccourcis.
+- **`outils/installer-tablette.sh`** :
+  - « Lancer le jeu » arrête d'abord un ancien jeu (`pkill -f "node server.js"`, paquet `procps` ajouté) ;
+  - « Mettre à jour le jeu » arrête le jeu, annule les retouches locales (`git checkout -- .`, npm retouche parfois `package-lock.json`, ce qui bloquerait `pull --ff-only`), puis met à jour ;
+  - le script entier est entre accolades, pour pouvoir se relancer depuis le dépôt (`bash ~/loupgarou/code/outils/installer-tablette.sh`) même s'il se met à jour lui-même.
+  - Les raccourcis existants ne changent qu'en relançant l'installateur une fois.
+- **Radio Hue** : le Bridge est sur le **canal Zigbee 11**, qui chevauche le canal Wi-Fi 1. La bande décroche par moments (`connectivity_issue`), mais quand la liaison tient, elle suit exactement les ampoules : vérifié par une commande à la pièce, puis par le jeu qui les a passées toutes les trois au vert de la Sorcière. Conseillé à Alexandre : « Changer de canal » dans l'appli Hue, et éloigner le Bridge du routeur. Un « Hue Smart button » de la maison est aussi injoignable (sans rapport avec le jeu).
+
 ### 2026-11-14 — Lumières envoyées une par une, cœur du vote dès l'ouverture, Cupidon plus doux
 - **Lumière de nuit qui ne revenait pas après les Amoureux** (Alexandre) : côté jeu, la commande partait bien à la fin des 15 s (vérifié), mais toutes les commandes partaient en parallèle, chacune par sa connexion. Une pulsation rose envoyée juste avant pouvait arriver au Bridge après le bleu de la nuit, et rester. C'est plus probable depuis la tablette, dont le Wi-Fi est plus lent.
   - `callHue` envoie désormais une commande à la fois : la suivante part à la réponse de la précédente ; s'il en attend plusieurs, seule la plus récente part.
