@@ -198,7 +198,7 @@
   <div id="silentDayChatMessages" style="height:200px;overflow-y:auto;background:rgb(var(--voyance-nuit));border:1px solid rgb(var(--voyance-base));border-radius:6px;padding:8px;margin-bottom:8px;font-size:13px;line-height:1.4;"></div>
   <div id="silentDayChatInput" style="display:flex;gap:6px;">
     <input id="silentDayChatText" placeholder="Ton message…" maxlength="200" onkeydown="if(event.key==='Enter')sendSilentDayChat()" style="flex:1;background:rgb(var(--voyance-nuit));border:1px solid rgb(var(--voyance-base));border-radius:6px;color:rgb(var(--voyance-clair));padding:8px;font-size:13px;">
-    <button onclick="sendSilentDayChat()" style="padding:8px 14px;background:rgb(var(--voyance-sombre));border:1px solid rgb(var(--voyance-base));border-radius:6px;color:rgb(var(--voyance-vif));font-size:12px;cursor:pointer;">Inscrire</button>
+    <button onclick="sendSilentDayChat()" style="padding:8px 14px;background:rgb(var(--voyance-sombre));border:1px solid rgb(var(--voyance-base));border-radius:6px;color:rgb(var(--voyance-vif));font-size:12px;cursor:pointer;">Envoyer</button>
   </div>
   <div id="silentDayChatDeadHint" style="display:none;font-size:11px;color:rgb(var(--n6));text-align:center;margin-top:6px;font-style:italic;">⚰️ Tu es mort — tu peux lire mais pas écrire.</div>
 </div>
@@ -1179,7 +1179,7 @@ socket.on("reconnected", state => {
   const voteEnPause = !!(state.pause && state.pause.voteRemainingMs);
   if(voteEnPause || (state.voteTimerEnd && (state.serverNow ? state.voteTimerEnd > state.serverNow : Date.now() < state.voteTimerEnd))){
     voteEndsAt=finDuVote({ endsAt: state.voteTimerEnd, serverNow: state.serverNow });
-    voteTotalMs=state.voteDureeMs||60000;
+    voteTotalMs=state.voteDureeMs||40000;
     voteActive=true;
     currentVoteMode=state.voteMode||0;
     document.getElementById("voteTimerBox").style.display="block";
@@ -2351,6 +2351,7 @@ socket.on("deadChatMsg", msg => ajouterMessageChat("deadChatMessages", msg));
 // Chat écrit visible de tous (vivants + morts + MJ). Seuls les vivants écrivent.
 // Le panneau apparaît à l'activation de l'event et disparaît à sa fin (councilEventEnd).
 let silentDayChatActive = false;
+let _parcheminOrigine = null;   // place du parchemin chez les vivants
 function refreshSilentDayChatVisibility(){
   const panel = document.getElementById("silentDayChatPanel");
   if (!panel) return;
@@ -2358,11 +2359,19 @@ function refreshSilentDayChatVisibility(){
   // Désactive l'input pour les morts ; affiche l'indication "lecture seule".
   const input = document.getElementById("silentDayChatInput");
   const hint  = document.getElementById("silentDayChatDeadHint");
+  const mort = (deadPlayers || []).includes(socket.id);
   if (silentDayChatActive){
-    const iAmDead = (deadPlayers || []).includes(socket.id);
-    if (input) input.style.display = iAmDead ? "none" : "flex";
-    if (hint)  hint.style.display  = iAmDead ? "block" : "none";
+    if (input) input.style.display = mort ? "none" : "flex";
+    if (hint)  hint.style.display  = mort ? "block" : "none";
+    const consigne = document.getElementById("silentDayChatHint");   // « Écris tes pensées » : pas pour un mort
+    if (consigne) consigne.style.display = mort ? "none" : "block";
   }
+  // Les morts lisent le parchemin sur leur écran « Tu es mort », tout en haut, au-dessus du Conseil
+  // et du salon des morts (demande d'Alexandre, 2026-11-14) ; il reprend sa place pour les vivants.
+  const slot = document.getElementById("deadFullScreenSlot");
+  if (!_parcheminOrigine) _parcheminOrigine = { parent: panel.parentElement, suivant: panel.nextSibling };
+  if (mort && slot && panel.parentElement !== slot) slot.prepend(panel);
+  else if (!mort && panel.parentElement === slot) _parcheminOrigine.parent.insertBefore(panel, _parcheminOrigine.suivant);
 }
 socket.on("silentDayChatStart", () => {
   silentDayChatActive = true;

@@ -158,7 +158,7 @@
     <div style="color:rgb(var(--ame-clair));font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">📋 Règle à appliquer</div>
     <div id="councilEventRule" style="color:rgb(var(--ame-clair));font-size:14px;line-height:1.55;"></div>
   </div>
-  <button id="councilEventLancerDebat" onclick="mjLancerDebat()" style="display:none;margin-top:4px;padding:16px 36px;border-radius:12px;border:2px solid rgb(var(--ame-clair));background:rgba(var(--ame-clair),0.2);color:rgb(var(--blanc));font-size:20px;font-weight:bold;cursor:pointer;">
+  <button id="councilEventLancerDebat" onclick="boutonFinAnnonce().action()" style="display:none;margin-top:4px;padding:16px 36px;border-radius:12px;border:2px solid rgb(var(--ame-clair));background:rgba(var(--ame-clair),0.2);color:rgb(var(--blanc));font-size:20px;font-weight:bold;cursor:pointer;">
     ▶ Lancer le débat
   </button>
   <button id="councilEventCompris" onclick="closeCouncilEventCard()" style="margin-top:4px;padding:12px 32px;border-radius:8px;border:1px solid rgba(var(--ame-clair),0.4);background:rgba(var(--ame-clair),0.1);color:rgb(var(--ame-clair));font-size:14px;cursor:pointer;">
@@ -231,10 +231,10 @@
       <label style="font-size:12px;color:rgb(var(--n7));display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span>🗳️ Vote du jour</span>
         <select id="autoVoteMode" style="background:rgb(var(--n0));border:1px solid rgb(var(--vert-sombre));color:rgb(var(--vert-vif));padding:4px 8px;border-radius:5px;font-size:12px;">
-          <option value="1">⏱️ Libre (60s)</option>
-          <option value="2">🔒 Verrouillé (60s)</option>
+          <option value="1">⏱️ Libre (40s)</option>
+          <option value="2">🔒 Verrouillé (40s)</option>
           <option value="4">⚡ Express (30s)</option>
-          <option value="5">🖤 Anonyme (60s)</option>
+          <option value="5">🖤 Anonyme (40s)</option>
         </select>
       </label>
     </div>
@@ -580,7 +580,7 @@ function majBoutonsAube() {
   const matin = p === "day" && _mjMatinEnCours;
   if (matin && _mjEvenementAAnnoncer) etapes.push({ libelle: `📜 Annoncer l'évènement : ${_mjEvenementAAnnoncer.title}`, action: mjAnnoncerEvenement });
   // Hors réveil mené par le MJ (mode autonome…), la carte se referme simplement : jamais de bouton gris seul
-  if (matin || p === "chasseur" || p === "mayorTransfer") etapes.push({ libelle: "▶ Lancer le débat", action: matin && !_mjEvenementAAnnoncer ? mjLancerDebat : null });
+  if (matin || p === "chasseur" || p === "mayorTransfer") etapes.push({ libelle: boutonFinAnnonce().libelle, action: matin && !_mjEvenementAAnnoncer ? boutonFinAnnonce().action : null });
   else etapes.push({ libelle: "☀️ Continuer", action: closeDayRecapCard });
   const active = etapes.findIndex(e => e.action);
   zone.innerHTML = "";
@@ -649,6 +649,7 @@ function ouvrirCarteEvenement(data, annonce = false) {
   document.getElementById("councilEventNarrative").innerText = data.narrative || "";
   document.getElementById("councilEventRule").innerText = data.regle || "(Règle non répertoriée — voir le récit ci-dessus.)";
   document.getElementById("councilEventLancerDebat").style.display = annonce ? "" : "none";
+  majBoutonCarteEvenement();
   document.getElementById("councilEventCompris").style.display = annonce ? "none" : "";
   document.getElementById("councilEventCard").style.display = "flex";
 }
@@ -687,6 +688,7 @@ socket.on("councilEventActive", data => {
   _mjActiveCouncilEvent = data.id;
   // Bandeau MJ permanent avec l'événement actif (titre + règle + « Revoir la carte »)
   afficherBandeauEvenement(data);
+  majActionSuivante(); majBoutonsAube();   // « Lancer le vote » ou « Lancer le débat » selon l'évènement
   // Début du jour : récap de la nuit d'abord, évènement ensuite (en attente si le récap est ouvert)
   // Récap de la nuit ouvert : l'évènement attend sa fermeture, sauf s'il vient du bouton
   // « Annoncer l'évènement » de la carte (il s'ouvre alors par-dessus)
@@ -716,6 +718,7 @@ socket.on("councilResolvedMJ", data => {
 });
 
 socket.on("mayorAbdicated", data => {
+  if (_mjAbdication) { _mjAbdication = null; majAbdication(); }
   const msg = data.forced
     ? `👑 ${data.oldMayorName} n'a pas tranché — ${data.newMayorName} hérite de l'écharpe.`
     : `👑 ${data.oldMayorName} a abdiqué en faveur de ${data.newMayorName}.`;
@@ -1238,6 +1241,7 @@ socket.on("gameEnd", msg=>{
 socket.on("mjReconnected", state=>{
   currentPhaseForBar = state.phase || "lobby";
   if (state.mayor !== undefined) mayorId = state.mayor;
+  _mjAbdication = state.abdication ? { nom: state.abdication.nom, enCours: false } : null;
   renderPlayers();   // croix « retirer » seulement au salon
   mjEtatVote = state.voteClos ? "resultat" : state.voteEnCours ? "vote" : "debat";
   mjVoteRunning = mjEtatVote === "vote";
@@ -1527,7 +1531,9 @@ function afficherVoteMJ(data) {
   startCountdown();
   mjVoteRunning = true; changerEtatVote("vote");
 }
-socket.on("voteStarted", afficherVoteMJ);
+// La cloche sonne à chaque ouverture du vote : par le bouton du MJ, et aussi quand il s'ouvre tout seul
+// (fin du Tour de Parole). Une tablette rechargée en plein vote ne la refait pas sonner.
+socket.on("voteStarted", d => { afficherVoteMJ(d); playEffect("church_bell"); });
 socket.on("voteStartedMJ", data=>{ if (!mjVoteRunning) _coeurVoteTotal = data.duration; mjEndsAt=finDuVote(data); mjTotalMs=data.duration; startCountdown(); mjVoteRunning = true; changerEtatVote("vote"); });
 socket.on("voteTimerEnd",()=>{
   stopHeartbeat();   // filet : le verdict l'a d'habitude déjà arrêté
@@ -1648,10 +1654,11 @@ function actionSuivanteMJ() {
   if (p !== "day") return null;
   if (_mjMatinEnCours) return _mjEvenementAAnnoncer
     ? { libelle: `📜 Annoncer l'évènement : ${_mjEvenementAAnnoncer.title}`, action: mjAnnoncerEvenement }
-    : { libelle: "▶ Lancer le débat", action: mjLancerDebat };
+    : boutonFinAnnonce();
   if (mjEtatVote === "debat") {
     const attente = Math.ceil((_mjLaunchVoteUnlocksAt - Date.now()) / 1000);
     const a = actionDuDebat();
+    if (!a) return null;
     return attente > 0 ? { libelle: `${a.libelle} (dans ${attente} s)`, action: a.action, inactif: true } : a;
   }
   if (mjEtatVote === "vote") return { libelle: "⏹️ Terminer le vote", action: lockDay };
@@ -1665,7 +1672,7 @@ function actionDuDebat() {
     : { libelle: "🔄 Commencer le tour de parole", action: () => socket.emit("mjCommencerTour") };
   return { libelle: "🚀 Lancer le vote", action: launchVote };
 }
-// Sablier ou tour de parole en cours (serveur, debatMJ) : { sablierFin } ou { tour, rang, total, fin },
+// Tour de parole en cours (serveur, debatMJ) : { tour, rang, total, fin },
 // `restant` en pause ; `decalage` : l'écart entre l'horloge de la tablette et celle du PC
 let _mjDebat = null;
 socket.on("debatMJ", d => {
@@ -1678,7 +1685,7 @@ socket.on("debatMJ", d => {
 function texteDuDebat() {
   const d = _mjDebat;
   if (!d) return "🗣️ Débat";
-  const restant = d.restant != null ? d.restant : (d.tour ? d.fin : d.sablierFin) + d.decalage - Date.now();
+  const restant = d.restant != null ? d.restant : d.fin + d.decalage - Date.now();
   const s = Math.max(0, Math.ceil(restant / 1000)), pause = d.restant != null ? " ⏸️" : "";
   if (d.tour) return `🔄 Tour ${d.tour}/2 · ${d.rang}/${d.total} · ${s} s${pause}`;
   return `⏳ Débat · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}${pause}`;
@@ -1725,10 +1732,18 @@ function afficherVictoireAttendue(camp) {
   const b = document.getElementById("mjVictoireBouton");
   b.textContent = camp ? `🏆 Lancer la victoire ${CAMP_VICTOIRE[camp] || ""}` : "";
   b.style.display = camp ? "block" : "none";
+  placerBoutonVictoire();
   // Ce bouton est la seule suite : la carte d'un mort reste affichée, sans « Continuer », jusqu'au clic
   majBoutonsCarteMort();
   majActionSuivante();
 }
+// Juste sous l'en-tête collé en haut (au-dessus des cartes plein écran) : à 16 px du haut, le bouton
+// passait dessous et on n'en voyait que le bas (Alexandre, 2026-11-14)
+function placerBoutonVictoire() {
+  const entete = document.getElementById("mjHeader");
+  document.getElementById("mjVictoireBouton").style.top = (entete ? Math.max(0, entete.getBoundingClientRect().bottom) + 12 : 16) + "px";
+}
+window.addEventListener("resize", () => { if (_mjVictoireAttendue) placerBoutonVictoire(); });
 socket.on("victoireEnAttente", d => afficherVictoireAttendue(d && d.camp));
 function mjLancerVictoire() {
   socket.emit("mjLancerVictoire");
@@ -1781,6 +1796,39 @@ function mjLancerDebat() {
 }
 // L'évènement du jour est annoncé, le débat pas encore lancé
 function annonceDuMatinEnCours() { return _mjMatinEnCours && !_mjEvenementAAnnoncer; }
+// Ce qui clôt l'annonce du matin : le débat, ou directement le vote pour les évènements sans débat
+// (la Panique, le Vote Muet, le Sablier : le minuteur part dès que le MJ ferme la carte ; Alexandre, 2026-11-14)
+const VOTE_SANS_DEBAT = ["panic", "voteMute", "sablier"];
+function boutonFinAnnonce() {
+  // L'Abdication : l'écharpe d'abord (le choix part au téléphone du maire), le débat ensuite
+  if (_mjAbdication) return _mjAbdication.enCours
+    ? { libelle: "👑 Le maire choisit son successeur…", action: null, inactif: true }
+    : { libelle: `👑 Transmettre l'écharpe — ${_mjAbdication.nom}`, action: ouvrirAbdication };
+  if (VOTE_SANS_DEBAT.includes(_mjActiveCouncilEvent)) return { libelle: "🗳️ Lancer le vote", action: lancerVoteSansDebat };
+  return { libelle: "▶ Lancer le débat", action: mjLancerDebat };
+}
+// Le bouton de la carte de l'évènement, pendant l'annonce
+function majBoutonCarteEvenement() {
+  const b = document.getElementById("councilEventLancerDebat"), a = boutonFinAnnonce();
+  b.textContent = a.libelle;
+  b.disabled = !a.action;
+  b.style.opacity = a.action ? "1" : "0.5";
+}
+// L'Abdication en attente : { nom, enCours } ou null
+let _mjAbdication = null;
+function majAbdication() { majBoutonCarteEvenement(); majBoutonsAube(); majActionSuivante(); }
+function ouvrirAbdication() {
+  socket.emit("mjOuvrirAbdication");
+  if (_mjAbdication) _mjAbdication.enCours = true;
+  majAbdication();
+}
+socket.on("abdicationEnAttente", d => { _mjAbdication = d ? { nom: d.nom, enCours: false } : null; majAbdication(); });
+socket.on("councilEventEnd", () => { if (_mjAbdication) { _mjAbdication = null; majAbdication(); } });
+function lancerVoteSansDebat() {
+  closeDayRecapCard();
+  if (_mjCarteAnnonce) closeCouncilEventCard();
+  launchVote();
+}
 
 function mjEtapeSuivante(){
   socket.emit("mjEtapeSuivante");
@@ -1865,7 +1913,6 @@ function launchVote() {
   }
   socket.emit("startVote", 1);
   if (_mjMatinEnCours) afficherAnnonceMatin(null);
-  playEffect("church_bell");
 }
 function mjSendDeadChat(){ const inp=document.getElementById("mjDeadChatText"); const t=inp.value.trim(); if(!t)return; socket.emit("deadChat",{text:t}); inp.value=""; }
 // Conservé pour compatibilité (les boutons mode ont été retirés : seul le mode 1 est lançable manuellement,
@@ -2060,6 +2107,5 @@ function closeQRFullscreen(){
   if (overlay) overlay.style.display = "none";
 }
 </script>
-<script src="/js/essai-evenements.js"></script><!-- OUTIL D'ESSAI TEMPORAIRE (essai-evenements) : à retirer après la partie d'essai -->
 </body>
 </html>

@@ -243,16 +243,20 @@ function flash(key) {
   if (!f) { _log("flash absent:", key); return; }
   const repeat  = f.repeat   || 2;
   const dur     = f.duration || 250;
+  // `montee` : fondu de chaque montée et descente (0 : éclair sec) ; `creux` : intensité entre deux,
+  // en part de `bri`. La victoire monte en vagues lentes, une mort reste un éclair sec (2026-11-14).
+  const montee  = f.montee || 0;
+  const creux   = f.creux != null ? f.creux : 0.1;
 
   // Coupe les effets pendant le flash
   stopEffect();
 
   for (let i = 0; i < repeat; i++) {
     effectTimeouts.push(setTimeout(() => {
-      callHue(_sceneBody({ xy: f.xy, bri: f.bri }, { duration: 0 }));
+      callHue(_sceneBody({ xy: f.xy, bri: f.bri }, { duration: montee }));
     }, i * dur));
     effectTimeouts.push(setTimeout(() => {
-      callHue(_sceneBody({ xy: f.xy, bri: Math.max(5, Math.floor(f.bri*0.1)) }, { duration: 0 }));
+      callHue(_sceneBody({ xy: f.xy, bri: Math.max(5, Math.floor(f.bri * creux)) }, { duration: montee }));
     }, i * dur + Math.floor(dur/2)));
   }
   apresEclair(repeat * dur + 150);
@@ -315,6 +319,9 @@ function reset() {
 /**
  * Ping de santé — utile pour un futur indicateur côté MJ.
  */
+// Cette scène existe-t-elle ? (un évènement du Conseil sans lumière à lui laisse celle du vote)
+function aLaScene(key) { return !!SCENES[key]; }
+
 function status() {
   return {
     enabled: CONFIG.enabled,
@@ -337,5 +344,5 @@ if (_ready()) {
 const sansErreur = f => (...args) => { try { return f(...args); } catch (e) { _log("err:", e.message); } };
 module.exports = {
   applyScene: sansErreur(applyScene), flash: sansErreur(flash), flashSequence: sansErreur(flashSequence), vague: sansErreur(vague),
-  reset: sansErreur(reset), status,
+  reset: sansErreur(reset), status, aLaScene,
 };

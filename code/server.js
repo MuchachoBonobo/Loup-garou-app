@@ -176,6 +176,7 @@ io.on("connection", socket => {
     socket.emit("mjReconnected", {
       phase: state.phase,
       mayor: state.mayor,
+      abdication: council.abdicationEnAttente(),
       deadPlayers: state.deadPlayers.map(id => ({ id, name: playerName(id), role: state.roles[id] })),
       lovers: state.lovers,
       gameStats: state.gameStats,
@@ -195,7 +196,7 @@ io.on("connection", socket => {
       matin: (state.phase === "day" && state.annonceMatinEnCours)
         ? { evenement: state.evenementAnnonce ? null : council.evenementPublic(state.activeCouncilEvent) } : null,
       activeCouncilEvent: (state.phase === "day" && state.evenementAnnonce) ? council.evenementPublic(state.activeCouncilEvent) : null,
-      debat: votes.etatDebat(),   // Sablier ou tour de parole en cours
+      debat: votes.etatDebat(),   // tour de parole en cours
     });
     if (state.tiebreakPending) socket.emit("tiebreakMJ", votes.egaliteEnCours());
     // Reprise après plantage : proposée au MJ si une sauvegarde est en attente
@@ -407,13 +408,11 @@ io.on("connection", socket => {
   socket.on("mjOuvrirAction",    ()  => { if (isMJ(socket.id)) phases.ouvrirActionMJ(); });
   socket.on("mjLancerVictoire",  ()  => { if (isMJ(socket.id)) phases.lancerVictoire(); });
   socket.on("mjAnnoncerEvenement", () => { if (isMJ(socket.id)) council.annoncerEvenement(); });
-  require("./essai-evenements").brancher(socket);   // OUTIL D'ESSAI TEMPORAIRE (essai-evenements) : à retirer après la partie d'essai
   socket.on("mjFinAnnonceMatin", ()  => {
     if (!isMJ(socket.id) || state.phase !== "day") return;
     // Évènement pas encore annoncé : il l'est maintenant et reste à lire ; sinon sa carte se ferme avec celle des morts
     const vientDEtreAnnonce = council.annoncerEvenement();
     council.finAnnonceMatin(!vientDEtreAnnonce);
-    votes.demarrerSablier();   // le Sablier du Conseil part avec le débat
   });
   socket.on("mjCommencerTour",  ()  => votes.handleCommencerTour(socket));
   socket.on("mjParoleSuivante", ()  => votes.handleParoleSuivante(socket));
@@ -440,6 +439,7 @@ io.on("connection", socket => {
   // ===== CONSEIL DES MORTS =====
   socket.on("councilVote", eventId => council.handleCouncilVote(socket, eventId));
   socket.on("mayorAbdicationChoice", targetId => council.handleAbdicationChoice(socket, actuel(targetId)));
+  socket.on("mjOuvrirAbdication", () => council.handleMJAbdication(socket));
   // Les Voix Étouffées — chat écrit du jour
   socket.on("silentDayChat",        payload => council.handleSilentDayChat(socket, payload));
   socket.on("silentDayChatHistory", ()      => council.handleSilentDayChatHistory(socket));

@@ -10,13 +10,14 @@
 // issue. Un évènement est neutre pour les deux camps, visible, appliqué par le jeu de préférence, et
 // ne désigne jamais un joueur (le choix des morts, qui savent tout, trahirait un innocent).
 
-const { state, isMJ, alivePlayers, vivantsSauf, playerName, fisherYates, auHasard, versMJ } = require('./state');
+const { state, isMJ, alivePlayers, vivantsSauf, playerName, fisherYates, auHasard, versMJ, BOT_MIN_DELAY_MS, BOT_MAX_DELAY_MS } = require('./state');
 const lights = require('./lights');
 const log    = require('./logger');
 
 // Timeout du choix d'abdication (filet de sécurité si le maire ne tranche pas)
 const ABDICATION_TIMEOUT_MS = 60000;
 let abdicationTimeout = null;
+let abdicationAttendue = false;   // l'Abdication annoncée attend le « Transmettre l'écharpe » du MJ
 
 // Nombre minimum de morts pour que le Conseil se réunisse en début de journée.
 const COUNCIL_TRIGGER_THRESHOLD = 1;
@@ -27,7 +28,7 @@ const COUNCIL_EVENTS = {
     resume: "Une fois donné, un vote ne peut plus changer.",
     title: "⚖️ Le Jugement",
     narrative: "Une fois prononcé, un vote ne peut plus être changé. Que chacun pèse ses mots — la sentence est définitive dès qu'elle tombe.",
-    regle: "Vote VERROUILLÉ : une fois qu'un joueur a voté, il ne peut plus changer son choix. Durée 60 s.",
+    regle: "Vote VERROUILLÉ : une fois qu'un joueur a voté, il ne peut plus changer son choix. Durée 40 s.",
     technical: { forceVoteMode: 2 }
   },
   panic: {
@@ -149,11 +150,12 @@ const COUNCIL_EVENTS = {
   },
   sablier: {
     id: "sablier",
-    resume: "Le débat dure 3 minutes, puis le vote s'ouvre tout seul.",
+    resume: "Pas de débat : le vote s'ouvre aussitôt, pour 3 minutes.",
     title: "⏳ Le Sablier",
-    narrative: "Le sablier est retourné. Quand le dernier grain tombera, le village devra voter, prêt ou pas.",
-    regle: "Le débat dure 3 minutes à partir de « Lancer le débat » ; le vote s'ouvre alors tout seul. Tu peux le lancer plus tôt.",
-    technical: { sablier: true },
+    narrative: "Le sablier est retourné. Le village votera tant que le sable coule : quand le dernier grain tombera, tout sera dit.",
+    regle: "Pas de débat : à la fin de l'annonce, le vote s'ouvre aussitôt, et le village a 3 minutes pour voter.",
+    // Un vote de 3 minutes, sans débat avant (Alexandre, 2026-11-14) ; SABLIER_MS raccourcit les tests
+    technical: { voteDurationMs: parseInt(process.env.SABLIER_MS) || 3 * 60 * 1000 },
     avecMJ: true
   },
   tourParole: {
@@ -358,6 +360,7 @@ function clearCouncilEffects() {
   ambiancesDuJour = [];
   if (annonceTimer)      { clearTimeout(annonceTimer);      annonceTimer      = null; }
   if (abdicationTimeout) { clearTimeout(abdicationTimeout); abdicationTimeout = null; }
+  abdicationAttendue = false;
   annonceEnCours = null;
   state.tirageDuSort = null;
 }
@@ -365,9 +368,12 @@ function clearCouncilEffects() {
 // La scène à rétablir en plein jour (fin de pause) : le vote s'il est ouvert, l'annonce en cours,
 // l'évènement du jour, ou le jour
 function sceneDuJour() {
-  if (state.voteTimer) return "dayVote";
   if (annonceEnCours) return "council.annonce";
-  if (state.activeCouncilEvent && state.evenementAnnonce) return "council." + state.activeCouncilEvent;
+  // L'évènement garde sa lumière pendant le vote (la Lune Rousse…) ; sans évènement, le vote tamise
+  // la pièce (demande d'Alexandre, 2026-11-14)
+  const scene = state.activeCouncilEvent && state.evenementAnnonce && "council." + state.activeCouncilEvent;
+  if (scene && lights.aLaScene(scene)) return scene;
+  if (state.voteTimer) return "dayVote";
   return "day";
 }
 
@@ -394,7 +400,14 @@ function applyCouncilEvent(eventId) {
   if (effet.stormSound) versMJ("councilStormStart");      // la pluie à la place de la musique du jour
   if (effet.murmurSound) versMJ("councilMurmursStart");   // les murmures à la place de la musique du jour
   if (effet.coeur) versMJ("councilCoeurStart");           // le cœur par-dessus la musique, plus douce
-  if (effet.abdication) triggerAbdicationPrompt();
+  // L'Abdication : avec un MJ qui mène le matin, le choix attend son « 👑 Transmettre l'écharpe »,
+  // comme l'écharpe d'un maire mort (2026-11-14) ; sans MJ, il part aussitôt
+  if (effet.abdication) {
+    if (state.annonceMatinEnCours && state.mayor && !state.deadPlayers.includes(state.mayor)) {
+      abdicationAttendue = true;
+      versMJ("abdicationEnAttente", { nom: playerName(state.mayor) });
+    } else triggerAbdicationPrompt();
+  }
   if (effet.dayChat) {
     // Les Voix Étouffées : on (re)initialise l'historique pour la séance et
     // on notifie tous les clients qu'ils doivent afficher le panneau de chat.
@@ -459,6 +472,16 @@ function triggerAbdicationPrompt() {
   state.io.to(state.mayor).emit("mayorMustAbdicate", { candidates });
   versMJ("autoResolve",
     "👑 L'Abdication — le maire désigne son successeur.");
+  // Un maire robot (mode entraînement) choisit après quelques secondes, comme un joueur
+  const maire = state.players.find(p => p.id === state.mayor);
+  if (maire && maire.isBot) {
+    const id = state.mayor;
+    setTimeout(() => {
+      if (state.activeCouncilEvent !== "abdication" || state.mayor !== id) return;
+      const choix = auHasard(vivantsSauf(id));
+      if (choix) applyAbdication(choix.id, false);
+    }, BOT_MIN_DELAY_MS + Math.random() * (BOT_MAX_DELAY_MS - BOT_MIN_DELAY_MS));
+  }
 
   if (abdicationTimeout) clearTimeout(abdicationTimeout);
   abdicationTimeout = setTimeout(() => {
@@ -493,6 +516,15 @@ function applyAbdication(newMayorId, forced) {
   versMJ("autoResolve",
     `👑 ${playerName(oldMayor)} a abdiqué en faveur de ${playerName(newMayorId)}${forced ? " (choix par défaut)" : ""}.`);
 }
+
+// « 👑 Transmettre l'écharpe » du MJ : le choix part au téléphone du maire
+function handleMJAbdication(socket) {
+  if (!isMJ(socket.id) || !abdicationAttendue || state.activeCouncilEvent !== "abdication") return;
+  abdicationAttendue = false;
+  triggerAbdicationPrompt();
+}
+// Pour la tablette rechargée : l'écharpe à transmettre, ou rien
+function abdicationEnAttente() { return abdicationAttendue && state.mayor ? { nom: playerName(state.mayor) } : null; }
 
 function handleAbdicationChoice(socket, targetId) {
   if (state.phase !== "day") return;
@@ -542,7 +574,7 @@ module.exports = {
   clearCouncilEffects, sceneDuJour, dansLaJournee,
   annonceMatinParMJ, annoncerEvenement, finAnnonceMatin,
   handleCouncilVote,
-  handleAbdicationChoice,
+  handleAbdicationChoice, handleMJAbdication, abdicationEnAttente,
   handleSilentDayChat,
   handleSilentDayChatHistory,
 };

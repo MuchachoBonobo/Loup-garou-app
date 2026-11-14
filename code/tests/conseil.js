@@ -4,10 +4,10 @@
  * (avec une pause) et le Sablier, chacun choisi par le mort de la première nuit et joué le jour 2.
  *
  * Serveur à part (port 3108) : ces trois évènements y sont proposés en premier (CONSEIL_OPTIONS), le
- * Sablier dure 1,5 s et chaque prise de parole 0,4 s. C5 : « Terminer le vote » laisse 5 s pour voter.
+ * vote du Sablier dure 20 s et chaque prise de parole 0,4 s. C5 : « Terminer le vote » laisse 5 s pour voter.
  * Second serveur (port 3109) : Le Sort et la fin de l'annonce (C6), puis la Lune Rousse, ses loups
  * vingt fois plus fréquents (CONSEIL_RYTHME), qui attendent la fin de l'annonce et se taisent en
- * pause (C7).
+ * pause (C7). Troisième serveur (port 3110) : l'Abdication, dont l'écharpe attend le MJ (C8).
  *
  * Usage : node tests/conseil.js   (~3 min, lumières coupées ; lancé aussi par npm test)
  */
@@ -98,7 +98,7 @@ async function annonce(mj, temoin, evenement, code) {
 
 async function main() {
   console.log("═".repeat(62) + "\n🪦 Conseil des Morts — port " + PORT + "\n" + "═".repeat(62));
-  const serveur = await demarrerServeur(PORT, { env: { CONSEIL_OPTIONS: AVEC_MJ.join(","), SABLIER_MS: "1500", TOUR_PAROLE_MS: "400", DERNIERES_SECONDES_MS: "5000" } });
+  const serveur = await demarrerServeur(PORT, { env: { CONSEIL_OPTIONS: AVEC_MJ.join(","), SABLIER_MS: "20000", TOUR_PAROLE_MS: "400", DERNIERES_SECONDES_MS: "5000" } });
 
   console.log("\n▶ C1 — Mode autonome : pas d'évènement qui a besoin du MJ");
   {
@@ -177,19 +177,21 @@ async function main() {
     await sleep(800);
   }
 
-  console.log("\n▶ C4 — Le Sablier");
+  console.log("\n▶ C4 — Le Sablier : pas de débat, un vote du temps du sablier");
   {
     const all = [];
     const { mj, matin, vivants } = await jusquAuJour2(all, "cd_", "sablier");
     check("C4-le MJ trouve le Sablier à annoncer", matin.evenement.id === "sablier", matin.evenement.id);
     await annonce(mj, vivants[0], "sablier", "C4");
-    const sablierP = attendre(mj, "debatMJ", 3000, d => !!(d && d.sablierFin)).catch(() => null);
-    const t0 = Date.now();
-    const voteP = attendre(vivants[0].s, "voteStarted", 6000).then(() => Date.now() - t0, () => null);
-    mj.emit("mjFinAnnonceMatin");
-    check("C4-le sablier part avec « Lancer le débat »", !!(await sablierP));
-    const delai = await voteP;
-    check("C4-à la fin du sablier, le vote s'ouvre tout seul", delai !== null && delai >= 1300 && delai < 4000, delai);
+    let debats = 0;
+    mj.on("debatMJ", d => { if (d) debats++; });
+    const fins = attendre(mj, "finAnnonceConseil", 3000).then(() => true, () => false);
+    const voteP = attendre(vivants[0].s, "voteStarted", 3000).catch(() => null);
+    mj.emit("startVote", 1);   // le bouton « 🗳️ Lancer le vote » de la carte
+    const vote = await voteP;
+    check("C4-« Lancer le vote » ferme l'annonce et ouvre le vote", (await fins) && !!vote);
+    check("C4-le vote dure le temps du sablier (SABLIER_MS)", !!vote && vote.duration === 20000, vote && vote.duration);
+    check("C4-pas de débat minuté", debats === 0, debats);
 
     console.log("\n▶ C5 — « Terminer le vote » : les 5 dernières secondes");
     const repriseP = attendre(vivants[0].s, "voteResumed", 3000).catch(() => null);
@@ -262,6 +264,39 @@ async function main() {
   }
 
   await arreterServeur(serveur2);
+
+  // Troisième serveur : l'Abdication en tête
+  PORT = 3110;
+  const serveur3 = await demarrerServeur(PORT, { env: { CONSEIL_OPTIONS: "abdication,sort,luneRousse" } });
+
+  console.log("\n▶ C8 — L'Abdication : l'écharpe attend le MJ");
+  {
+    const all = [];
+    const { mj, joueurs, matin, vivants } = await jusquAuJour2(all, "cg_", "abdication");
+    const maire = joueurs[0];
+    check("C8-le MJ trouve l'Abdication à annoncer", matin.evenement.id === "abdication", matin.evenement.id);
+    let choixAuMaire = 0;
+    maire.s.on("mayorMustAbdicate", () => choixAuMaire++);
+    const attenteP = attendre(mj, "abdicationEnAttente", 5000).catch(() => null);
+    await annonce(mj, vivants[0], "abdication", "C8");
+    const attente = await attenteP;
+    check("C8-le MJ est invité à transmettre l'écharpe du maire", !!attente && attente.nom === maire.nom, attente);
+    await sleep(1000);
+    check("C8-le maire n'a pas encore le choix (il attend le MJ)", choixAuMaire === 0, choixAuMaire);
+    const choixP = attendre(maire.s, "mayorMustAbdicate", 3000).catch(() => null);
+    mj.emit("mjOuvrirAbdication");
+    const choix = await choixP;
+    check("C8-« Transmettre l'écharpe » : le choix arrive au maire", !!choix && choix.candidates.length > 0, choix);
+    const successeur = vivants.find(v => v !== maire);
+    const faitP = attendre(mj, "mayorAbdicated", 3000).catch(() => null);
+    maire.s.emit("mayorAbdicationChoice", successeur.s.id);
+    const fait = await faitP;
+    check("C8-l'écharpe passe au successeur choisi", !!fait && fait.newMayorName === successeur.nom, fait);
+    all.forEach(s => s.disconnect());
+    await sleep(500);
+  }
+
+  await arreterServeur(serveur3);
   process.exit(bilan());
 }
 

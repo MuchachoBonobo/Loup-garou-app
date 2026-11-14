@@ -9,10 +9,10 @@
   },
   "day": {
     "xy": [
-      0.43,
-      0.4
+      0.46,
+      0.41
     ],
-    "bri": 254,
+    "bri": 241,
     "transition": 1500
   },
   "dayVote": {
@@ -183,7 +183,7 @@
       0.25,
       0.15
     ],
-    "bri": 70,
+    "bri": 96,
     "transition": 1500,
     "effect": "slow_pulse"
   },
@@ -423,8 +423,10 @@
       0.43
     ],
     "bri": 200,
-    "duration": 400,
-    "repeat": 5
+    "duration": 1400,
+    "repeat": 3,
+    "montee": 600,
+    "creux": 0.3
   },
   "flash.victoire.loups": {
     "xy": [
@@ -432,8 +434,10 @@
       0.307
     ],
     "bri": 200,
-    "duration": 400,
-    "repeat": 5
+    "duration": 1400,
+    "repeat": 3,
+    "montee": 600,
+    "creux": 0.3
   },
   "flash.victoire.amoureux": {
     "xy": [
@@ -441,8 +445,10 @@
       0.255
     ],
     "bri": 200,
-    "duration": 400,
-    "repeat": 5
+    "duration": 1400,
+    "repeat": 3,
+    "montee": 600,
+    "creux": 0.3
   },
   "flash.victoire.ange": {
     "xy": [
@@ -450,8 +456,10 @@
       0.41
     ],
     "bri": 200,
-    "duration": 400,
-    "repeat": 5
+    "duration": 1400,
+    "repeat": 3,
+    "montee": 600,
+    "creux": 0.3
   },
   "flash.conseil": {
     "xy": [
