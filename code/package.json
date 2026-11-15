@@ -18,6 +18,7 @@
   "type": "commonjs",
   "dependencies": {
     "express": "^5.2.1",
+    "node-dtls-client": "^2.0.3",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3"
   },

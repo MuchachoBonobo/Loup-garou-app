@@ -2,7 +2,7 @@
  * tests/scenarios.js — Tests d'intégration du serveur
  *
  * Lance un serveur sur le port 3099, connecte de vrais sockets socket.io-client,
- * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S25) est décrit
+ * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S27) est décrit
  * au-dessus de sa fonction.
  *
  * Usage : npm test   (ou : node tests/scenarios.js)
@@ -18,9 +18,11 @@ const ko = (nom, detail) => check(nom, false, detail);
 
 // La tablette du MJ, sans reprise après plantage ; le MJ automatique lance la nuit, passe les
 // étapes et ouvre les actions (Chasseur, maire mourant) une demi-seconde après qu'on les lui propose
-async function nouveauMJ() {
+// `pilote` : réglages du MJ automatique (piloterMJ), par exemple { depouillement: false } pour ouvrir
+// les bulletins à la main
+async function nouveauMJ(pilote = {}) {
   const { mj } = await connecterMJ(TEST_PORT);
-  piloterMJ(mj, { nuit: true });
+  piloterMJ(mj, { nuit: true, ...pilote });
   return mj;
 }
 
@@ -41,8 +43,8 @@ async function scenario(code, titre, corps) {
 // composition vaut 0, comme pour le serveur), players[0] élu maire (ou celui que désigne
 // `choisirMaire(players, roleOf)`), puis droit au tour des Loups (sans attendre le crépuscule ni
 // les rôles de la première nuit). `avecRole("Loup")` : les joueurs qui ont ce rôle.
-async function preparerPartie(all, names, composition, choisirMaire = players => players[0]) {
-  const mj = await nouveauMJ(); all.push(mj);
+async function preparerPartie(all, names, composition, choisirMaire = players => players[0], pilote = {}) {
+  const mj = await nouveauMJ(pilote); all.push(mj);
   mj.emit("fullReset");   // vide la partie précédente
   await sleep(600);
 
@@ -1003,6 +1005,124 @@ const s25 = () => scenario("S25", "Personne ne vote : le maire tranche entre tou
   check("S25-pas de tirage au sort", !tirage);
 });
 
+// S26 — Le Dépouillement (2026-11-15) : à 4 vivants, le vote du jour est secret (chacun ne voit que
+// qui a voté, le MJ non plus), puis les bulletins s'ouvrent un par un chez tout le monde, morts
+// compris, au rythme du MJ (ici piloterMJ), et l'annonce habituelle suit.
+const s26 = () => scenario("S26", "Le Dépouillement : vote secret à 4 vivants, bulletins un par un", async all => {
+  const NAMES = ["s26_A","s26_B","s26_C","s26_D","s26_E"];
+  const { mj, players, roleOf, avecRole } = await preparerPartie(all, NAMES, { loup: 1 });
+  const [loupP] = avecRole("Loup");
+  if (!loupP) { ko("S26-setup", JSON.stringify(roleOf)); return; }
+  const maire = players[0];
+  const victime = players.find(p => p !== maire && p !== loupP);
+  await nuitLoupUnique(mj, players, loupP, victime);
+  const vivants = players.filter(p => p !== victime);
+  const cible = vivants.find(p => p !== maire && p !== loupP);
+  const temoin = vivants.find(p => p !== cible);
+
+  // Ce que chaque écran reçoit pendant le vote, puis le dépouillement
+  const recu = { temoin: [], mort: [], mj: [] };
+  const ecouter = (s, liste) => ["votesDayPublic", "dayCountsPublic", "votesDayMJ", "votantsJour", "votantsJourMJ", "monVoteJour",
+    "depouillementDebut", "depouillementBulletin", "depouillementFin", "dayVoteResult"].forEach(e => s.on(e, d => liste.push({ e, d })));
+  ecouter(temoin.s, recu.temoin); ecouter(victime.s, recu.mort); ecouter(mj, recu.mj);
+  const lanceP = attendre(temoin.s, "voteStarted", 4000);
+  mj.emit("startVote");
+  const lance = await lanceP.catch(() => null);
+  check("S26-à 4 vivants, le vote est secret", lance && lance.secret === true, JSON.stringify(lance));
+  await sleep(300);
+  // Trois voix contre la cible, la cible vote pour le témoin
+  vivants.forEach(p => p.s.emit("voteDay", (p === cible ? temoin : cible).s.id));
+  await sleep(600);
+  const avecCible = l => l.filter(x => ["votesDayPublic", "dayCountsPublic", "votesDayMJ"].includes(x.e) && Object.keys(x.d || {}).length);
+  check("S26-pendant le vote, aucun écran ne voit pour qui on vote (MJ compris)", !avecCible(recu.temoin).length && !avecCible(recu.mort).length && !avecCible(recu.mj).length,
+    JSON.stringify([...avecCible(recu.temoin), ...avecCible(recu.mj)]));
+  const votants = recu.temoin.filter(x => x.e === "votantsJour").pop();
+  check("S26-chacun voit qui a voté (4 votants)", votants && votants.d.length === 4, JSON.stringify(votants));
+  check("S26-le MJ voit qui a voté, pas pour qui", recu.mj.some(x => x.e === "votantsJourMJ" && x.d.length === 4));
+  check("S26-le votant retrouve son propre vote", recu.temoin.some(x => x.e === "monVoteJour" && x.d.cible === cible.s.id));
+
+  const resultatP = attendre(mj, "dayVoteResult", 20000);
+  mj.emit("lockDayVotes");
+  const resultat = await resultatP.catch(() => null);
+  const suite = l => l.filter(x => x.e.startsWith("depouillement")).map(x => x.e === "depouillementBulletin" ? `${x.d.index}:${x.d.de}→${x.d.vers}` : x.e);
+  const attendu = ["depouillementDebut", "1", "2", "3", "4", "depouillementFin"];
+  const forme = l => suite(l).map(t => t.split(":")[0]);
+  check("S26-le dépouillement s'affiche chez les vivants, les morts et le MJ, bulletin par bulletin",
+    [recu.temoin, recu.mort, recu.mj].every(l => JSON.stringify(forme(l)) === JSON.stringify(attendu)), JSON.stringify(suite(recu.temoin)));
+  const bulletins = recu.temoin.filter(x => x.e === "depouillementBulletin").map(x => x.d);
+  check("S26-chaque bulletin dit qui a voté contre qui (3 contre la cible, 1 contre le témoin)",
+    bulletins.filter(b => b.vers === cible.name).length === 3 && bulletins.filter(b => b.vers === temoin.name && b.de === cible.name).length === 1, JSON.stringify(bulletins));
+  const debut = recu.temoin.find(x => x.e === "depouillementDebut");
+  check("S26-la feuille de pointage liste les 4 vivants", debut && debut.d.total === 4 && debut.d.vivants.length === 4, JSON.stringify(debut && debut.d));
+  check("S26-puis l'annonce habituelle, avec la cible", resultat && resultat.id === cible.s.id, JSON.stringify(resultat));
+});
+
+// S27 — Le Dépouillement face à la pause et aux reconnexions (relecture du 2026-11-15) : une pause
+// pendant le vote secret le laisse secret ; une pause pendant le dépouillement le gèle (le bouton du MJ
+// est ignoré) sans l'effacer, et il reprend après ; le joueur visé qui se reconnecte en plein
+// dépouillement (nouvel identifiant) est bien celui que le verdict désigne.
+const s27 = () => scenario("S27", "Dépouillement : pause et reconnexion", async all => {
+  const NAMES = ["s27_A","s27_B","s27_C","s27_D","s27_E"];
+  const { mj, players, roleOf, avecRole } = await preparerPartie(all, NAMES, { loup: 1 }, p => p[0], { depouillement: false });
+  const [loupP] = avecRole("Loup");
+  if (!loupP) { ko("S27-setup", JSON.stringify(roleOf)); return; }
+  const maire = players[0];
+  const victime = players.find(p => p !== maire && p !== loupP);
+  await nuitLoupUnique(mj, players, loupP, victime);
+  const vivants = players.filter(p => p !== victime);
+  const cible = vivants.find(p => p !== maire && p !== loupP);
+  const temoin = vivants.find(p => p !== cible);
+
+  // Pause pendant le vote secret : il le reste
+  const lanceP = attendre(temoin.s, "voteStarted", 4000);
+  mj.emit("startVote");
+  const lance = await lanceP.catch(() => null);
+  check("S27-vote secret à 4 vivants", lance && lance.secret === true, JSON.stringify(lance));
+  await sleep(300);
+  mj.emit("pauseGame"); await sleep(300);
+  const repriseP = attendre(temoin.s, "voteResumed", 4000);
+  mj.emit("resumeGame");
+  await repriseP.catch(() => null);
+  const fuites = [];
+  ["votesDayPublic", "dayCountsPublic"].forEach(e => temoin.s.on(e, d => { if (Object.keys(d || {}).length) fuites.push(e); }));
+  mj.on("votesDayMJ", d => { if (Object.keys(d || {}).length) fuites.push("votesDayMJ"); });
+  vivants.forEach(p => p.s.emit("voteDay", (p === cible ? temoin : cible).s.id));
+  await sleep(600);
+  check("S27-après une pause, le vote reste secret (aucune cible publiée)", fuites.length === 0, fuites.join(","));
+
+  // Dépouillement : un bulletin, puis pause (le bouton du MJ est ignoré), reconnexion de la cible, reprise
+  const debutP = attendre(mj, "depouillementDebut", 15000);
+  mj.emit("lockDayVotes");
+  const debut = await debutP.catch(() => null);
+  check("S27-le dépouillement commence", !!debut && debut.total === 4, JSON.stringify(debut));
+  const b1P = attendre(mj, "depouillementBulletin", 3000);
+  mj.emit("mjBulletinSuivant");
+  check("S27-le MJ ouvre le 1er bulletin", !!(await b1P.catch(() => null)));
+  await sleep(700);
+  mj.emit("pauseGame"); await sleep(300);
+  let pendantPause = 0;
+  const compter = () => pendantPause++;
+  mj.on("depouillementBulletin", compter);
+  mj.emit("mjBulletinSuivant"); await sleep(800);
+  check("S27-pendant la pause, le bouton du MJ n'ouvre rien", pendantPause === 0, pendantPause);
+  mj.off("depouillementBulletin", compter);
+  // La cible se reconnecte : nouvelle connexion, même prénom
+  cible.s.disconnect();
+  await sleep(300);
+  const cible2 = await connecter(TEST_PORT, cible.name); all.push(cible2);
+  const etatP = attendre(cible2, "depouillementEtat", 4000);
+  await attendre(cible2, "reconnected", 4000).catch(() => null);
+  const etat = await etatP.catch(() => null);
+  check("S27-la cible reconnectée retrouve le bulletin déjà ouvert", !!etat && etat.ouverts.length === 1, JSON.stringify(etat));
+  mj.emit("resumeGame"); await sleep(300);
+  // Reprise : les 3 bulletins restants, puis l'annonce
+  const resultatP = attendre(mj, "dayVoteResult", 15000);
+  for (let i = 0; i < 4; i++) { mj.emit("mjBulletinSuivant"); await sleep(700); }
+  const resultat = await resultatP.catch(() => null);
+  check("S27-après la reprise, le dépouillement va au bout", !!resultat, JSON.stringify(resultat));
+  check("S27-le verdict désigne la cible sous sa nouvelle connexion", resultat && resultat.id === cible2.id && resultat.name === cible.name, JSON.stringify({ resultat, nouvelId: cible2.id }));
+});
+
 // Démarrage du serveur et exécution des scénarios
 async function main() {
   console.log("═".repeat(62));
@@ -1012,7 +1132,10 @@ async function main() {
   const serveur = await demarrerServeur(TEST_PORT);
   console.log("  Serveur test prêt : http://localhost:" + TEST_PORT + "\n");
 
-  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25]) {
+  // SCENARIOS=S25,S26 : seulement ceux-là (mise au point)
+  const tous = [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25, s26, s27];
+  const choisis = (process.env.SCENARIOS || "").split(",").filter(Boolean);
+  for (const s of choisis.length ? tous.filter((_, i) => choisis.includes("S" + (i + 1))) : tous) {
     await s();
     await sleep(800);
   }

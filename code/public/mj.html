@@ -6,6 +6,7 @@
 <title>MJ — Loup-Garou</title>
 <link rel="stylesheet" href="/css/communs.css">
 <link rel="stylesheet" href="/css/mj.css">
+<link rel="stylesheet" href="/css/depouillement.css">
 </head>
 <body>
 
@@ -16,6 +17,11 @@
 
 <!-- Victoire constatée : le MJ la lance quand il a raconté (afficherVictoireAttendue) -->
 <button id="mjVictoireBouton" onclick="mjLancerVictoire()"></button>
+<!-- LE DÉPOUILLEMENT : le MJ ouvre les bulletins du vote secret un par un, puis lance l'annonce -->
+<div id="mjDepouillement" style="display:none;position:fixed;left:0;right:0;bottom:0;top:0;z-index:9990;flex-direction:column;align-items:center;gap:14px;overflow-y:auto;padding:16px 16px 20px;background:radial-gradient(ellipse at 50% 30%,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 75%);">
+  <div id="mjDepouillementScene" style="width:100%;max-width:340px;display:flex;margin-top:auto;"></div>
+  <button id="mjBulletinBouton" class="btn" onclick="mjBulletinSuivant()" style="flex-shrink:0;margin-bottom:auto;font-size:18px;font-weight:bold;padding:14px 28px;border-radius:12px;background:rgb(var(--or-vif));color:rgb(var(--or-nuit));border:0;min-width:280px;">✉️ Ouvrir le bulletin suivant</button>
+</div>
 
 <div id="mjHeader">
   <h1>🎛️ MJ</h1>
@@ -344,6 +350,7 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/communs.js"></script>
+<script src="/js/depouillement.js"></script>
 <script>
 const socket = io();
 // Un seul MJ pour le jeu : l'onglet qu'on regarde (2026-11-13). « Lancer le jeu » ouvre un onglet de
@@ -1145,6 +1152,7 @@ updateMJLayout("lobby"); // état initial au chargement de la page
 
 socket.on("phase", p=>{
   currentPhaseForBar = p;
+  if (p !== "day") montrerDepouillementMJ(false);
   if (p !== "day") { _mjDebat = null; fermerMainLevee(); finAnnonceConseil(false); arreterCoeur(); stopHeartbeat(); }
   document.getElementById("mjPhaseDisplay").innerText = phaseLabel(p);
   updateCheatSheet(p);
@@ -1243,6 +1251,9 @@ socket.on("gameEnd", msg=>{
 
 socket.on("mjReconnected", state=>{
   currentPhaseForBar = state.phase || "lobby";
+  _mjIdiotRevele = !!state.idiotRevealed;
+  if (state.depouillement) { montrerDepouillementMJ(true); mjDep.etat(state.depouillement); majBoutonBulletin(0); }
+  else montrerDepouillementMJ(false);
   if (state.mayor !== undefined) mayorId = state.mayor;
   _mjAbdication = state.abdication ? { nom: state.abdication.nom, enCours: false } : null;
   renderPlayers();   // croix « retirer » seulement au salon
@@ -1302,6 +1313,10 @@ function afficherMaireMJ() {
 socket.on("mayorVotesMJ",  votes=>{ renderVotes("mayorVotes", votes); renderMissingVoters(votes); });
 socket.on("wolfVotesMJ",   votes=>renderVotes("wolfVotes",  votes, ""));
 socket.on("votesDayMJ",    votes=>{ renderVotes("dayVotes", votes, ""); renderDayCounts(computeCounts(votes)); renderMissingVoters(votes); });
+socket.on("votantsJourMJ", votants=>{
+  document.getElementById("dayVotes").innerHTML = `<div style="font-size:13px;color:rgb(var(--or-vif));font-style:italic;">🤫 Vote secret : ${votants.length}/${votantsAttendus().length} ont voté. Les bulletins s'ouvriront à la fin.</div>`;
+  renderMissingVoters(Object.fromEntries(votants.map(id => [id, true])));
+});
 socket.on("dayCountsPublic", counts=>renderDayCounts(counts));
 socket.on("corbeauVotesPublic", data=>{ corbeauTarget=data.targetId; renderDayCounts(lastDayCounts||{}); });
 
@@ -1315,6 +1330,11 @@ function computeCounts(votes){
   return c;
 }
 
+// Ceux qui peuvent voter au jour : les vivants, sauf l'Idiot révélé (il a perdu son droit de vote)
+let _mjIdiotRevele = false;
+function votantsAttendus() {
+  return players.filter(p => !deadIds.includes(p.id) && !(_mjIdiotRevele && currentPhaseForBar === "day" && roles[p.id] === "Idiot"));
+}
 function renderMissingVoters(votes){
   const div = document.getElementById("missingVoters");
   if (!div) return;
@@ -1323,7 +1343,7 @@ function renderMissingVoters(votes){
     return;
   }
   const voted = new Set(Object.keys(votes || {}).filter(k => !k.startsWith("__corbeau")));
-  const aliveNotVoted = players.filter(p => !deadIds.includes(p.id) && !voted.has(p.id));
+  const aliveNotVoted = votantsAttendus().filter(p => !voted.has(p.id));
   if (aliveNotVoted.length === 0) {
     div.style.display = "block";
     div.innerHTML = '<span style="color:rgb(var(--vert-base));">✅ Tout le monde a voté</span>';
@@ -1473,6 +1493,7 @@ socket.on("randomElim",    ()=>showAlert("⚠️ Aucun vote — élimination al�
 socket.on("loversDeathInfo", data=>{ if(data.name) { showAlert(`💔 ${data.name} meurt de chagrin.`,"warn"); ajouterChagrinCarte(data); } });
 // L'Idiot désigné par le village : sa carte, comme une mort, mais il reste en vie
 socket.on("idiotRevealed", data=>{
+  _mjIdiotRevele = true;
   showAlert(`🤡 ${data.name} est l'Idiot du village !`, "info");
   showMjDeathCard("🤡", "Le verdict du village", data.name, nomDuRole("Idiot"),
     `${data.name} est l'Idiot du village : démasqué, il reste en vie, mais ne vote plus.`);
@@ -1489,6 +1510,7 @@ socket.on("chroniqueMJ", updateMJDeathLog);
 
 socket.on("gameReset", data=>{
   isGameOver = false; // Remis à false EN PREMIER pour éviter toute race condition
+  montrerDepouillementMJ(false); _mjIdiotRevele = false;
   deadIds=[]; loversIds=[]; mayorId=null; roles={};
   corbeauTarget=null; lastDayCounts={};
   const dc=document.getElementById("dayCounts"); if(dc) dc.innerHTML="";
@@ -1744,6 +1766,38 @@ function afficherVictoireAttendue(camp) {
 }
 // Juste sous l'en-tête collé en haut (au-dessus des cartes plein écran) : à 16 px du haut, le bouton
 // passait dessous et on n'en voyait que le bas (Alexandre, 2026-11-14)
+// ===== LE DÉPOUILLEMENT =====
+// Les mêmes bulletins que sur les téléphones ; le bouton ouvre le suivant, puis lance l'annonce
+// habituelle. Grisé pendant l'ouverture d'une enveloppe (2,65 s) : un double toucher ne saute rien.
+const mjDep = creerDepouillement(document.getElementById("mjDepouillementScene"), nom => (players.find(p => p.name === nom) || {}).photo);
+let _mjDepAttente = null;
+function montrerDepouillementMJ(oui) {
+  const ecran = document.getElementById("mjDepouillement");
+  if (oui) {
+    const entete = document.getElementById("mjHeader");
+    ecran.style.top = (entete ? Math.max(0, entete.getBoundingClientRect().bottom) : 0) + "px";
+  } else mjDep.fermer();
+  ecran.style.display = oui ? "flex" : "none";
+}
+function majBoutonBulletin(attenteMs) {
+  const b = document.getElementById("mjBulletinBouton"), n = mjDep.ouverts(), t = mjDep.total();
+  b.textContent = n < t ? `✉️ Ouvrir le bulletin suivant (${n + 1}/${t})` : "⚖️ L'annonce";
+  clearTimeout(_mjDepAttente);
+  b.disabled = !!attenteMs;
+  b.style.opacity = attenteMs ? "0.5" : "1";
+  if (attenteMs) _mjDepAttente = setTimeout(() => majBoutonBulletin(0), attenteMs);
+}
+function mjBulletinSuivant() {
+  const b = document.getElementById("mjBulletinBouton");
+  if (b.disabled) return;
+  socket.emit("mjBulletinSuivant");
+  majBoutonBulletin(800);   // le serveur répond par le bulletin (ou la fin) ; d'ici là, pas de second appui
+}
+socket.on("depouillementDebut", d => { montrerDepouillementMJ(true); mjDep.debut(d); majBoutonBulletin(0); });
+socket.on("depouillementBulletin", b => { montrerDepouillementMJ(true); mjDep.bulletin(b); majBoutonBulletin(DEPOUILLEMENT_OUVERTURE_MS); });
+socket.on("depouillementFin", () => montrerDepouillementMJ(false));
+window.addEventListener("resize", () => { if (document.getElementById("mjDepouillement").style.display === "flex") montrerDepouillementMJ(true); });
+
 function placerBoutonVictoire() {
   const entete = document.getElementById("mjHeader");
   document.getElementById("mjVictoireBouton").style.top = (entete ? Math.max(0, entete.getBoundingClientRect().bottom) + 12 : 16) + "px";

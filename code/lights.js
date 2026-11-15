@@ -8,8 +8,15 @@
  * de Bridge / pas envie d'allumer les lumières.
  *
  * Configuration : LIGHTS_ENABLED, HUE_BRIDGE_IP, HUE_API_KEY, HUE_GROUP_ID, LIGHTS_DEBUG,
- * lues dans .env — chacune expliquée dans .env.example (avec la façon d'obtenir la clé
- * et l'identifiant du groupe).
+ * HUE_CLIENT_KEY, HUE_ZONE_ID, LIGHTS_MODE, lues dans .env — chacune expliquée dans .env.example
+ * (avec la façon d'obtenir la clé et l'identifiant du groupe).
+ *
+ * Deux façons de parler au Bridge (2026-11-15) :
+ *  - le FLUX (mode « Entertainment », hue-flux.js), dès qu'il y a une HUE_CLIENT_KEY : 60 images par
+ *    seconde, fondus calculés ici, plus de commande perdue ni en retard ;
+ *  - les COMMANDES ordinaires (callHue), une par changement : avant que le flux soit établi, s'il
+ *    tombe, ou avec LIGHTS_MODE=classique.
+ * Les scènes, les effets et les éclairs ne savent pas lequel sert : ils passent tous par `envoyer`.
  */
 
 const https = require('https');
@@ -21,7 +28,11 @@ const CONFIG = {
   bridgeIp:  process.env.HUE_BRIDGE_IP  || "",
   apiKey:    process.env.HUE_API_KEY    || "",
   groupId:   process.env.HUE_GROUP_ID   || "",
-  debug:     process.env.LIGHTS_DEBUG === "true"
+  debug:     process.env.LIGHTS_DEBUG === "true",
+  clientKey: process.env.HUE_CLIENT_KEY || "",   // pour le flux (outils/appairer-hue.js)
+  zoneId:    process.env.HUE_ZONE_ID    || "",   // zone de divertissement (sinon trouvée seule)
+  // « classique » : jamais de flux, même avec une clientkey (secours si le flux déçoit)
+  flux:      (process.env.LIGHTS_MODE || "flux").trim().toLowerCase() !== "classique",
 };
 
 let SCENES = {};
@@ -111,6 +122,18 @@ function envoyerAuBridge(payload, fin) {
 }
 
 /**
+ * Le point de passage de toutes les couleurs : aller vers `etat` ({ xy, bri }) en `duree` ms. Par le
+ * flux s'il est établi, sinon par une commande ordinaire. La dernière couleur demandée est retenue :
+ * le flux part d'elle en s'établissant, et les commandes ordinaires la reposent s'il tombe.
+ */
+let flux = null, dernierEtat = null;
+function envoyer(etat, duree) {
+  dernierEtat = etat;
+  if (flux && flux.actif()) flux.poser(etat, duree);
+  else callHue(_sceneBody(etat, { duration: duree }));
+}
+
+/**
  * Convertit notre format scène vers le body CLIP v2 du Bridge.
  */
 function _sceneBody(scene, opts = {}) {
@@ -150,9 +173,9 @@ function startEffect(name, scene) {
       const tick = () => {
         const delay = 5000 + Math.random() * 18000; // 5-23s entre éclairs
         effectInterval = setTimeout(() => {
-          callHue({ on: {on:true}, color:{xy:{x:0.32,y:0.34}}, dimming:{brightness:100}, dynamics:{duration:0} });
+          envoyer({ xy: [0.32, 0.34], bri: 254 }, 0);
           effectTimeouts.push(setTimeout(() => {
-            callHue(_sceneBody(scene, { duration: 600 }));
+            envoyer(scene, 600);
             tick();
           }, 250));
         }, delay);
@@ -167,7 +190,7 @@ function startEffect(name, scene) {
           xy: [0.60 + Math.random()*0.08, 0.32 + Math.random()*0.04],
           bri: 140 + Math.floor(Math.random()*100)
         };
-        callHue(_sceneBody(flicker, { duration: 200 }));
+        envoyer(flicker, 200);
       }, 350);
       break;
     }
@@ -175,7 +198,7 @@ function startEffect(name, scene) {
       // Bougies : lumière chaude et basse qui vacille doucement (La Veillée)
       effectInterval = setInterval(() => {
         const flamme = { xy: [0.55 + Math.random() * 0.03, 0.40 + Math.random() * 0.02], bri: Math.max(15, scene.bri - 15 + Math.floor(Math.random() * 30)) };
-        callHue(_sceneBody(flamme, { duration: 450 }));
+        envoyer(flamme, 450);
       }, 700);
       break;
     }
@@ -183,7 +206,7 @@ function startEffect(name, scene) {
       // Pulsation rapide pour Panique
       let high = true;
       effectInterval = setInterval(() => {
-        callHue(_sceneBody({ xy: scene.xy, bri: high ? scene.bri : Math.max(20, Math.floor(scene.bri*0.35)) }, { duration: 250 }));
+        envoyer({ xy: scene.xy, bri: high ? scene.bri : Math.max(20, Math.floor(scene.bri*0.35)) }, 250);
         high = !high;
       }, 350);
       break;
@@ -192,7 +215,7 @@ function startEffect(name, scene) {
       // Pulsation lente : Chasseur, Sœurs, Amoureux, et quelques évènements du Conseil
       let high = true;
       effectInterval = setInterval(() => {
-        callHue(_sceneBody({ xy: scene.xy, bri: high ? scene.bri : Math.max(30, Math.floor(scene.bri*0.55)) }, { duration: 900 }));
+        envoyer({ xy: scene.xy, bri: high ? scene.bri : Math.max(30, Math.floor(scene.bri*0.55)) }, 900);
         high = !high;
       }, 1000);
       break;
@@ -214,7 +237,7 @@ function applyScene(key, transitionForcee) {
   // changement de phase qui le suit aussitôt l'annulait (les morts de l'aube, la proie des loups).
   if (Date.now() < finEclair) { _log("scène après l'éclair →", key); return; }
   stopEffect();
-  callHue(_sceneBody(scene, transitionForcee != null ? { duration: transitionForcee } : {}));
+  envoyer(scene, transitionForcee != null ? transitionForcee : (scene.transition || 800));
   if (scene.effect) {
     // Petit délai pour laisser la transition s'établir avant l'effet
     setTimeout(() => { if (currentSceneKey === key && Date.now() >= finEclair) startEffect(scene.effect, scene); }, scene.transition || 800);
@@ -253,10 +276,10 @@ function flash(key) {
 
   for (let i = 0; i < repeat; i++) {
     effectTimeouts.push(setTimeout(() => {
-      callHue(_sceneBody({ xy: f.xy, bri: f.bri }, { duration: montee }));
+      envoyer({ xy: f.xy, bri: f.bri }, montee);
     }, i * dur));
     effectTimeouts.push(setTimeout(() => {
-      callHue(_sceneBody({ xy: f.xy, bri: Math.max(5, Math.floor(f.bri * creux)) }, { duration: montee }));
+      envoyer({ xy: f.xy, bri: Math.max(5, Math.floor(f.bri * creux)) }, montee);
     }, i * dur + Math.floor(dur/2)));
   }
   apresEclair(repeat * dur + 150);
@@ -273,7 +296,7 @@ function vague(key) {
   if (!v) { _log("vague absente:", key); return; }
   stopEffect();   // coupe aussi un éclair en cours : la vague reposera la scène en finissant
   finEclair = 0;
-  callHue(_sceneBody(v, { duration: v.montee || 1500 }));
+  envoyer(v, v.montee || 1500);
   effectTimeouts.push(setTimeout(() => {
     if (currentSceneKey && SCENES[currentSceneKey]) applyScene(currentSceneKey);
   }, v.duree || 5000));
@@ -296,10 +319,10 @@ function flashSequence(key, count) {
   for (let d = 0; d < count; d++) {
     const base = d * (dur + gap);
     effectTimeouts.push(setTimeout(() => {
-      callHue(_sceneBody({ xy: f.xy, bri: f.bri }, { duration: 0 }));
+      envoyer({ xy: f.xy, bri: f.bri }, 0);
     }, base));
     effectTimeouts.push(setTimeout(() => {
-      callHue(_sceneBody({ xy: f.xy, bri: Math.max(5, Math.floor(f.bri * 0.1)) }, { duration: 0 }));
+      envoyer({ xy: f.xy, bri: Math.max(5, Math.floor(f.bri * 0.1)) }, 0);
     }, base + Math.floor(dur / 2)));
   }
   apresEclair(count * (dur + gap) + 150);
@@ -327,6 +350,7 @@ function status() {
     enabled: CONFIG.enabled,
     configured: _ready(),
     currentScene: currentSceneKey,
+    mode: flux && flux.actif() ? "flux" : "commandes",
     scenesLoaded: Object.keys(SCENES).filter(k => !k.startsWith("_")).length
   };
 }
@@ -336,6 +360,25 @@ function status() {
 if (_ready()) {
   _log("activé — Bridge", CONFIG.bridgeIp, "groupe", CONFIG.groupId);
   applyScene("lobby");
+  if (CONFIG.flux && CONFIG.clientKey) {
+    try {
+      flux = require('./hue-flux').creerFlux({
+        bridgeIp: CONFIG.bridgeIp, apiKey: CONFIG.apiKey, clientKey: CONFIG.clientKey, zoneId: CONFIG.zoneId,
+        // Toujours affichés (sans clé) : c'est la seule façon de savoir, sur la tablette, quel mode tourne
+        log: (...a) => console.log("[lumières]", ...a),
+        // Établi : il part de la couleur actuelle, sans saut
+        surActif: () => { if (dernierEtat) flux.poser(dernierEtat, 0); },
+        // Tombé : les commandes ordinaires reposent la scène en cours, avec son effet (un éclair
+        // interrompu ne laisse pas sa couleur dans la pièce) ; à défaut, la dernière couleur
+        surPerte: () => {
+          if (currentSceneKey && SCENES[currentSceneKey]) { finEclair = 0; applyScene(currentSceneKey, 400); }
+          else if (dernierEtat) callHue(_sceneBody(dernierEtat, { duration: 400 }));
+        },
+      });
+      // Laisse la commande du salon allumer les lampes avant que le flux ne prenne la main
+      setTimeout(() => flux.demarrer(), 1500);
+    } catch (e) { console.warn("[lumières] flux impossible, commandes ordinaires :", e.message); flux = null; }
+  }
 } else if (CONFIG.enabled) {
   console.warn("[lights] LIGHTS_ENABLED=true mais HUE_BRIDGE_IP/HUE_API_KEY/HUE_GROUP_ID manquant — dormant.");
 }

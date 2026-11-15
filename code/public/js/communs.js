@@ -44,4 +44,10 @@ function voixAvecCorbeau(voix, cibleCorbeau, morts) {
 
 // Fin du vote à l'heure de cet appareil : son horloge peut avoir quelques secondes d'écart avec
 // celle du PC (d.serverNow : l'heure du PC à l'envoi)
+// Couleur d'un joueur sans photo (son initiale sur ce fond) : la même partout, liste des joueurs comme
+// dépouillement, tirée de son prénom
+const AVATAR_PALETTE = ["rgb(var(--voyance-base))","rgb(var(--sang-base))","rgb(var(--lune-base))","rgb(var(--vert-base))","rgb(var(--or-base))","rgb(var(--braise-base))","rgb(var(--amour-base))","rgb(var(--ame-base))"];
+function couleurDuJoueur(nom) {
+  return AVATAR_PALETTE[String(nom || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_PALETTE.length];
+}
 function finDuVote(d) { return d.serverNow && d.endsAt ? d.endsAt + (Date.now() - d.serverNow) : d.endsAt; }

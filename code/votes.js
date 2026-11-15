@@ -192,9 +192,15 @@ function executerVerdict(cible) {
   if (handleAngeVictoire(cible)) return;
   if (handleIdiotDayVoteSurvival(cible)) return;
   const nom = playerName(cible), role = state.roles[cible];
+  // Les deux minuteries ci-dessous ne sont arrêtées par rien : elles vérifient en partant que c'est
+  // toujours CE verdict (une partie relancée entre-temps remet `verdictEnCours` à zéro). Le seul
+  // « vote clos » ne suffisait pas : la mort d'une partie précédente tombait dans le vote clos de la
+  // suivante, sur un joueur disparu (relecture du 2026-11-15, révélé par le dépouillement)
+  const jeton = state.verdictEnCours = { cible };
+  const toujoursLa = () => state.resolutionJourEnCours && state.verdictEnCours === jeton;
   suspenseVerdict();
   setTimeout(() => {
-    if (!state.resolutionJourEnCours) return;  // jour quitté ou partie relancée entre-temps
+    if (!toujoursLa()) return;  // jour quitté ou partie relancée entre-temps
     versMJ("soundPlay", "death");
     lights.flash("flash.death");
     state.io.emit("dayVoteResult", { id: cible, name: nom, role, narrative: buildDeathNarrative({ role, cause: "vote", name: nom }) });
@@ -205,7 +211,8 @@ function executerVerdict(cible) {
     }
   }, 2700);
   setTimeout(() => {
-    if (!state.resolutionJourEnCours) return;
+    if (!toujoursLa()) return;
+    state.verdictEnCours = null;
     roles.killPlayer(cible, "vote");
     viderVoteDuJour();
     // Victoire vérifiée avant toute transition ; la nuit passe par ouvrirNuit (Sœurs, Salvateur)
@@ -288,6 +295,14 @@ function resolveDayVote() {
   state.corbeauTarget = null;
 
   const count = computeCounts(state.votesDay);
+  // Vote secret avec au moins un bulletin : ils s'ouvrent d'abord un par un (le Dépouillement),
+  // le verdict vient ensuite, au dernier appui du MJ
+  if (state.voteSecret && Object.keys(count).length) { lancerDepouillement(corbeau); return; }
+  conclureVoteDuJour(count);
+}
+
+// Le verdict d'un vote du jour clos (après son dépouillement, s'il y en a eu un)
+function conclureVoteDuJour(count) {
   // Personne n'a voté : égalité entre tous les vivants, maire compris, et le maire tranche
   // (Alexandre, 2026-11-15 ; avant, un vivant était tiré au sort)
   const sansVote = !Object.keys(count).length;
@@ -299,6 +314,76 @@ function resolveDayVote() {
     if (sansVote) state.io.emit("randomElim");
     executerVerdict(target);
   }, sansVote);
+}
+
+// ===== LE DÉPOUILLEMENT (2026-11-15) =====
+// Dès qu'il reste SEUIL_DEPOUILLEMENT vivants, le vote du jour est secret : chacun ne voit que qui a
+// voté (pas même le MJ, la surprise est pour lui aussi). Une fois clos, les bulletins s'ouvrent un
+// par un sur tous les écrans (MJ, vivants, morts) : une enveloppe « Bulletin d'Anna », le bulletin
+// « vote contre Bob ». Le MJ ouvre chacun (« ✉️ Ouvrir le bulletin suivant »), puis, après le dernier,
+// lance l'annonce habituelle (« ⚖️ L'annonce »). Les 2 voix du Corbeau sont le dernier bulletin.
+// Sans MJ (mode autonome), les bulletins s'ouvrent seuls ; un MJ qui ne répond plus a son filet.
+const SEUIL_DEPOUILLEMENT    = 4;
+const DEPOUILLEMENT_AUTO_MS  = 4000;
+const DEPOUILLEMENT_FILET_MS = parseInt(process.env.DEPOUILLEMENT_FILET_MS) || 3 * 60 * 1000;
+const DEPOUILLEMENT_ECART_MS = 500;   // deux appuis plus rapprochés : un double toucher, ignoré
+
+function melanger(liste) {
+  const l = liste.slice();
+  for (let i = l.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [l[i], l[j]] = [l[j], l[i]]; }
+  return l;
+}
+
+// Ce que les écrans reçoivent : des prénoms (stables malgré les reconnexions ; les photos se
+// retrouvent par le prénom)
+function lancerDepouillement(corbeau) {
+  const bulletins = melanger(Object.entries(votesDuVillage()).map(([de, vers]) => ({ de: playerName(de), vers: playerName(vers), voix: 1 })));
+  if (corbeau) bulletins.push({ de: null, corbeau: true, vers: corbeau.targetName, voix: 2 });
+  state.depouillement = { bulletins, revele: 0, vivants: alivePlayers().map(p => p.name), dernierAt: 0 };
+  log.info('depouillement', bulletins.length + ' bulletin(s)');
+  versMJ("stopHeartbeat");   // le cœur du vote se tait : place aux enveloppes
+  state.io.emit("depouillementDebut", { total: bulletins.length, vivants: state.depouillement.vivants });
+  programmerDepouillement();
+}
+
+// L'état d'un dépouillement en cours, pour un écran qui se reconnecte
+function etatDepouillement() {
+  const d = state.depouillement;
+  return d ? { total: d.bulletins.length, vivants: d.vivants, ouverts: d.bulletins.slice(0, d.revele) } : null;
+}
+
+// Prochaine étape sans appui du MJ : vite en mode autonome, au bout du filet sinon
+function programmerDepouillement() {
+  clearTimeout(state.depouillementTimeout);
+  const auto = state.autoMode || !state.mjPilotedDay;
+  state.depouillementTimeout = setTimeout(() => { state.depouillementTimeout = null; bulletinSuivant(); },
+    auto ? DEPOUILLEMENT_AUTO_MS : DEPOUILLEMENT_FILET_MS);
+}
+
+// Ouvre le bulletin suivant ; après le dernier, conclut le vote (l'annonce habituelle)
+function bulletinSuivant() {
+  const d = state.depouillement;
+  if (!d || state.phase !== "day" || state.gamePaused) return;
+  d.dernierAt = Date.now();
+  if (d.revele < d.bulletins.length) {
+    const b = d.bulletins[d.revele++];
+    state.io.emit("depouillementBulletin", { index: d.revele, total: d.bulletins.length, ...b });
+    programmerDepouillement();
+    return;
+  }
+  clearTimeout(state.depouillementTimeout); state.depouillementTimeout = null;
+  state.depouillement = null;
+  state.io.emit("depouillementFin");
+  // Recompté sur l'urne, et non sur un relevé fait à la clôture : un joueur qui s'est reconnecté
+  // pendant le dépouillement a changé d'identifiant, et l'urne suit (remplacerIdentifiant)
+  conclureVoteDuJour(computeCounts(state.votesDay));
+}
+
+// « ✉️ Ouvrir le bulletin suivant » / « ⚖️ L'annonce » de la tablette
+function handleBulletinSuivant(socket) {
+  if (!isMJ(socket.id) || !state.depouillement || state.gamePaused) return;
+  if (Date.now() - state.depouillement.dernierAt < DEPOUILLEMENT_ECART_MS) return;
+  bulletinSuivant();
 }
 
 function startDayVote(mode) {
@@ -315,6 +400,7 @@ function startDayVote(mode) {
 
   arreterDebat();   // Tour de parole en cours : le vote le remplace
   voteRaccourci = false;
+  state.voteSecret = alivePlayers().length <= SEUIL_DEPOUILLEMENT && !effet.mainLevee;
   clearVoteTimer(); state.lockedVoters.clear(); state.voteMode = mode;
   state.fastResolveTriggered = false;
   // Modes de vote :
@@ -330,11 +416,11 @@ function startDayVote(mode) {
 
   const realVotes = votesDuVillage();
   const corbeauInfo = infosCorbeau();
-  state.io.emit("voteStarted", { mode, duration, endsAt, serverNow: Date.now(), existingVotes: computeCounts(realVotes), corbeauInfo });
+  const secret = state.voteSecret;
+  state.io.emit("voteStarted", { mode, duration, endsAt, serverNow: Date.now(), existingVotes: secret ? {} : computeCounts(realVotes), corbeauInfo, secret });
   versMJ("voteStartedMJ", { mode, duration, endsAt, serverNow: Date.now() });
-  if (mode !== 5) {
-    state.io.emit("votesDayPublic", realVotes);
-  }
+  if (secret) publierVotesDuJour();   // qui a déjà voté (jamais pour qui)
+  else if (mode !== 5) state.io.emit("votesDayPublic", realVotes);
   roles.annoncerCorbeau();
   state.voteTimer = setTimeout(() => { resolveDayVote(); }, duration + 800);
   // Lumières : le vote tamise doucement la pièce (la nuit approche), sauf un évènement qui a sa lumière
@@ -349,8 +435,14 @@ function votesDuVillage() {
   return Object.fromEntries(Object.entries(state.votesDay).filter(([votant]) => !votant.startsWith("__corbeau")));
 }
 // Le détail (qui vote pour qui) va au seul MJ ; les téléphones voient les voix, sauf pendant
-// le vote anonyme
+// le vote anonyme. Vote secret (le Dépouillement) : qui a voté, jamais pour qui, MJ compris.
 function publierVotesDuJour() {
+  if (state.voteSecret) {
+    const votants = Object.keys(votesDuVillage());
+    versMJ("votantsJourMJ", votants);
+    state.io.emit("votantsJour", votants);
+    return;
+  }
   versMJ("votesDayMJ", state.votesDay);
   if (state.voteMode === 5) return;
   state.io.emit("dayCountsPublic", computeCounts(state.votesDay));
@@ -421,6 +513,8 @@ function handleVoteDay(socket, id) {
   publierVotesDuJour();
   // Vote anonyme : seul le votant apprend pour qui il a voté
   if (state.voteMode === 5) socket.emit("hasVotedConfirm", { targetName: playerName(id) });
+  // Vote secret : de même, mais il peut changer d'avis jusqu'à la fin, comme dans un vote ordinaire
+  else if (state.voteSecret) socket.emit("monVoteJour", { cible: id });
   // Sprint final de 30 s quand tout le monde a voté — mode autonome seulement : avec un
   // MJ, le vote dure 40 s et le battement de cœur final doit aller au bout
   if (state.voteMode === 1 && !state.fastResolveTriggered && state.voteTimer && !state.mjPilotedDay) {
@@ -586,13 +680,13 @@ Object.assign(module.exports, {
   // Core
   clearVoteTimer, oublierEgalite, egaliteEnCours,
   performLockMayorVote, performLockWolfVotes,
-  startDayVote, resolveDayVote,
+  startDayVote, resolveDayVote, etatDepouillement, programmerDepouillement,
   publierVotesDuJour, publierVotesDuMaire, publierVotesDesLoups,
   // Handlers socket
   handleVoteMayor, handleLockMayorVote,
   handleStartVote, handleVoteDay, handleLockDayVotes, handleSkipDayVote,
   handleVoteWolf, handleLockWolfVotes,
-  handleTiebreakChoice,
+  handleTiebreakChoice, handleBulletinSuivant,
   // Débat rythmé par le Conseil (Tour de parole, Main levée)
   etatDebat, arreterDebat, suspendreDebat, reprendreDebat,
   handleCommencerTour, handleParoleSuivante, handleMainLevee,

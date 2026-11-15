@@ -87,8 +87,11 @@ const arrive = attente => attente.then(() => true, () => false);
 // les options lance la nuit et valide l'attaque des loups (un test qui vérifie une de ces étapes
 // la laisse au test), et lance la victoire qui attend son clic. `delai` : en ms, ou une fonction qui
 // le tire à chaque clic.
-function piloterMJ(mj, { delai = 500, etapes = true, actions = true, nuit = false, loupsApres = 0, victoire = true } = {}) {
+function piloterMJ(mj, { delai = 500, etapes = true, actions = true, nuit = false, loupsApres = 0, victoire = true, depouillement = true } = {}) {
   const cliquer = evenement => () => setTimeout(() => mj.emit(evenement), typeof delai === "function" ? delai() : delai);
+  // Le Dépouillement (vote secret dès 4 vivants) : le MJ ouvre chaque bulletin, puis lance l'annonce
+  // (700 ms : le serveur ignore deux appuis à moins d'une demi-seconde, comme un double toucher)
+  if (depouillement) ["depouillementDebut", "depouillementBulletin"].forEach(e => mj.on(e, () => setTimeout(() => mj.emit("mjBulletinSuivant"), 700)));
   if (etapes) mj.on("etapeNuitEnAttente", cliquer("mjEtapeSuivante"));
   if (actions) mj.on("actionMJEnAttente", cliquer("mjOuvrirAction"));
   if (nuit) mj.on("nuitEnAttente", cliquer("mjLancerNuit"));

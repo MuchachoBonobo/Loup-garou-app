@@ -52,8 +52,11 @@ function scheduleBot(callback) {
 function setPhase(p) {
   const previousPhase = state.phase;
   state.phase = p;
-  // Toute nouvelle phase clôt la résolution du vote du jour (votes.resolveDayVote)
+  // Toute nouvelle phase clôt la résolution du vote du jour (votes.resolveDayVote), son vote secret
+  // et son dépouillement (bulletins encore fermés : le jour est fini). Pas clearPhaseTimeouts : la
+  // pause l'appelle aussi, et une pause ne doit rien effacer de tout cela (relecture du 2026-11-15).
   state.resolutionJourEnCours = false;
+  state.voteSecret = false; state.depouillement = null;
   log.info('setPhase', previousPhase, '->', p);
   state.io.emit("phase", state.phase);
 
@@ -309,7 +312,8 @@ function installPhaseTimeouts(p) {
 
 // Minuteries des phases, et filets du mode autonome
 const MINUTERIES_DE_PHASE = ["seerTimeout", "petiteFilleTimeout", "nightPauseTimeout", "witchTimeout", "cupidTimeout",
-  "salvateurTimeout", "sistersTimeout", "amoureuxTimeout", "corbeauTimeout", "chasseurTimeout", "mayorTransferTimeout", "annonceMaireTimeout", "victoireTimeout"];
+  "salvateurTimeout", "sistersTimeout", "amoureuxTimeout", "corbeauTimeout", "chasseurTimeout", "mayorTransferTimeout", "annonceMaireTimeout", "victoireTimeout",
+  "depouillementTimeout"];
 const FILETS_AUTONOMES = ["mayorAutoLockTimer", "wolfConsensusTimer", "wolvesAutoLockTimer", "dayAutoStartTimer"];
 function arreterMinuteries(noms) { noms.forEach(k => { clearTimeout(state[k]); state[k] = null; }); }
 function arreterFiletsAutonomes() { arreterMinuteries(FILETS_AUTONOMES); state.mayorAllVotedNotified = false; }
@@ -608,6 +612,8 @@ function resumeGame() {
   installPhaseTimeouts(state.phase);
   armerMinuteriesAutomatiques(state.phase);
   votes.reprendreDebat();
+  // Dépouillement en cours : la pause avait arrêté son minuteur (bulletin suivant sans MJ, ou filet)
+  if (state.depouillement) votes.programmerDepouillement();
 
   // Réponse de nuit en attente de « OK » : renvoyée au joueur (un « OK » tapé pendant la
   // pause a été ignoré, sa carte s'était fermée)

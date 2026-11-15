@@ -1,0 +1,106 @@
+/* ============================================================
+   Le Dépouillement (2026-11-15) — commun à l'écran des joueurs et à celui du MJ (js/depouillement.js)
+   Dès qu'il reste 4 vivants, les bulletins du vote du jour s'ouvrent un par un : une enveloppe
+   cachetée « Bulletin d'Anna » arrive de l'urne, le sceau se brise, le bulletin « vote contre Bob »
+   sort tout entier puis se pose devant elle ; la voix s'inscrit alors sur la feuille de pointage.
+   Maquette validée par Alexandre : https://claude.ai/artifact/YVceVkRdDQFoQMbLHDCawG
+   ============================================================ */
+
+.depouillement {
+  /* Le bulletin : un parchemin clair ; l'enveloppe : un vieux papier plus sombre, pour que le bulletin s'en détache */
+  --dep-parchemin-haut: 243,229,189; --dep-parchemin-bas: 220,197,145; --dep-parchemin-ombre: 184,156,94;
+  --dep-encre: 51,39,15; --dep-encre-rouge: 138,43,34;
+  --dep-rabat-haut: 184,149,90; --dep-rabat-bas: 156,122,68; --dep-env: 149,115,64; --dep-env-moyen: 126,95,51;
+  --dep-env-sombre: 94,69,36; --dep-env-dedans: 58,42,20;
+  --dep-cire-claire: 201,71,61; --dep-cire: 142,35,28; --dep-cire-sombre: 79,18,14;
+  width: 100%; max-width: 340px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; text-align: center;
+  min-height: 100%;
+}
+.depouillement .av { border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: rgb(var(--blanc)); flex-shrink: 0; object-fit: cover; }
+
+/* ----- L'enveloppe et son bulletin -----
+   Tout vit dans l'enveloppe (même empilement) : dos (1) < rabat ouvert (2) < bulletin rangé (3) < poche (4)
+   < inscription (4) < rabat fermé (5) < sceau (6) < bulletin sorti, posé devant (8). */
+.dep-scene { position: relative; width: 280px; height: 382px; flex-shrink: 0; }
+.dep-enveloppe { position: absolute; left: 10px; bottom: 0; width: 260px; height: 172px; perspective: 900px; }
+.dep-dos { position: absolute; inset: 0; border-radius: 6px; background: linear-gradient(180deg, rgb(var(--dep-env-dedans)), rgb(var(--dep-env-sombre))); box-shadow: 0 16px 34px rgba(var(--noir),0.65); z-index: 1; }
+.dep-rabat { position: absolute; left: 0; top: 0; width: 100%; height: 55%; transform-origin: 50% 0; z-index: 2; transform: rotateX(180deg);
+  clip-path: polygon(0 0, 100% 0, 50% 100%); background: linear-gradient(180deg, rgb(var(--dep-rabat-haut)), rgb(var(--dep-rabat-bas))); }
+.dep-poche { position: absolute; inset: 0; z-index: 4; border-radius: 0 0 6px 6px;
+  clip-path: polygon(0 0, 50% 52%, 100% 0, 100% 100%, 0 100%);
+  background: linear-gradient(160deg, rgb(var(--dep-env)) 0%, rgb(var(--dep-env-moyen)) 55%, rgb(var(--dep-env-sombre)) 100%); }
+.dep-poche::after { content: ""; position: absolute; inset: 0;   /* les plis du papier, à peine marqués */
+  background: linear-gradient(20deg, transparent 49.6%, rgba(var(--noir),0.18) 50%, transparent 50.4%), linear-gradient(-20deg, transparent 49.6%, rgba(var(--noir),0.18) 50%, transparent 50.4%); }
+.dep-sceau { position: absolute; left: 50%; top: calc(55% - 22px); width: 40px; height: 40px; margin-left: -20px; z-index: 6; }
+.dep-cire { position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgb(var(--dep-cire-claire)), rgb(var(--dep-cire)) 55%, rgb(var(--dep-cire-sombre)));
+  box-shadow: 0 3px 6px rgba(var(--noir),0.55), inset 0 0 0 3px rgba(var(--noir),0.18); display: flex; align-items: center; justify-content: center; }
+.dep-cire svg { width: 60%; height: 60%; }
+.dep-sceau .g { clip-path: inset(0 50% 0 0); opacity: 0; }
+.dep-sceau .d { clip-path: inset(0 0 0 50%); opacity: 0; }
+/* Celui qui a voté, écrit sur l'enveloppe sous le sceau ; le bulletin ne porte que la cible */
+.dep-sur-env { position: absolute; left: 0; right: 0; top: 118px; z-index: 4; display: flex; align-items: center; justify-content: center; gap: 10px;
+  color: rgb(var(--dep-parchemin-haut)); text-shadow: 0 1px 2px rgba(var(--noir),0.6); }
+.dep-sur-env .av { box-shadow: 0 0 0 2px rgba(var(--dep-parchemin-haut),0.7); }
+.dep-sur-env .mots { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+.dep-sur-env .petit { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.75; }
+.dep-sur-env .qui { font-family: "IM Fell English", "Times New Roman", serif; font-size: 24px; }
+.dep-plume { width: 34px; height: 34px; border-radius: 50%; background: rgb(var(--n2)); display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+
+.dep-lettre { position: absolute; left: 20px; top: -190px; width: 220px; height: 240px; z-index: 8; padding: 34px 14px 0; transform: rotate(-1.5deg);
+  background:
+    radial-gradient(ellipse at 20% 15%, rgba(var(--blanc),0.35), transparent 45%),
+    radial-gradient(ellipse at 85% 90%, rgba(120,85,30,0.22), transparent 50%),
+    linear-gradient(180deg, rgb(var(--dep-parchemin-haut)), rgb(var(--dep-parchemin-bas)));
+  border-radius: 4px; color: rgb(var(--dep-encre)); box-shadow: 0 18px 32px rgba(var(--noir),0.6), inset 0 0 18px rgba(120,85,30,0.28); }
+.dep-lettre .contre { font-family: "IM Fell English", "Times New Roman", serif; font-style: italic; font-size: 17px; color: rgb(var(--dep-encre-rouge)); }
+.dep-lettre .cible { margin: 10px auto 8px; width: 108px; height: 108px; border-radius: 50%; padding: 4px; background: rgb(var(--dep-encre-rouge)); }
+.dep-lettre .nom-cible { font-family: "IM Fell English", "Times New Roman", serif; font-size: 36px; line-height: 1; overflow-wrap: anywhere; }
+
+/* L'ouverture, sous les yeux : l'enveloppe arrive de l'urne, le sceau se brise, le rabat bascule, le bulletin
+   sort tout entier par le haut, puis vient se poser devant l'enveloppe (2,65 s en tout) */
+@media (prefers-reduced-motion: no-preference) {
+  .dep-scene.anime .dep-enveloppe { animation: depArrivee 0.35s ease-out both; }
+  .dep-scene.anime .dep-sceau .g { animation: depBrise 0.45s ease-in 0.4s both; }
+  .dep-scene.anime .dep-sceau .d { animation: depBriseD 0.45s ease-in 0.4s both; }
+  .dep-scene.anime .dep-rabat { animation: depRabat 0.6s ease-in-out 0.7s both; }
+  .dep-scene.anime .dep-lettre { animation: depSortie 1.5s ease-in-out 1.15s both; }
+}
+@keyframes depArrivee { from { transform: translateY(46px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes depBrise  { 0% { transform: none; opacity: 1; } 25% { transform: translateX(-2px) rotate(-6deg); opacity: 1; } 100% { transform: translate(-24px, 10px) rotate(-40deg); opacity: 0; } }
+@keyframes depBriseD { 0% { transform: none; opacity: 1; } 25% { transform: translateX(2px) rotate(6deg); opacity: 1; } 100% { transform: translate(24px, 10px) rotate(40deg); opacity: 0; } }
+@keyframes depRabat  { 0% { transform: rotateX(0); z-index: 5; } 49% { z-index: 5; } 50% { z-index: 2; } 100% { transform: rotateX(180deg); z-index: 2; } }
+@keyframes depSortie {
+  0%   { transform: translateY(156px) scale(0.55); z-index: 3; box-shadow: 0 4px 10px rgba(var(--noir),0.3); }
+  55%  { transform: translateY(-34px) scale(0.8); z-index: 3; box-shadow: 0 6px 14px rgba(var(--noir),0.35); }
+  56%  { z-index: 8; }
+  100% { transform: rotate(-1.5deg); z-index: 8; box-shadow: 0 18px 32px rgba(var(--noir),0.6); }
+}
+
+/* ----- L'urne : les enveloppes encore cachetées (en grand avant le premier bulletin) ----- */
+.dep-urne { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 16px; color: rgb(var(--n7)); font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; min-height: 34px; flex-wrap: wrap; }
+.dep-plis { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.dep-mini-env { position: relative; width: 42px; height: 28px; border-radius: 3px; background: rgb(var(--dep-env)); box-shadow: 0 3px 8px rgba(var(--noir),0.5); overflow: hidden; }
+.dep-mini-env::before { content: ""; position: absolute; left: 0; top: 0; width: 100%; height: 62%; clip-path: polygon(0 0, 100% 0, 50% 100%); background: rgb(var(--dep-rabat-haut)); }
+.dep-mini-env .dep-cire { inset: auto; width: 11px; height: 11px; left: 50%; top: 11px; margin-left: -5.5px; box-shadow: 0 1px 2px rgba(var(--noir),0.5); }
+.dep-urne-pleine { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; }
+.dep-urne-pleine .dep-plis { gap: 14px; max-width: 280px; }
+.dep-urne-pleine .dep-mini-env { width: 84px; height: 56px; border-radius: 5px; }
+.dep-urne-pleine .dep-mini-env .dep-cire { width: 20px; height: 20px; top: 22px; margin-left: -10px; }
+
+/* ----- La feuille de pointage : un bâton rouge par voix, le dernier en or, et la photo du votant ----- */
+/* Sur un téléphone, la feuille se pose en bas de l'écran ; sur la tablette (#mjDepouillementScene), juste sous l'urne */
+.dep-pointage { width: 100%; margin-top: auto; border-top: 1px solid rgba(var(--or-vif),0.35); padding-top: 10px; display: grid; gap: 6px; }
+.dep-ligne { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 10px; text-align: left; font-size: 15px; min-height: 32px; color: rgb(var(--n8)); }
+.dep-ligne .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dep-ligne.vide .n { color: rgb(var(--n7)); }
+.dep-droite { display: flex; align-items: center; gap: 8px; }
+.dep-votants { display: flex; gap: 3px; }
+.dep-votants .dep-plume { width: 18px; height: 18px; font-size: 10px; }
+@media (prefers-reduced-motion: no-preference) {
+  .dep-pointage line.neuf { transform-box: fill-box; transform-origin: 50% 100%; animation: depTrace 0.35s ease-out both; }
+  .dep-pointage .neuf:not(line) { animation: depApparait 0.35s ease-out 0.15s both; }
+}
+@keyframes depTrace { from { transform: scaleY(0); } to { transform: none; } }
+@keyframes depApparait { from { transform: scale(0.3); opacity: 0; } to { transform: none; opacity: 1; } }
+#mjDepouillementScene .dep-pointage { margin-top: 24px; }

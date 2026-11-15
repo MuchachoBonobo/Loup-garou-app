@@ -197,8 +197,12 @@ io.on("connection", socket => {
         ? { evenement: state.evenementAnnonce ? null : council.evenementPublic(state.activeCouncilEvent) } : null,
       activeCouncilEvent: (state.phase === "day" && state.evenementAnnonce) ? council.evenementPublic(state.activeCouncilEvent) : null,
       debat: votes.etatDebat(),   // tour de parole en cours
+      idiotRevealed: !!state.idiotRevealed,   // il ne vote plus : la tablette ne l'attend pas
+      depouillement: votes.etatDepouillement(),   // bulletins déjà ouverts, s'il est en cours
     });
     if (state.tiebreakPending) socket.emit("tiebreakMJ", votes.egaliteEnCours());
+    // Vote secret en cours : qui a déjà voté
+    if (state.phase === "day" && state.voteSecret && !state.depouillement) votes.publierVotesDuJour();
     // Reprise après plantage : proposée au MJ si une sauvegarde est en attente
     if (state.pendingRestore) {
       socket.emit("crashRecoveryAvailable", {
@@ -434,6 +438,7 @@ io.on("connection", socket => {
   socket.on("startVote",    () => votes.handleStartVote(socket));
   socket.on("voteDay",      id => votes.handleVoteDay(socket, actuel(id)));
   socket.on("lockDayVotes", () => votes.handleLockDayVotes(socket));
+  socket.on("mjBulletinSuivant", () => votes.handleBulletinSuivant(socket));   // le Dépouillement
   socket.on("skipDayVote",  () => votes.handleSkipDayVote(socket));
 
   // ===== CONSEIL DES MORTS =====
@@ -530,6 +535,9 @@ function resynchroniserApresReconnexion(socket) {
   if (state.phase === "wolves") votes.publierVotesDesLoups();
   if (state.phase === "day" && Object.keys(state.votesDay).length) votes.publierVotesDuJour();
   if (state.phase === "day") roles.annoncerCorbeau();
+  // Vote secret : le joueur retrouve son propre vote ; dépouillement en cours : les bulletins déjà ouverts
+  if (state.phase === "day" && state.voteSecret && state.votesDay[id]) socket.emit("monVoteJour", { cible: state.votesDay[id] });
+  if (state.depouillement) socket.emit("depouillementEtat", votes.etatDepouillement());
   // Égalité en attente d'arbitrage : panneaux du maire et du MJ reconstruits
   if (state.tiebreakPending && state.mayor && state.tiebreakCandidates.length) {
     const egalite = votes.egaliteEnCours();

@@ -10,6 +10,7 @@
 <title>Loup-Garou</title>
 <link rel="stylesheet" href="/css/communs.css">
 <link rel="stylesheet" href="/css/player.css">
+<link rel="stylesheet" href="/css/depouillement.css">
 </head>
 <body>
 
@@ -157,6 +158,9 @@
   <div id="tiebreakMsg" style="font-size:18px;font-weight:bold;color:rgb(var(--or-vif));margin-bottom:16px;"></div>
   <div id="tiebreakBtns"></div>
 </div>
+
+<!-- LE DÉPOUILLEMENT : les bulletins du vote secret s'ouvrent un par un (js/depouillement.js) -->
+<div id="depouillementPanel" class="plein-ecran" style="display:none;z-index:9400;justify-content:flex-start;padding:22px 16px 20px;overflow-y:auto;background:radial-gradient(ellipse at 50% 30%,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 75%);"></div>
 
 <!-- VOILE DE NUIT : masque l'écran des joueurs non-actifs pendant les phases nocturnes -->
 <div id="nightCoverScreen" style="display:none;position:fixed;inset:0;z-index:99990;background:radial-gradient(ellipse at center,rgb(var(--lune-nuit)) 0%,rgb(var(--lune-nuit)) 100%);align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:40px;">
@@ -306,6 +310,7 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/communs.js"></script>
+<script src="/js/depouillement.js"></script>
 <script>
 const socket = io();
 
@@ -470,6 +475,10 @@ let mayorTransferPending = false;
 // Maire mourant : lui seul rouvre le panneau de transmission après la carte de l'aube
 let dyingMayorId = null;
 let currentVoteMode=0, hasVotedLocked=false, myDayVote=null, myMayorVote=null;
+// Vote secret (le Dépouillement, dès 4 vivants) : on ne voit que qui a voté, jamais pour qui
+let voteSecret=false, dayVotedSet=new Set();
+// Les voix du vote du jour restent cachées : vote anonyme (mode 5) ou vote secret
+const votesCaches = () => currentVoteMode === 5 || voteSecret;
 let _heartbeatVibrated=false;
 let countdownInterval=null, voteEndsAt=null, voteTotalMs=null, voteActive=false;
 let iAmDead=false, deadVisionData=null;
@@ -913,7 +922,6 @@ function closeDawnCard() {
 
 // Avatar compact d'un joueur dans la liste (render). `size` en px.
 // Photo disponible → <img> ronde ; sinon → cercle initiale avec couleur déterministe.
-const AVATAR_PALETTE = ["rgb(var(--voyance-base))","rgb(var(--sang-base))","rgb(var(--lune-base))","rgb(var(--vert-base))","rgb(var(--or-base))","rgb(var(--braise-base))","rgb(var(--amour-base))","rgb(var(--ame-base))"];
 // zoom : faux dans une liste où toute la ligne est un bouton (sinon toucher la photo l'agrandit)
 function playerAvatar(p, size, zoom = true) {
   const s = size || 32;
@@ -922,7 +930,7 @@ function playerAvatar(p, size, zoom = true) {
   }
   // Array.from : un prénom qui commence par un emoji (robots « 🤖 ») donnait « � »
   const initial = Array.from(p.name || "?")[0].toUpperCase();
-  const color = AVATAR_PALETTE[(p.name || "").split("").reduce((a, c) => a + c.charCodeAt(0), 0) % AVATAR_PALETTE.length];
+  const color = couleurDuJoueur(p.name);   // communs.js
   return `<div style="width:${s}px;height:${s}px;border-radius:50%;background:${color};flex-shrink:0;margin-right:8px;display:flex;align-items:center;justify-content:center;font-size:${Math.round(s*0.45)}px;font-weight:bold;color:rgb(var(--blanc));opacity:0.88;">${initial}</div>`;
 }
 
@@ -1184,6 +1192,7 @@ socket.on("reconnected", state => {
     voteTotalMs=state.voteDureeMs||40000;
     voteActive=true;
     currentVoteMode=state.voteMode||0;
+    voteSecret=!!state.voteSecret; dayVotedSet=new Set(state.votantsJour||[]);
     document.getElementById("voteTimerBox").style.display="block";
     if (!voteEnPause) startCountdown();
   } else {
@@ -1246,6 +1255,7 @@ function traduireIdsApresReconnexion(nouveauxJoueurs) {
   mayorCounts = TK(mayorCounts); dayCounts = TK(dayCounts); votesDayDetail = TK(votesDayDetail); wolfVotes = TK(wolfVotes);
   roles = TK(roles); roleDesMorts = TK(roleDesMorts);
   mayorVotedSet = new Set([...mayorVotedSet].map(T));
+  dayVotedSet = new Set([...dayVotedSet].map(T));
   petiteFilleSelection = TL(petiteFilleSelection);
   amoureuxSelection = TL(amoureuxSelection);
 }
@@ -1415,9 +1425,11 @@ function updateDeadVoteView() {
   if (!show) { box.style.display = "none"; return; }
   box.style.display = "block";
   content.innerHTML = "";
-  // Mode 5 : vote anonyme — aucun détail public
-  if (currentVoteMode === 5) {
-    content.innerHTML = '<div style="text-align:center;color:rgb(var(--sang-vif));font-size:13px;font-style:italic;">🖤 Vote dans l\'ombre — les bulletins restent secrets.</div>';
+  // Mode 5 : vote anonyme — aucun détail public ; vote secret : dépouillement à la fin
+  if (votesCaches()) {
+    content.innerHTML = voteSecret
+      ? '<div style="text-align:center;color:rgb(var(--or-vif));font-size:13px;font-style:italic;">🤫 Vote secret — les bulletins seront ouverts à la fin (' + dayVotedSet.size + ' ont voté).</div>'
+      : '<div style="text-align:center;color:rgb(var(--sang-vif));font-size:13px;font-style:italic;">🖤 Vote dans l\'ombre — les bulletins restent secrets.</div>';
     return;
   }
   const allCounts = voixAvecCorbeau(dayCounts, corbeauVotesTarget, deadPlayers);
@@ -1583,7 +1595,7 @@ socket.on("phase", p=>{
   // mayorMustTransfer l'a déjà ouvert (ou va l'ouvrir) pour le maire mourant
   if(p !== "mayorTransfer") document.getElementById("tiebreakPanel").style.display="none";
   if(p!=="mayorVote") { mayorCounts={}; mayorVotedSet.clear(); myMayorVote=null; }
-  if(p!=="day") { dayCounts={}; votesDayDetail={}; }
+  if(p!=="day") { dayCounts={}; votesDayDetail={}; voteSecret=false; dayVotedSet.clear(); montrerDepouillement(false); }
   // corbeauVotesTarget : ne le remettre à null qu'à la nuit suivante (phase wolves/cupid)
   // il doit persister pendant tout le jour et être visible dès phase=day
   if(["wolves","cupid","lobby"].includes(p)) corbeauVotesTarget=null;
@@ -1605,7 +1617,7 @@ socket.on("phase", p=>{
       // Pas de vote à l'entrée du jour : l'interface s'ouvre à `voteStarted` (« Lancer le
       // vote » du MJ, ou ~2 s plus tard en mode autonome)
       voteActive=true;
-      currentVoteMode=0; hasVotedLocked=false;
+      currentVoteMode=0; hasVotedLocked=false; voteSecret=false; dayVotedSet.clear();
       document.getElementById("voteWaitBox").style.display="none";
       document.getElementById("voteTimerBox").style.display="none";
     }
@@ -2050,6 +2062,24 @@ socket.on("loversDeathInfo", data=>{
 
 socket.on("randomElim",()=>{ document.getElementById("status").innerText="⚠️ Aucun vote — élimination aléatoire !"; });
 
+// ===== LE DÉPOUILLEMENT =====
+// Vote secret : qui a voté (« A voté » dans la liste), et mon propre vote (je peux en changer)
+socket.on("votantsJour", l => { dayVotedSet = new Set(l || []); scheduleRender(); updateDeadVoteView(); });
+socket.on("monVoteJour", d => { myDayVote = d && d.cible; scheduleRender(); });
+// Les bulletins s'ouvrent un par un, chez les vivants comme chez les morts ; l'annonce de la fin
+// reste la carte habituelle (dayVoteResult)
+const depouillement = creerDepouillement(document.getElementById("depouillementPanel"), nom => (players.find(p => p.name === nom) || {}).photo);
+function montrerDepouillement(oui) {
+  const panneau = document.getElementById("depouillementPanel");
+  if (!panneau) return;
+  panneau.style.display = oui ? "flex" : "none";
+  if (!oui) depouillement.fermer();
+}
+socket.on("depouillementDebut", d => { montrerDepouillement(true); depouillement.debut(d); });
+socket.on("depouillementBulletin", b => { montrerDepouillement(true); depouillement.bulletin(b); });
+socket.on("depouillementEtat", d => { if (!d) return; montrerDepouillement(true); depouillement.etat(d); });
+socket.on("depouillementFin", () => montrerDepouillement(false));
+
 socket.on("hasVotedConfirm", data=>{
   document.getElementById("status").innerText="✅ Vote enregistré — " + data.targetName;
   hasVotedLocked=true;
@@ -2443,6 +2473,7 @@ socket.on("voteStarted", data=>{
   // Vibration : début de vote du jour (mayorVote ou day) — pas la nuit
   if(phase === "day" || phase === "mayorVote") vibrateIfDay([100, 50, 100]);
   currentVoteMode=data.mode;
+  voteSecret=!!data.secret; dayVotedSet=new Set();
   myDayVote=null;
   if(data.mode!==2) hasVotedLocked=false;
   voteEndsAt = finDuVote(data);
@@ -2453,7 +2484,7 @@ socket.on("voteStarted", data=>{
   if(data.corbeauInfo){ corbeauVotesTarget=data.corbeauInfo.targetId; }
   renderVotesPanel();
   document.getElementById("voteTimerBox").style.display="block";
-  document.getElementById("timerMode").innerText=VOTE_MODE_CARDS[data.mode]||"";
+  document.getElementById("timerMode").innerText=(VOTE_MODE_CARDS[data.mode]||"") + (data.secret ? " · 🤫 Vote secret" : "");
   if(voteEndsAt) startCountdown();
   updateDayDebateScreen();
   updateDeadVoteView();
@@ -2477,6 +2508,7 @@ socket.on("gameReset", data => {
   _fermeturesRetenues = []; _aubeAttendLeMJ = false;
   role=null; wolves=[]; soeurs=[]; lovers=[]; mayor=null; iAmDead=false;
   deadVisionData=null; nightVictimId=null; mayorCounts={}; dayCounts={}; wolfVotes={};
+  voteSecret=false; dayVotedSet.clear(); montrerDepouillement(false);
   dyingMayorId=null;
   witchSaveUsed=false; witchKillUsed=false; hasVotedLocked=false; voteActive=false; myDayVote=null; myMayorVote=null;
   roleDesMorts={}; lastGameSummary=null; mayorVotedSet.clear();
@@ -2640,7 +2672,7 @@ function renderDeadVision(){
 // arrive ne doit ni déplacer ni remplacer le bouton qu'on est en train de toucher)
 function voixDeLaPhase() {
   if (phase === "mayorVote") return mayorCounts;
-  if (phase === "day" && currentVoteMode !== 5) return voixAvecCorbeau(dayCounts, corbeauVotesTarget, deadPlayers);
+  if (phase === "day" && !votesCaches()) return voixAvecCorbeau(dayCounts, corbeauVotesTarget, deadPlayers);
   if (phase === "wolves" && role === "Loup") {
     const voix = {};
     Object.values(wolfVotes).forEach(t => { voix[t] = (voix[t] || 0) + 1; });
@@ -2650,7 +2682,7 @@ function voixDeLaPhase() {
 }
 function majVoixSurLesLignes() {
   const voix = voixDeLaPhase();
-  const corbeau = phase === "day" && currentVoteMode !== 5 && !deadPlayers.includes(corbeauVotesTarget) ? corbeauVotesTarget : null;
+  const corbeau = phase === "day" && !votesCaches() && !deadPlayers.includes(corbeauVotesTarget) ? corbeauVotesTarget : null;
   document.querySelectorAll("#players .voix-ligne").forEach(s => {
     const n = voix[s.dataset.joueur] || 0;
     s.textContent = n ? n + (s.dataset.joueur === corbeau ? " 🪶" : "") : "";
@@ -2661,7 +2693,7 @@ function majVoixSurLesLignes() {
 function renderVotesPanel(){
   const panel = document.getElementById("votesPanel"), content = document.getElementById("votesContent");
   content.innerHTML = "";
-  const detail = phase === "day" && currentVoteMode !== 5 ? votesDayDetail : phase === "wolves" && role === "Loup" ? wolfVotes : {};
+  const detail = phase === "day" && !votesCaches() ? votesDayDetail : phase === "wolves" && role === "Loup" ? wolfVotes : {};
   const list = document.createElement("div");
   Object.entries(detail).forEach(([voterId, targetId]) => {
     const voter = players.find(x => x.id === voterId), target = players.find(x => x.id === targetId);
@@ -2798,6 +2830,9 @@ function render(){
       }
     }
     let noirBadge="";
+    if(phase==="day"&&voteSecret&&dayVotedSet.has(p.id)){
+      noirBadge=` <span style="font-size:11px;color:rgb(var(--n6));font-style:italic;">A voté</span>`;
+    }
     if(phase==="day"&&currentVoteMode===5&&p.id===socket.id&&hasVotedLocked){
       noirBadge=` <span style="font-size:11px;color:rgb(var(--n6));font-style:italic;">A voté</span>`;
     }

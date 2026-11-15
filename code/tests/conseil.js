@@ -199,12 +199,17 @@ async function main() {
     mj.emit("lockDayVotes");
     const reprise = await repriseP;
     check("C5-le minuteur passe à 5 s sur les écrans", !!reprise && Math.abs(reprise.endsAt - reprise.serverNow - 5000) < 300, reprise);
-    const changementP = attendre(mj, "votesDayMJ", 3000, v => v[vivants[0].s.id] === vivants[1].s.id).then(() => true, () => false);
+    // À 4 vivants ou moins, le vote est secret (le Dépouillement) : le MJ ne voit plus les cibles, le
+    // votant retrouve la sienne (monVoteJour)
+    const changementP = Promise.any([
+      attendre(mj, "votesDayMJ", 3000, v => v[vivants[0].s.id] === vivants[1].s.id),
+      attendre(vivants[0].s, "monVoteJour", 3000, d => d && d.cible === vivants[1].s.id),
+    ]).then(() => true, () => false);
     vivants[0].s.emit("voteDay", vivants[1].s.id);
     check("C5-pendant ces 5 s, on peut encore voter", await changementP);
     let doubles = 0;
     mj.on("autoResolve", m => { if (/quelques secondes/.test(m)) doubles++; });
-    const verdictP = attendre(vivants[0].s, "dayVoteResult", 12000).then(() => Date.now() - t1, () => null);
+    const verdictP = attendre(vivants[0].s, "dayVoteResult", 20000).then(() => Date.now() - t1, () => null);   // dépouillement compris
     await sleep(500);
     mj.emit("lockDayVotes");
     const fin = await verdictP;

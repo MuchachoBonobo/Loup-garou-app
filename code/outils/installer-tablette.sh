@@ -11,7 +11,8 @@
 # Il installe Node.js et git, récupère le jeu depuis GitHub, copie les réglages des lumières
 # (lumieres.env, posé dans « Téléchargements » depuis l'ordinateur), écrit l'adresse de la tablette,
 # et crée les raccourcis de l'écran d'accueil (Termux:Widget) : « Lancer le jeu », « Mettre à jour
-# le jeu ». Relançable sans risque : il met à jour ce qui est déjà là.
+# le jeu », « Appairer les lumières » (la clé du flux continu, au bouton du Bridge, depuis le
+# 2026-11-15). Relançable sans risque : il met à jour ce qui est déjà là.
 set -e
 # Tout le script est lu avant de commencer (accolades) : il peut se mettre à jour lui-même (git pull)
 # sans que bash lise la nouvelle version en plein milieu.
@@ -82,6 +83,13 @@ pkill -f "node server.js" 2>/dev/null && echo "Jeu arrêté."
 cd "$HOME/loupgarou" && git checkout -- . && git pull --ff-only && cd code && npm install --omit=dev --no-audit --no-fund \
   && echo "Jeu à jour. Relance-le avec « Lancer le jeu »." || echo "La mise à jour a échoué (Internet ?). L'ancienne version reste en place."
 read -r -p "Appuie sur Entrée pour fermer."
+FIN
+cat > "$HOME/.shortcuts/Appairer les lumières" <<'FIN'
+#!/data/data/com.termux/files/usr/bin/bash
+# Les lumières en flux continu : une nouvelle clé au bouton du Bridge, et la zone de divertissement.
+# Une fois suffit ; ensuite, relancer le jeu.
+cd "$HOME/loupgarou/code" && node outils/appairer-hue.js
+read -r -p "Appuie sur Entrée pour fermer, puis relance le jeu avec « Lancer le jeu »."
 FIN
 chmod 700 "$HOME/.shortcuts" "$HOME/.shortcuts/"*
 

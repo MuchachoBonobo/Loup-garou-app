@@ -92,6 +92,11 @@ async function preparer(navigateur, port, noms, composition) {
   // Choix d'un joueur dans une liste de choix (photo + prénom)
   const choisir = async (page, liste, nom) => clic(page, `${liste} button[data-id="${await id(nom)}"]`);
   // La tablette du MJ propose cette action en haut (bouton actif), puis le MJ la lance
+  // Le Dépouillement : le bouton de la tablette, quand il porte ce libellé et n'est plus grisé
+  const bulletinMJ = async (quand, libelle) => {
+    check(`${quand} : MJ « ${libelle} »`, await attendre(mj, t => { const b = document.getElementById("mjBulletinBouton"); return getComputedStyle(document.getElementById("mjDepouillement")).display !== "none" && b.textContent.includes(t) && !b.disabled; }, libelle, 20000));
+    await clic(mj, "#mjBulletinBouton");
+  };
   const etapeMJ = async (nom, libelle, ms = 20000) => {
     check(nom, await attendre(mj, t => { const b = document.getElementById("mjBtnActionSuivante"); return getComputedStyle(document.getElementById("mjActionSuivante")).display !== "none" && b.textContent.includes(t) && !b.disabled; }, libelle, ms));
     await clic(mj, "#mjBtnActionSuivante");
@@ -115,7 +120,7 @@ async function preparer(navigateur, port, noms, composition) {
     for (const p of [mj, ...pages]) await p.browserContext().close().catch(() => {});
     await arreterServeur(serveur);
   };
-  return { mj, tel, pages, noms, roleDe, id, choisir, etapeMJ, fermer };
+  return { mj, tel, pages, noms, roleDe, id, choisir, etapeMJ, bulletinMJ, fermer };
 }
 
 // Une partie : bandeau, préparation, déroulé ; un plantage du déroulé compte comme un échec, et tout est refermé
@@ -185,7 +190,7 @@ async function photoApresCoupure({ tel }, nom, temoin) {
 
 // ═══════════════════════════════════════════════════════════════════════════════════════
 async function partieVillage(P) {
-  const { mj, tel, noms, roleDe, id, etapeMJ } = P;
+  const { mj, tel, noms, roleDe, id, etapeMJ, bulletinMJ } = P;
   const loups = noms.filter(n => roleDe[n] === "Loup"), vill = noms.filter(n => roleDe[n] !== "Loup");
   const soeurs = noms.filter(n => roleDe[n] === "Sœurs");
   check("2 loups et 4 villageois, dont 2 Sœurs", loups.length === 2 && vill.length === 4 && soeurs.length === 2, roleDe);
@@ -233,11 +238,20 @@ async function partieVillage(P) {
     const hauteur = () => tel[dernier].evaluate(s => document.querySelector(s).getBoundingClientRect().top, contre);
     const hauteurAvant = await hauteur();
     for (const n of votants) if (n !== dernier) await clic(tel[n], n === condamne ? sien : contre);
-    check(`jour ${num} : le nombre de voix est sur la ligne du joueur`, await attendre(tel[dernier], ([j, nb]) => document.querySelector(`.voix-ligne[data-joueur="${j}"]`).textContent.trim() === String(nb), [idCondamne, votants.length - 2]));
+    // À 4 vivants ou moins, le vote est secret (le Dépouillement, 2026-11-15) : pas de voix sur les
+    // lignes, seulement « A voté » ; les bulletins s'ouvrent ensuite un par un
+    const secret = votants.length <= 4;
+    if (secret) check(`jour ${num} : vote secret, pas de voix sur les lignes mais « A voté »`, await attendre(tel[dernier], ([j]) => document.querySelector(`.voix-ligne[data-joueur="${j}"]`).textContent.trim() === "" && document.getElementById("players").innerText.includes("A voté"), [idCondamne]));
+    else check(`jour ${num} : le nombre de voix est sur la ligne du joueur`, await attendre(tel[dernier], ([j, nb]) => document.querySelector(`.voix-ligne[data-joueur="${j}"]`).textContent.trim() === String(nb), [idCondamne, votants.length - 2]));
     const hauteurApres = await hauteur();
     check(`jour ${num} : les votes reçus ne déplacent pas le bouton « Voter »`, Math.abs(hauteurApres - hauteurAvant) < 1, `${hauteurAvant} puis ${hauteurApres}`);
     await clic(tel[dernier], contre);
     await etapeMJ(`jour ${num} : MJ « Terminer le vote »`, "Terminer le vote");
+    if (secret) {
+      check(`jour ${num} : le dépouillement s'ouvre chez les vivants et les morts`, await tous([...autres, ...morts.map(n => tel[n])], p => affiche(p, "#depouillementPanel", 20000)));
+      for (let i = 1; i <= votants.length; i++) await bulletinMJ(`jour ${num}`, `(${i}/${votants.length})`);
+      await bulletinMJ(`jour ${num}`, "L'annonce");
+    }
     morts.push(condamne);
     check(`jour ${num} : la carte du vote nomme ${condamne}`, await tous(autres, p => attendre(p, CARTE, [condamne, 1])));
   };

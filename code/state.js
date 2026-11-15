@@ -51,7 +51,12 @@ function partieNeuve() {
     // boutons du vote sont ignorés jusqu'au changement de phase (remis à false par setPhase).
     resolutionJourEnCours: false,
     fastResolveTriggered: false,
+    // Le Dépouillement (2026-11-15) : dès qu'il reste 4 vivants, le vote du jour est secret (on ne
+    // voit que qui a voté), puis les bulletins sont ouverts un par un sur tous les écrans.
+    // `depouillement` : { bulletins, revele, vivants, dernierAt } pendant l'ouverture.
+    voteSecret: false, depouillement: null, depouillementTimeout: null,
     nbVotesJour: 0,      // votes du jour résolus ou passés (l'Ange gagne au 1er)
+    verdictEnCours: null, // le verdict du jour en cours d'annonce (votes.executerVerdict) : ses minuteries le vérifient
     angeVainqueur: null, // id de l'Ange désigné au 1er vote, le temps de la révélation
 
     // Nuit
@@ -222,7 +227,9 @@ function buildFullState(socketId) {
     mayor:        state.mayor,
     lovers:       state.lovers,
     mayorCounts:  computeCounts(state.mayorVote),
-    dayCounts:    computeCounts(state.votesDay),
+    dayCounts:    state.voteSecret ? {} : computeCounts(state.votesDay),   // vote secret : aucune voix
+    voteSecret:   !!state.voteSecret,
+    votantsJour:  state.voteSecret ? Object.keys(state.votesDay).filter(v => !v.startsWith("__corbeau")) : [],
     mayorVote:    state.mayorVote,
     voteTimerEnd: state.voteTimerEnd,
     voteDureeMs:  state.voteDureeMs,
