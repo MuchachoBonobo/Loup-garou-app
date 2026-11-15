@@ -2,7 +2,7 @@
  * tests/scenarios.js — Tests d'intégration du serveur
  *
  * Lance un serveur sur le port 3099, connecte de vrais sockets socket.io-client,
- * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S24) est décrit
+ * et vérifie le comportement de bout en bout. Chaque scénario (S1 à S25) est décrit
  * au-dessus de sa fonction.
  *
  * Usage : npm test   (ou : node tests/scenarios.js)
@@ -965,6 +965,44 @@ const s24 = () => scenario("S24", "Téléphone qui décroche au salon", async al
   check("S24-à son retour, il a son rôle", !!etat && !!etat.role, JSON.stringify(etat && etat.role));
 });
 
+// S25 — Personne ne vote : égalité entre tous les vivants, maire compris, et le maire tranche
+// (avant le 2026-11-15 : un vivant tiré au sort). Il désigne l'Ange au premier vote : l'Ange gagne,
+// comme sur une égalité ordinaire.
+const s25 = () => scenario("S25", "Personne ne vote : le maire tranche entre tous", async all => {
+  const NAMES = ["s25_A","s25_B","s25_C","s25_D","s25_E","s25_F"];
+  const { mj, players, roleOf, avecRole } = await preparerPartie(all, NAMES, { loup: 1, ange: 1 });
+  const [loupP] = avecRole("Loup"), [angeP] = avecRole("Ange");
+  if (!loupP || !angeP) { ko("S25-setup", JSON.stringify(roleOf)); return; }
+  const maire = players[0];
+  const victime = avecRole("Villageois").find(p => p !== maire);
+  await nuitLoupUnique(mj, players, loupP, victime);
+  const vivants = players.filter(p => p !== victime);
+  const temoin = vivants.find(p => p !== maire);
+
+  let tirage = false;
+  mj.on("randomElim", () => { tirage = true; });
+  mj.emit("startVote"); await sleep(300);
+  const egaliteP = attendre(maire.s, "tiebreakMayor", 6000);
+  const annonceP = attendre(temoin.s, "tiebreakNeeded", 6000);
+  const mjP      = attendre(mj, "tiebreakMJ", 6000);
+  mj.emit("lockDayVotes");   // personne n'a voté
+  const egalite = await egaliteP.catch(() => null);
+  const candidats = (egalite?.candidates || []).map(c => c.id).sort();
+  check("S25-le maire tranche entre tous les vivants, lui compris", JSON.stringify(candidats) === JSON.stringify(vivants.map(p => p.s.id).sort()), JSON.stringify(egalite));
+  check("S25-le maire sait que personne n'a voté", !!egalite?.sansVote, JSON.stringify(egalite));
+  const annonce = await annonceP.catch(() => null), chezMJ = await mjP.catch(() => null);
+  check("S25-les téléphones et le MJ aussi", !!annonce?.sansVote && !!chezMJ?.sansVote, JSON.stringify({ annonce, chezMJ }));
+
+  const reveleP = attendre(mj, "angeRevele", 12000);
+  const finP    = attendre(mj, "gameEnd", 16000);
+  maire.s.emit("tiebreakChoice", angeP.s.id);
+  const revele = await reveleP.catch(() => null);
+  check("S25-l'Ange désigné par le maire est révélé", revele && revele.id === angeP.s.id, JSON.stringify(revele));
+  const fin = await finP.catch(() => null);
+  check("S25-et il gagne, comme sur une égalité ordinaire", typeof fin === "string" && fin.includes("Ange"), String(fin));
+  check("S25-pas de tirage au sort", !tirage);
+});
+
 // Démarrage du serveur et exécution des scénarios
 async function main() {
   console.log("═".repeat(62));
@@ -974,7 +1012,7 @@ async function main() {
   const serveur = await demarrerServeur(TEST_PORT);
   console.log("  Serveur test prêt : http://localhost:" + TEST_PORT + "\n");
 
-  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24]) {
+  for (const s of [s1, s2, s3, s4, s5, s6, s7, s8, s9, s10, s11, s12, s13, s14, s15, s16, s17, s18, s19, s20, s21, s22, s23, s24, s25]) {
     await s();
     await sleep(800);
   }

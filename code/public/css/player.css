@@ -17,6 +17,10 @@ button:disabled { opacity:0.35; cursor:not-allowed; }
 /* Encadré dans la page (identité, votes, chat et vision des morts, rôles de nuit…) :
    même forme partout, la couleur reste propre à chacun */
 .panneau { border-radius:10px; margin:10px auto; max-width:480px; padding:14px 16px; }
+/* Panneau plein écran (ouvrirPanneau) : centré par ses marges automatiques quand il a la place,
+   défilant depuis le haut quand il ne l'a pas (longue liste de joueurs sur un petit téléphone) */
+.panneau-plein > :first-child { margin-top:auto !important; }
+.panneau-plein > :last-child  { margin-bottom:auto !important; }
 #infoPanel h3, #deadChatPanel h3, #deadVisionPanel h3 { margin:0 0 10px; text-align:center; font-size:12px; letter-spacing:1px; text-transform:uppercase; }
 
 #infoPanel { display:none; background:rgb(var(--lune-sombre)); border:1px solid rgb(var(--n4)); text-align:left; }

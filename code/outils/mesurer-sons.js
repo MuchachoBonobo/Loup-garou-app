@@ -1,6 +1,7 @@
 // outils/mesurer-sons.js — mesure la sonie perçue de chaque son (EBU R128 / ITU BS.1770 : filtre K,
 // fenêtres de 400 ms, intégrée avec portes), décodé par Chrome : aucun autre logiciel à installer.
 // Usage : node outils/mesurer-sons.js   (port 3121, ~4 min : les deux musiques font une heure)
+//         node outils/mesurer-sons.js amoureux sisters   (seulement ces sons-là)
 // Rend les valeurs à recopier dans MESURES (public/mj.html) et ce que chaque son donne à la lecture.
 // Pourquoi pas le niveau moyen : il compte les silences et les graves que l'oreille n'entend pas.
 /* global OfflineAudioContext, fetch, SOUNDS */
@@ -70,11 +71,12 @@ async function mesurer(url) {
   await page.goto(`http://localhost:${PORT}/mj`, { waitUntil: "domcontentloaded" });
   const ref = await page.evaluate(mesurer, "test");
   console.log(`Contrôle : sinus de référence ${ref.moment} LUFS (la norme annonce −3,0)\n`);
-  const sons = await page.evaluate(() => SOUNDS);
+  const choisis = process.argv.slice(2);
+  const sons = Object.fromEntries(Object.entries(await page.evaluate(() => SOUNDS)).filter(([k]) => !choisis.length || choisis.includes(k)));
   const res = {};
   for (const [k, f] of Object.entries(sons)) { res[k] = await page.evaluate(mesurer, "/" + f); console.log(k.padEnd(17), JSON.stringify(res[k])); }
   console.log("\n// À recopier dans MESURES (mj.html) : [sonie, crête]");
-  const fins = k => k.startsWith("endgame"), musiques = ["lobby", "night", "day", "rainynight", "murmures"];
+  const fins = k => k.startsWith("endgame"), musiques = ["lobby", "night", "day", "rainynight", "murmures", "amoureux"];
   console.log(Object.entries(res).map(([k, r]) => `  ${k}:[${(fins(k) || musiques.includes(k)) ? r.integree : r.moment},${r.crete}]`).join(",\n"));
   await nav.close();
   await arreterServeur(serveur);

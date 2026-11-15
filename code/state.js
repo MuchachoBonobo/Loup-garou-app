@@ -88,7 +88,7 @@ function partieNeuve() {
     chasseurTimeout: null, mayorTransferTimeout: null, annonceMaireTimeout: null,
 
     // Égalité à trancher par le maire
-    tiebreakPending: false, tiebreakCandidates: [], tiebreakContext: "",
+    tiebreakPending: false, tiebreakCandidates: [], tiebreakContext: "", tiebreakSansVote: false,
 
     // Transmission d'écharpe, tir du Chasseur
     mayorTransferPending: false, dyingMayorId: null, mayorTransferContext: "",

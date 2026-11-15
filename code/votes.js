@@ -32,17 +32,20 @@ function oublierEgalite() {
   state.tiebreakPending    = false;
   state.tiebreakCandidates = [];
   state.tiebreakContext    = "";
+  state.tiebreakSansVote   = false;
 }
 
-// L'égalité en attente telle que les écrans la reçoivent (téléphones, maire, MJ ; reconnexion)
+// L'égalité en attente telle que les écrans la reçoivent (téléphones, maire, MJ ; reconnexion).
+// `sansVote` : personne n'a voté, l'égalité est entre tous les vivants
 function egaliteEnCours() {
   return {
     candidates: state.tiebreakCandidates.map(id => ({ id, name: playerName(id) })),
-    mayorName: playerName(state.mayor), context: state.tiebreakContext
+    mayorName: playerName(state.mayor), context: state.tiebreakContext, sansVote: !!state.tiebreakSansVote
   };
 }
 
-function resolveVoteWithTiebreak(counts, context, onResolved) {
+// `counts` vide : personne n'a voté (le vote du jour, lui, en fait une égalité entre tous les vivants)
+function resolveVoteWithTiebreak(counts, context, onResolved, sansVote = false) {
   if (!Object.keys(counts).length) return onResolved(null);
   const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   const maxVotes = sorted[0][1];
@@ -56,6 +59,7 @@ function resolveVoteWithTiebreak(counts, context, onResolved) {
   state.tiebreakPending    = true;
   state.tiebreakCandidates = tied;
   state.tiebreakContext    = context;
+  state.tiebreakSansVote   = sansVote;
   const egalite = egaliteEnCours();
   state.io.emit("tiebreakNeeded", egalite);
   state.io.to(state.mayor).emit("tiebreakMayor", egalite);
@@ -158,6 +162,8 @@ function maybeRunBotForTiebreak() {
 // ===== FIN D'UNE ÉGALITÉ =====
 // Le maire, le maire-bot ou le hasard (garde-fou des 30 s) a désigné le perdant. Seul
 // le vote du jour passe par là : une égalité à l'élection du maire est tirée au sort.
+// Quelle que soit la façon dont il est désigné au premier vote — voix, maire, hasard, même
+// quand personne n'a voté —, l'Ange gagne (Alexandre, 2026-11-15).
 function trancherEgalite(choix) {
   oublierEgalite();
   state.io.emit("tiebreakResolved", { winner: choix, name: playerName(choix) });
@@ -179,10 +185,11 @@ function viderVoteDuJour() {
   state.io.emit("voteTimerEnd");
 }
 
-// Le village a désigné `cible` (vote, ou égalité tranchée) : l'Ange gagne seul au premier
-// vote, l'Idiot survit ; sinon suspense, annonce, mort, puis la victoire ou la nuit.
-function executerVerdict(cible, angePossible = true) {
-  if (angePossible && handleAngeVictoire(cible)) return;
+// Le village a désigné `cible` (vote, égalité tranchée, ou tirage au sort quand personne n'a
+// voté) : l'Ange gagne seul au premier vote, l'Idiot survit ; sinon suspense, annonce, mort,
+// puis la victoire ou la nuit.
+function executerVerdict(cible) {
+  if (handleAngeVictoire(cible)) return;
   if (handleIdiotDayVoteSurvival(cible)) return;
   const nom = playerName(cible), role = state.roles[cible];
   suspenseVerdict();
@@ -281,17 +288,17 @@ function resolveDayVote() {
   state.corbeauTarget = null;
 
   const count = computeCounts(state.votesDay);
+  // Personne n'a voté : égalité entre tous les vivants, maire compris, et le maire tranche
+  // (Alexandre, 2026-11-15 ; avant, un vivant était tiré au sort)
+  const sansVote = !Object.keys(count).length;
+  if (sansVote) alivePlayers().forEach(p => { count[p.id] = 0; });
 
   resolveVoteWithTiebreak(count, "day", (target) => {
-    // Personne n'a voté : un joueur tiré au sort, et l'Ange ne peut pas gagner ainsi
-    // (le village ne l'a pas désigné)
-    const tireAuSort = !target;
-    if (tireAuSort) {
-      target = auHasard(alivePlayers())?.id;
-      state.io.emit("randomElim");
-    }
-    executerVerdict(target, !tireAuSort);
-  });
+    // Sans vote, une décision immédiate est un tirage au sort (pas de maire pour trancher). L'Ange
+    // tiré au sort au premier vote gagne quand même (Alexandre, 2026-11-15 ; avant, il perdait)
+    if (sansVote) state.io.emit("randomElim");
+    executerVerdict(target);
+  }, sansVote);
 }
 
 function startDayVote(mode) {

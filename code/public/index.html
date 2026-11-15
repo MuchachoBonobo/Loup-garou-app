@@ -938,7 +938,9 @@ function playerAvatar(p, size, zoom = true) {
 function carteAnnonce(emoji, titre, texte, fond, noms = []) {
   _victimesCarte = noms.map(name => ({ name }));
   renderDeathPhotos(_victimesCarte);
-  document.getElementById("deathEmoji").innerText = emoji;
+  const e = document.getElementById("deathEmoji");
+  e.innerText = emoji;
+  e.style.display = emoji ? "" : "none";   // pas d'emoji : pas de blanc à sa place
   document.getElementById("deathTitle").innerText = titre;
   document.getElementById("deathText").innerText  = texte;
   const c = document.getElementById("dayDeathCard");
@@ -1994,8 +1996,13 @@ function finirTourSorciere() {
 
 // Panneau d'action plein écran (Chasseur, égalité, transmission d'écharpe, abdication)
 const FOND_CHASSEUR = "radial-gradient(ellipse at center,rgb(var(--braise-nuit)) 0%,rgb(var(--braise-nuit)) 100%)";
+// Centré quand tout tient, défilant sinon : une liste de 15 joueurs (Chasseur, maire qui tranche
+// entre tous, successeur) dépassait d'un petit téléphone, titre et derniers noms hors d'atteinte
+// (2026-11-15). Le centrage vient des marges automatiques (.panneau-plein, player.css), qui ne
+// coupent jamais le haut, contrairement à justify-content:center.
 function ouvrirPanneau(panneau, fond, zIndex = 9500) {
-  panneau.style.cssText = `display:flex;flex-direction:column;align-items:center;justify-content:center;position:fixed;inset:0;z-index:${zIndex};background:${fond};padding:30px;text-align:center`;
+  panneau.classList.add("panneau-plein");
+  panneau.style.cssText = `display:flex;flex-direction:column;align-items:center;overflow-y:auto;position:fixed;inset:0;z-index:${zIndex};background:${fond};padding:30px;text-align:center`;
 }
 
 socket.on("chasseurMustShoot", hunterId=>{
@@ -2012,8 +2019,8 @@ socket.on("chasseurMustShoot", hunterId=>{
   } else {
     panel.innerHTML = [
       "<div style='font-size:64px;margin-bottom:20px;'>🔫</div>",
-      "<div style='font-size:22px;font-weight:bold;color:rgb(var(--braise-vif));margin-bottom:12px;'>Le Chasseur tire sa dernière balle…</div>",
-      "<div style='font-size:15px;color:rgb(var(--n7));'>Avant de mourir, le Chasseur emporte quelqu'un avec lui.</div>"
+      // Le titre seul (Alexandre, 2026-11-15)
+      "<div style='font-size:22px;font-weight:bold;color:rgb(var(--braise-vif));'>Le Chasseur tire sa dernière balle…</div>"
     ].join("");
   }
   updateActionPendingBanner();
@@ -2183,8 +2190,9 @@ socket.on("dawnResult", data=>{
     emoji = "🌄"; title = "Une nuit paisible";
     text  = "Personne n'est mort cette nuit.";
   } else {
-    // Le nom de chaque mort (demande d'Alexandre, 2026-10-26) ; les morts d'amour à part
-    emoji = deaths.length === 1 ? "🌑" : "💀";
+    // Le nom de chaque mort (demande d'Alexandre, 2026-10-26) ; les morts d'amour à part.
+    // Un seul mort : sa photo suffit, sans la lune noire d'avant (Alexandre, 2026-11-15)
+    emoji = deaths.length === 1 ? "" : "💀";
     title = deaths.length === 1 ? "Le village pleure" : "Une nuit de deuil";
     text  = phraseDesMorts(deaths, "cette nuit");
   }
@@ -2227,6 +2235,9 @@ socket.on("tiebreakNeeded", data=>{
   if(socket.id === mayor){
     // Géré par tiebreakMayor qui arrive juste après (panel plein écran)
     document.getElementById("status").innerText="⚖️ Égalité — tu dois trancher !";
+  } else if (data.sansVote) {
+    // Personne n'a voté : égalité entre tous les vivants (la liste serait trop longue)
+    document.getElementById("status").innerText="⚖️ Personne n'a voté. Le Maire doit trancher.";
   } else {
     document.getElementById("status").innerText=
       "⚖️ Égalité entre "+data.candidates.map(c=>c.name).join(" et ")+". Le Maire doit trancher.";
@@ -2238,7 +2249,9 @@ socket.on("tiebreakMayor", data=>{
   // (évite que le panel soit invisible si la page est scrollée)
   const panel=document.getElementById("tiebreakPanel");
   ouvrirPanneau(panel, "rgb(var(--or-nuit))");
-  document.getElementById("tiebreakMsg").innerText="⚖️ Égalité ! En tant que Maire, tu dois trancher :";
+  document.getElementById("tiebreakMsg").innerText = data.sansVote
+    ? "⚖️ Personne n'a voté ! En tant que Maire, tu choisis qui est éliminé :"
+    : "⚖️ Égalité ! En tant que Maire, tu dois trancher :";
   choisirUnJoueur(document.getElementById("tiebreakBtns"), data.candidates, tiebreakVote, "rgb(var(--or-vif))");
   // Vibration : le Maire doit trancher (toujours de jour — vote du jour ou élection)
   vibrateIfDay([200, 100, 200, 100, 400]);

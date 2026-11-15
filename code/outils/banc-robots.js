@@ -59,7 +59,7 @@ async function partie(num) {
 
   // --- Suivi ---
   let roles = {}, morts = new Set(), amoureux = [], phases = [], fin = null, angeRevele = null;
-  let premierVoteFait = false, tireAuSort = false;
+  let premierVoteFait = false;
   let nuitEnCours = [], apresAube = false, apresFinDeJour = false, premiereNuitFaite = false;
   const vivants = () => Object.keys(roles).filter(id => !morts.has(id));
   const vivantRole = r => vivants().some(id => roles[id] === r);
@@ -76,12 +76,11 @@ async function partie(num) {
     apresAube = true; nuitEnCours = [];
   });
   const finDeJour = (type, d) => {
-    if (type === "vote" && d && d.role === "Ange" && !premierVoteFait && !tireAuSort) anomalie(`l'Ange désigné au 1er vote est mort au lieu de gagner (${d.name})`);
+    if (type === "vote" && d && d.role === "Ange" && !premierVoteFait) anomalie(`l'Ange désigné au 1er vote est mort au lieu de gagner (${d.name})`);
     if (type === "vote" && d && morts.has(d.id)) anomalie(`éliminé au vote alors que déjà mort : ${d.name}`);
-    premierVoteFait = true; tireAuSort = false;
+    premierVoteFait = true;
     apresFinDeJour = true;
   };
-  mj.on("randomElim", () => { tireAuSort = true; });
   mj.on("dayVoteResult", d => { noter("vote→" + d.name + "/" + d.role); finDeJour("vote", d); });
   mj.on("gamePaused", () => noter("PAUSE")); mj.on("gameResumed", () => noter("REPRISE"));
   mj.on("chasseurMustShoot", () => noter("chasseur doit tirer")); mj.on("mayorMustTransfer", () => noter("écharpe à transmettre"));
