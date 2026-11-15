@@ -371,11 +371,18 @@ function sceneDuJour() {
   if (annonceEnCours) return "council.annonce";
   // L'évènement garde sa lumière pendant le vote (la Lune Rousse…) ; sans évènement, le vote tamise
   // la pièce (demande d'Alexandre, 2026-11-14)
-  const scene = state.activeCouncilEvent && state.evenementAnnonce && "council." + state.activeCouncilEvent;
-  if (scene && lights.aLaScene(scene)) return scene;
+  const scene = sceneDeLEvenement();
+  if (scene) return scene;
   if (state.voteTimer) return "dayVote";
   return "day";
 }
+function sceneDeLEvenement() {
+  const scene = state.activeCouncilEvent && state.evenementAnnonce && "council." + state.activeCouncilEvent;
+  return scene && lights.aLaScene(scene) ? scene : null;
+}
+// La lumière du vote (après le verdict d'un Dépouillement, où la pièce était dans le noir) : celle de
+// l'évènement du jour, sinon le vote
+function sceneDuVote() { return sceneDeLEvenement() || "dayVote"; }
 
 function applyCouncilEvent(eventId) {
   if (!eventId || !COUNCIL_EVENTS[eventId]) return;
@@ -426,17 +433,17 @@ function debutEvenement() {
   versMJ("finAnnonceConseil");
   if (!state.gamePaused) lights.applyScene("council." + id);
   const effet = COUNCIL_EVENTS[id].technical || {};
-  if (effet.stormSound) revenirPendantLeJour([30000, 30000], [30000, 30000], () => { versMJ("soundPlay", "thunder"); lights.flash("flash.lightning"); });
+  if (effet.stormSound) revenirPendantLeJour([30000, 30000], [30000, 30000], () => { versMJ("soundPlay", "thunder"); lights.flash("flash.lightning", "thunder"); });
   if (effet.bellInterval) {
     // La cloche sonne tout de suite, puis toutes les 45 s
-    const sonner = () => { versMJ("soundPlay", "church_bell"); lights.flash("flash.bell"); };
+    const sonner = () => { versMJ("soundPlay", "church_bell"); lights.flash("flash.bell", "church_bell"); };
     if (!state.gamePaused) sonner();
     revenirPendantLeJour([45000, 45000], [45000, 45000], sonner);
   }
   // La Lune Rousse : un hurlement au loin, la lumière rougit puis revient
-  if (effet.hurlements) revenirPendantLeJour([15000, 35000], [45000, 90000], () => { versMJ("soundPlay", "hurlement"); lights.vague("vague.hurlement"); });
+  if (effet.hurlements) revenirPendantLeJour([15000, 35000], [45000, 90000], () => { versMJ("soundPlay", "hurlement"); lights.vague("vague.hurlement", "hurlement"); });
   // La Nuée de Corbeaux : des croassements, et leur ombre passe sur la pièce
-  if (effet.corbeaux) revenirPendantLeJour([8000, 20000], [25000, 60000], () => { versMJ("soundPlay", "crow"); lights.vague("vague.ombre"); });
+  if (effet.corbeaux) revenirPendantLeJour([8000, 20000], [25000, 60000], () => { versMJ("soundPlay", "crow"); lights.vague("vague.ombre", "crow"); });
 }
 
 // ===== ANNONCE DU MATIN (rythme du MJ) =====
@@ -571,7 +578,7 @@ module.exports = {
   COUNCIL_EVENTS, COUNCIL_TRIGGER_THRESHOLD,
   startCouncil,
   resolveCouncil,
-  clearCouncilEffects, sceneDuJour, dansLaJournee,
+  clearCouncilEffects, sceneDuJour, sceneDuVote, dansLaJournee,
   annonceMatinParMJ, annoncerEvenement, finAnnonceMatin,
   handleCouncilVote,
   handleAbdicationChoice, handleMJAbdication, abdicationEnAttente,

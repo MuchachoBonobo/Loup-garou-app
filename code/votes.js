@@ -171,6 +171,9 @@ function trancherEgalite(choix) {
 }
 
 // ===== VERDICT DU VOTE DU JOUR =====
+// Après un Dépouillement : la pièce part dans le noir quand le battement de cœur se tait (1,2 s), une
+// seconde et demie avant « Le village a tranché » (2,7 s)
+const VERDICT_NOIR_MS = 1200;
 // Suspense chez le MJ : un battement de cœur avant le verdict
 function suspenseVerdict() {
   versMJ("soundPlay", "heartbeat");
@@ -198,11 +201,16 @@ function executerVerdict(cible) {
   // suivante, sur un joueur disparu (relecture du 2026-11-15, révélé par le dépouillement)
   const jeton = state.verdictEnCours = { cible };
   const toujoursLa = () => state.resolutionJourEnCours && state.verdictEnCours === jeton;
+  // Après un Dépouillement, la pièce s'éteint quand le cœur se tait : le verdict s'affiche dans le noir,
+  // et la lumière revient au coup du glas (2026-11-15, suite 4)
+  const dansLeNoir = state.voteSecret;
   suspenseVerdict();
+  if (dansLeNoir) setTimeout(() => { if (toujoursLa()) lights.applyScene("depouillement.noir"); }, VERDICT_NOIR_MS);
   setTimeout(() => {
     if (!toujoursLa()) return;  // jour quitté ou partie relancée entre-temps
     versMJ("soundPlay", "death");
-    lights.flash("flash.death");
+    // L'éclair rouge au coup du glas (2,88 s après le début du son), puis la lumière du vote
+    lights.flash("flash.death", "death", dansLeNoir ? council.sceneDuVote() : undefined);
     state.io.emit("dayVoteResult", { id: cible, name: nom, role, narrative: buildDeathNarrative({ role, cause: "vote", name: nom }) });
     // Son amoureux mourra de chagrin avec lui : le MJ l'annonce dans la foulée, sur la même carte
     const partenaire = state.lovers.includes(cible) && state.lovers.find(l => l !== cible);
@@ -325,6 +333,9 @@ function conclureVoteDuJour(count) {
 // Sans MJ (mode autonome), les bulletins s'ouvrent seuls ; un MJ qui ne répond plus a son filet.
 const SEUIL_DEPOUILLEMENT    = 4;
 const DEPOUILLEMENT_AUTO_MS  = 4000;
+// La lettre se pose devant son enveloppe 2,65 s après l'ouverture (DEPOUILLEMENT_OUVERTURE_MS de
+// public/js/depouillement.js) : la lumière rougit alors, pas avant (elle trahirait le bulletin)
+const DEPOUILLEMENT_POSE_MS  = 2650;
 const DEPOUILLEMENT_FILET_MS = parseInt(process.env.DEPOUILLEMENT_FILET_MS) || 3 * 60 * 1000;
 const DEPOUILLEMENT_ECART_MS = 500;   // deux appuis plus rapprochés : un double toucher, ignoré
 
@@ -343,7 +354,21 @@ function lancerDepouillement(corbeau) {
   log.info('depouillement', bulletins.length + ' bulletin(s)');
   versMJ("stopHeartbeat");   // le cœur du vote se tait : place aux enveloppes
   state.io.emit("depouillementDebut", { total: bulletins.length, vivants: state.depouillement.vivants });
+  lights.depouillement(0);
   programmerDepouillement();
+}
+
+// La lumière du Dépouillement : la pièce rougit d'autant que la voix la plus forte pèse (part des voix,
+// les 2 du Corbeau comprises, qui vont au joueur le plus visé). `ouverture` : un bulletin vient de
+// s'ouvrir, la lumière attend qu'il soit posé. Sans argument : l'état du moment (fin de pause).
+function lumiereDepouillement(ouverture) {
+  const d = state.depouillement;
+  if (!d) return;
+  const ouverts = d.bulletins.slice(0, d.revele), total = d.bulletins.reduce((n, b) => n + b.voix, 0);
+  const voix = {};
+  ouverts.forEach(b => { voix[b.vers] = (voix[b.vers] || 0) + b.voix; });
+  const plus = Math.max(0, ...Object.values(voix));
+  lights.depouillement(total ? plus / total : 0, ouverture ? DEPOUILLEMENT_POSE_MS : 0);
 }
 
 // L'état d'un dépouillement en cours, pour un écran qui se reconnecte
@@ -368,6 +393,7 @@ function bulletinSuivant() {
   if (d.revele < d.bulletins.length) {
     const b = d.bulletins[d.revele++];
     state.io.emit("depouillementBulletin", { index: d.revele, total: d.bulletins.length, ...b });
+    lumiereDepouillement(true);
     programmerDepouillement();
     return;
   }
@@ -423,8 +449,9 @@ function startDayVote(mode) {
   else if (mode !== 5) state.io.emit("votesDayPublic", realVotes);
   roles.annoncerCorbeau();
   state.voteTimer = setTimeout(() => { resolveDayVote(); }, duration + 800);
-  // Lumières : le vote tamise doucement la pièce (la nuit approche), sauf un évènement qui a sa lumière
-  lights.applyScene(council.sceneDuJour());
+  // Lumières : le vote tamise doucement la pièce (la nuit approche), sauf un évènement qui a sa lumière ;
+  // par le flux, la pièce s'embrase d'abord d'or au coup de la cloche que sonne la tablette
+  lights.sonner(council.sceneDuJour());
   // Jour piloté : les bots attendaient le lancement officiel du vote pour voter.
   if (state.mjPilotedDay) phases.runBotsForPhase("day");
 }
@@ -680,7 +707,7 @@ Object.assign(module.exports, {
   // Core
   clearVoteTimer, oublierEgalite, egaliteEnCours,
   performLockMayorVote, performLockWolfVotes,
-  startDayVote, resolveDayVote, etatDepouillement, programmerDepouillement,
+  startDayVote, resolveDayVote, etatDepouillement, programmerDepouillement, lumiereDepouillement,
   publierVotesDuJour, publierVotesDuMaire, publierVotesDesLoups,
   // Handlers socket
   handleVoteMayor, handleLockMayorVote,

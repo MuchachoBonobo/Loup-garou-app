@@ -40,6 +40,7 @@ const phases    = require("./phases");
 const votes     = require("./votes");
 const log       = require("./logger");
 const snapshot  = require("./snapshot");
+const lights    = require("./lights");
 const soiree    = require("./soiree");
 const { adresseDuJeu } = require("./reseau");
 
@@ -112,6 +113,7 @@ const ALLOWED_DURING_PAUSE = new Set([
   "pauseGame", "resumeGame", "reset",
   "deadChatHistory", "deadChat",
   "visibilite",
+  "mjLuminosite",   // le volume des lumières se règle aussi pendant la pause
 ]);
 
 // ===== ÉTAT DES TÉLÉPHONES (pastilles de l'écran MJ) =====
@@ -173,6 +175,9 @@ io.on("connection", socket => {
     socket.emit("rolesMJ", { roles: state.roles, players: state.players });
     socket.emit("connexionsMJ", etatConnexions());
     socket.emit("soireeMJ", soiree.resume());
+    // Le curseur 💡 : seulement si les lumières sont branchées, à la valeur du moment
+    const lum = lights.status();
+    socket.emit("lumieresMJ", { branchees: !!lum.configured, luminosite: lum.luminosite });
     socket.emit("mjReconnected", {
       phase: state.phase,
       mayor: state.mayor,
@@ -439,6 +444,7 @@ io.on("connection", socket => {
   socket.on("voteDay",      id => votes.handleVoteDay(socket, actuel(id)));
   socket.on("lockDayVotes", () => votes.handleLockDayVotes(socket));
   socket.on("mjBulletinSuivant", () => votes.handleBulletinSuivant(socket));   // le Dépouillement
+  socket.on("mjLuminosite", v => { if (isMJ(socket.id)) lights.luminosite(v); });   // le volume des lumières
   socket.on("skipDayVote",  () => votes.handleSkipDayVote(socket));
 
   // ===== CONSEIL DES MORTS =====

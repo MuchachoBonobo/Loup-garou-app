@@ -325,13 +325,19 @@
 
 <!-- SONS — toujours visible, tout en bas (demande d'Alexandre, 2026-11-11) -->
 <div class="section" id="mjSectionSons">
-  <div class="section-title">Sons &amp; ambiance</div>
+  <div class="section-title">Sons, lumières &amp; ambiance</div>
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
     <span style="font-size:12px;color:rgb(var(--n5));">Ambiance :</span>
     <div class="audio-dot" id="dotAmbiance2"></div>
     <span id="audioLabel2" style="font-size:12px;color:rgb(var(--n5));flex:1;">Silence</span>
     <input type="range" id="volSlider" min="0" max="1" step="0.05" value="0.6" oninput="setVolume(this.value)" style="width:90px;">
     <button class="btn" id="audioToggle" onclick="toggleAudio()" style="padding:5px 10px;">🔈</button>
+  </div>
+  <!-- Le volume des lumières (2026-11-15, suite 5) : seulement si les lumières sont branchées -->
+  <div id="mjLumieres" style="display:none;align-items:center;gap:10px;margin-bottom:10px;">
+    <span style="font-size:12px;color:rgb(var(--n5));flex:1;">💡 Lumières</span>
+    <input type="range" id="lumSlider" min="0.1" max="1.5" step="0.05" value="1" oninput="setLuminosite(this.value)" style="width:120px;" aria-label="Volume des lumières">
+    <span id="lumValeur" style="font-size:12px;color:rgb(var(--n6));min-width:42px;text-align:right;font-variant-numeric:tabular-nums;">100 %</span>
   </div>
   <details style="margin-top:10px;">
     <summary style="font-size:11px;color:rgb(var(--n5));cursor:pointer;">🎧 Écouter tous les sons</summary>
@@ -898,6 +904,31 @@ function sonAuNiveau(cle, categorie) {
 let audioEnabled=true, masterVolume=0.6, ambianceAudio=null, ambianceName="";
 let heartbeatAudio=null;
 
+// Le volume des lumières : envoyé au jeu au plus toutes les 100 ms pendant qu'on fait glisser, et
+// retenu par la tablette (il revient tel quel après un redémarrage du jeu)
+const CLE_LUMINOSITE = "loupgarou_luminosite";
+let _lumEnvoi = null, _lumValeur = 1;
+function afficherLuminosite(v) {
+  document.getElementById("lumSlider").value = v;
+  document.getElementById("lumValeur").textContent = Math.round(v * 100) + " %";
+}
+function setLuminosite(v) {
+  _lumValeur = parseFloat(v);
+  afficherLuminosite(_lumValeur);
+  try { localStorage.setItem(CLE_LUMINOSITE, String(_lumValeur)); } catch (_) {}
+  if (_lumEnvoi) return;
+  socket.emit("mjLuminosite", _lumValeur);
+  _lumEnvoi = setTimeout(() => { _lumEnvoi = null; socket.emit("mjLuminosite", _lumValeur); }, 100);
+}
+socket.on("lumieresMJ", d => {
+  document.getElementById("mjLumieres").style.display = d && d.branchees ? "flex" : "none";
+  if (!d || !d.branchees) return;
+  let retenue = null;
+  try { retenue = parseFloat(localStorage.getItem(CLE_LUMINOSITE)); } catch (_) {}
+  // Le jeu vient de redémarrer (il repart à 100 %) : la tablette lui redonne le réglage de la soirée
+  if (Number.isFinite(retenue) && Math.abs(retenue - d.luminosite) > 0.001) { afficherLuminosite(retenue); socket.emit("mjLuminosite", retenue); }
+  else afficherLuminosite(d.luminosite);
+});
 function setVolume(v){
   masterVolume=parseFloat(v);
   for (const a of [ambianceAudio, stormAudio, _boucleRoleAudio, heartbeatAudio, _coeur && _coeur.audio]) if (a) a.volume = Math.min(1, masterVolume * a._facteurVolume);

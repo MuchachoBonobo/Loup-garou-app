@@ -87,8 +87,9 @@ function requete(ip, methode, chemin, corps, cle) {
 
   // 2. La pièce des lampes, et ses lampes
   const get = async chemin => ((await requete(ip, "GET", chemin, null, cle)).json || {}).data || [];
-  const [pieces, zonesHue, lampes, divertissements] = await Promise.all([
-    get("/clip/v2/resource/room"), get("/clip/v2/resource/zone"), get("/clip/v2/resource/light"), get("/clip/v2/resource/entertainment")]);
+  const [pieces, zonesHue, lampes, divertissements, materiel] = await Promise.all([
+    get("/clip/v2/resource/room"), get("/clip/v2/resource/zone"), get("/clip/v2/resource/light"), get("/clip/v2/resource/entertainment"),
+    get("/clip/v2/resource/device")]);
   const groupes = [...pieces, ...zonesHue];
   const groupeId = valeurs.HUE_GROUP_ID;
   const piece = groupes.find(g => (g.services || []).some(s => s.rtype === "grouped_light" && s.rid === groupeId))
@@ -101,7 +102,11 @@ function requete(ip, methode, chemin, corps, cle) {
   const proprietaire = Object.fromEntries(lampes.map(l => [l.id, l.owner && l.owner.rid]));
   const appareils = new Set((piece.children || []).map(c => c.rtype === "light" ? proprietaire[c.rid] : c.rid));
   const services = divertissements.filter(e => e.renderer && e.owner && appareils.has(e.owner.rid));
-  console.log(`💡 Pièce « ${piece.metadata.name} » : ${services.length} lampe(s) compatible(s) avec le flux.`);
+  // Une bande lumineuse (Lightstrip) ou une ampoule : les effets se jouent sur les ampoules, la bande en retrait
+  const produit = Object.fromEntries(materiel.map(d => [d.id, d.product_data || {}]));
+  const estBande = s => { const p = produit[s.owner.rid] || {}; return /strip/i.test((p.product_archetype || "") + " " + (p.product_name || "")); };
+  const nbBandes = services.filter(estBande).length;
+  console.log(`💡 Pièce « ${piece.metadata.name} » : ${services.length - nbBandes} ampoule(s)${nbBandes ? ` et ${nbBandes} bande(s)` : ""} compatible(s) avec le flux.`);
   if (!services.length) { console.log("Aucune lampe de cette pièce n'accepte le flux : le jeu restera en commandes ordinaires."); process.exit(1); }
 
   // 3. La zone de divertissement : celle qui existe déjà avec ces lampes, sinon on la crée
@@ -111,16 +116,19 @@ function requete(ip, methode, chemin, corps, cle) {
   let zone = zones.find(z => z.id === valeurs.HUE_ZONE_ID)
     || zones.find(z => { const r = contient(z); return r.length === ids.size && r.every(x => ids.has(x)); })
     || zones.find(z => /loup/i.test((z.metadata && z.metadata.name) || ""));
-  if (zone) console.log(`🎭 Zone de divertissement trouvée : « ${zone.metadata.name} ».`);
+  if (zone) console.log(`🎭 Zone de divertissement trouvée : « ${zone.metadata.name} ». Dans l'appli Hue, place les ampoules aux deux bouts de la pièce : les effets vont de l'une à l'autre.`);
   else {
     const r = await requete(ip, "POST", "/clip/v2/resource/entertainment_configuration", {
       type: "entertainment_configuration",
       metadata: { name: "Loup-Garou" },
       configuration_type: "other",
-      locations: { service_locations: services.map((s, i) => ({
-        service: { rid: s.id, rtype: "entertainment" },
-        positions: [{ x: services.length > 1 ? -0.8 + 1.6 * i / (services.length - 1) : 0, y: 0.8, z: 0 }],
-      })) },
+      // Les ampoules aux deux bouts de la pièce (de gauche à droite), la bande au fond, au milieu
+      locations: { service_locations: (() => {
+        const ampoules = services.filter(s => !estBande(s)), bandes = services.filter(estBande);
+        const place = (liste, y) => liste.map((s, i) => ({ service: { rid: s.id, rtype: "entertainment" },
+          positions: [{ x: liste.length > 1 ? -0.8 + 1.6 * i / (liste.length - 1) : 0, y, z: 0 }] }));
+        return [...place(ampoules, 0.8), ...place(bandes, -0.8)];
+      })() },
     }, cle);
     const cree = r.json && r.json.data && r.json.data[0];
     if (!cree) {

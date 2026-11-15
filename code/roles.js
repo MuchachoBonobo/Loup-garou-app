@@ -329,9 +329,10 @@ function envoyerRecapMJ() {
   state.pendingDayRecap = null;
 }
 
-// Lumières de l'aube : un éclair par mort ; l'aube si personne n'est mort
+// Lumières de l'aube : un éclair par mort, au coup du glas que sonne la tablette ; l'aube si personne
+// n'est mort
 function lumieresAube(nbMorts) {
-  if (nbMorts > 0) lights.flashSequence("flash.death", nbMorts);
+  if (nbMorts > 0) lights.flashSequence("flash.death", nbMorts, "death");
   else lights.flash("flash.dawn");
 }
 

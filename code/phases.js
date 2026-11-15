@@ -629,7 +629,9 @@ function resumeGame() {
 
   state.io.emit("gameResumed", { phase: state.phase });
   // En plein jour : la lumière du moment (vote, annonce ou évènement du Conseil), pas celle du matin
-  lights.applyScene(state.phase === "day" ? council.sceneDuJour() : state.phase);
+  // (le Dépouillement : sa lumière, rougie de ce qui est déjà ouvert)
+  if (state.phase === "day" && state.depouillement) votes.lumiereDepouillement();
+  else lights.applyScene(state.phase === "day" ? council.sceneDuJour() : state.phase);
 }
 
 // ===== RESET =====

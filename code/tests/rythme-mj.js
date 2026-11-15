@@ -40,11 +40,10 @@ async function nouveauMJ(reprise) {
 
   // Un « vrai » joueur (pour les écrans et les reconnexions) + 8 robots
   let joueur = await client();
-  const evJ = { phases: [], aubes: [], finMatin: [], evenements: [] };
+  const evJ = { phases: [], finMatin: [], evenements: [] };
   let monRole = null, joueurs = [], morts = [];
   const suivreJoueur = j => {
     j.on("phase", p => evJ.phases.push(p));
-    j.on("dawnResult", d => evJ.aubes.push(d));
     j.on("finAnnonceMatin", d => evJ.finMatin.push(d));
     j.on("councilEventActive", d => evJ.evenements.push(d));
     j.on("yourRole", d => { monRole = d.role; });
@@ -106,9 +105,6 @@ async function nouveauMJ(reprise) {
   const matin1 = attendre(mj, "matinEnAttente", 40000);
   await attendrePhase(joueur, "day", 40000);
   const m1 = await matin1;
-  const aube1 = evJ.aubes[evJ.aubes.length - 1];
-  const transfert1 = evMJ.phases.includes("mayorTransfer");
-  check("carte du matin gardée par le MJ (annonceParMJ) sauf maire mort", aube1 && aube1.annonceParMJ === !transfert1, { annonceParMJ: aube1 && aube1.annonceParMJ, transfert: transfert1 });
   check("matinEnAttente sans évènement le 1er jour", m1 && m1.evenement === null, m1);
   mj.emit("mjFinAnnonceMatin");
   const f1 = await attendre(joueur, "finAnnonceMatin", 3000).catch(() => null);

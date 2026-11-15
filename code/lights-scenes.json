@@ -346,7 +346,9 @@
     ],
     "bri": 254,
     "duration": 150,
-    "repeat": 2
+    "repeat": 2,
+    "flux": "orage",
+    "avance": 180
   },
   "flash.wolves": {
     "xy": [
@@ -390,7 +392,8 @@
     ],
     "bri": 220,
     "duration": 150,
-    "repeat": 1
+    "repeat": 1,
+    "flux": "cloche"
   },
   "nightPause": {
     "xy": [
@@ -415,7 +418,7 @@
     ],
     "bri": 230,
     "transition": 1200,
-    "effect": "slow_pulse"
+    "effect": "amants"
   },
   "flash.victoire.village": {
     "xy": [
@@ -426,7 +429,8 @@
     "duration": 1400,
     "repeat": 3,
     "montee": 600,
-    "creux": 0.3
+    "creux": 0.3,
+    "flux": "tour"
   },
   "flash.victoire.loups": {
     "xy": [
@@ -437,7 +441,8 @@
     "duration": 1400,
     "repeat": 3,
     "montee": 600,
-    "creux": 0.3
+    "creux": 0.3,
+    "flux": "tour"
   },
   "flash.victoire.amoureux": {
     "xy": [
@@ -448,7 +453,8 @@
     "duration": 1400,
     "repeat": 3,
     "montee": 600,
-    "creux": 0.3
+    "creux": 0.3,
+    "flux": "tour"
   },
   "flash.victoire.ange": {
     "xy": [
@@ -459,7 +465,8 @@
     "duration": 1400,
     "repeat": 3,
     "montee": 600,
-    "creux": 0.3
+    "creux": 0.3,
+    "flux": "tour"
   },
   "flash.conseil": {
     "xy": [
@@ -477,7 +484,8 @@
     ],
     "bri": 170,
     "montee": 2500,
-    "duree": 7000
+    "duree": 7000,
+    "flux": "hurlement"
   },
   "vague.ombre": {
     "xy": [
@@ -486,6 +494,30 @@
     ],
     "bri": 8,
     "montee": 250,
-    "duree": 1800
+    "duree": 1800,
+    "flux": "ombre"
+  },
+  "depouillement": {
+    "xy": [
+      0.52,
+      0.41
+    ],
+    "bri": 110,
+    "transition": 2000
+  },
+  "depouillement.tension": {
+    "xy": [
+      0.67,
+      0.31
+    ],
+    "bri": 140
+  },
+  "depouillement.noir": {
+    "xy": [
+      0.6,
+      0.37
+    ],
+    "bri": 0,
+    "transition": 500
   }
 }
