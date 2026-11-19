@@ -152,8 +152,9 @@ const COUNCIL_EVENTS = {
     id: "sablier",
     resume: "Pas de débat : le vote s'ouvre aussitôt, pour 3 minutes.",
     title: "⏳ Le Sablier",
-    narrative: "Le sablier est retourné. Le village votera tant que le sable coule : quand le dernier grain tombera, tout sera dit.",
-    regle: "Pas de débat : à la fin de l'annonce, le vote s'ouvre aussitôt, et le village a 3 minutes pour voter.",
+    // Le texte lu aux joueurs dit clairement ce qui se passe (Alexandre, 2026-11-19 : l'ancien, imagé, n'était pas clair)
+    narrative: "Le vote est ouvert dès maintenant, et vous avez seulement 3 minutes pour faire votre choix.",
+    regle: "Pas de débat : dès que tu touches « 🗳️ Lancer le vote », le village a 3 minutes pour voter.",
     // Un vote de 3 minutes, sans débat avant (Alexandre, 2026-11-14) ; SABLIER_MS raccourcit les tests
     technical: { voteDurationMs: parseInt(process.env.SABLIER_MS) || 3 * 60 * 1000 },
     avecMJ: true

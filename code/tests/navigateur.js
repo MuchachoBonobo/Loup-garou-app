@@ -206,10 +206,15 @@ async function partieVillage(P) {
   const nuit = async (num, tueurs, victime) => {
     console.log(`\n▶ Nuit ${num}`);
     check(`nuit ${num} : les villageois vivants ont le voile de nuit`, await tous(vivants().filter(n => !tueurs.includes(n)).map(n => tel[n]), p => affiche(p, "#nightCoverScreen", 30000)));
-    const attaque = boutonJoueur("voteWolf", await id(victime));
+    const vid = await id(victime), attaque = boutonJoueur("voteWolf", vid);
     check(`nuit ${num} : les loups ont leurs boutons « Attaquer »`, await tous(tueurs.map(n => tel[n]), p => attendre(p, PRESENT, attaque)));
     check(`nuit ${num} : plus de « Vote terminé ! » sur leur écran`, await tous(tueurs.map(n => tel[n]), p => p.evaluate(() => document.getElementById("status").innerText === "")));
     for (const n of tueurs) await clic(tel[n], attaque);
+    // Les loups voient le nombre de voix sur la ligne, jamais qui vote pour qui (2026-11-19)
+    check(`nuit ${num} : les loups voient ${tueurs.length} voix sur ${victime}, pas qui vote pour qui`, await tous(tueurs.map(n => tel[n]), p => attendre(p, ([v, n]) => {
+      const ligne = document.querySelector(`#players .voix-ligne[data-joueur="${v}"]`);
+      return !!ligne && ligne.textContent === String(n) && getComputedStyle(document.getElementById("votesPanel")).display === "none";
+    }, [vid, tueurs.length])));
     check(`nuit ${num} : le MJ voit les votes des loups en haut`, await attendre(mj, v => document.getElementById("wolfVotes").innerText.includes(v), victime));
     await etapeMJ(`nuit ${num} : MJ « Valider l'attaque des loups »`, "Valider l'attaque");
     morts.push(victime);
@@ -245,6 +250,13 @@ async function partieVillage(P) {
     else check(`jour ${num} : le nombre de voix est sur la ligne du joueur`, await attendre(tel[dernier], ([j, nb]) => document.querySelector(`.voix-ligne[data-joueur="${j}"]`).textContent.trim() === String(nb), [idCondamne, votants.length - 2]));
     const hauteurApres = await hauteur();
     check(`jour ${num} : les votes reçus ne déplacent pas le bouton « Voter »`, Math.abs(hauteurApres - hauteurAvant) < 1, `${hauteurAvant} puis ${hauteurApres}`);
+    // Qui vote pour qui : sous les vivants, les morts en dessous (2026-11-19)
+    if (!secret) check(`jour ${num} : « qui vote pour qui » entre les vivants et les morts`, await attendre(tel[dernier], () => {
+      const panneau = document.getElementById("votesPanel"), vivants = document.querySelectorAll("#players .player-row"), mort = document.querySelector("#playersMorts .player-row");
+      if (getComputedStyle(panneau).display === "none" || !vivants.length || !mort) return false;
+      const r = panneau.getBoundingClientRect();
+      return vivants[vivants.length - 1].getBoundingClientRect().bottom <= r.top && r.bottom <= mort.getBoundingClientRect().top;
+    }));
     await clic(tel[dernier], contre);
     await etapeMJ(`jour ${num} : MJ « Terminer le vote »`, "Terminer le vote");
     if (secret) {

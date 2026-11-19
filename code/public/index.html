@@ -102,14 +102,10 @@
   </div>
 </div>
 
-<!-- Écran du joueur mort : plein écran, défilant, rôle en grand ; le salon des morts et le
-     Conseil des Morts y sont déplacés (appendChild). -->
+<!-- Écran du joueur mort : plein écran, défilant ; le salon des morts et le Conseil des Morts y
+     sont déplacés (appendChild). Ni photo ni « Tu étais » + rôle (Alexandre, 2026-11-19) -->
 <div id="deadFullScreen" style="display:none;position:fixed;inset:0;z-index:9100;background:radial-gradient(ellipse at 50% 22%,rgb(var(--sang-fond)) 0%,rgb(var(--sang-nuit)) 55%,rgb(var(--n0)) 100%);flex-direction:column;align-items:center;text-align:center;padding:36px 20px 28px;overflow-y:auto;">
   <div class="titre" style="font-size:28px;font-weight:bold;color:rgb(var(--sang-clair));margin-bottom:20px;">Tu es mort</div>
-  <img id="dfsPhoto" src="" alt="" style="display:none;width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid rgba(var(--sang-clair),0.4);filter:grayscale(0.6);margin-bottom:14px;">
-  <div style="font-size:12px;color:rgb(var(--sang-vif));letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Tu étais</div>
-  <div id="dfsRoleEmoji" style="font-size:64px;margin-bottom:4px;">🎭</div>
-  <div id="dfsRole" style="font-size:26px;font-weight:bold;color:rgb(var(--sang-clair));margin-bottom:18px;"></div>
   <!-- Vue du vote du jour (visible par les morts pendant qu'un vote est en cours) -->
   <div id="deadVoteView" style="display:none;width:100%;max-width:520px;background:rgb(var(--sang-fond));border:1px solid rgb(var(--sang-base));border-radius:10px;padding:12px 16px;margin-bottom:10px;text-align:left;">
     <div style="text-align:center;font-size:12px;color:rgb(var(--sang-vif));letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;">🗳️ Vote du village en cours</div>
@@ -204,7 +200,7 @@
     <input id="silentDayChatText" placeholder="Ton message…" maxlength="200" onkeydown="if(event.key==='Enter')sendSilentDayChat()" style="flex:1;background:rgb(var(--voyance-nuit));border:1px solid rgb(var(--voyance-base));border-radius:6px;color:rgb(var(--voyance-clair));padding:8px;font-size:13px;">
     <button onclick="sendSilentDayChat()" style="padding:8px 14px;background:rgb(var(--voyance-sombre));border:1px solid rgb(var(--voyance-base));border-radius:6px;color:rgb(var(--voyance-vif));font-size:12px;cursor:pointer;">Envoyer</button>
   </div>
-  <div id="silentDayChatDeadHint" style="display:none;font-size:11px;color:rgb(var(--n6));text-align:center;margin-top:6px;font-style:italic;">⚰️ Tu es mort — tu peux lire mais pas écrire.</div>
+  <div id="silentDayChatDeadHint" style="display:none;font-size:11px;color:rgb(var(--n6));text-align:center;margin-top:6px;font-style:italic;">Tu peux lire mais pas écrire.</div>
 </div>
 
 <div id="voteTimerBox" class="panneau">
@@ -290,10 +286,11 @@
 <div id="playersSection">
   <h3>Joueurs</h3>
   <div id="players"></div>
+  <!-- Qui vote pour qui : sous les vivants, pour que les boutons « Voter » ne bougent pas ; les morts
+       en dessous (Alexandre, 2026-11-19 : on voit les votes sans descendre sous les morts) -->
+  <div id="votesPanel" class="panneau"><div id="votesContent"></div></div>
+  <div id="playersMorts"></div>
 </div>
-
-<!-- Qui vote pour qui : sous la liste, pour que les boutons « Voter » ne bougent pas -->
-<div id="votesPanel" class="panneau"><div id="votesContent"></div></div>
 
 <div id="infoPanel" class="panneau">
   <!-- Bouton anti-triche jour : un toucher révèle, un autre cache (boutonPourVoir) -->
@@ -626,19 +623,21 @@ socket.on("connect_error", () => {
   document.getElementById("offlineBanner").className = "show";
 });
 
+// L'Idiot désigné par le village, et l'Ange au premier vote : la même carte que pour tout verdict,
+// sans le rôle ; c'est le MJ qui annonce (Alexandre, 2026-11-19). Le 🤡 de la liste (l'Idiot ne
+// vote plus) ne se voit qu'une fois la carte refermée, quand le MJ a parlé.
 socket.on("idiotRevealed", data => {
   idiotRevealed = true; idiotId = data.id;
-  carteAnnonce("🤡", data.name + " est l'Idiot du village", "Il survit, mais ne vote plus.",
-    "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%)", [data.name]);
+  carteAnnonce("⚖️", "Le village a tranché", data.name, "", [data.name]);
   fermerCarteAuRythme(fermerCarteMortSiOuverte, 6000, ["day", "crepuscule"]);
+  if (data.id === socket.id) vibrateIfDay([300, 100, 300, 100, 500]);
+  else vibrateIfDay([200, 100, 200]);
   scheduleRender();
 });
 
 // L'Ange désigné au premier vote : il gagne seul (l'écran de fin suit ~5 s après)
 socket.on("angeRevele", data => {
-  carteAnnonce("👼", data.name + " était l'Ange !",
-    "Le village l'a désigné dès le premier vote… exactement ce qu'il voulait. Il s'envole et gagne seul !",
-    "radial-gradient(ellipse at center,rgb(var(--or-sombre)) 0%,rgb(var(--n0)) 100%)", [data.name]);
+  carteAnnonce("⚖️", "Le village a tranché", data.name, "", [data.name]);
   // Pas de fermeture automatique : l'écran de fin arrive ~5 s après et referme la carte
   // (sinon l'écran « Discutez » réapparaissait une demi-seconde entre les deux).
   if (data.id === socket.id) vibrateIfDay([300, 100, 300, 100, 500]);
@@ -1394,19 +1393,6 @@ function updateDeadFullScreen() {
   // que soit le mode du jour
   const show = iAmDead && !gameIsOver;
   if (show) {
-    // Photo perso
-    const me = players.find(p => p.id === socket.id);
-    const myPhoto = me?.photo || (lireIdentite("lgPhoto") || null);
-    const photoEl = document.getElementById("dfsPhoto");
-    if (photoEl) {
-      if (myPhoto) { photoEl.src = myPhoto; photoEl.style.display = "block"; }
-      else         { photoEl.style.display = "none"; }
-    }
-    // Rôle en grand
-    const emojiEl = document.getElementById("dfsRoleEmoji");
-    const roleEl  = document.getElementById("dfsRole");
-    if (emojiEl) emojiEl.innerText = emojiDuRole(role) || "🎭";
-    if (roleEl)  roleEl.innerText  = role ? nomDuRole(role) : "—";
     screen.style.display = "flex";
   } else {
     screen.style.display = "none";
@@ -2049,7 +2035,7 @@ socket.on("chasseurATire", d => {
 
 socket.on("loversDeathInfo", data=>{
   const partnerName = data.name;
-  document.getElementById("status").innerText="💔 "+partnerName+" meurt de chagrin.";
+  // Phrase en double retirée (Alexandre, 2026-11-19) : « 💔 X meurt de chagrin. » — la carte le dit déjà
   // Carte d'un mort encore ouverte (vote, tir du Chasseur) : son amour y apparaît aussi
   const carte = document.getElementById("dayDeathCard");
   if (carte && carte.classList.contains("show") && !_victimesCarte.some(v => v.name === partnerName)) {
@@ -2081,7 +2067,7 @@ socket.on("depouillementEtat", d => { if (!d) return; montrerDepouillement(true)
 socket.on("depouillementFin", () => montrerDepouillement(false));
 
 socket.on("hasVotedConfirm", data=>{
-  document.getElementById("status").innerText="✅ Vote enregistré — " + data.targetName;
+  // Phrase en double retirée (Alexandre, 2026-11-19) : « ✅ Vote enregistré — X » — le ✅ est déjà sur la ligne
   hasVotedLocked=true;
   scheduleRender();
 });
@@ -2096,13 +2082,15 @@ socket.on("dayVoteResult", data=>{
 socket.on("daySkipped",()=>{ document.getElementById("status").innerText="🌅 Pas de vote ce jour."; });
 
 // ===== CONSEIL DES MORTS — vote =====
+// Un mort change d'avis en touchant un autre évènement, jusqu'à la fin de la journée : le serveur
+// ne retient que son dernier choix (Alexandre, 2026-11-19 : « jusqu'au dernier moment »)
 let councilCurrentOptions = [];
-let councilHasVoted = false;
+let councilHasVoted = null;   // l'évènement choisi (null : pas encore)
 
 socket.on("councilStart", data => {
   if (!iAmDead) return;  // sécurité : ne devrait être reçu que par les morts
   councilCurrentOptions = data.options || [];
-  councilHasVoted = false;
+  councilHasVoted = null;
   const panel = document.getElementById("councilPanel");
   const optsDiv = document.getElementById("councilOptions");
   if (!panel || !optsDiv) return;
@@ -2124,27 +2112,26 @@ socket.on("councilStart", data => {
     optsDiv.appendChild(btn);
   });
   panel.style.display = "block";
+  // Reconnexion : son choix revient, toujours modifiable
+  if (data.monVote) marquerChoixConseil(data.monVote);
 });
 
 function voteCouncil(eventId) {
-  if (councilHasVoted) return;
-  councilHasVoted = true;
+  if (eventId === councilHasVoted) return;
   socket.emit("councilVote", eventId);
-  // Marque visuellement le bouton choisi
+  marquerChoixConseil(eventId);
+}
+// Le choix en cours allumé (✓), les autres en retrait mais toujours touchables
+function marquerChoixConseil(eventId) {
+  councilHasVoted = eventId;
   councilCurrentOptions.forEach(opt => {
     const btn = document.getElementById("councilOpt_" + opt.id);
     if (!btn) return;
-    if (opt.id === eventId) {
-      btn.classList.add("voted");
-      btn.style.background = "rgb(var(--ame-sombre))";
-      btn.style.borderColor = "rgb(var(--ame-vif))";
-      btn.style.color = "rgb(var(--ame-clair))";
-      btn.style.opacity = "1";   // l'option choisie reste allumée (button:disabled l'éteindrait)
-      btn.firstChild.textContent = "✓ " + opt.title;
-    } else {
-      btn.style.opacity = "0.4";
-    }
-    btn.disabled = true;
+    const choisi = opt.id === eventId;
+    btn.classList.toggle("voted", choisi);
+    btn.style.borderColor = choisi ? "rgb(var(--ame-vif))" : "rgb(var(--ame-base))";
+    btn.style.opacity = choisi ? "1" : "0.55";
+    btn.firstChild.textContent = (choisi ? "✓ " : "") + opt.title;
   });
 }
 
@@ -2153,7 +2140,7 @@ socket.on("councilResolved", () => {
   // Cache le panneau de vote (l'événement sera révélé demain matin)
   const panel = document.getElementById("councilPanel");
   if (panel) panel.style.display = "none";
-  councilCurrentOptions = []; councilHasVoted = false;
+  councilCurrentOptions = []; councilHasVoted = null;
 });
 
 // ===== CONSEIL DES MORTS — carte narrative de l'événement actif =====
@@ -2218,7 +2205,7 @@ socket.on("dawnResult", data=>{
   let title, text, emoji;
   if (deaths.length === 0) {
     emoji = "🌄"; title = "Une nuit paisible";
-    text  = "Personne n'est mort cette nuit.";
+    text  = "";   // Phrase en double retirée (Alexandre, 2026-11-19) : « Personne n'est mort cette nuit. »
   } else {
     // Le nom de chaque mort (demande d'Alexandre, 2026-10-26) ; les morts d'amour à part.
     // Un seul mort : sa photo suffit, sans la lune noire d'avant (Alexandre, 2026-11-15)
@@ -2264,7 +2251,8 @@ socket.on("tiebreakNeeded", data=>{
   // Seul le maire voit le panel de tiebreak — les autres joueurs voient un message de statut
   if(socket.id === mayor){
     // Géré par tiebreakMayor qui arrive juste après (panel plein écran)
-    document.getElementById("status").innerText="⚖️ Égalité — tu dois trancher !";
+    // Phrase en double retirée (Alexandre, 2026-11-19) : « ⚖️ Égalité — tu dois trancher ! » — son écran plein le dit
+    document.getElementById("status").innerText="";
   } else if (data.sansVote) {
     // Personne n'a voté : égalité entre tous les vivants (la liste serait trop longue)
     document.getElementById("status").innerText="⚖️ Personne n'a voté. Le Maire doit trancher.";
@@ -2291,7 +2279,8 @@ function tiebreakVote(id){ socket.emit("tiebreakChoice",id); }
 
 socket.on("tiebreakResolved", data=>{
   document.getElementById("tiebreakPanel").style.display="none";
-  document.getElementById("status").innerText="⚖️ Le Maire a tranché : "+data.name;
+  // Phrase en double retirée (Alexandre, 2026-11-19) : « ⚖️ Le Maire a tranché : X » — la carte du verdict suit ; l'« Égalité entre… » s'efface
+  document.getElementById("status").innerText="";
 });
 
 // mayorTransferPending posé en premier, avant le filtre sur socket.id
@@ -2308,10 +2297,10 @@ socket.on("mayorMustTransfer", dyingId=>{
     const attente = document.getElementById("chasseurPanel");
     ouvrirPanneau(attente, "radial-gradient(ellipse at center,rgb(var(--or-fond)) 0%,rgb(var(--or-nuit)) 100%)");
     attente.style.borderColor = "rgb(var(--or-base))";
+    // Le titre seul, sans phrase dessous (Alexandre, 2026-11-19), comme le Chasseur
     attente.innerHTML = [
       "<div style='font-size:64px;margin-bottom:20px;'>🏛️</div>",
-      "<div style='font-size:22px;font-weight:bold;color:rgb(var(--or-vif));margin-bottom:12px;'>Le Maire choisit son successeur…</div>",
-      "<div style='font-size:15px;color:rgb(var(--n7));'>Avant de mourir, le Maire transmet son écharpe.</div>"
+      "<div style='font-size:22px;font-weight:bold;color:rgb(var(--or-vif));'>Le Maire transmet son écharpe…</div>"
     ].join("");
     return;
   }
@@ -2361,8 +2350,7 @@ socket.on("mayorTransferred", targetId=>{
   panel.style.display = "none";
   panel.style.cssText = "display:none;";
   document.getElementById("chasseurPanel").style.cssText = "display:none;";   // la vue d'attente du village
-  const p=players.find(x=>x.id===targetId);
-  if(p) document.getElementById("status").innerText="🏛️ "+p.name+" est le nouveau Maire.";
+  // Phrase en double retirée (Alexandre, 2026-11-19) : « 🏛️ X est le nouveau Maire. » — la carte « Nouveau Maire » le dit
 });
 
 // CONSEIL DES MORTS — 👑 L'Abdication : le maire vivant désigne son successeur.
@@ -2381,11 +2369,7 @@ socket.on("mayorAbdicated", data=>{
   // Ferme le panneau d'abdication chez le maire abdiquant.
   const panel = document.getElementById("tiebreakPanel");
   if (panel) { panel.style.display = "none"; panel.style.cssText = "display:none;"; }
-  // Affiche un message à tout le monde.
-  const msg = data.forced
-    ? `👑 ${data.oldMayorName} n'a pas tranché — ${data.newMayorName} hérite de l'écharpe.`
-    : `👑 ${data.oldMayorName} a abdiqué en faveur de ${data.newMayorName}.`;
-  document.getElementById("status").innerText = msg;
+  // Phrase en double retirée (Alexandre, 2026-11-19) : « 👑 X a abdiqué en faveur de Y » — la carte « Nouveau Maire » le dit
 });
 
 socket.on("deadChatMsg", msg => ajouterMessageChat("deadChatMessages", msg));
@@ -2540,7 +2524,7 @@ socket.on("gameReset", data => {
   });
   if(_councilEventCardAutoClose) { clearTimeout(_councilEventCardAutoClose); _councilEventCardAutoClose=null; }
   _pendingCouncilEventData = null;
-  councilCurrentOptions = []; councilHasVoted = false;
+  councilCurrentOptions = []; councilHasVoted = null;
   ["dayDeathCard"].forEach(id=>{
     const el=document.getElementById(id);
     if(el){ el.className=""; el.style.display=""; el.style.background=""; el.removeAttribute("data-open"); }
@@ -2689,11 +2673,13 @@ function majVoixSurLesLignes() {
   });
 }
 
-// Sous la liste : qui vote pour qui (vote du jour, attaque des loups)
+// Sous la liste : qui vote pour qui, au vote du jour seulement. Les loups ne voient que le nombre de
+// voix sur chaque ligne (2026-11-19, Alexandre : « pas besoin de montrer qui vote pour qui ») ;
+// le MJ garde le détail en haut de sa tablette.
 function renderVotesPanel(){
   const panel = document.getElementById("votesPanel"), content = document.getElementById("votesContent");
   content.innerHTML = "";
-  const detail = phase === "day" && !votesCaches() ? votesDayDetail : phase === "wolves" && role === "Loup" ? wolfVotes : {};
+  const detail = phase === "day" && !votesCaches() ? votesDayDetail : {};
   const list = document.createElement("div");
   Object.entries(detail).forEach(([voterId, targetId]) => {
     const voter = players.find(x => x.id === voterId), target = players.find(x => x.id === targetId);
@@ -2718,7 +2704,7 @@ function chasseurShoot(id){
   // Ferme le panel plein écran
   const panel = document.getElementById("chasseurPanel");
   panel.style.cssText = "display:none;";
-  document.getElementById("status").innerText="🔫 Tu as tiré !";
+  // Phrase en double retirée (Alexandre, 2026-11-19) : « 🔫 Tu as tiré ! » — sa carte le dit
   // Carte narrative avant la vision spectateur
   carteAnnonce("🔫", "Ta dernière balle…", target ? target.name : "", FOND_CHASSEUR, target ? [target.name] : []);
   nightCardShownThisNight = false;
@@ -2780,7 +2766,9 @@ function renderChasseurTargets(){
 }
 
 function render(){
-  const div=document.getElementById("players");div.innerHTML="";
+  // Les vivants dans #players, les morts dans #playersMorts, sous le panneau des votes
+  const div=document.getElementById("players"), divMorts=document.getElementById("playersMorts");
+  div.innerHTML=""; divMorts.innerHTML="";
   iAmDead=deadPlayers.includes(socket.id);
   majChoixDeNuit();
   const sorted=sortedPlayers();
@@ -2849,9 +2837,9 @@ function render(){
       const sep=document.createElement("div");
       sep.style.cssText="text-align:center;font-size:10px;color:rgb(var(--n4));padding:4px 0;letter-spacing:1px;text-transform:uppercase;";
       sep.innerText="— morts —";
-      div.appendChild(sep);
+      divMorts.appendChild(sep);
     }
-    div.appendChild(row);
+    (isDead ? divMorts : div).appendChild(row);
   });
   majVoixSurLesLignes();
   // À chaque rendu, l'écran de mort est réaffirmé : un mort ne voit jamais la liste ni

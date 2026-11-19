@@ -577,8 +577,8 @@ function resynchroniserApresReconnexion(socket) {
     if (state.dyingMayorId === id) io.emit("mayorMustTransfer", id);
     else socket.emit("mayorMustTransfer", state.dyingMayorId);
   }
-  // Conseil des Morts en cours : le mort reconnecté retrouve son vote
-  if (state.councilOptions && !vivant) socket.emit("councilStart", council.optionsDuConseil());
+  // Conseil des Morts en cours : le mort reconnecté retrouve les options et son choix (qu'il peut changer)
+  if (state.councilOptions && !vivant) socket.emit("councilStart", { ...council.optionsDuConseil(), monVote: state.councilVotes[id] || null });
 }
 
 // ===== DÉMARRAGE =====

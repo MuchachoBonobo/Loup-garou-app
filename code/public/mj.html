@@ -159,7 +159,6 @@
   <div style="font-size:64px;margin-bottom:14px;">🪦</div>
   <div style="font-size:14px;color:rgb(var(--ame-vif));letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;">Le Conseil des Morts a parlé</div>
   <div id="councilEventTitle" style="font-size:28px;font-weight:bold;color:rgb(var(--ame-clair));margin-bottom:14px;"></div>
-  <div id="councilEventNarrative" style="max-width:420px;color:rgba(var(--blanc),0.78);line-height:1.6;font-size:14px;font-style:italic;margin-bottom:14px;"></div>
   <div id="councilEventRuleBox" style="max-width:440px;background:rgba(var(--ame-clair),0.1);border:1px solid rgba(var(--ame-clair),0.45);border-radius:10px;padding:14px 16px;margin-bottom:16px;text-align:left;">
     <div style="color:rgb(var(--ame-clair));font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;">📋 Règle à appliquer</div>
     <div id="councilEventRule" style="color:rgb(var(--ame-clair));font-size:14px;line-height:1.55;"></div>
@@ -651,16 +650,15 @@ socket.on("mjDayRecap", data => {
   majBoutonsAube();
 });
 
-// Affiche la carte évènement MJ : titre + narratif immersif + RÈGLE explicite.
-// Remplit et ouvre la carte de l'évènement : titre, récit, règle à appliquer
+// Remplit et ouvre la carte de l'évènement : titre et règle à appliquer. Le récit n'est plus sur la
+// tablette (Alexandre, 2026-11-19 : « seulement la règle à appliquer ») ; les téléphones l'affichent toujours.
 // Pendant l'annonce du matin menée par le MJ (`annonce`), la carte de l'évènement du jour reste
 // jusqu'à son « ▶ Lancer le débat », qu'elle porte elle-même (demande d'Alexandre, 2026-11-10).
 let _mjCarteAnnonce = false;
 function ouvrirCarteEvenement(data, annonce = false) {
   _mjCarteAnnonce = !!annonce;
   document.getElementById("councilEventTitle").innerText = data.title || "";
-  document.getElementById("councilEventNarrative").innerText = data.narrative || "";
-  document.getElementById("councilEventRule").innerText = data.regle || "(Règle non répertoriée — voir le récit ci-dessus.)";
+  document.getElementById("councilEventRule").innerText = data.regle || data.narrative || "";
   document.getElementById("councilEventLancerDebat").style.display = annonce ? "" : "none";
   majBoutonCarteEvenement();
   document.getElementById("councilEventCompris").style.display = annonce ? "none" : "";
@@ -674,7 +672,7 @@ function showMjCouncilEventCard(data, annonce = false) {
 }
 
 // Bandeau permanent de l'évènement du jour : le MJ y retrouve la règle à tout moment,
-// et peut rouvrir la carte complète (titre, récit, règle) s'il l'a oubliée.
+// et peut rouvrir la carte complète (titre et règle) s'il l'a oubliée.
 let _mjEvenementDuJour = null;
 function afficherBandeauEvenement(data) {
   _mjEvenementDuJour = data || null;
@@ -724,7 +722,7 @@ socket.on("councilVoteUpdateMJ", data => {
 });
 
 socket.on("councilResolvedMJ", data => {
-  // Même carte plein écran qu'un évènement actif (titre, récit, règle) : le MJ sait ce qui
+  // Même carte plein écran qu'un évènement actif (titre et règle) : le MJ sait ce qui
   // se passera demain. `data.winner` est l'id de l'évènement.
   showMjCouncilEventCard({ id: data.winner, title: data.title, narrative: data.narrative, regle: data.regle });
   showAlert(`🪦 Événement choisi pour demain : ${data.title}`, "success");
@@ -857,12 +855,17 @@ const MESURES = {
 // vient de loin (les loups de la Lune Rousse), 10 dB sous un effet
 const CIBLES = { ambiance: -26, fin: -21, effet: -14, lointain: -24 };
 // Réglages à l'oreille, en dB, par-dessus la mesure : la porte de la Petite Fille, trop présente
-// pour un bruit de fond (Alexandre, 2026-11-10)
-const A_L_OREILLE = { petite_fille: -6 };
+// pour un bruit de fond (Alexandre, 2026-11-10) ; le cœur du vote du jour (et du suspense avant le
+// verdict), qu'on n'entendait presque pas à la fin du vote (Alexandre, 2026-11-19) : des graves, que
+// le haut-parleur d'une tablette rend mal. « son/catégorie » : ce son dans cette catégorie seulement
+// (le Cœur du Village, le même son en ambiance, ne bouge pas). Un réglage positif dépasse la crête :
+// un limiteur l'empêche de saturer (sonAuNiveau).
+const A_L_OREILLE = { petite_fille: -6, "heartbeat/effet": 6 };
+const reglageOreille = (cle, categorie) => A_L_OREILLE[cle + "/" + categorie] ?? A_L_OREILLE[cle] ?? 0;
 function facteurDuSon(cle, categorie) {
   const [sonie, crete] = MESURES[cle] || [CIBLES[categorie], -1];
   return Math.min(Math.pow(10, (CIBLES[categorie] - sonie) / 20), Math.pow(10, (-1 - crete) / 20))
-    * Math.pow(10, (A_L_OREILLE[cle] || 0) / 20);
+    * Math.pow(10, reglageOreille(cle, categorie) / 20);
 }
 // L'écran de la tablette reste allumé tant que la page du MJ est ouverte (Screen Wake Lock ; le
 // navigateur ne l'accorde qu'à une page « sûre », comme http://localhost:3000/mj sur la tablette qui
@@ -894,7 +897,16 @@ function sonAuNiveau(cle, categorie) {
     try {
       const gain = _contexteAudio.createGain();
       gain.gain.value = facteur;
-      _contexteAudio.createMediaElementSource(a).connect(gain).connect(_contexteAudio.destination);
+      let sortie = gain;
+      if (reglageOreille(cle, categorie) > 0) {
+        // Monté à l'oreille au-delà de sa crête : un limiteur rabote les coups trop forts (volume général haut)
+        const limiteur = _contexteAudio.createDynamicsCompressor();
+        limiteur.threshold.value = -3; limiteur.knee.value = 0; limiteur.ratio.value = 20;
+        limiteur.attack.value = 0.002; limiteur.release.value = 0.2;
+        sortie = gain.connect(limiteur);
+      }
+      _contexteAudio.createMediaElementSource(a).connect(gain);
+      sortie.connect(_contexteAudio.destination);
     } catch (_) {}
   }
   a.volume = Math.min(1, masterVolume * a._facteurVolume);

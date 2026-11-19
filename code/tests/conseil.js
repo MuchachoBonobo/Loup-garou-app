@@ -68,6 +68,9 @@ async function jusquAuJour2(all, prefixe, evenement) {
   const conseilP = attendre(mort1.s, "councilStart", 15000);
   await nuit(mj, joueurs, loup, mort1, false);
   const conseil = await conseilP;
+  // Il touche d'abord un autre évènement, puis change d'avis : seul son dernier choix compte (2026-11-19)
+  const autre = ((conseil && conseil.options) || []).map(o => o.id).find(id => id !== evenement);
+  if (autre) { mort1.s.emit("councilVote", autre); await sleep(150); }
   mort1.s.emit("councilVote", evenement);
   mj.emit("mjFinAnnonceMatin");
   await sleep(300);
