@@ -83,6 +83,18 @@ function creerDepouillement(conteneur, photoDe) {
       <div class="dep-sceau">${cire("g")}${cire("d")}</div></div></div>`;
   }
 
+  // Le nom de la cible doit tenir dans le bulletin : 36 px pour « Bob », plus petit pour un prénom long
+  // (« Jean-Christophe Lamb » passait sur trois lignes et descendait sur l'enveloppe, contrôle du 2026-11-19).
+  // Mesuré (la place dépend de la police), une fois l'écran affiché ; rien à mesurer s'il est caché.
+  function ajusterNomCible() {
+    const lettre = conteneur.querySelector(".dep-lettre"), nom = lettre && lettre.querySelector(".nom-cible");
+    if (!nom || !lettre.clientHeight) return;
+    for (let taille = parseFloat(getComputedStyle(nom).fontSize); taille > 18 && nom.offsetTop + nom.offsetHeight > lettre.clientHeight - 6;) {
+      taille -= 2;
+      nom.style.fontSize = taille + "px";
+    }
+  }
+
   function afficher(anime) {
     clearTimeout(minuterie);
     const n = ouverts.length;
@@ -90,6 +102,9 @@ function creerDepouillement(conteneur, photoDe) {
     if (!n) { conteneur.innerHTML = `<div class="depouillement">${urne(total, true)}<div class="dep-pointage">${pointage(0)}</div></div>`; return; }
     conteneur.innerHTML = `<div class="depouillement">${scene(ouverts[n - 1], anime)}${urne(total - n)}
       <div class="dep-pointage">${anime ? pointage(n - 1, false, true) : pointage(n)}</div></div>`;
+    ajusterNomCible();
+    // La police du bulletin arrive parfois après le premier affichage : on remesure
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajusterNomCible);
     // Le bulletin est posé devant : sa voix s'inscrit (avant, la feuille trahirait la surprise)
     if (anime) minuterie = setTimeout(() => {
       const p = conteneur.querySelector(".dep-pointage");

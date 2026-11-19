@@ -296,6 +296,7 @@ function resolveDayVote() {
 
   // Les deux voix du Corbeau s'ajoutent au dépouillement
   const corbeau = infosCorbeau();
+  state.clotureJour = { corbeau: corbeau ? corbeau.targetId : null, journal: true };
   if (corbeau) {
     state.votesDay["__corbeau_1__"] = corbeau.targetId;
     state.votesDay["__corbeau_2__"] = corbeau.targetId;
@@ -454,6 +455,22 @@ function startDayVote(mode) {
   lights.sonner(council.sceneDuJour());
   // Jour piloté : les bots attendaient le lancement officiel du vote pour voter.
   if (state.mjPilotedDay) phases.runBotsForPhase("day");
+}
+
+// ===== REPRISE APRÈS PLANTAGE, VOTE DÉJÀ CLOS =====
+// Le serveur a planté après la clôture du vote du jour, avant le verdict (dépouillement, suspense,
+// égalité) : la partie reprend en plein jour et le MJ relance le vote, l'urne gardée. On défait ce que
+// la clôture avait fait : les 2 voix du Corbeau versées dans l'urne (sans quoi elles comptaient au
+// verdict sans qu'aucun bulletin ne les montre, et sa marque n'était plus rappelée), le vote compté
+// pour l'Ange, le relevé des médailles (contrôle du 2026-11-19).
+function annulerClotureApresPlantage() {
+  const c = state.clotureJour;
+  state.clotureJour = null;
+  delete state.votesDay["__corbeau_1__"]; delete state.votesDay["__corbeau_2__"];
+  if (!c) return;
+  if (c.corbeau && !state.corbeauTarget) state.corbeauTarget = c.corbeau;
+  state.nbVotesJour = Math.max(0, state.nbVotesJour - 1);
+  if (c.journal) state.gameStats.voteLog.pop();
 }
 
 // ===== PUBLICATION DES VOTES =====
@@ -695,6 +712,7 @@ function handleMainLevee(socket, cibleId) {
   state.resolutionJourEnCours = true;
   versMJ("voteClosMJ");
   state.nbVotesJour++;
+  state.clotureJour = { corbeau: state.corbeauTarget, journal: false };
   state.corbeauTarget = null;   // ses 2 voix ont été comptées par le MJ, à main levée
   log.info('mainLevee', 'condamné=', playerName(cibleId));
   executerVerdict(cibleId);
@@ -707,7 +725,7 @@ Object.assign(module.exports, {
   // Core
   clearVoteTimer, oublierEgalite, egaliteEnCours,
   performLockMayorVote, performLockWolfVotes,
-  startDayVote, resolveDayVote, etatDepouillement, programmerDepouillement, lumiereDepouillement,
+  startDayVote, resolveDayVote, etatDepouillement, programmerDepouillement, lumiereDepouillement, annulerClotureApresPlantage,
   publierVotesDuJour, publierVotesDuMaire, publierVotesDesLoups,
   // Handlers socket
   handleVoteMayor, handleLockMayorVote,

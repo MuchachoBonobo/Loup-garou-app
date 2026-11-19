@@ -246,6 +246,8 @@ io.on("connection", socket => {
         state.pendingCouncilEvent = state.activeCouncilEvent;
         state.activeCouncilEvent = null;
       }
+      // Vote clos avant le plantage (dépouillement, verdict en cours) : il sera relancé, l'urne propre
+      votes.annulerClotureApresPlantage();
     }
     // Re-appelle setPhase pour réinstaller proprement les timers (idempotent)
     phases.setPhase(state.phase);

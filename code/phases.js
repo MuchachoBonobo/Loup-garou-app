@@ -55,7 +55,7 @@ function setPhase(p) {
   // Toute nouvelle phase clôt la résolution du vote du jour (votes.resolveDayVote), son vote secret
   // et son dépouillement (bulletins encore fermés : le jour est fini). Pas clearPhaseTimeouts : la
   // pause l'appelle aussi, et une pause ne doit rien effacer de tout cela (relecture du 2026-11-15).
-  state.resolutionJourEnCours = false;
+  state.resolutionJourEnCours = false; state.clotureJour = null;
   state.voteSecret = false; state.depouillement = null;
   log.info('setPhase', previousPhase, '->', p);
   state.io.emit("phase", state.phase);

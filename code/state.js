@@ -55,6 +55,10 @@ function partieNeuve() {
     // voit que qui a voté), puis les bulletins sont ouverts un par un sur tous les écrans.
     // `depouillement` : { bulletins, revele, vivants, dernierAt } pendant l'ouverture.
     voteSecret: false, depouillement: null, depouillementTimeout: null,
+    // Ce que la clôture du vote du jour a fait (votes.resolveDayVote, handleMainLevee) : { corbeau, journal }.
+    // Sauvegardé : une reprise après plantage avant le verdict le défait, et le MJ relance le vote
+    // (votes.annulerClotureApresPlantage). Remis à null par setPhase.
+    clotureJour: null,
     nbVotesJour: 0,      // votes du jour résolus ou passés (l'Ange gagne au 1er)
     verdictEnCours: null, // le verdict du jour en cours d'annonce (votes.executerVerdict) : ses minuteries le vérifient
     angeVainqueur: null, // id de l'Ange désigné au 1er vote, le temps de la révélation
