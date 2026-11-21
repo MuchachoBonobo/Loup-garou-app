@@ -126,7 +126,8 @@ function checkMayorAutoLock() {
   if (state.autoMode) { performLockMayorVote(); return; }
   if (state.mjSocketId && !state.mayorAllVotedNotified) {
     state.mayorAllVotedNotified = true;
-    versMJ("autoResolve", "🏛️ Tout le monde a voté pour le maire — cliquez sur « Valider le Maire ».");
+    // Le bouton « ✅ Valider le Maire » est déjà en haut de la tablette (Alexandre, 2026-11-20)
+    versMJ("autoResolve", "🏛️ Tout le monde a voté.");
   }
 }
 

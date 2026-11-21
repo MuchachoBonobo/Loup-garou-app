@@ -44,7 +44,8 @@
 
 <!-- Banderole état pause (MJ) -->
 <div id="pauseBanner" style="display:none;background:rgb(var(--or-fond));border:2px solid rgb(var(--or-vif));border-radius:10px;padding:14px;margin-bottom:10px;text-align:center;color:rgb(var(--or-vif));font-weight:bold;font-size:15px;">
-  ⏸️ Partie en pause — appuie sur "Reprendre" pour continuer
+  <!-- « appuie sur Reprendre pour continuer » retiré : le bouton est en haut (Alexandre, 2026-11-20) -->
+  ⏸️ Partie en pause
 </div>
 
 <!-- ④ VOTE MAIRE — visible pendant la phase mayorVote uniquement -->
@@ -184,14 +185,14 @@
   ⚠️ <strong>Partie bloquée ?</strong> <span id="stuckGameMsg"></span>
   <button class="btn" onclick="this.parentElement.style.display='none'" style="padding:3px 8px;font-size:11px;margin-left:8px;">Ignorer</button>
 </div>
+<!-- Une seule ligne : « Le Chasseur choisit sa cible », au-dessus, la redisait (Alexandre, 2026-11-20) -->
 <div id="chasseurPanel">
-  <div style="color:rgb(var(--braise-vif));font-weight:bold;margin-bottom:6px;">🔫 Le Chasseur choisit sa cible</div>
-  <div id="chasseurInfo" style="font-size:13px;color:rgb(var(--n8));"></div>
+  <div id="chasseurInfo" style="font-size:14px;color:rgb(var(--braise-vif));"></div>
 </div>
 
-<!-- INDICATEUR PHASE NUIT -->
+<!-- INDICATEUR PHASE NUIT : les étapes seules ; le titre « Phase nocturne — étape en cours » redisait
+     l'étape allumée et l'en-tête (Alexandre, 2026-11-20) -->
 <div id="nightPhaseBar">
-  <div id="nightPhaseTitle">🌙 Phase nocturne — étape en cours</div>
   <div id="nightPhaseSteps"></div>
 </div>
 
@@ -671,24 +672,16 @@ function showMjCouncilEventCard(data, annonce = false) {
   _mjCouncilEventCardAutoClose = annonce ? null : setTimeout(closeCouncilEventCard, 30000);  // filet de sécurité
 }
 
-// Bandeau permanent de l'évènement du jour : le MJ y retrouve la règle à tout moment,
-// et peut rouvrir la carte complète (titre et règle) s'il l'a oubliée.
-let _mjEvenementDuJour = null;
+// Bandeau permanent de l'évènement du jour : le MJ y retrouve la règle à tout moment. Plus de bouton
+// « 📖 Revoir la carte » : la carte n'a plus que le titre et la règle, ceux du bandeau (Alexandre, 2026-11-20).
 function afficherBandeauEvenement(data) {
-  _mjEvenementDuJour = data || null;
   const banner = document.getElementById("councilActiveBanner");
   if (!banner) return;
   if (!data) { banner.style.display = "none"; return; }
   const regle = data.regle || "";
   banner.style.display = "block";
-  banner.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-      <strong>🪦 Événement du jour : ${data.title}</strong>
-      <button onclick="revoirCarteEvenement()" style="padding:6px 12px;border-radius:6px;border:1px solid rgb(var(--ame-base));background:rgba(var(--ame-clair),0.12);color:rgb(var(--ame-clair));font-size:12px;cursor:pointer;">📖 Revoir la carte</button>
-    </div>` + (regle ? `<div style="margin-top:6px;font-size:13px;color:rgb(var(--ame-clair));line-height:1.45;">📋 ${regle}</div>` : "");
-}
-// Rouvre la carte complète, sans relancer la voix du narrateur.
-function revoirCarteEvenement() {
-  if (_mjEvenementDuJour) ouvrirCarteEvenement(_mjEvenementDuJour, annonceDuMatinEnCours());
+  banner.innerHTML = `<strong>🪦 Événement du jour : ${data.title}</strong>`
+    + (regle ? `<div style="margin-top:6px;font-size:13px;color:rgb(var(--ame-clair));line-height:1.45;">📋 ${regle}</div>` : "");
 }
 
 // Évènement du Conseil mis en attente tant que la carte récap de nuit est ouverte.
@@ -725,7 +718,7 @@ socket.on("councilResolvedMJ", data => {
   // Même carte plein écran qu'un évènement actif (titre et règle) : le MJ sait ce qui
   // se passera demain. `data.winner` est l'id de l'évènement.
   showMjCouncilEventCard({ id: data.winner, title: data.title, narrative: data.narrative, regle: data.regle });
-  showAlert(`🪦 Événement choisi pour demain : ${data.title}`, "success");
+  // Phrase en double retirée (Alexandre, 2026-11-20) : « 🪦 Événement choisi pour demain : … », sous la carte
 });
 
 socket.on("mayorAbdicated", data => {
@@ -1268,8 +1261,7 @@ socket.on("playNightMusic", ()=>{ if(!isGameOver) playAmbiance("night"); });
 
 socket.on("dawnResult", data=>{
   const deaths = data.deaths||[];
-  let alertMsg = deaths.length ? `☀️ Morts : ${deaths.map(d=>d.name).join(", ")}` : "☀️ Nuit calme.";
-  showAlert(alertMsg, deaths.length?"info":"success");
+  // Phrase en double retirée (Alexandre, 2026-11-20) : « ☀️ Morts : … » / « ☀️ Nuit calme. », sous la carte de l'aube
   if(!isGameOver) { playAmbiance("day"); _mjDawnContext = true; }
   if(deaths.length) playEffect("death");   // le glas de l'aube ; au vote, c'est le serveur qui le sonne
   // Verrou : les joueurs voient la carte d'aube 7 s + 0,6 s de fermeture → 9 s de sécurité.
@@ -1356,8 +1348,10 @@ function afficherMaireMJ() {
 socket.on("mayorVotesMJ",  votes=>{ renderVotes("mayorVotes", votes); renderMissingVoters(votes); });
 socket.on("wolfVotesMJ",   votes=>renderVotes("wolfVotes",  votes, ""));
 socket.on("votesDayMJ",    votes=>{ renderVotes("dayVotes", votes, ""); renderDayCounts(computeCounts(votes)); renderMissingVoters(votes); });
+// « 3/8 ont voté. Les bulletins s'ouvriront à la fin. » retiré : la liste « N'ont pas voté » est juste
+// en dessous (Alexandre, 2026-11-20)
 socket.on("votantsJourMJ", votants=>{
-  document.getElementById("dayVotes").innerHTML = `<div style="font-size:13px;color:rgb(var(--or-vif));font-style:italic;">🤫 Vote secret : ${votants.length}/${votantsAttendus().length} ont voté. Les bulletins s'ouvriront à la fin.</div>`;
+  document.getElementById("dayVotes").innerHTML = `<div style="font-size:13px;color:rgb(var(--or-vif));font-style:italic;">🤫 Vote secret</div>`;
   renderMissingVoters(Object.fromEntries(votants.map(id => [id, true])));
 });
 socket.on("dayCountsPublic", counts=>renderDayCounts(counts));
@@ -1433,7 +1427,7 @@ socket.on("deadPlayers", dead=>{
 socket.on("chasseurMustShoot", hunterId=>{
   const h=players.find(p=>p.id===hunterId);
   document.getElementById("chasseurPanel").style.display="block";
-  document.getElementById("chasseurInfo").innerHTML=h?`<strong>${h.name}</strong> choisit sa cible…`:"Le Chasseur choisit…";
+  document.getElementById("chasseurInfo").innerHTML=h?`🔫 <strong>${h.name}</strong> choisit sa cible…`:"🔫 Le Chasseur choisit sa cible…";
 });
 
 socket.on("tiebreakMJ", data=>{
@@ -1444,11 +1438,15 @@ socket.on("tiebreakMJ", data=>{
 });
 socket.on("tiebreakResolved", data=>{
   document.getElementById("tiebreakMJBanner").style.display="none";
-  showAlert(`⚖️ Égalité tranchée : ${data.name}`, "success");
+  // Phrase en double retirée (Alexandre, 2026-11-20) : « ⚖️ Égalité tranchée : … », la carte du verdict suit
 });
 
 socket.on("autoResolve",   msg=>showAlert(msg, "success"));
-// Les joueurs ne voient pas le rôle des morts : le MJ a sa carte (nom, rôle, récit) pour raconter
+// Les joueurs ne voient pas le rôle des morts : le MJ a sa carte (nom, rôle) pour raconter. Plus de
+// récit sous le rôle (« Le village a tranché. Bob monte à la potence : c'était la Voyante. ») : il
+// redisait le nom et le rôle (Alexandre, 2026-11-20) ; l'Idiot garde sa règle, sans nom ni rôle.
+// Les bandeaux qui répétaient chaque carte (« ☠️ Bob éliminé — Voyante », « 🔫 Le Chasseur Alice a tué
+// Bob — Voyante », « 🤡 Bob est l'Idiot du village ! », « 💔 Bob meurt de chagrin. ») sont retirés aussi.
 let _mjVoteDeathAutoClose = null;
 // Carte MJ générique « une mort à annoncer » — vote du jour OU tir du Chasseur.
 function showMjDeathCard(emoji, subtitle, name, role, narrative) {
@@ -1463,7 +1461,7 @@ function showMjDeathCard(emoji, subtitle, name, role, narrative) {
   if (subEl)   subEl.innerText   = subtitle || "";
   if (nameEl)  nameEl.innerText  = name || "?";
   if (roleEl)  roleEl.innerText  = "Rôle : " + (role || "?");
-  if (narrEl)  narrEl.innerText  = narrative || "";
+  if (narrEl)  { narrEl.innerText = narrative || ""; narrEl.style.display = narrative ? "" : "none"; }
   const chagrin = document.getElementById("mjVoteDeathChagrin");
   chagrin.innerHTML = ""; chagrin.style.display = "none";
   _mjCarteMortAction = null;
@@ -1510,8 +1508,7 @@ function ajouterChagrinCarte(d) {
 }
 socket.on("verdictChagrinMJ", ajouterChagrinCarte);
 socket.on("dayVoteResult", data=>{
-  showAlert(`☠️ ${data.name} éliminé — ${nomDuRole(data.role)}`, "info");
-  showMjDeathCard("⚖️", "Le verdict du village", data.name, nomDuRole(data.role), data.narrative);
+  showMjDeathCard("⚖️", "Le verdict du village", data.name, nomDuRole(data.role), "");
   if (data.role === "Chasseur") attendreActionCarteMort("chasseur", data.name);
   else if (data.id === mayorId) attendreActionCarteMort("mayorTransfer", data.name);
   // Empêche le MJ de lancer le vote suivant avant que les joueurs aient vu la carte de mort (5 s + 0,6 s fermeture + marge)
@@ -1520,10 +1517,8 @@ socket.on("dayVoteResult", data=>{
 // Le Chasseur a tiré : le MJ voit qui il a emporté
 socket.on("mjChasseurShot", data=>{
   if (!data) return;
-  showAlert(`🔫 Le Chasseur ${data.shooterName} a tué ${data.targetName} — ${nomDuRole(data.targetRole)}`, "warn");
   playEffect("gun");
-  showMjDeathCard("🔫", "Le Chasseur a tiré", data.targetName, nomDuRole(data.targetRole),
-    `${data.shooterName}, le Chasseur, a emporté ${data.targetName} dans sa chute.`);
+  showMjDeathCard("🔫", "Le Chasseur a tiré", data.targetName, nomDuRole(data.targetRole), "");
 });
 function closeMjVoteDeathCard(){
   if (_mjVoteDeathAutoClose) { clearTimeout(_mjVoteDeathAutoClose); _mjVoteDeathAutoClose = null; }
@@ -1533,13 +1528,11 @@ function closeMjVoteDeathCard(){
 }
 socket.on("daySkipped",    ()=>{ showAlert("⏭️ Vote du jour passé.", "info"); changerEtatVote("resultat"); });
 socket.on("randomElim",    ()=>showAlert("⚠️ Aucun vote — élimination aléatoire !", "warn"));
-socket.on("loversDeathInfo", data=>{ if(data.name) { showAlert(`💔 ${data.name} meurt de chagrin.`,"warn"); ajouterChagrinCarte(data); } });
+socket.on("loversDeathInfo", data=>{ if(data.name) ajouterChagrinCarte(data); });
 // L'Idiot désigné par le village : sa carte, comme une mort, mais il reste en vie
 socket.on("idiotRevealed", data=>{
   _mjIdiotRevele = true;
-  showAlert(`🤡 ${data.name} est l'Idiot du village !`, "info");
-  showMjDeathCard("🤡", "Le verdict du village", data.name, nomDuRole("Idiot"),
-    `${data.name} est l'Idiot du village : démasqué, il reste en vie, mais ne vote plus.`);
+  showMjDeathCard("🤡", "Le verdict du village", data.name, nomDuRole("Idiot"), "Il reste en vie, mais ne vote plus.");
 });
 socket.on("angeRevele", data=>showAlert(`👼 ${data.name} était l'Ange : il gagne seul !`, "success"));
 socket.on("stuckGame", data=>{
@@ -1592,8 +1585,9 @@ let countdownInterval=null, mjEndsAt=null, mjTotalMs=null;
 function afficherVoteMJ(data) {
   mjEndsAt=finDuVote(data); mjTotalMs=data.duration; _coeurVoteTotal=data.duration;
   const labels={2:"⚖️ Le Jugement — verrouillé",4:"⚡ La Panique — express",5:"🖤 Vote anonyme"};
-  let label = labels[data.mode] || "";
-  if (_mjActiveCouncilEvent === "voteMute") label = "🤐 Le Vote Muet — silence total";
+  // Un évènement du jour : le bandeau violet le nomme déjà, et le compte à rebours donne le temps. Le
+  // mode ne s'écrit plus qu'en mode autonome, sans évènement (Alexandre, 2026-11-20).
+  const label = _mjActiveCouncilEvent ? "" : labels[data.mode] || "";
   // La durée est celle du serveur (le Vote Muet, par exemple, la rallonge)
   document.getElementById("voteModeLabel").innerText = label ? `${label} (${Math.round(data.duration / 1000)} s)` : "";
   document.getElementById("timerDisplay").style.display="block";

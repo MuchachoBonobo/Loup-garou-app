@@ -478,8 +478,8 @@ function triggerAbdicationPrompt() {
   if (candidates.length === 0) return;
 
   state.io.to(state.mayor).emit("mayorMustAbdicate", { candidates });
-  versMJ("autoResolve",
-    "👑 L'Abdication — le maire désigne son successeur.");
+  // Plus de bandeau « 👑 L'Abdication — le maire désigne son successeur. » chez le MJ : le bouton du
+  // haut dit déjà « Le maire choisit son successeur… » (Alexandre, 2026-11-20)
   // Un maire robot (mode entraînement) choisit après quelques secondes, comme un joueur
   const maire = state.players.find(p => p.id === state.mayor);
   if (maire && maire.isBot) {
@@ -521,8 +521,8 @@ function applyAbdication(newMayorId, forced) {
     newMayorId: newMayorId, newMayorName: playerName(newMayorId),
     forced: !!forced,
   });
-  versMJ("autoResolve",
-    `👑 ${playerName(oldMayor)} a abdiqué en faveur de ${playerName(newMayorId)}${forced ? " (choix par défaut)" : ""}.`);
+  // La tablette du MJ l'annonce une fois, à la réception de mayorAbdicated (le second bandeau,
+  // identique, est retiré : Alexandre, 2026-11-20)
 }
 
 // « 👑 Transmettre l'écharpe » du MJ : le choix part au téléphone du maire
